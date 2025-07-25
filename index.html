@@ -17,98 +17,162 @@
             <h1 class="text-3xl font-bold text-gray-800 mb-2">🌿 中醫處方工具</h1>
         </div>
 
-        <!-- 數據備份區 -->
-        <div class="bg-white rounded-lg shadow-md p-4 mb-4">
-            <div class="grid md:grid-cols-2 gap-4">
-                <!-- 本地備份 -->
-                <div class="space-y-2">
-                    <h3 class="text-sm font-bold text-gray-700 mb-2">📱 本地備份</h3>
-                    <div class="flex flex-wrap gap-2">
-                        <button onclick="exportData()" 
-                                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            💾 下載備份
+        <!-- 完整數據備份系統 -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-4">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">💾 數據備份中心</h2>
+            
+            <!-- 備份操作區 -->
+            <div class="grid md:grid-cols-3 gap-4 mb-6">
+                <!-- 導出備份 -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 class="font-bold text-blue-800 mb-3">📤 導出備份</h3>
+                    <div class="space-y-2">
+                        <button onclick="exportFullBackup()" 
+                                class="w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
+                            💾 完整備份
                         </button>
-                        <button onclick="document.getElementById('importFile').click()" 
-                                class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            📂 恢復數據
+                        <button onclick="exportCompressedBackup()" 
+                                class="w-full bg-blue-400 hover:bg-blue-500 text-white px-3 py-2 rounded-lg font-medium text-sm">
+                            🗜️ 壓縮備份
                         </button>
-                        <button onclick="clearAllData()" 
-                                class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            🗑️ 清空數據
+                        <button onclick="exportReadableBackup()" 
+                                class="w-full bg-blue-300 hover:bg-blue-400 text-white px-3 py-2 rounded-lg font-medium text-sm">
+                            📄 可讀格式
                         </button>
                     </div>
                 </div>
                 
-                <!-- 雲端同步 -->
-                <div class="space-y-2">
-                    <h3 class="text-sm font-bold text-gray-700 mb-2">☁️ 雲端同步</h3>
-                    <div class="flex flex-wrap gap-2">
-                        <button onclick="saveToCloud()" 
-                                class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            ☁️ 保存到雲端
+                <!-- 導入恢復 -->
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h3 class="font-bold text-green-800 mb-3">📥 導入恢復</h3>
+                    <div class="space-y-2">
+                        <button onclick="document.getElementById('importBackupFile').click()" 
+                                class="w-full bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
+                            📂 選擇備份文件
                         </button>
-                        <button onclick="loadFromCloud()" 
-                                class="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            📥 從雲端載入
+                        <button onclick="showImportOptions()" 
+                                class="w-full bg-green-400 hover:bg-green-500 text-white px-3 py-2 rounded-lg font-medium text-sm">
+                            ⚙️ 導入選項
                         </button>
-                        <button onclick="showCloudStatus()" 
-                                class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            📊 同步狀態
+                        <button onclick="validateBackupFile()" 
+                                class="w-full bg-green-300 hover:bg-green-400 text-white px-3 py-2 rounded-lg font-medium text-sm">
+                            🔍 驗證備份
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 自動備份 -->
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <h3 class="font-bold text-purple-800 mb-3">🔄 自動備份</h3>
+                    <div class="space-y-2">
+                        <button onclick="toggleAutoBackup()" id="autoBackupBtn"
+                                class="w-full bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
+                            🔄 啟用自動備份
+                        </button>
+                        <button onclick="showBackupHistory()" 
+                                class="w-full bg-purple-400 hover:bg-purple-500 text-white px-3 py-2 rounded-lg font-medium text-sm">
+                            📚 備份歷史
+                        </button>
+                        <button onclick="cleanupBackups()" 
+                                class="w-full bg-purple-300 hover:bg-purple-400 text-white px-3 py-2 rounded-lg font-medium text-sm">
+                            🧹 清理備份
                         </button>
                     </div>
                 </div>
             </div>
             
-            <!-- 批量導入區 -->
-            <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4 mt-4">
-                <h3 class="text-sm font-bold text-gray-700 mb-3">📋 批量導入中藥症狀</h3>
-                <div class="space-y-3">
-                    <div class="grid md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">📝 文本導入</label>
-                            <textarea id="bulkImportText" 
-                                      placeholder="格式：中藥名：症狀1,症狀2,症狀3&#10;例如：&#10;當歸：血虛,月經不調,便秘&#10;黃芪：氣虛,疲勞,自汗&#10;甘草：咳嗽,胃痛,解毒&#10;&#10;💡 支持大量數據導入（建議單次不超過10萬字）"
-                                      rows="6" 
-                                      maxlength="100000"
-                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y"></textarea>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">📁 文件導入</label>
-                            <div class="space-y-2">
-                                <button onclick="document.getElementById('bulkImportFile').click()" 
-                                        class="w-full bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                                    📁 選擇文件導入
-                                </button>
-                                <button onclick="downloadTemplate()" 
-                                        class="w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                                    📄 下載模板文件
-                                </button>
-                            </div>
-                        </div>
+            <!-- 備份狀態顯示 -->
+            <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                <div class="grid md:grid-cols-4 gap-4 text-center">
+                    <div>
+                        <div class="text-2xl font-bold text-blue-600" id="totalBackups">0</div>
+                        <div class="text-sm text-gray-600">總備份數</div>
                     </div>
-                    <div class="flex justify-between items-center">
-                        <div class="flex gap-2">
-                            <button onclick="processBulkImport()" 
-                                    class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
-                                ⚡ 開始導入
+                    <div>
+                        <div class="text-2xl font-bold text-green-600" id="lastBackupTime">從未</div>
+                        <div class="text-sm text-gray-600">最後備份</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-purple-600" id="autoBackupStatus">關閉</div>
+                        <div class="text-sm text-gray-600">自動備份</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold text-orange-600" id="dataSize">0KB</div>
+                        <div class="text-sm text-gray-600">數據大小</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 操作結果顯示 -->
+            <div id="backupResult" class="hidden p-4 rounded-lg mb-4"></div>
+            
+            <!-- 危險操作區 -->
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                <h3 class="font-bold text-red-800 mb-3">⚠️ 危險操作</h3>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="clearAllData()" 
+                            class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
+                        🗑️ 清空所有數據
+                    </button>
+                    <button onclick="resetToDefaults()" 
+                            class="bg-red-400 hover:bg-red-500 text-white px-4 py-2 rounded-lg font-medium text-sm">
+                        🔄 重置為默認
+                    </button>
+                    <button onclick="emergencyBackup()" 
+                            class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
+                        🚨 緊急備份
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 隱藏的文件輸入 -->
+            <input type="file" id="importBackupFile" accept=".json,.txt" style="display: none;" onchange="importBackupFile(event)">
+        </div>
+
+        <!-- 批量導入區 -->
+        <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <h3 class="text-lg font-bold text-gray-700 mb-3">📋 批量導入中藥症狀</h3>
+            <div class="space-y-3">
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">📝 文本導入</label>
+                        <textarea id="bulkImportText" 
+                                  placeholder="格式：中藥名：症狀1,症狀2,症狀3&#10;例如：&#10;當歸：血虛,月經不調,便秘&#10;黃芪：氣虛,疲勞,自汗&#10;甘草：咳嗽,胃痛,解毒&#10;&#10;💡 支持大量數據導入（建議單次不超過10萬字）"
+                                  rows="6" 
+                                  maxlength="100000"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">📁 文件導入</label>
+                        <div class="space-y-2">
+                            <button onclick="document.getElementById('bulkImportFile').click()" 
+                                    class="w-full bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
+                                📁 選擇文件導入
                             </button>
-                            <button onclick="clearBulkImport()" 
-                                    class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
-                                🧹 清空輸入
+                            <button onclick="downloadTemplate()" 
+                                    class="w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
+                                📄 下載模板文件
                             </button>
-                        </div>
-                        <div id="charCount" class="text-sm text-gray-500">
-                            字數：0 / 100,000
                         </div>
                     </div>
                 </div>
-                <input type="file" id="bulkImportFile" accept=".txt,.csv" style="display: none;" onchange="loadBulkImportFile(event)">
+                <div class="flex justify-between items-center">
+                    <div class="flex gap-2">
+                        <button onclick="processBulkImport()" 
+                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
+                            ⚡ 開始導入
+                        </button>
+                        <button onclick="clearBulkImport()" 
+                                class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
+                            🧹 清空輸入
+                        </button>
+                    </div>
+                    <div id="charCount" class="text-sm text-gray-500">
+                        字數：0 / 100,000
+                    </div>
+                </div>
             </div>
-            
-            <!-- 狀態顯示 -->
-            <div id="backupStatus" class="mt-3 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 hidden"></div>
-            
-            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData(event)">
+            <input type="file" id="bulkImportFile" accept=".txt,.csv" style="display: none;" onchange="loadBulkImportFile(event)">
         </div>
 
         <!-- 主搜索區 -->
@@ -230,6 +294,55 @@
                 </div>
             </div>
         </div>
+
+        <!-- 導入選項模態框 -->
+        <div id="importOptionsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="bg-white rounded-lg p-6 max-w-md w-full">
+                    <h3 class="text-lg font-bold mb-4">⚙️ 導入選項</h3>
+                    <div class="space-y-3">
+                        <label class="flex items-center">
+                            <input type="radio" name="importMode" value="replace" checked class="mr-2">
+                            <span>🔄 完全替換（清空現有數據）</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="importMode" value="merge" class="mr-2">
+                            <span>🔗 合併數據（保留現有數據）</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="importMode" value="append" class="mr-2">
+                            <span>➕ 僅添加新數據</span>
+                        </label>
+                    </div>
+                    <div class="flex gap-2 mt-6">
+                        <button onclick="closeImportOptions()" 
+                                class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg">
+                            取消
+                        </button>
+                        <button onclick="confirmImportOptions()" 
+                                class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg">
+                            確定
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 備份歷史模態框 -->
+        <div id="backupHistoryModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-96 overflow-y-auto">
+                    <h3 class="text-lg font-bold mb-4">📚 備份歷史</h3>
+                    <div id="backupHistoryList" class="space-y-2"></div>
+                    <div class="flex justify-end mt-6">
+                        <button onclick="closeBackupHistory()" 
+                                class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
+                            關閉
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -237,6 +350,17 @@
         let symptoms = JSON.parse(localStorage.getItem('tcm_symptoms') || '[]');
         let symptomGroups = JSON.parse(localStorage.getItem('tcm_symptom_groups') || '[]');
         let prescriptions = JSON.parse(localStorage.getItem('tcm_prescriptions') || '[]');
+
+        // 備份系統配置
+        const BACKUP_CONFIG = {
+            maxBackups: 50,
+            autoBackupInterval: 5 * 60 * 1000, // 5分鐘
+            compressionLevel: 9,
+            encryptionEnabled: false
+        };
+
+        let autoBackupEnabled = localStorage.getItem('tcm_auto_backup_enabled') === 'true';
+        let autoBackupTimer = null;
 
         // 初始化示例數據
         if (symptoms.length === 0) {
@@ -291,6 +415,835 @@
             localStorage.setItem('tcm_prescriptions', JSON.stringify(prescriptions));
         }
 
+        // ==================== 完整備份系統 ====================
+
+        // 生成備份數據
+        function generateBackupData(includeMetadata = true) {
+            const backupData = {
+                symptoms: symptoms,
+                symptomGroups: symptomGroups,
+                prescriptions: prescriptions
+            };
+
+            if (includeMetadata) {
+                backupData.metadata = {
+                    version: '2.0',
+                    timestamp: new Date().toISOString(),
+                    dataCount: {
+                        symptoms: symptoms.length,
+                        symptomGroups: symptomGroups.length,
+                        prescriptions: prescriptions.length
+                    },
+                    checksum: generateChecksum(backupData),
+                    userAgent: navigator.userAgent,
+                    exportType: 'full'
+                };
+            }
+
+            return backupData;
+        }
+
+        // 生成校驗和
+        function generateChecksum(data) {
+            const str = JSON.stringify(data);
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // 轉換為32位整數
+            }
+            return Math.abs(hash).toString(16);
+        }
+
+        // 完整備份導出
+        function exportFullBackup() {
+            try {
+                const backupData = generateBackupData(true);
+                const dataStr = JSON.stringify(backupData, null, 2);
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                
+                downloadFile(dataStr, `中醫處方完整備份_${timestamp}.json`, 'application/json');
+                
+                // 保存到備份歷史
+                saveToBackupHistory(backupData, 'full');
+                
+                showBackupResult('✅ 完整備份已成功導出！包含所有數據和元數據。', 'success');
+                updateBackupStatus();
+                
+            } catch (error) {
+                showBackupResult('❌ 完整備份失敗：' + error.message, 'error');
+            }
+        }
+
+        // 壓縮備份導出
+        function exportCompressedBackup() {
+            try {
+                const backupData = generateBackupData(false);
+                const compressedData = compressData(backupData);
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                
+                downloadFile(compressedData, `中醫處方壓縮備份_${timestamp}.json`, 'application/json');
+                
+                showBackupResult('✅ 壓縮備份已成功導出！文件大小已優化。', 'success');
+                updateBackupStatus();
+                
+            } catch (error) {
+                showBackupResult('❌ 壓縮備份失敗：' + error.message, 'error');
+            }
+        }
+
+        // 可讀格式導出
+        function exportReadableBackup() {
+            try {
+                let readableContent = '# 中醫處方數據備份\n';
+                readableContent += `導出時間：${new Date().toLocaleString('zh-TW')}\n\n`;
+                
+                // 症狀列表
+                readableContent += '## 症狀列表\n';
+                symptoms.forEach((symptom, index) => {
+                    readableContent += `${index + 1}. ${symptom}\n`;
+                });
+                
+                // 症狀分組
+                readableContent += '\n## 症狀分組\n';
+                symptomGroups.forEach((group, index) => {
+                    readableContent += `${index + 1}. ${group.name}（${group.color}）\n`;
+                    readableContent += `   症狀：${group.symptoms.join('、')}\n\n`;
+                });
+                
+                // 處方列表
+                readableContent += '## 處方列表\n';
+                prescriptions.forEach((prescription, index) => {
+                    readableContent += `${index + 1}. ${prescription.name}\n`;
+                    readableContent += `   藥材：\n${prescription.ingredients.split('\n').map(ing => '   - ' + ing).join('\n')}\n`;
+                    readableContent += `   適用症狀：${prescription.symptoms.join('、')}\n\n`;
+                });
+                
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                downloadFile(readableContent, `中醫處方可讀備份_${timestamp}.txt`, 'text/plain');
+                
+                showBackupResult('✅ 可讀格式備份已成功導出！可用文本編輯器查看。', 'success');
+                
+            } catch (error) {
+                showBackupResult('❌ 可讀格式導出失敗：' + error.message, 'error');
+            }
+        }
+
+        // 數據壓縮
+        function compressData(data) {
+            // 移除不必要的空格和格式化
+            const compressed = {
+                s: data.symptoms,
+                sg: data.symptomGroups.map(g => ({
+                    n: g.name,
+                    s: g.symptoms,
+                    c: g.color
+                })),
+                p: data.prescriptions.map(p => ({
+                    n: p.name,
+                    i: p.ingredients,
+                    s: p.symptoms
+                })),
+                t: new Date().toISOString()
+            };
+            
+            return JSON.stringify(compressed);
+        }
+
+        // 解壓縮數據
+        function decompressData(compressedStr) {
+            try {
+                const compressed = JSON.parse(compressedStr);
+                
+                if (compressed.s && compressed.sg && compressed.p) {
+                    // 壓縮格式
+                    return {
+                        symptoms: compressed.s,
+                        symptomGroups: compressed.sg.map(g => ({
+                            name: g.n,
+                            symptoms: g.s,
+                            color: g.c
+                        })),
+                        prescriptions: compressed.p.map(p => ({
+                            name: p.n,
+                            ingredients: p.i,
+                            symptoms: p.s
+                        })),
+                        metadata: {
+                            timestamp: compressed.t,
+                            exportType: 'compressed'
+                        }
+                    };
+                } else {
+                    // 標準格式
+                    return compressed;
+                }
+            } catch (error) {
+                throw new Error('數據格式無法識別');
+            }
+        }
+
+        // 文件下載
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType + ';charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            URL.revokeObjectURL(link.href);
+        }
+
+        // 導入備份文件
+        function importBackupFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            showBackupResult('📂 正在讀取備份文件...', 'info');
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const content = e.target.result;
+                    const backupData = decompressData(content);
+                    
+                    // 驗證數據完整性
+                    if (!validateBackupData(backupData)) {
+                        throw new Error('備份文件數據不完整或格式錯誤');
+                    }
+                    
+                    // 根據導入模式處理數據
+                    const importMode = getImportMode();
+                    processImportData(backupData, importMode);
+                    
+                } catch (error) {
+                    showBackupResult('❌ 導入失敗：' + error.message, 'error');
+                }
+            };
+            
+            reader.onerror = function() {
+                showBackupResult('❌ 文件讀取失敗，請檢查文件是否損壞', 'error');
+            };
+            
+            reader.readAsText(file, 'UTF-8');
+            event.target.value = '';
+        }
+
+        // 驗證備份數據
+        function validateBackupData(data) {
+            if (!data || typeof data !== 'object') return false;
+            
+            // 檢查必要字段
+            if (!Array.isArray(data.symptoms) || 
+                !Array.isArray(data.symptomGroups) || 
+                !Array.isArray(data.prescriptions)) {
+                return false;
+            }
+            
+            // 檢查症狀分組格式
+            for (let group of data.symptomGroups) {
+                if (!group.name || !Array.isArray(group.symptoms) || !group.color) {
+                    return false;
+                }
+            }
+            
+            // 檢查處方格式
+            for (let prescription of data.prescriptions) {
+                if (!prescription.name || !prescription.ingredients || !Array.isArray(prescription.symptoms)) {
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+
+        // 處理導入數據
+        function processImportData(backupData, mode) {
+            let importStats = {
+                symptoms: { added: 0, updated: 0, skipped: 0 },
+                symptomGroups: { added: 0, updated: 0, skipped: 0 },
+                prescriptions: { added: 0, updated: 0, skipped: 0 }
+            };
+            
+            if (mode === 'replace') {
+                // 完全替換
+                symptoms = [...backupData.symptoms];
+                symptomGroups = [...backupData.symptomGroups];
+                prescriptions = [...backupData.prescriptions];
+                
+                importStats.symptoms.added = symptoms.length;
+                importStats.symptomGroups.added = symptomGroups.length;
+                importStats.prescriptions.added = prescriptions.length;
+                
+            } else if (mode === 'merge') {
+                // 合併數據
+                importStats = mergeData(backupData);
+                
+            } else if (mode === 'append') {
+                // 僅添加新數據
+                importStats = appendNewData(backupData);
+            }
+            
+            // 保存數據
+            saveAllData();
+            
+            // 重新渲染界面
+            renderAll();
+            
+            // 創建緊急備份
+            createEmergencyBackup('import');
+            
+            // 顯示導入結果
+            showImportResults(importStats, backupData.metadata);
+        }
+
+        // 合併數據
+        function mergeData(backupData) {
+            let stats = {
+                symptoms: { added: 0, updated: 0, skipped: 0 },
+                symptomGroups: { added: 0, updated: 0, skipped: 0 },
+                prescriptions: { added: 0, updated: 0, skipped: 0 }
+            };
+            
+            // 合併症狀
+            backupData.symptoms.forEach(symptom => {
+                if (!symptoms.includes(symptom)) {
+                    symptoms.push(symptom);
+                    stats.symptoms.added++;
+                } else {
+                    stats.symptoms.skipped++;
+                }
+            });
+            
+            // 合併症狀分組
+            backupData.symptomGroups.forEach(newGroup => {
+                const existingIndex = symptomGroups.findIndex(g => g.name === newGroup.name);
+                if (existingIndex >= 0) {
+                    // 更新現有分組
+                    symptomGroups[existingIndex] = { ...newGroup };
+                    stats.symptomGroups.updated++;
+                } else {
+                    // 添加新分組
+                    symptomGroups.push({ ...newGroup });
+                    stats.symptomGroups.added++;
+                }
+            });
+            
+            // 合併處方
+            backupData.prescriptions.forEach(newPrescription => {
+                const existingIndex = prescriptions.findIndex(p => p.name === newPrescription.name);
+                if (existingIndex >= 0) {
+                    // 更新現有處方
+                    prescriptions[existingIndex] = { ...newPrescription };
+                    stats.prescriptions.updated++;
+                } else {
+                    // 添加新處方
+                    prescriptions.push({ ...newPrescription });
+                    stats.prescriptions.added++;
+                }
+            });
+            
+            return stats;
+        }
+
+        // 僅添加新數據
+        function appendNewData(backupData) {
+            let stats = {
+                symptoms: { added: 0, updated: 0, skipped: 0 },
+                symptomGroups: { added: 0, updated: 0, skipped: 0 },
+                prescriptions: { added: 0, updated: 0, skipped: 0 }
+            };
+            
+            // 添加新症狀
+            backupData.symptoms.forEach(symptom => {
+                if (!symptoms.includes(symptom)) {
+                    symptoms.push(symptom);
+                    stats.symptoms.added++;
+                } else {
+                    stats.symptoms.skipped++;
+                }
+            });
+            
+            // 添加新症狀分組
+            backupData.symptomGroups.forEach(newGroup => {
+                const exists = symptomGroups.some(g => g.name === newGroup.name);
+                if (!exists) {
+                    symptomGroups.push({ ...newGroup });
+                    stats.symptomGroups.added++;
+                } else {
+                    stats.symptomGroups.skipped++;
+                }
+            });
+            
+            // 添加新處方
+            backupData.prescriptions.forEach(newPrescription => {
+                const exists = prescriptions.some(p => p.name === newPrescription.name);
+                if (!exists) {
+                    prescriptions.push({ ...newPrescription });
+                    stats.prescriptions.added++;
+                } else {
+                    stats.prescriptions.skipped++;
+                }
+            });
+            
+            return stats;
+        }
+
+        // 顯示導入結果
+        function showImportResults(stats, metadata) {
+            let message = '✅ 數據導入完成！\n\n';
+            
+            message += `📊 症狀：新增 ${stats.symptoms.added}，更新 ${stats.symptoms.updated}，跳過 ${stats.symptoms.skipped}\n`;
+            message += `📋 分組：新增 ${stats.symptomGroups.added}，更新 ${stats.symptomGroups.updated}，跳過 ${stats.symptomGroups.skipped}\n`;
+            message += `💊 處方：新增 ${stats.prescriptions.added}，更新 ${stats.prescriptions.updated}，跳過 ${stats.prescriptions.skipped}\n`;
+            
+            if (metadata) {
+                message += `\n📅 備份時間：${new Date(metadata.timestamp).toLocaleString('zh-TW')}`;
+                if (metadata.exportType) {
+                    message += `\n📦 備份類型：${metadata.exportType}`;
+                }
+            }
+            
+            showBackupResult(message, 'success', 8000);
+            updateBackupStatus();
+        }
+
+        // 自動備份功能
+        function toggleAutoBackup() {
+            autoBackupEnabled = !autoBackupEnabled;
+            localStorage.setItem('tcm_auto_backup_enabled', autoBackupEnabled.toString());
+            
+            if (autoBackupEnabled) {
+                startAutoBackup();
+                document.getElementById('autoBackupBtn').textContent = '🔄 停用自動備份';
+                showBackupResult('✅ 自動備份已啟用，每5分鐘自動備份一次', 'success');
+            } else {
+                stopAutoBackup();
+                document.getElementById('autoBackupBtn').textContent = '🔄 啟用自動備份';
+                showBackupResult('⏸️ 自動備份已停用', 'info');
+            }
+            
+            updateBackupStatus();
+        }
+
+        function startAutoBackup() {
+            if (autoBackupTimer) {
+                clearInterval(autoBackupTimer);
+            }
+            
+            autoBackupTimer = setInterval(() => {
+                try {
+                    const backupData = generateBackupData(true);
+                    saveToBackupHistory(backupData, 'auto');
+                    console.log('自動備份完成：', new Date().toLocaleString());
+                } catch (error) {
+                    console.error('自動備份失敗：', error);
+                }
+            }, BACKUP_CONFIG.autoBackupInterval);
+        }
+
+        function stopAutoBackup() {
+            if (autoBackupTimer) {
+                clearInterval(autoBackupTimer);
+                autoBackupTimer = null;
+            }
+        }
+
+        // 保存到備份歷史
+        function saveToBackupHistory(backupData, type) {
+            try {
+                const historyKey = 'tcm_backup_history';
+                let history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+                
+                const backupEntry = {
+                    id: Date.now(),
+                    timestamp: new Date().toISOString(),
+                    type: type,
+                    data: backupData,
+                    size: JSON.stringify(backupData).length
+                };
+                
+                history.unshift(backupEntry);
+                
+                // 限制備份數量
+                if (history.length > BACKUP_CONFIG.maxBackups) {
+                    history = history.slice(0, BACKUP_CONFIG.maxBackups);
+                }
+                
+                localStorage.setItem(historyKey, JSON.stringify(history));
+                
+            } catch (error) {
+                console.error('保存備份歷史失敗：', error);
+            }
+        }
+
+        // 顯示備份歷史
+        function showBackupHistory() {
+            try {
+                const history = JSON.parse(localStorage.getItem('tcm_backup_history') || '[]');
+                const historyList = document.getElementById('backupHistoryList');
+                
+                if (history.length === 0) {
+                    historyList.innerHTML = '<div class="text-gray-500 text-center py-4">暫無備份歷史</div>';
+                } else {
+                    historyList.innerHTML = history.map((backup, index) => `
+                        <div class="bg-gray-50 border rounded-lg p-3 flex items-center justify-between">
+                            <div>
+                                <div class="font-medium">${getBackupTypeLabel(backup.type)} #${history.length - index}</div>
+                                <div class="text-sm text-gray-600">
+                                    ${new Date(backup.timestamp).toLocaleString('zh-TW')} 
+                                    (${formatFileSize(backup.size)})
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="restoreFromHistory(${backup.id})" 
+                                        class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
+                                    恢復
+                                </button>
+                                <button onclick="downloadFromHistory(${backup.id})" 
+                                        class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">
+                                    下載
+                                </button>
+                                <button onclick="deleteFromHistory(${backup.id})" 
+                                        class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
+                                    刪除
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+                
+                document.getElementById('backupHistoryModal').classList.remove('hidden');
+                
+            } catch (error) {
+                showBackupResult('❌ 無法載入備份歷史：' + error.message, 'error');
+            }
+        }
+
+        // 從歷史恢復
+        function restoreFromHistory(backupId) {
+            if (!confirm('確定要恢復此備份嗎？當前數據將被替換！')) return;
+            
+            try {
+                const history = JSON.parse(localStorage.getItem('tcm_backup_history') || '[]');
+                const backup = history.find(b => b.id === backupId);
+                
+                if (!backup) {
+                    throw new Error('備份不存在');
+                }
+                
+                // 創建緊急備份
+                createEmergencyBackup('restore');
+                
+                // 恢復數據
+                symptoms = [...backup.data.symptoms];
+                symptomGroups = [...backup.data.symptomGroups];
+                prescriptions = [...backup.data.prescriptions];
+                
+                saveAllData();
+                renderAll();
+                
+                closeBackupHistory();
+                showBackupResult('✅ 數據已從備份歷史恢復！', 'success');
+                
+            } catch (error) {
+                showBackupResult('❌ 恢復失敗：' + error.message, 'error');
+            }
+        }
+
+        // 從歷史下載
+        function downloadFromHistory(backupId) {
+            try {
+                const history = JSON.parse(localStorage.getItem('tcm_backup_history') || '[]');
+                const backup = history.find(b => b.id === backupId);
+                
+                if (!backup) {
+                    throw new Error('備份不存在');
+                }
+                
+                const timestamp = new Date(backup.timestamp).toISOString().replace(/[:.]/g, '-');
+                const filename = `中醫處方歷史備份_${timestamp}.json`;
+                
+                downloadFile(JSON.stringify(backup.data, null, 2), filename, 'application/json');
+                showBackupResult('✅ 歷史備份已下載！', 'success');
+                
+            } catch (error) {
+                showBackupResult('❌ 下載失敗：' + error.message, 'error');
+            }
+        }
+
+        // 從歷史刪除
+        function deleteFromHistory(backupId) {
+            if (!confirm('確定要刪除此備份嗎？此操作無法撤銷！')) return;
+            
+            try {
+                let history = JSON.parse(localStorage.getItem('tcm_backup_history') || '[]');
+                history = history.filter(b => b.id !== backupId);
+                
+                localStorage.setItem('tcm_backup_history', JSON.stringify(history));
+                showBackupHistory(); // 重新顯示列表
+                showBackupResult('✅ 備份已刪除！', 'success');
+                updateBackupStatus();
+                
+            } catch (error) {
+                showBackupResult('❌ 刪除失敗：' + error.message, 'error');
+            }
+        }
+
+        // 清理備份
+        function cleanupBackups() {
+            if (!confirm('確定要清理舊備份嗎？將只保留最新的10個備份。')) return;
+            
+            try {
+                let history = JSON.parse(localStorage.getItem('tcm_backup_history') || '[]');
+                const originalCount = history.length;
+                
+                if (history.length > 10) {
+                    history = history.slice(0, 10);
+                    localStorage.setItem('tcm_backup_history', JSON.stringify(history));
+                    
+                    const deletedCount = originalCount - history.length;
+                    showBackupResult(`✅ 已清理 ${deletedCount} 個舊備份，保留最新的 ${history.length} 個`, 'success');
+                } else {
+                    showBackupResult('ℹ️ 備份數量未超過限制，無需清理', 'info');
+                }
+                
+                updateBackupStatus();
+                
+            } catch (error) {
+                showBackupResult('❌ 清理失敗：' + error.message, 'error');
+            }
+        }
+
+        // 緊急備份
+        function emergencyBackup() {
+            try {
+                const backupData = generateBackupData(true);
+                backupData.metadata.exportType = 'emergency';
+                
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                downloadFile(JSON.stringify(backupData, null, 2), `緊急備份_${timestamp}.json`, 'application/json');
+                
+                // 同時保存到歷史
+                saveToBackupHistory(backupData, 'emergency');
+                
+                showBackupResult('🚨 緊急備份已完成！文件已下載並保存到歷史記錄。', 'success');
+                updateBackupStatus();
+                
+            } catch (error) {
+                showBackupResult('❌ 緊急備份失敗：' + error.message, 'error');
+            }
+        }
+
+        // 創建緊急備份（內部使用）
+        function createEmergencyBackup(reason) {
+            try {
+                const backupData = generateBackupData(true);
+                backupData.metadata.exportType = 'emergency';
+                backupData.metadata.reason = reason;
+                
+                saveToBackupHistory(backupData, 'emergency');
+                console.log('緊急備份已創建：', reason);
+                
+            } catch (error) {
+                console.error('創建緊急備份失敗：', error);
+            }
+        }
+
+        // 驗證備份文件
+        function validateBackupFile() {
+            document.getElementById('importBackupFile').click();
+            // 驗證邏輯在 importBackupFile 函數中處理
+        }
+
+        // 更新備份狀態顯示
+        function updateBackupStatus() {
+            try {
+                const history = JSON.parse(localStorage.getItem('tcm_backup_history') || '[]');
+                const dataSize = calculateDataSize();
+                
+                document.getElementById('totalBackups').textContent = history.length;
+                document.getElementById('dataSize').textContent = formatFileSize(dataSize);
+                document.getElementById('autoBackupStatus').textContent = autoBackupEnabled ? '開啟' : '關閉';
+                
+                if (history.length > 0) {
+                    const lastBackup = new Date(history[0].timestamp);
+                    document.getElementById('lastBackupTime').textContent = formatRelativeTime(lastBackup);
+                } else {
+                    document.getElementById('lastBackupTime').textContent = '從未';
+                }
+                
+            } catch (error) {
+                console.error('更新備份狀態失敗：', error);
+            }
+        }
+
+        // 計算數據大小
+        function calculateDataSize() {
+            const data = generateBackupData(false);
+            return JSON.stringify(data).length;
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + sizes[i];
+        }
+
+        // 格式化相對時間
+        function formatRelativeTime(date) {
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            
+            if (days > 0) return `${days}天前`;
+            if (hours > 0) return `${hours}小時前`;
+            if (minutes > 0) return `${minutes}分鐘前`;
+            return '剛剛';
+        }
+
+        // 獲取備份類型標籤
+        function getBackupTypeLabel(type) {
+            const labels = {
+                'full': '🔄 完整備份',
+                'auto': '⏰ 自動備份',
+                'emergency': '🚨 緊急備份',
+                'manual': '👤 手動備份',
+                'compressed': '🗜️ 壓縮備份'
+            };
+            return labels[type] || '📦 備份';
+        }
+
+        // 顯示備份結果
+        function showBackupResult(message, type = 'info', duration = 5000) {
+            const resultDiv = document.getElementById('backupResult');
+            resultDiv.classList.remove('hidden', 'bg-blue-50', 'bg-green-50', 'bg-red-50', 'bg-yellow-50');
+            resultDiv.classList.remove('text-blue-600', 'text-green-600', 'text-red-600', 'text-yellow-600');
+            
+            switch (type) {
+                case 'success':
+                    resultDiv.classList.add('bg-green-50', 'text-green-600');
+                    break;
+                case 'error':
+                    resultDiv.classList.add('bg-red-50', 'text-red-600');
+                    break;
+                case 'warning':
+                    resultDiv.classList.add('bg-yellow-50', 'text-yellow-600');
+                    break;
+                default:
+                    resultDiv.classList.add('bg-blue-50', 'text-blue-600');
+            }
+            
+            resultDiv.innerHTML = message.replace(/\n/g, '<br>');
+            
+            if (duration > 0) {
+                setTimeout(() => {
+                    resultDiv.classList.add('hidden');
+                }, duration);
+            }
+        }
+
+        // 模態框控制
+        function showImportOptions() {
+            document.getElementById('importOptionsModal').classList.remove('hidden');
+        }
+
+        function closeImportOptions() {
+            document.getElementById('importOptionsModal').classList.add('hidden');
+        }
+
+        function confirmImportOptions() {
+            closeImportOptions();
+            document.getElementById('importBackupFile').click();
+        }
+
+        function getImportMode() {
+            const selectedMode = document.querySelector('input[name="importMode"]:checked');
+            return selectedMode ? selectedMode.value : 'replace';
+        }
+
+        function closeBackupHistory() {
+            document.getElementById('backupHistoryModal').classList.add('hidden');
+        }
+
+        // 保存所有數據
+        function saveAllData() {
+            localStorage.setItem('tcm_symptoms', JSON.stringify(symptoms));
+            localStorage.setItem('tcm_symptom_groups', JSON.stringify(symptomGroups));
+            localStorage.setItem('tcm_prescriptions', JSON.stringify(prescriptions));
+        }
+
+        // 重新渲染所有界面
+        function renderAll() {
+            renderSymptomGroups();
+            renderSymptoms();
+            renderPrescriptions();
+            updateStats();
+        }
+
+        // 清空所有數據
+        function clearAllData() {
+            if (!confirm('⚠️ 確定要清空所有數據嗎？此操作無法撤銷！\n\n建議先進行緊急備份。')) return;
+            
+            // 創建緊急備份
+            createEmergencyBackup('clear_all');
+            
+            localStorage.removeItem('tcm_symptoms');
+            localStorage.removeItem('tcm_symptom_groups');
+            localStorage.removeItem('tcm_prescriptions');
+            
+            symptoms = [];
+            symptomGroups = [];
+            prescriptions = [];
+            
+            renderAll();
+            document.getElementById('searchResults').classList.add('hidden');
+            document.getElementById('symptomSearch').value = '';
+            
+            showBackupResult('✅ 所有數據已清空！緊急備份已自動創建。', 'success');
+            updateBackupStatus();
+        }
+
+        // 重置為默認數據
+        function resetToDefaults() {
+            if (!confirm('確定要重置為默認數據嗎？當前數據將被替換！')) return;
+            
+            // 創建緊急備份
+            createEmergencyBackup('reset_defaults');
+            
+            // 重置為初始數據
+            symptoms = ['頭痛', '發熱', '咳嗽', '腹痛', '失眠', '疲勞', '食慾不振', '噁心', '偏頭痛', '頭暈', '高熱', '低熱', '乾咳', '濕咳', '胃痛', '腹脹'];
+            
+            symptomGroups = [
+                { name: '頭部症狀', symptoms: ['頭痛', '偏頭痛', '頭暈'], color: 'red' },
+                { name: '發熱症狀', symptoms: ['發熱', '高熱', '低熱'], color: 'orange' },
+                { name: '咳嗽症狀', symptoms: ['咳嗽', '乾咳', '濕咳'], color: 'blue' },
+                { name: '腸胃症狀', symptoms: ['腹痛', '胃痛', '腹脹', '食慾不振', '噁心'], color: 'green' }
+            ];
+            
+            prescriptions = [
+                { name: '銀翹散', ingredients: '金銀花 15g\n連翹 15g\n薄荷 6g\n牛蒡子 9g\n桔梗 6g\n甘草 5g', symptoms: ['發熱', '咳嗽', '頭痛'] },
+                { name: '逍遙散', ingredients: '柴胡 6g\n當歸 9g\n白芍 9g\n白朮 9g\n茯苓 9g\n甘草 3g', symptoms: ['腹痛', '疲勞', '失眠'] },
+                { name: '平胃散', ingredients: '蒼朮 12g\n厚朴 9g\n陳皮 6g\n甘草 3g', symptoms: ['腹痛', '食慾不振', '噁心'] }
+            ];
+            
+            saveAllData();
+            renderAll();
+            
+            showBackupResult('✅ 已重置為默認數據！原數據的緊急備份已創建。', 'success');
+            updateBackupStatus();
+        }
+
+        // ==================== 原有功能保持不變 ====================
+
         // 更新統計
         function updateStats() {
             document.getElementById('symptomCount').textContent = symptoms.length;
@@ -324,7 +1277,6 @@
                 </div>
             `).join('');
             
-            // 更新快速選擇按鈕
             renderQuickSelectGroups();
         }
 
@@ -397,7 +1349,6 @@
             if (name && symptomsInput) {
                 const groupSymptoms = symptomsInput.split(',').map(s => s.trim()).filter(s => s);
                 
-                // 將分組中的症狀添加到總症狀列表中
                 groupSymptoms.forEach(symptom => {
                     if (!symptoms.includes(symptom)) {
                         symptoms.push(symptom);
@@ -410,29 +1361,25 @@
                     color: color
                 });
                 
-                localStorage.setItem('tcm_symptoms', JSON.stringify(symptoms));
-                localStorage.setItem('tcm_symptom_groups', JSON.stringify(symptomGroups));
+                saveAllData();
                 
-                // 清空輸入框
                 document.getElementById('newGroupName').value = '';
                 document.getElementById('newGroupSymptoms').value = '';
                 
                 renderSymptomGroups();
                 renderSymptoms();
                 updateStats();
-                enhancedAutoBackup();
             }
         }
 
         // 刪除症狀分組
         function removeSymptomGroup(index) {
             symptomGroups.splice(index, 1);
-            localStorage.setItem('tcm_symptom_groups', JSON.stringify(symptomGroups));
+            saveAllData();
             renderSymptomGroups();
-            autoBackup();
         }
 
-        // 選擇症狀分組（快速添加到搜索框）
+        // 選擇症狀分組
         function selectSymptomGroup(groupName) {
             const searchInput = document.getElementById('symptomSearch');
             const currentValue = searchInput.value.trim();
@@ -451,21 +1398,19 @@
             
             if (symptom && !symptoms.includes(symptom)) {
                 symptoms.push(symptom);
-                localStorage.setItem('tcm_symptoms', JSON.stringify(symptoms));
+                saveAllData();
                 input.value = '';
                 renderSymptoms();
                 updateStats();
-                enhancedAutoBackup();
             }
         }
 
         // 刪除症狀
         function removeSymptom(index) {
             symptoms.splice(index, 1);
-            localStorage.setItem('tcm_symptoms', JSON.stringify(symptoms));
+            saveAllData();
             renderSymptoms();
             updateStats();
-            autoBackup();
         }
 
         // 添加處方
@@ -483,26 +1428,23 @@
                     symptoms: prescriptionSymptoms
                 });
                 
-                localStorage.setItem('tcm_prescriptions', JSON.stringify(prescriptions));
+                saveAllData();
                 
-                // 清空輸入框
                 document.getElementById('prescriptionName').value = '';
                 document.getElementById('prescriptionIngredients').value = '';
                 document.getElementById('prescriptionSymptoms').value = '';
                 
                 renderPrescriptions();
                 updateStats();
-                enhancedAutoBackup();
             }
         }
 
         // 刪除處方
         function removePrescription(index) {
             prescriptions.splice(index, 1);
-            localStorage.setItem('tcm_prescriptions', JSON.stringify(prescriptions));
+            saveAllData();
             renderPrescriptions();
             updateStats();
-            autoBackup();
         }
 
         // 搜索處方
@@ -513,25 +1455,20 @@
             const searchTerms = searchInput.split(',').map(s => s.trim()).filter(s => s);
             let allSearchSymptoms = [];
             
-            // 處理搜索詞，包括症狀分組
             searchTerms.forEach(term => {
                 const termLower = term.toLowerCase();
                 
-                // 檢查是否為症狀分組
                 const matchingGroup = symptomGroups.find(group => 
                     group.name.toLowerCase() === termLower
                 );
                 
                 if (matchingGroup) {
-                    // 如果是分組，添加分組中的所有症狀
                     allSearchSymptoms.push(...matchingGroup.symptoms.map(s => s.toLowerCase()));
                 } else {
-                    // 如果不是分組，直接添加症狀
                     allSearchSymptoms.push(termLower);
                 }
             });
             
-            // 去重
             allSearchSymptoms = [...new Set(allSearchSymptoms)];
             
             const results = [];
@@ -552,10 +1489,8 @@
                 }
             });
             
-            // 按匹配度排序
             results.sort((a, b) => b.matchCount - a.matchCount);
             
-            // 顯示結果
             const resultsContainer = document.getElementById('searchResults');
             const resultsList = document.getElementById('resultsList');
             
@@ -587,389 +1522,20 @@
             }
         }
 
-        // 回車搜索
-        document.getElementById('symptomSearch').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                searchPrescriptions();
-            }
-        });
-
-        // 回車添加
-        document.getElementById('newSymptom').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                addSymptom();
-            }
-        });
-
-        // 標籤頁切換功能
+        // 標籤頁切換
         function showTab(tabName) {
-            // 隱藏所有內容
             document.getElementById('groupsContent').classList.add('hidden');
             document.getElementById('symptomsContent').classList.add('hidden');
             document.getElementById('prescriptionsContent').classList.add('hidden');
             
-            // 重置所有標籤樣式
             document.getElementById('groupsTab').className = 'flex-1 py-3 px-4 text-center font-medium text-gray-500 hover:text-gray-700';
             document.getElementById('symptomsTab').className = 'flex-1 py-3 px-4 text-center font-medium text-gray-500 hover:text-gray-700';
             document.getElementById('prescriptionsTab').className = 'flex-1 py-3 px-4 text-center font-medium text-gray-500 hover:text-gray-700';
             
-            // 顯示選中的內容和標籤
             document.getElementById(tabName + 'Content').classList.remove('hidden');
             document.getElementById(tabName + 'Tab').className = 'flex-1 py-3 px-4 text-center font-medium border-b-2 border-green-500 text-green-600';
         }
 
-        // 數據備份和恢復功能
-        function exportData() {
-            const data = {
-                symptoms: symptoms,
-                symptomGroups: symptomGroups,
-                prescriptions: prescriptions,
-                exportDate: new Date().toISOString(),
-                version: '1.0'
-            };
-            
-            const dataStr = JSON.stringify(data, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(dataBlob);
-            link.download = `中醫處方數據_${new Date().toISOString().split('T')[0]}.json`;
-            link.click();
-            
-            alert('✅ 數據已成功備份到下載文件夾！');
-        }
-        
-        function importData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    
-                    // 驗證數據格式
-                    if (data.symptoms && data.symptomGroups && data.prescriptions) {
-                        symptoms = data.symptoms;
-                        symptomGroups = data.symptomGroups;
-                        prescriptions = data.prescriptions;
-                        
-                        // 保存到本地存儲
-                        localStorage.setItem('tcm_symptoms', JSON.stringify(symptoms));
-                        localStorage.setItem('tcm_symptom_groups', JSON.stringify(symptomGroups));
-                        localStorage.setItem('tcm_prescriptions', JSON.stringify(prescriptions));
-                        
-                        // 重新渲染界面
-                        renderSymptomGroups();
-                        renderSymptoms();
-                        renderPrescriptions();
-                        updateStats();
-                        
-                        alert('✅ 數據恢復成功！');
-                    } else {
-                        alert('❌ 文件格式不正確，請選擇正確的備份文件！');
-                    }
-                } catch (error) {
-                    alert('❌ 文件讀取失敗，請檢查文件是否損壞！');
-                }
-            };
-            reader.readAsText(file);
-            
-            // 清空文件選擇器
-            event.target.value = '';
-        }
-        
-        function clearAllData() {
-            if (confirm('⚠️ 確定要清空所有數據嗎？此操作無法撤銷！\n\n建議先備份數據再進行清空操作。')) {
-                localStorage.removeItem('tcm_symptoms');
-                localStorage.removeItem('tcm_symptom_groups');
-                localStorage.removeItem('tcm_prescriptions');
-                
-                symptoms = [];
-                symptomGroups = [];
-                prescriptions = [];
-                
-                renderSymptomGroups();
-                renderSymptoms();
-                renderPrescriptions();
-                updateStats();
-                
-                // 隱藏搜索結果
-                document.getElementById('searchResults').classList.add('hidden');
-                document.getElementById('symptomSearch').value = '';
-                
-                alert('✅ 所有數據已清空！');
-            }
-        }
-        
-        // 自動備份功能（每次數據變更時）
-        function autoBackup() {
-            const data = {
-                symptoms: symptoms,
-                symptomGroups: symptomGroups,
-                prescriptions: prescriptions,
-                lastBackup: new Date().toISOString()
-            };
-            localStorage.setItem('tcm_auto_backup', JSON.stringify(data));
-        }
-        
-        // 檢查並恢復自動備份
-        function checkAutoBackup() {
-            const backup = localStorage.getItem('tcm_auto_backup');
-            if (backup) {
-                try {
-                    const data = JSON.parse(backup);
-                    const backupDate = new Date(data.lastBackup);
-                    const now = new Date();
-                    const daysDiff = (now - backupDate) / (1000 * 60 * 60 * 24);
-                    
-                    // 如果備份超過7天，提醒用戶
-                    if (daysDiff > 7) {
-                        if (confirm('💡 檢測到您的數據已經超過7天未備份，建議立即備份數據以防丟失。\n\n是否現在備份？')) {
-                            exportData();
-                        }
-                    }
-                } catch (error) {
-                    console.log('自動備份檢查失敗');
-                }
-            }
-        }
-
-        // 雲端存儲功能（使用瀏覽器的IndexedDB作為持久化存儲）
-        let db;
-        
-        // 初始化IndexedDB
-        function initDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open('TCMDatabase', 1);
-                
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => {
-                    db = request.result;
-                    resolve(db);
-                };
-                
-                request.onupgradeneeded = (event) => {
-                    db = event.target.result;
-                    if (!db.objectStoreNames.contains('backups')) {
-                        const store = db.createObjectStore('backups', { keyPath: 'id' });
-                        store.createIndex('timestamp', 'timestamp', { unique: false });
-                    }
-                };
-            });
-        }
-        
-        // 保存到雲端（實際是IndexedDB持久化存儲）
-        async function saveToCloud() {
-            try {
-                showStatus('正在保存到雲端...', 'info');
-                
-                if (!db) await initDB();
-                
-                const data = {
-                    id: 'main_backup',
-                    symptoms: symptoms,
-                    symptomGroups: symptomGroups,
-                    prescriptions: prescriptions,
-                    timestamp: new Date().toISOString(),
-                    version: '1.0'
-                };
-                
-                const transaction = db.transaction(['backups'], 'readwrite');
-                const store = transaction.objectStore('backups');
-                await store.put(data);
-                
-                // 同時創建一個帶時間戳的歷史備份
-                const historyData = {
-                    ...data,
-                    id: `backup_${Date.now()}`
-                };
-                await store.put(historyData);
-                
-                showStatus('✅ 數據已成功保存到雲端！', 'success');
-                
-                // 自動清理超過30天的歷史備份
-                cleanOldBackups();
-                
-            } catch (error) {
-                showStatus('❌ 雲端保存失敗：' + error.message, 'error');
-            }
-        }
-        
-        // 從雲端載入
-        async function loadFromCloud() {
-            try {
-                showStatus('正在從雲端載入...', 'info');
-                
-                if (!db) await initDB();
-                
-                const transaction = db.transaction(['backups'], 'readonly');
-                const store = transaction.objectStore('backups');
-                const request = store.get('main_backup');
-                
-                request.onsuccess = () => {
-                    const data = request.result;
-                    if (data) {
-                        symptoms = data.symptoms || [];
-                        symptomGroups = data.symptomGroups || [];
-                        prescriptions = data.prescriptions || [];
-                        
-                        // 保存到本地存儲
-                        localStorage.setItem('tcm_symptoms', JSON.stringify(symptoms));
-                        localStorage.setItem('tcm_symptom_groups', JSON.stringify(symptomGroups));
-                        localStorage.setItem('tcm_prescriptions', JSON.stringify(prescriptions));
-                        
-                        // 重新渲染界面
-                        renderSymptomGroups();
-                        renderSymptoms();
-                        renderPrescriptions();
-                        updateStats();
-                        
-                        showStatus('✅ 數據已從雲端成功載入！', 'success');
-                    } else {
-                        showStatus('⚠️ 雲端沒有找到備份數據', 'warning');
-                    }
-                };
-                
-                request.onerror = () => {
-                    showStatus('❌ 雲端載入失敗：' + request.error, 'error');
-                };
-                
-            } catch (error) {
-                showStatus('❌ 雲端載入失敗：' + error.message, 'error');
-            }
-        }
-        
-        // 顯示雲端狀態
-        async function showCloudStatus() {
-            try {
-                if (!db) await initDB();
-                
-                const transaction = db.transaction(['backups'], 'readonly');
-                const store = transaction.objectStore('backups');
-                
-                // 獲取主備份
-                const mainRequest = store.get('main_backup');
-                
-                // 獲取所有歷史備份
-                const allRequest = store.getAll();
-                
-                Promise.all([
-                    new Promise(resolve => { mainRequest.onsuccess = () => resolve(mainRequest.result); }),
-                    new Promise(resolve => { allRequest.onsuccess = () => resolve(allRequest.result); })
-                ]).then(([mainBackup, allBackups]) => {
-                    let statusText = '';
-                    
-                    if (mainBackup) {
-                        const lastSync = new Date(mainBackup.timestamp);
-                        statusText += `📅 最後同步：${lastSync.toLocaleString('zh-TW')}\n`;
-                        statusText += `📊 症狀數量：${mainBackup.symptoms?.length || 0}\n`;
-                        statusText += `📋 分組數量：${mainBackup.symptomGroups?.length || 0}\n`;
-                        statusText += `💊 處方數量：${mainBackup.prescriptions?.length || 0}\n`;
-                    } else {
-                        statusText += '⚠️ 尚未進行雲端備份\n';
-                    }
-                    
-                    const historyBackups = allBackups.filter(b => b.id !== 'main_backup');
-                    statusText += `🗂️ 歷史備份：${historyBackups.length} 個\n`;
-                    
-                    // 計算存儲使用情況
-                    const dataSize = JSON.stringify(allBackups).length;
-                    statusText += `💾 存儲使用：${(dataSize / 1024).toFixed(1)} KB`;
-                    
-                    showStatus(statusText, 'info', 8000);
-                });
-                
-            } catch (error) {
-                showStatus('❌ 無法獲取雲端狀態：' + error.message, 'error');
-            }
-        }
-        
-        // 清理舊備份
-        async function cleanOldBackups() {
-            try {
-                if (!db) return;
-                
-                const transaction = db.transaction(['backups'], 'readwrite');
-                const store = transaction.objectStore('backups');
-                const index = store.index('timestamp');
-                
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                
-                const range = IDBKeyRange.upperBound(thirtyDaysAgo.toISOString());
-                const request = index.openCursor(range);
-                
-                request.onsuccess = (event) => {
-                    const cursor = event.target.result;
-                    if (cursor) {
-                        if (cursor.value.id !== 'main_backup') {
-                            cursor.delete();
-                        }
-                        cursor.continue();
-                    }
-                };
-            } catch (error) {
-                console.log('清理舊備份失敗：', error);
-            }
-        }
-        
-        // 顯示狀態信息
-        function showStatus(message, type = 'info', duration = 3000) {
-            const statusDiv = document.getElementById('backupStatus');
-            statusDiv.classList.remove('hidden', 'bg-blue-50', 'bg-green-50', 'bg-red-50', 'bg-yellow-50');
-            statusDiv.classList.remove('text-blue-600', 'text-green-600', 'text-red-600', 'text-yellow-600');
-            
-            switch (type) {
-                case 'success':
-                    statusDiv.classList.add('bg-green-50', 'text-green-600');
-                    break;
-                case 'error':
-                    statusDiv.classList.add('bg-red-50', 'text-red-600');
-                    break;
-                case 'warning':
-                    statusDiv.classList.add('bg-yellow-50', 'text-yellow-600');
-                    break;
-                default:
-                    statusDiv.classList.add('bg-blue-50', 'text-blue-600');
-            }
-            
-            statusDiv.innerHTML = message.replace(/\n/g, '<br>');
-            
-            if (duration > 0) {
-                setTimeout(() => {
-                    statusDiv.classList.add('hidden');
-                }, duration);
-            }
-        }
-        
-        // 增強的自動備份（同時備份到雲端）
-        async function enhancedAutoBackup() {
-            autoBackup(); // 本地備份
-            
-            // 每10次操作自動雲端備份一次
-            const operationCount = parseInt(localStorage.getItem('tcm_operation_count') || '0') + 1;
-            localStorage.setItem('tcm_operation_count', operationCount.toString());
-            
-            if (operationCount % 10 === 0) {
-                try {
-                    await saveToCloud();
-                } catch (error) {
-                    console.log('自動雲端備份失敗：', error);
-                }
-            }
-        }
-
-        // 初始化頁面
-        async function initApp() {
-            await initDB();
-            renderSymptomGroups();
-            renderSymptoms();
-            renderPrescriptions();
-            updateStats();
-            checkAutoBackup();
-        }
-        
         // 批量導入功能
         function downloadTemplate() {
             const template = `當歸：血虛,月經不調,便秘
@@ -983,13 +1549,8 @@
 熟地黃：血虛,腎虛,頭暈
 何首烏：血虛,脫髮,便秘`;
             
-            const blob = new Blob([template], { type: 'text/plain;charset=utf-8' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = '中藥症狀導入模板.txt';
-            link.click();
-            
-            showStatus('✅ 模板文件已下載！請按照格式填寫後導入。', 'success');
+            downloadFile(template, '中藥症狀導入模板.txt', 'text/plain');
+            showBackupResult('✅ 模板文件已下載！', 'success');
         }
         
         function loadBulkImportFile(event) {
@@ -999,21 +1560,18 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 document.getElementById('bulkImportText').value = e.target.result;
-                showStatus('✅ 文件內容已載入到文本框！', 'success');
+                updateCharCount();
+                showBackupResult('✅ 文件內容已載入！', 'success');
             };
             reader.readAsText(file, 'UTF-8');
-            
-            // 清空文件選擇器
             event.target.value = '';
         }
         
         function clearBulkImport() {
             document.getElementById('bulkImportText').value = '';
             updateCharCount();
-            showStatus('🧹 輸入框已清空', 'info');
         }
         
-        // 更新字數統計
         function updateCharCount() {
             const textarea = document.getElementById('bulkImportText');
             const charCountDiv = document.getElementById('charCount');
@@ -1022,7 +1580,6 @@
             
             charCountDiv.textContent = `字數：${currentLength.toLocaleString()} / ${maxLength.toLocaleString()}`;
             
-            // 根據字數變化顏色
             if (currentLength > maxLength * 0.9) {
                 charCountDiv.className = 'text-sm text-red-500 font-medium';
             } else if (currentLength > maxLength * 0.7) {
@@ -1035,174 +1592,141 @@
         function processBulkImport() {
             const text = document.getElementById('bulkImportText').value.trim();
             if (!text) {
-                showStatus('⚠️ 請先輸入或選擇要導入的內容！', 'warning');
+                showBackupResult('⚠️ 請先輸入要導入的內容！', 'warning');
                 return;
             }
             
-            // 檢查數據大小
-            const textLength = text.length;
-            if (textLength > 100000) {
-                showStatus('❌ 數據過大！請分批導入或減少內容（當前：' + textLength.toLocaleString() + ' 字）', 'error');
+            if (text.length > 100000) {
+                showBackupResult('❌ 數據過大！請分批導入', 'error');
                 return;
             }
             
-            showStatus('⚡ 正在處理大量數據，請稍候...', 'info');
+            // 創建導入前備份
+            createEmergencyBackup('bulk_import');
             
-            // 使用 setTimeout 避免阻塞 UI
+            showBackupResult('⚡ 正在處理數據...', 'info');
+            
             setTimeout(() => {
                 const lines = text.split('\n').filter(line => line.trim());
                 let successCount = 0;
                 let errorCount = 0;
-                let newSymptoms = [];
-                let newPrescriptions = [];
-                let errorMessages = [];
                 
-                // 批量處理，每次處理100行
-                const batchSize = 100;
-                let currentBatch = 0;
-                
-                function processBatch() {
-                    const start = currentBatch * batchSize;
-                    const end = Math.min(start + batchSize, lines.length);
+                lines.forEach((line, index) => {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine) return;
                     
-                        const line = lines[i];
-                        const trimmedLine = line.trim();
-                        if (!trimmedLine) continue;
-                        
-                        // 支持多種分隔符：冒號、全形冒號
-                        const separators = ['：', ':'];
-                        let separator = null;
-                        let parts = null;
-                        
-                        for (let sep of separators) {
-                            if (trimmedLine.includes(sep)) {
-                                parts = trimmedLine.split(sep);
-                                separator = sep;
-                                break;
-                            }
+                    const separators = ['：', ':'];
+                    let parts = null;
+                    
+                    for (let sep of separators) {
+                        if (trimmedLine.includes(sep)) {
+                            parts = trimmedLine.split(sep);
+                            break;
                         }
-                        
-                        if (!parts || parts.length !== 2) {
-                            errorMessages.push(`第${i + 1}行格式錯誤：${trimmedLine}`);
-                            errorCount++;
-                            continue;
-                        }
-                        
-                        const herbName = parts[0].trim();
-                        const symptomsText = parts[1].trim();
-                        
-                        if (!herbName || !symptomsText) {
-                            errorMessages.push(`第${i + 1}行內容不完整：${trimmedLine}`);
-                            errorCount++;
-                            continue;
-                        }
-                        
-                        // 解析症狀，支持多種分隔符
-                        const symptomSeparators = [',', '，', ';', '；', '、'];
-                        let herbSymptoms = [symptomsText];
-                        
-                        for (let sep of symptomSeparators) {
-                            if (symptomsText.includes(sep)) {
-                                herbSymptoms = symptomsText.split(sep).map(s => s.trim()).filter(s => s);
-                                break;
-                            }
-                        }
-                        
-                        // 添加症狀到總列表
-                        herbSymptoms.forEach(symptom => {
-                            if (symptom && !symptoms.includes(symptom)) {
-                                symptoms.push(symptom);
-                                newSymptoms.push(symptom);
-                            }
-                        });
-                        
-                        // 檢查是否已存在同名處方
-                        const existingIndex = prescriptions.findIndex(p => p.name === herbName);
-                        
-                        if (existingIndex >= 0) {
-                            // 更新現有處方的症狀
-                            const existingSymptoms = prescriptions[existingIndex].symptoms;
-                            const combinedSymptoms = [...new Set([...existingSymptoms, ...herbSymptoms])];
-                            prescriptions[existingIndex].symptoms = combinedSymptoms;
-                        } else {
-                            // 創建新處方
-                            const newPrescription = {
-                                name: herbName,
-                                ingredients: `${herbName} 適量\n（請諮詢中醫師確定具體用量）`,
-                                symptoms: herbSymptoms
-                            };
-                            prescriptions.push(newPrescription);
-                            newPrescriptions.push(herbName);
-                        }
-                        
-                        successCount++;
                     }
                     
-                    currentBatch++;
+                    if (!parts || parts.length !== 2) {
+                        errorCount++;
+                        return;
+                    }
                     
-                    // 更新進度
-                    const progress = Math.round((end / lines.length) * 100);
-                    showStatus(`⚡ 處理進度：${progress}% (${end}/${lines.length})`, 'info');
+                    const herbName = parts[0].trim();
+                    const symptomsText = parts[1].trim();
                     
-                    // 如果還有更多批次，繼續處理
-                    if (end < lines.length) {
-                        setTimeout(processBatch, 10); // 短暫延遲避免阻塞
+                    if (!herbName || !symptomsText) {
+                        errorCount++;
+                        return;
+                    }
+                    
+                    const symptomSeparators = [',', '，', ';', '；', '、'];
+                    let herbSymptoms = [symptomsText];
+                    
+                    for (let sep of symptomSeparators) {
+                        if (symptomsText.includes(sep)) {
+                            herbSymptoms = symptomsText.split(sep).map(s => s.trim()).filter(s => s);
+                            break;
+                        }
+                    }
+                    
+                    herbSymptoms.forEach(symptom => {
+                        if (symptom && !symptoms.includes(symptom)) {
+                            symptoms.push(symptom);
+                        }
+                    });
+                    
+                    const existingIndex = prescriptions.findIndex(p => p.name === herbName);
+                    
+                    if (existingIndex >= 0) {
+                        const existingSymptoms = prescriptions[existingIndex].symptoms;
+                        const combinedSymptoms = [...new Set([...existingSymptoms, ...herbSymptoms])];
+                        prescriptions[existingIndex].symptoms = combinedSymptoms;
                     } else {
-                        // 處理完成，保存數據並顯示結果
-                        finishImport();
+                        const newPrescription = {
+                            name: herbName,
+                            ingredients: `${herbName} 適量\n（請諮詢中醫師確定具體用量）`,
+                            symptoms: herbSymptoms
+                        };
+                        prescriptions.push(newPrescription);
                     }
+                    
+                    successCount++;
+                });
+                
+                saveAllData();
+                renderAll();
+                
+                let resultMessage = `📊 導入完成！\n✅ 成功：${successCount} 條`;
+                if (errorCount > 0) {
+                    resultMessage += `\n❌ 錯誤：${errorCount} 條`;
                 }
                 
-                function finishImport() {
-                    // 保存數據
-                    localStorage.setItem('tcm_symptoms', JSON.stringify(symptoms));
-                    localStorage.setItem('tcm_prescriptions', JSON.stringify(prescriptions));
-                    
-                    // 重新渲染界面
-                    renderSymptoms();
-                    renderPrescriptions();
-                    updateStats();
-                    enhancedAutoBackup();
-                    
-                    // 顯示導入結果
-                    let resultMessage = `📊 導入完成！\n`;
-                    resultMessage += `✅ 成功處理：${successCount} 條\n`;
-                    resultMessage += `📝 新增症狀：${newSymptoms.length} 個\n`;
-                    resultMessage += `💊 新增/更新處方：${newPrescriptions.length} 個\n`;
-                    
-                    if (errorCount > 0) {
-                        resultMessage += `❌ 錯誤：${errorCount} 條\n`;
-                        if (errorMessages.length > 0) {
-                            resultMessage += `\n錯誤詳情：\n${errorMessages.slice(0, 5).join('\n')}`;
-                            if (errorMessages.length > 5) {
-                                resultMessage += `\n...還有 ${errorMessages.length - 5} 個錯誤`;
-                            }
-                        }
-                    }
-                    
-                    showStatus(resultMessage, successCount > 0 ? 'success' : 'error', 10000);
-                    
-                    // 清空輸入框
-                    if (successCount > 0) {
-                        document.getElementById('bulkImportText').value = '';
-                        updateCharCount();
-                    }
+                showBackupResult(resultMessage, successCount > 0 ? 'success' : 'error', 8000);
+                
+                if (successCount > 0) {
+                    document.getElementById('bulkImportText').value = '';
+                    updateCharCount();
                 }
                 
-                // 開始處理第一批
-                processBatch();
-                
-            }, 100); // 延遲100ms開始處理
+            }, 100);
         }
+
+        // 事件監聽
+        document.getElementById('symptomSearch').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchPrescriptions();
+            }
+        });
+
+        document.getElementById('newSymptom').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addSymptom();
+            }
+        });
+
+        document.getElementById('bulkImportText').addEventListener('input', updateCharCount);
+        document.getElementById('bulkImportText').addEventListener('paste', function() {
+            setTimeout(updateCharCount, 10);
+        });
+
+        // 初始化應用
+        function initApp() {
+            renderAll();
+            updateBackupStatus();
+            
+            // 啟動自動備份（如果已啟用）
+            if (autoBackupEnabled) {
+                startAutoBackup();
+                document.getElementById('autoBackupBtn').textContent = '🔄 停用自動備份';
+            }
+        }
+
+        // 頁面卸載時停止自動備份
+        window.addEventListener('beforeunload', function() {
+            stopAutoBackup();
+        });
 
         // 啟動應用
         initApp();
-        
-        // 監聽文本框輸入，實時更新字數統計
-        document.getElementById('bulkImportText').addEventListener('input', updateCharCount);
-        document.getElementById('bulkImportText').addEventListener('paste', function() {
-            setTimeout(updateCharCount, 10); // 延遲一點確保粘貼內容已處理
-        });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'964a675ae4bb1082',t:'MTc1MzQzMzM2My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'964b4d9281f103e9',t:'MTc1MzQ0Mjc5My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
