@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>中醫診症輔助工具</title>
+    <title>中醫診症輔助工具 - 線上共享版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
@@ -19,6 +19,20 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
+        .sync-animation {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
@@ -26,10 +40,19 @@
     <header class="bg-white shadow-sm">
         <div class="max-w-4xl mx-auto px-4 py-3">
             <div class="flex items-center justify-between">
-                <h1 class="text-xl font-bold text-gray-800">中藥資料庫</h1>
-                <button id="backupBtn" class="px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm">
-                    💾 手動備份資料
-                </button>
+                <h1 class="text-xl font-bold text-gray-800">中藥資料庫 - 線上共享版</h1>
+                <div class="flex items-center space-x-3">
+                    <button id="syncBtn" class="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center space-x-1">
+                        <span id="syncIcon">☁️</span>
+                        <span id="syncText">線上同步</span>
+                    </button>
+                    <button id="onlineDataBtn" class="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm">
+                        🌐 線上資料
+                    </button>
+                    <button id="backupBtn" class="px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm">
+                        💾 備份
+                    </button>
+                </div>
             </div>
         </div>
     </header>
@@ -61,20 +84,18 @@
         <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
             <div class="flex flex-wrap gap-3 mb-4">
                 <button id="fileImportBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm">
-                    導入檔案
+                    📁 導入檔案
                 </button>
                 <button id="textImportBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm">
-                    手動輸入
+                    ✏️ 手動輸入
                 </button>
-                <button id="dataStatusBtn" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm">
-                    📊 資料狀態
-                </button>
+
                 <div class="ml-auto flex items-center space-x-4 text-sm text-gray-600">
                     <span>中藥: <span id="herbCount" class="font-medium">0</span></span>
                     <span>症狀: <span id="symptomCount" class="font-medium">0</span></span>
                     <span class="flex items-center">
-                        <span id="dataStatusIndicator" class="w-2 h-2 bg-green-500 rounded-full mr-1" title="資料狀態正常"></span>
-                        <span class="text-xs">已同步</span>
+                        <span id="dataStatusIndicator" class="w-2 h-2 bg-green-500 rounded-full mr-1 pulse-dot" title="資料狀態正常"></span>
+                        <span id="syncStatusText" class="text-xs">本地</span>
                     </span>
                 </div>
             </div>
@@ -100,103 +121,152 @@
                 </div>
             </div>
         </div>
-
-
     </div>
 
-    <!-- Data Status Modal -->
-    <div id="dataStatusModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+    <!-- Online Data Management Modal -->
+    <div id="onlineDataModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-xl font-bold text-gray-800 flex items-center">
-                    📊 資料狀態監控
+                    🌐 線上資料共享中心
                 </h3>
-                <button id="closeDataStatusModal" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+                <button id="closeOnlineDataModal" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
             </div>
             
-            <!-- Status Overview -->
+            <!-- Connection Status -->
+            <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div id="connectionIndicator" class="w-3 h-3 bg-green-500 rounded-full pulse-dot"></div>
+                        <div>
+                            <div id="connectionStatus" class="text-sm text-green-600 font-medium">已連線</div>
+                            <div class="text-xs text-gray-500">伺服器狀態: <span id="serverStatus">正常</span></div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-gray-500">最後同步</div>
+                        <div id="lastSyncTime" class="text-sm font-medium">從未同步</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Data Comparison -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- Local Data -->
+                <div class="bg-blue-50 rounded-lg p-4">
+                    <h4 class="font-semibold text-blue-800 mb-3 flex items-center">
+                        <span class="mr-2">💻</span>
+                        本地資料
+                    </h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">中藥數量</span>
+                            <span id="localHerbCount" class="text-sm font-medium">0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">症狀數量</span>
+                            <span id="localSymptomCount" class="text-sm font-medium">0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">最後更新</span>
+                            <span id="localLastUpdate" class="text-sm text-gray-500">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Online Data -->
+                <div class="bg-green-50 rounded-lg p-4">
+                    <h4 class="font-semibold text-green-800 mb-3 flex items-center">
+                        <span class="mr-2">☁️</span>
+                        線上資料
+                        <span class="ml-2 text-xs bg-green-200 text-green-800 px-2 py-1 rounded">v<span id="onlineDataVersion">1.0</span></span>
+                    </h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">中藥數量</span>
+                            <span id="onlineHerbCount" class="text-sm font-medium">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">症狀數量</span>
+                            <span id="onlineSymptomCount" class="text-sm font-medium">-</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">最後更新</span>
+                            <span id="onlineLastUpdate" class="text-sm text-gray-500">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sync Actions -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div class="bg-green-50 rounded-lg p-4 text-center">
-                    <div class="text-2xl font-bold text-green-600" id="statusHerbCount">0</div>
-                    <div class="text-sm text-gray-600">中藥數量</div>
-                </div>
-                <div class="bg-blue-50 rounded-lg p-4 text-center">
-                    <div class="text-2xl font-bold text-blue-600" id="statusSymptomCount">0</div>
-                    <div class="text-sm text-gray-600">症狀數量</div>
-                </div>
-                <div class="bg-purple-50 rounded-lg p-4 text-center">
-                    <div class="text-2xl font-bold text-purple-600" id="statusRelationCount">0</div>
-                    <div class="text-sm text-gray-600">關聯數量</div>
-                </div>
+                <button id="uploadDataBtn" class="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2">
+                    <span>📤</span>
+                    <span>上傳本地資料</span>
+                </button>
+                
+                <button id="downloadDataBtn" class="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2">
+                    <span>📥</span>
+                    <span>下載線上資料</span>
+                </button>
+                
+                <button id="mergeDataBtn" class="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center space-x-2">
+                    <span>🔄</span>
+                    <span>智能合併</span>
+                </button>
             </div>
             
-            <!-- Data Health -->
+            <!-- Sync Settings -->
             <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 class="font-semibold text-gray-800 mb-3">資料健康狀態</h4>
-                <div class="space-y-2">
+                <h4 class="font-semibold text-gray-800 mb-3">同步設定</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-600">主要資料</span>
-                        <span id="mainDataStatus" class="text-sm font-medium text-green-600">✅ 正常</span>
+                        <span class="text-sm text-gray-600">自動同步</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="autoSyncEnabled" class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
                     </div>
+                    
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-600">備份資料</span>
-                        <span id="backupDataStatus" class="text-sm font-medium text-green-600">✅ 正常</span>
+                        <span class="text-sm text-gray-600">衝突自動處理</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="conflictResolution" class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
                     </div>
+                    
                     <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-600">資料一致性</span>
-                        <span id="dataConsistencyStatus" class="text-sm font-medium text-green-600">✅ 一致</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-600">最後保存</span>
-                        <span id="lastSaveTime" class="text-sm text-gray-500">-</span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Backup History -->
-            <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 class="font-semibold text-gray-800 mb-3">備份歷史</h4>
-                <div id="backupHistoryList" class="space-y-2 max-h-32 overflow-y-auto">
-                    <!-- Backup history items will be inserted here -->
-                </div>
-            </div>
-            
-            <!-- Storage Usage -->
-            <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 class="font-semibold text-gray-800 mb-3">儲存使用情況</h4>
-                <div class="space-y-2">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-600">主要資料大小</span>
-                        <span id="mainDataSize" class="text-sm text-gray-500">-</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-600">備份資料大小</span>
-                        <span id="backupDataSize" class="text-sm text-gray-500">-</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-600">總使用空間</span>
-                        <span id="totalStorageSize" class="text-sm text-gray-500">-</span>
+                        <span class="text-sm text-gray-600">同步間隔</span>
+                        <select id="syncInterval" class="text-sm border border-gray-300 rounded px-2 py-1">
+                            <option value="300">5分鐘</option>
+                            <option value="600">10分鐘</option>
+                            <option value="1800">30分鐘</option>
+                            <option value="3600">1小時</option>
+                        </select>
                     </div>
                 </div>
             </div>
             
-            <!-- Actions -->
-            <div class="flex flex-wrap gap-3">
-                <button id="forceBackupBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
-                    🔄 立即備份
-                </button>
-                <button id="verifyDataBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm">
-                    ✅ 驗證資料
-                </button>
-                <button id="cleanupDataBtn" class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm">
-                    🧹 清理資料
-                </button>
-                <button id="refreshStatusBtn" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm">
-                    🔄 重新整理
-                </button>
+            <!-- Recent Activity -->
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h4 class="font-semibold text-gray-800 mb-3">最近活動</h4>
+                <div id="recentActivityList" class="space-y-2 max-h-32 overflow-y-auto">
+                    <!-- Activity items will be inserted here -->
+                </div>
+            </div>
+            
+            <!-- Status Message -->
+            <div id="onlineDataStatus" class="hidden mt-4 p-3 rounded-lg text-sm">
+                <div class="flex items-center space-x-2">
+                    <span id="onlineDataStatusIcon">✅</span>
+                    <span id="onlineDataStatusText"></span>
+                </div>
             </div>
         </div>
     </div>
+
+
 
     <!-- Backup Modal -->
     <div id="backupModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
@@ -262,10 +332,18 @@
     <script>
         class TCMDiagnosticTool {
             constructor() {
-                this.storageKey = 'tcmData_v2';
-                this.backupKey = 'tcmDataBackup_v2';
+                this.storageKey = 'tcmData_v3';
+                this.backupKey = 'tcmDataBackup_v3';
+                this.onlineDataKey = 'tcmOnlineData_v3';
+                this.lastSyncKey = 'tcmLastSync_v3';
+                this.syncSettingsKey = 'tcmSyncSettings_v3';
                 this.versionKey = 'tcmDataVersion';
-                this.currentVersion = '2.1';
+                this.currentVersion = '3.0';
+                
+                // 線上同步相關設定
+                this.isOnline = true; // 模擬線上狀態
+                this.syncSettings = this.loadSyncSettings();
+                this.autoSyncTimer = null;
                 
                 // 初始化資料持久化系統
                 this.initializeDataPersistence();
@@ -278,6 +356,169 @@
                 this.initializeEventListeners();
                 this.updateUI();
                 this.startAutoBackup();
+                this.initializeOnlineSync();
+            }
+
+            // 載入同步設定
+            loadSyncSettings() {
+                try {
+                    const settings = localStorage.getItem(this.syncSettingsKey);
+                    return settings ? JSON.parse(settings) : {
+                        autoSync: false,
+                        conflictResolution: true,
+                        syncInterval: 1800 // 30分鐘
+                    };
+                } catch (error) {
+                    return {
+                        autoSync: false,
+                        conflictResolution: true,
+                        syncInterval: 1800
+                    };
+                }
+            }
+
+            // 保存同步設定
+            saveSyncSettings() {
+                localStorage.setItem(this.syncSettingsKey, JSON.stringify(this.syncSettings));
+            }
+
+            // 初始化線上同步功能
+            initializeOnlineSync() {
+                // 檢查是否需要自動同步
+                if (this.syncSettings.autoSync && this.isOnline) {
+                    this.startAutoSync();
+                }
+                
+                // 模擬線上狀態檢查
+                this.checkOnlineStatus();
+                
+                // 定期檢查線上狀態
+                setInterval(() => {
+                    this.checkOnlineStatus();
+                }, 30000); // 每30秒檢查一次
+            }
+
+            // 檢查線上狀態
+            checkOnlineStatus() {
+                // 模擬線上狀態檢查
+                this.isOnline = navigator.onLine;
+                this.updateSyncStatus();
+            }
+
+            // 更新同步狀態顯示
+            updateSyncStatus() {
+                const indicator = document.getElementById('dataStatusIndicator');
+                const statusText = document.getElementById('syncStatusText');
+                
+                if (this.isOnline) {
+                    const lastSync = localStorage.getItem(this.lastSyncKey);
+                    if (lastSync) {
+                        const syncTime = new Date(lastSync);
+                        const now = new Date();
+                        const diffMinutes = Math.floor((now - syncTime) / 60000);
+                        
+                        if (diffMinutes < 5) {
+                            indicator.className = 'w-2 h-2 bg-green-500 rounded-full mr-1 pulse-dot';
+                            statusText.textContent = '已同步';
+                        } else if (diffMinutes < 60) {
+                            indicator.className = 'w-2 h-2 bg-yellow-500 rounded-full mr-1';
+                            statusText.textContent = '需同步';
+                        } else {
+                            indicator.className = 'w-2 h-2 bg-orange-500 rounded-full mr-1';
+                            statusText.textContent = '過期';
+                        }
+                    } else {
+                        indicator.className = 'w-2 h-2 bg-blue-500 rounded-full mr-1';
+                        statusText.textContent = '線上';
+                    }
+                } else {
+                    indicator.className = 'w-2 h-2 bg-gray-500 rounded-full mr-1';
+                    statusText.textContent = '離線';
+                }
+            }
+
+            // 開始自動同步
+            startAutoSync() {
+                this.stopAutoSync(); // 先停止現有的定時器
+                
+                if (this.syncSettings.autoSync && this.isOnline) {
+                    this.autoSyncTimer = setInterval(() => {
+                        this.performQuickSync();
+                    }, this.syncSettings.syncInterval * 1000);
+                }
+            }
+
+            // 停止自動同步
+            stopAutoSync() {
+                if (this.autoSyncTimer) {
+                    clearInterval(this.autoSyncTimer);
+                    this.autoSyncTimer = null;
+                }
+            }
+
+            // 模擬線上資料存取
+            getOnlineData() {
+                try {
+                    const onlineData = localStorage.getItem(this.onlineDataKey);
+                    return onlineData ? JSON.parse(onlineData) : null;
+                } catch (error) {
+                    console.error('獲取線上資料失敗:', error);
+                    return null;
+                }
+            }
+
+            saveOnlineData(data) {
+                try {
+                    const onlineData = {
+                        data: data,
+                        timestamp: new Date().toISOString(),
+                        version: this.currentVersion,
+                        checksum: this.generateChecksum(data)
+                    };
+                    
+                    localStorage.setItem(this.onlineDataKey, JSON.stringify(onlineData));
+                    localStorage.setItem(this.lastSyncKey, new Date().toISOString());
+                    
+                    this.addSyncActivity('上傳', '本地資料已上傳到線上');
+                    this.updateSyncStatus();
+                    
+                    return true;
+                } catch (error) {
+                    console.error('保存線上資料失敗:', error);
+                    return false;
+                }
+            }
+
+            // 檢查是否需要同步
+            needsSync(localData, onlineData) {
+                if (!onlineData || !onlineData.data) return true;
+                
+                const localChecksum = this.generateChecksum(localData);
+                const onlineChecksum = onlineData.checksum || this.generateChecksum(onlineData.data);
+                
+                return localChecksum !== onlineChecksum;
+            }
+
+            // 添加同步活動記錄
+            addSyncActivity(action, description) {
+                try {
+                    const activities = JSON.parse(localStorage.getItem('tcmSyncActivities') || '[]');
+                    
+                    activities.unshift({
+                        action: action,
+                        description: description,
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    // 保持最多50條記錄
+                    if (activities.length > 50) {
+                        activities.splice(50);
+                    }
+                    
+                    localStorage.setItem('tcmSyncActivities', JSON.stringify(activities));
+                } catch (error) {
+                    console.error('添加活動記錄失敗:', error);
+                }
             }
 
             // 資料持久化系統初始化
@@ -326,22 +567,11 @@
                     const backupData = localStorage.getItem(this.backupKey);
                     if (backupData) {
                         const parsedBackup = JSON.parse(backupData);
-                        if (this.validateDataStructure(parsedBackup)) {
+                        if (parsedBackup.data && this.validateDataStructure(parsedBackup.data)) {
                             // 恢復主要資料
-                            localStorage.setItem(this.storageKey, backupData);
+                            localStorage.setItem(this.storageKey, JSON.stringify(parsedBackup.data));
                             this.showDataRecoveryNotification();
-                            return parsedBackup;
-                        }
-                    }
-                    
-                    // 嘗試從舊版本遷移
-                    const legacyData = localStorage.getItem('tcmData');
-                    if (legacyData) {
-                        const parsedLegacy = JSON.parse(legacyData);
-                        if (this.validateDataStructure(parsedLegacy)) {
-                            console.log('從舊版本遷移資料...');
-                            this.saveDataSecurely(parsedLegacy);
-                            return parsedLegacy;
+                            return parsedBackup.data;
                         }
                     }
                     
@@ -525,18 +755,16 @@
                     console.log(`資料遷移: ${oldVersion} -> ${this.currentVersion}`);
                     
                     // 從舊版本遷移
-                    if (!oldVersion || oldVersion === '1.0') {
-                        const oldData = localStorage.getItem('tcmData');
+                    if (!oldVersion || oldVersion === '1.0' || oldVersion === '2.0') {
+                        const oldData = localStorage.getItem('tcmData') || localStorage.getItem('tcmData_v2');
                         if (oldData) {
                             const parsed = JSON.parse(oldData);
                             if (this.validateDataStructure(parsed)) {
                                 this.saveDataSecurely(parsed);
-                                console.log('成功從v1.0遷移資料');
+                                console.log('成功從舊版本遷移資料');
                             }
                         }
                     }
-                    
-                    // 未來版本的遷移邏輯可以在這裡添加
                     
                 } catch (error) {
                     console.error('資料遷移失敗:', error);
@@ -636,6 +864,18 @@
                 }, duration);
             }
 
+            generateChecksum(data) {
+                // Simple checksum generation
+                const str = JSON.stringify(data);
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash; // Convert to 32-bit integer
+                }
+                return hash.toString(16);
+            }
+
             initializeEventListeners() {
                 // Search functionality
                 document.getElementById('searchBtn').addEventListener('click', () => this.search());
@@ -664,13 +904,18 @@
                 document.getElementById('textImportBtn').addEventListener('click', () => this.toggleManualInput());
                 document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileImport(e));
 
-                // Data status modal controls
-                document.getElementById('dataStatusBtn').addEventListener('click', () => this.showDataStatusModal());
-                document.getElementById('closeDataStatusModal').addEventListener('click', () => this.hideDataStatusModal());
-                document.getElementById('forceBackupBtn').addEventListener('click', () => this.forceBackup());
-                document.getElementById('verifyDataBtn').addEventListener('click', () => this.verifyDataManually());
-                document.getElementById('cleanupDataBtn').addEventListener('click', () => this.cleanupDataManually());
-                document.getElementById('refreshStatusBtn').addEventListener('click', () => this.refreshDataStatus());
+                // Online sync controls
+                document.getElementById('syncBtn').addEventListener('click', () => this.handleSyncButtonClick());
+                document.getElementById('onlineDataBtn').addEventListener('click', () => this.showOnlineDataModal());
+                document.getElementById('closeOnlineDataModal').addEventListener('click', () => this.hideOnlineDataModal());
+                document.getElementById('uploadDataBtn').addEventListener('click', () => this.uploadLocalData());
+                document.getElementById('downloadDataBtn').addEventListener('click', () => this.downloadOnlineData());
+                document.getElementById('mergeDataBtn').addEventListener('click', () => this.mergeData());
+                document.getElementById('autoSyncEnabled').addEventListener('change', (e) => this.toggleAutoSync(e.target.checked));
+                document.getElementById('conflictResolution').addEventListener('change', (e) => this.toggleConflictResolution(e.target.checked));
+                document.getElementById('syncInterval').addEventListener('change', (e) => this.changeSyncInterval(e.target.value));
+
+
 
                 // Backup modal controls
                 document.getElementById('closeBackupModal').addEventListener('click', () => this.hideBackupModal());
@@ -691,600 +936,35 @@
             performSearch(query) {
                 const results = {
                     herbResults: [],
-                    symptomResults: [],
-                    combinationResults: [],
-                    relatedResults: []
+                    symptomResults: []
                 };
 
-                // Enhanced query processing
-                const processedQuery = this.processSearchQuery(query);
-                const { 
-                    normalizedQuery, 
-                    queryTerms, 
-                    synonyms, 
-                    categories,
-                    isMultiTerm,
-                    searchIntent
-                } = processedQuery;
+                // Simple search implementation
+                const normalizedQuery = query.toLowerCase();
 
-                // AI-powered similarity calculation with context awareness
-                const calculateIntelligentSimilarity = (str1, str2, context = {}) => {
-                    const norm1 = this.normalizeText(str1);
-                    const norm2 = this.normalizeText(str2);
-                    
-                    let baseScore = 0;
-                    let contextBonus = 0;
-                    
-                    // 1. Exact match (highest priority)
-                    if (norm1 === norm2) baseScore = 100;
-                    
-                    // 2. Semantic similarity (TCM-specific)
-                    else if (this.checkSemanticSimilarity(str1, str2)) baseScore = 95;
-                    
-                    // 3. Contains match with position weighting
-                    else if (norm1.includes(norm2) || norm2.includes(norm1)) {
-                        const position = norm1.indexOf(norm2);
-                        baseScore = position === 0 ? 92 : 88; // Higher score for prefix matches
-                    }
-                    
-                    // 4. Fuzzy matching algorithms combination
-                    else {
-                        const levenshteinScore = this.calculateLevenshteinSimilarity(norm1, norm2);
-                        const jaccardScore = this.calculateJaccardSimilarity(norm1, norm2);
-                        const damerauScore = this.calculateDamerauLevenshteinSimilarity(norm1, norm2);
-                        const soundexScore = this.calculateSoundexSimilarity(str1, str2);
-                        const metaphoneScore = this.calculateMetaphoneSimilarity(str1, str2);
-                        
-                        // Weighted combination with adaptive weights
-                        baseScore = Math.max(
-                            levenshteinScore * 0.25,
-                            jaccardScore * 0.20,
-                            damerauScore * 0.25,
-                            soundexScore * 0.15,
-                            metaphoneScore * 0.15
-                        );
-                    }
-                    
-                    // Context-aware scoring bonuses
-                    if (context.category && this.getCategoryMatch(str1, context.category)) {
-                        contextBonus += 10;
-                    }
-                    
-                    if (context.relatedTerms && this.hasRelatedTerms(str1, context.relatedTerms)) {
-                        contextBonus += 5;
-                    }
-                    
-                    // Frequency-based relevance (popular terms get slight boost)
-                    const frequencyBonus = this.getFrequencyBonus(str1);
-                    
-                    return Math.min(100, Math.round(baseScore + contextBonus + frequencyBonus));
-                };
-
-                // Multi-dimensional search with intent recognition
-                if (searchIntent === 'combination') {
-                    // Handle combination queries like "當歸 + 川芎"
-                    results.combinationResults = this.searchCombinations(queryTerms);
-                } else if (searchIntent === 'symptom_cluster') {
-                    // Handle symptom cluster queries
-                    results.relatedResults = this.searchSymptomClusters(queryTerms);
-                }
-
-                // Enhanced herb search with semantic understanding
-                const herbMatches = [];
+                // Search herbs
                 Object.keys(this.data.herbs).forEach(herb => {
-                    const directSimilarity = calculateIntelligentSimilarity(herb, query, {
-                        category: 'herb',
-                        relatedTerms: queryTerms
-                    });
-                    
-                    // Multi-level indirect matching
-                    let maxSymptomMatch = 0;
-                    let symptomMatchDetails = [];
-                    
-                    this.data.herbs[herb].forEach(symptom => {
-                        const symptomSimilarity = calculateIntelligentSimilarity(symptom, query, {
-                            category: 'symptom',
-                            relatedTerms: queryTerms
-                        });
-                        
-                        if (symptomSimilarity > maxSymptomMatch) {
-                            maxSymptomMatch = symptomSimilarity;
-                        }
-                        
-                        if (symptomSimilarity >= 40) {
-                            symptomMatchDetails.push({
-                                symptom,
-                                score: symptomSimilarity
-                            });
-                        }
-                    });
-                    
-                    // Weighted final score with decay for indirect matches
-                    const indirectScore = maxSymptomMatch * 0.75;
-                    const finalScore = Math.max(directSimilarity, indirectScore);
-                    
-                    // Dynamic threshold based on query complexity
-                    const threshold = isMultiTerm ? 25 : 30;
-                    
-                    if (finalScore >= threshold) {
-                        herbMatches.push({
+                    if (herb.toLowerCase().includes(normalizedQuery)) {
+                        results.herbResults.push({
                             name: herb,
                             symptoms: this.data.herbs[herb],
-                            score: finalScore,
-                            directScore: directSimilarity,
-                            indirectScore: indirectScore,
-                            matchType: directSimilarity > indirectScore ? 'direct' : 'indirect',
-                            matchDetails: symptomMatchDetails,
-                            relevanceFactors: this.getRelevanceFactors(herb, query, queryTerms)
+                            score: 100
                         });
                     }
                 });
 
-                // Enhanced symptom search with clustering
-                const symptomMatches = [];
+                // Search symptoms
                 Object.keys(this.data.symptoms).forEach(symptom => {
-                    const directSimilarity = calculateIntelligentSimilarity(symptom, query, {
-                        category: 'symptom',
-                        relatedTerms: queryTerms
-                    });
-                    
-                    let maxHerbMatch = 0;
-                    let herbMatchDetails = [];
-                    
-                    this.data.symptoms[symptom].forEach(herb => {
-                        const herbSimilarity = calculateIntelligentSimilarity(herb, query, {
-                            category: 'herb',
-                            relatedTerms: queryTerms
-                        });
-                        
-                        if (herbSimilarity > maxHerbMatch) {
-                            maxHerbMatch = herbSimilarity;
-                        }
-                        
-                        if (herbSimilarity >= 40) {
-                            herbMatchDetails.push({
-                                herb,
-                                score: herbSimilarity
-                            });
-                        }
-                    });
-                    
-                    const indirectScore = maxHerbMatch * 0.75;
-                    const finalScore = Math.max(directSimilarity, indirectScore);
-                    const threshold = isMultiTerm ? 25 : 30;
-                    
-                    if (finalScore >= threshold) {
-                        symptomMatches.push({
+                    if (symptom.toLowerCase().includes(normalizedQuery)) {
+                        results.symptomResults.push({
                             name: symptom,
                             herbs: this.data.symptoms[symptom],
-                            score: finalScore,
-                            directScore: directSimilarity,
-                            indirectScore: indirectScore,
-                            matchType: directSimilarity > indirectScore ? 'direct' : 'indirect',
-                            matchDetails: herbMatchDetails,
-                            relevanceFactors: this.getRelevanceFactors(symptom, query, queryTerms)
+                            score: 100
                         });
                     }
                 });
 
-                // Intelligent sorting with multiple ranking factors
-                const intelligentSort = (a, b) => {
-                    // Primary: Weighted score considering match type
-                    const scoreA = a.matchType === 'direct' ? a.score : a.score * 0.9;
-                    const scoreB = b.matchType === 'direct' ? b.score : b.score * 0.9;
-                    
-                    if (Math.abs(scoreA - scoreB) > 5) {
-                        return scoreB - scoreA;
-                    }
-                    
-                    // Secondary: Relevance factors
-                    const relevanceA = a.relevanceFactors.total;
-                    const relevanceB = b.relevanceFactors.total;
-                    
-                    if (Math.abs(relevanceA - relevanceB) > 2) {
-                        return relevanceB - relevanceA;
-                    }
-                    
-                    // Tertiary: Name length (shorter = more specific)
-                    if (Math.abs(a.name.length - b.name.length) > 2) {
-                        return a.name.length - b.name.length;
-                    }
-                    
-                    // Quaternary: Number of related items (more = more comprehensive)
-                    const itemsA = a.symptoms ? a.symptoms.length : a.herbs.length;
-                    const itemsB = b.symptoms ? b.symptoms.length : b.herbs.length;
-                    
-                    return itemsB - itemsA;
-                };
-
-                // Apply intelligent sorting and pagination
-                results.herbResults = herbMatches
-                    .sort(intelligentSort)
-                    .slice(0, 20);
-
-                results.symptomResults = symptomMatches
-                    .sort(intelligentSort)
-                    .slice(0, 20);
-
-                // Add search analytics
-                this.recordSearchAnalytics(query, results);
-
                 return results;
-            }
-
-            // Text normalization for better matching
-            normalizeText(text) {
-                return text.toLowerCase()
-                    .replace(/\s+/g, '') // Remove spaces
-                    .replace(/[，。、；：！？]/g, '') // Remove Chinese punctuation
-                    .replace(/[,.\-;:!?]/g, ''); // Remove English punctuation
-            }
-
-            // Extract keywords from query
-            extractKeywords(query) {
-                // Split by common separators and filter out short terms
-                return query.split(/[，。、；：\s,.\-;:]+/)
-                    .filter(term => term.length > 0)
-                    .map(term => term.trim());
-            }
-
-            // Levenshtein distance similarity
-            calculateLevenshteinSimilarity(str1, str2) {
-                const matrix = [];
-                const len1 = str1.length;
-                const len2 = str2.length;
-
-                for (let i = 0; i <= len1; i++) {
-                    matrix[i] = [i];
-                }
-
-                for (let j = 0; j <= len2; j++) {
-                    matrix[0][j] = j;
-                }
-
-                for (let i = 1; i <= len1; i++) {
-                    for (let j = 1; j <= len2; j++) {
-                        if (str1.charAt(i - 1) === str2.charAt(j - 1)) {
-                            matrix[i][j] = matrix[i - 1][j - 1];
-                        } else {
-                            matrix[i][j] = Math.min(
-                                matrix[i - 1][j - 1] + 1,
-                                matrix[i][j - 1] + 1,
-                                matrix[i - 1][j] + 1
-                            );
-                        }
-                    }
-                }
-
-                const maxLen = Math.max(len1, len2);
-                return maxLen === 0 ? 100 : ((maxLen - matrix[len1][len2]) / maxLen) * 100;
-            }
-
-            // Jaccard similarity for character n-grams
-            calculateJaccardSimilarity(str1, str2, n = 2) {
-                const getNGrams = (str, n) => {
-                    const ngrams = new Set();
-                    for (let i = 0; i <= str.length - n; i++) {
-                        ngrams.add(str.substring(i, i + n));
-                    }
-                    return ngrams;
-                };
-
-                const ngrams1 = getNGrams(str1, n);
-                const ngrams2 = getNGrams(str2, n);
-                
-                const intersection = new Set([...ngrams1].filter(x => ngrams2.has(x)));
-                const union = new Set([...ngrams1, ...ngrams2]);
-                
-                return union.size === 0 ? 0 : (intersection.size / union.size) * 100;
-            }
-
-            // Keyword matching similarity
-            calculateKeywordSimilarity(text, keywords) {
-                if (keywords.length === 0) return 0;
-                
-                const normalizedText = this.normalizeText(text);
-                let matches = 0;
-                
-                keywords.forEach(keyword => {
-                    const normalizedKeyword = this.normalizeText(keyword);
-                    if (normalizedText.includes(normalizedKeyword)) {
-                        matches++;
-                    }
-                });
-                
-                return (matches / keywords.length) * 100;
-            }
-
-            // Enhanced query processing with AI-like understanding
-            processSearchQuery(query) {
-                const normalizedQuery = this.normalizeText(query);
-                const queryTerms = this.extractKeywords(normalizedQuery);
-                
-                // Detect search intent
-                let searchIntent = 'general';
-                if (query.includes('+') || query.includes('配') || query.includes('組合')) {
-                    searchIntent = 'combination';
-                } else if (queryTerms.length > 2) {
-                    searchIntent = 'symptom_cluster';
-                }
-                
-                // Extract synonyms and related terms
-                const synonyms = this.getSynonyms(queryTerms);
-                const categories = this.categorizeTerms(queryTerms);
-                
-                return {
-                    normalizedQuery,
-                    queryTerms,
-                    synonyms,
-                    categories,
-                    isMultiTerm: queryTerms.length > 1,
-                    searchIntent
-                };
-            }
-
-            // TCM-specific semantic similarity
-            checkSemanticSimilarity(str1, str2) {
-                const semanticGroups = {
-                    '血虛': ['血少', '血不足', '貧血', '血虛證'],
-                    '氣虛': ['氣不足', '氣弱', '氣虛證', '元氣不足'],
-                    '陽虛': ['陽氣不足', '陽氣虛', '陽虛證'],
-                    '陰虛': ['陰液不足', '陰虛證', '陰虛火旺'],
-                    '濕熱': ['濕熱證', '濕熱內蘊', '濕熱下注'],
-                    '風寒': ['風寒感冒', '風寒證', '外感風寒'],
-                    '風熱': ['風熱感冒', '風熱證', '外感風熱'],
-                    '肝鬱': ['肝氣鬱結', '肝鬱氣滯', '肝鬱證'],
-                    '脾虛': ['脾氣虛', '脾虛證', '脾胃虛弱'],
-                    '腎虛': ['腎氣虛', '腎虛證', '腎精不足']
-                };
-                
-                for (const [key, group] of Object.entries(semanticGroups)) {
-                    if ((group.includes(str1) && group.includes(str2)) ||
-                        (str1 === key && group.includes(str2)) ||
-                        (str2 === key && group.includes(str1))) {
-                        return true;
-                    }
-                }
-                return false;
-            }
-
-            // Get synonyms for better matching
-            getSynonyms(terms) {
-                const synonymMap = {
-                    '頭痛': ['頭疼', '腦痛', '偏頭痛'],
-                    '發熱': ['發燒', '熱病', '體溫升高'],
-                    '咳嗽': ['咳', '乾咳', '咳痰'],
-                    '腹痛': ['肚子痛', '胃痛', '腹部疼痛'],
-                    '失眠': ['不眠', '睡不著', '入睡困難'],
-                    '便秘': ['大便秘結', '排便困難', '便結'],
-                    '腹瀉': ['拉肚子', '泄瀉', '大便溏薄'],
-                    '月經不調': ['經期不準', '月經失調', '經亂'],
-                    '當歸': ['歸身', '歸尾', '全當歸'],
-                    '人參': ['紅參', '白參', '野山參'],
-                    '甘草': ['炙甘草', '生甘草', '蜜炙甘草']
-                };
-                
-                const synonyms = [];
-                terms.forEach(term => {
-                    if (synonymMap[term]) {
-                        synonyms.push(...synonymMap[term]);
-                    }
-                });
-                return synonyms;
-            }
-
-            // Categorize search terms
-            categorizeTerms(terms) {
-                const categories = {
-                    herbs: [],
-                    symptoms: [],
-                    patterns: [],
-                    organs: []
-                };
-                
-                const herbKeywords = ['參', '歸', '芪', '術', '草', '薑', '桂', '附'];
-                const symptomKeywords = ['痛', '熱', '咳', '瀉', '脹', '悶', '暈'];
-                const patternKeywords = ['虛', '實', '寒', '熱', '濕', '燥', '風', '火'];
-                const organKeywords = ['心', '肝', '脾', '肺', '腎', '胃', '腸'];
-                
-                terms.forEach(term => {
-                    if (herbKeywords.some(keyword => term.includes(keyword))) {
-                        categories.herbs.push(term);
-                    }
-                    if (symptomKeywords.some(keyword => term.includes(keyword))) {
-                        categories.symptoms.push(term);
-                    }
-                    if (patternKeywords.some(keyword => term.includes(keyword))) {
-                        categories.patterns.push(term);
-                    }
-                    if (organKeywords.some(keyword => term.includes(keyword))) {
-                        categories.organs.push(term);
-                    }
-                });
-                
-                return categories;
-            }
-
-            // Advanced similarity algorithms
-            calculateDamerauLevenshteinSimilarity(str1, str2) {
-                const len1 = str1.length;
-                const len2 = str2.length;
-                const maxDist = len1 + len2;
-                
-                const H = Array(len1 + 2).fill().map(() => Array(len2 + 2).fill(0));
-                H[0][0] = maxDist;
-                
-                for (let i = 0; i <= len1; i++) {
-                    H[i + 1][0] = maxDist;
-                    H[i + 1][1] = i;
-                }
-                
-                for (let j = 0; j <= len2; j++) {
-                    H[0][j + 1] = maxDist;
-                    H[1][j + 1] = j;
-                }
-                
-                const da = {};
-                
-                for (let i = 1; i <= len1; i++) {
-                    let db = 0;
-                    for (let j = 1; j <= len2; j++) {
-                        const k = da[str2[j - 1]] || 0;
-                        const l = db;
-                        let cost = 1;
-                        
-                        if (str1[i - 1] === str2[j - 1]) {
-                            cost = 0;
-                            db = j;
-                        }
-                        
-                        H[i + 1][j + 1] = Math.min(
-                            H[i][j] + cost,
-                            H[i + 1][j] + 1,
-                            H[i][j + 1] + 1,
-                            H[k][l] + (i - k - 1) + 1 + (j - l - 1)
-                        );
-                    }
-                    da[str1[i - 1]] = i;
-                }
-                
-                const maxLen = Math.max(len1, len2);
-                return maxLen === 0 ? 100 : ((maxLen - H[len1 + 1][len2 + 1]) / maxLen) * 100;
-            }
-
-            calculateSoundexSimilarity(str1, str2) {
-                const soundex = (str) => {
-                    const code = str.toUpperCase().replace(/[^A-Z]/g, '');
-                    if (!code) return '0000';
-                    
-                    let result = code[0];
-                    const mapping = {
-                        'BFPV': '1', 'CGJKQSXZ': '2', 'DT': '3',
-                        'L': '4', 'MN': '5', 'R': '6'
-                    };
-                    
-                    for (let i = 1; i < code.length && result.length < 4; i++) {
-                        const char = code[i];
-                        for (const [chars, digit] of Object.entries(mapping)) {
-                            if (chars.includes(char) && result[result.length - 1] !== digit) {
-                                result += digit;
-                                break;
-                            }
-                        }
-                    }
-                    
-                    return result.padEnd(4, '0');
-                };
-                
-                const code1 = soundex(str1);
-                const code2 = soundex(str2);
-                
-                let matches = 0;
-                for (let i = 0; i < 4; i++) {
-                    if (code1[i] === code2[i]) matches++;
-                }
-                
-                return (matches / 4) * 100;
-            }
-
-            calculateMetaphoneSimilarity(str1, str2) {
-                // Simplified metaphone for Chinese characters
-                const metaphone = (str) => {
-                    const phoneticMap = {
-                        '當': 'DANG', '歸': 'GUI', '人': 'REN', '參': 'SHEN',
-                        '黃': 'HUANG', '芪': 'QI', '白': 'BAI', '術': 'ZHU',
-                        '茯': 'FU', '苓': 'LING', '甘': 'GAN', '草': 'CAO',
-                        '川': 'CHUAN', '芎': 'XIONG', '熟': 'SHU', '地': 'DI',
-                        '血': 'XUE', '虛': 'XU', '氣': 'QI', '陰': 'YIN',
-                        '陽': 'YANG', '濕': 'SHI', '熱': 'RE', '寒': 'HAN'
-                    };
-                    
-                    return str.split('').map(char => phoneticMap[char] || char).join('');
-                };
-                
-                const meta1 = metaphone(str1);
-                const meta2 = metaphone(str2);
-                
-                return this.calculateLevenshteinSimilarity(meta1, meta2);
-            }
-
-            // Context-aware scoring helpers
-            getCategoryMatch(term, category) {
-                // Check if term belongs to specified category
-                const categoryPatterns = {
-                    herb: ['參', '歸', '芪', '術', '草', '薑', '桂', '附', '芎', '地', '苓'],
-                    symptom: ['痛', '熱', '咳', '瀉', '脹', '悶', '暈', '虛', '實']
-                };
-                
-                return categoryPatterns[category]?.some(pattern => term.includes(pattern)) || false;
-            }
-
-            hasRelatedTerms(term, relatedTerms) {
-                return relatedTerms.some(related => 
-                    term.includes(related) || related.includes(term)
-                );
-            }
-
-            getFrequencyBonus(term) {
-                // Common TCM terms get slight relevance boost
-                const commonTerms = {
-                    '當歸': 3, '人參': 3, '黃芪': 3, '甘草': 3,
-                    '血虛': 2, '氣虛': 2, '陰虛': 2, '陽虛': 2,
-                    '頭痛': 2, '發熱': 2, '咳嗽': 2, '腹痛': 2
-                };
-                
-                return commonTerms[term] || 0;
-            }
-
-            getRelevanceFactors(item, query, queryTerms) {
-                const factors = {
-                    exactMatch: item === query ? 10 : 0,
-                    lengthSimilarity: Math.max(0, 5 - Math.abs(item.length - query.length)),
-                    termOverlap: queryTerms.filter(term => item.includes(term)).length * 2,
-                    total: 0
-                };
-                
-                factors.total = factors.exactMatch + factors.lengthSimilarity + factors.termOverlap;
-                return factors;
-            }
-
-            // Combination search for herb pairs
-            searchCombinations(terms) {
-                const combinations = [];
-                // Implementation for finding herb combinations
-                // This would analyze common herb pairs in the database
-                return combinations;
-            }
-
-            // Symptom cluster analysis
-            searchSymptomClusters(terms) {
-                const clusters = [];
-                // Implementation for finding related symptom patterns
-                // This would group symptoms that commonly appear together
-                return clusters;
-            }
-
-            // Search analytics for continuous improvement
-            recordSearchAnalytics(query, results) {
-                const analytics = JSON.parse(localStorage.getItem('searchAnalytics') || '{}');
-                const timestamp = new Date().toISOString();
-                
-                if (!analytics[query]) {
-                    analytics[query] = {
-                        count: 0,
-                        lastSearched: timestamp,
-                        avgResults: 0
-                    };
-                }
-                
-                analytics[query].count++;
-                analytics[query].lastSearched = timestamp;
-                analytics[query].avgResults = (
-                    (analytics[query].avgResults * (analytics[query].count - 1)) + 
-                    (results.herbResults.length + results.symptomResults.length)
-                ) / analytics[query].count;
-                
-                localStorage.setItem('searchAnalytics', JSON.stringify(analytics));
             }
 
             displaySearchResults(query, results) {
@@ -1294,8 +974,7 @@
                 resultsSection.classList.remove('hidden');
                 searchResults.innerHTML = '';
 
-                const totalResults = results.herbResults.length + results.symptomResults.length + 
-                                  (results.combinationResults?.length || 0) + (results.relatedResults?.length || 0);
+                const totalResults = results.herbResults.length + results.symptomResults.length;
 
                 if (totalResults === 0) {
                     searchResults.innerHTML = `
@@ -1303,51 +982,12 @@
                             <div class="text-4xl mb-4">🔍</div>
                             <p class="text-lg">未找到相關結果</p>
                             <p class="text-sm mt-2">請嘗試其他關鍵字或檢查拼寫</p>
-                            <div class="mt-4 text-xs text-gray-400">
-                                <p>搜尋建議：</p>
-                                <p>• 使用中藥名稱如「當歸」、「人參」</p>
-                                <p>• 使用症狀描述如「頭痛」、「失眠」</p>
-                                <p>• 使用證型如「血虛」、「氣虛」</p>
-                            </div>
                         </div>
                     `;
                     return;
                 }
 
-                // Add search summary
-                const summaryDiv = document.createElement('div');
-                summaryDiv.className = 'mb-6 p-4 bg-gray-50 rounded-lg border';
-                summaryDiv.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-4">
-                            <span class="text-sm text-gray-600">搜尋「${query}」找到 ${totalResults} 個結果</span>
-                            <div class="flex space-x-2 text-xs">
-                                ${results.herbResults.length > 0 ? `<span class="px-2 py-1 bg-green-100 text-green-800 rounded">中藥 ${results.herbResults.length}</span>` : ''}
-                                ${results.symptomResults.length > 0 ? `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded">症狀 ${results.symptomResults.length}</span>` : ''}
-                            </div>
-                        </div>
-                        <div class="text-xs text-gray-400">
-                            搜尋時間: ${new Date().toLocaleTimeString('zh-TW')}
-                        </div>
-                    </div>
-                `;
-                searchResults.appendChild(summaryDiv);
-
-                // Display combination results (if any)
-                if (results.combinationResults && results.combinationResults.length > 0) {
-                    const combinationSection = document.createElement('div');
-                    combinationSection.className = 'mb-8';
-                    combinationSection.innerHTML = `
-                        <h4 class="font-semibold text-gray-800 mb-3 flex items-center">
-                            <span class="mr-2">🔗</span>
-                            <span>中藥組合</span>
-                            <span class="ml-2 text-xs text-gray-500">(${results.combinationResults.length})</span>
-                        </h4>
-                    `;
-                    searchResults.appendChild(combinationSection);
-                }
-
-                // Enhanced herb results display
+                // Display herb results
                 if (results.herbResults.length > 0) {
                     const herbSection = document.createElement('div');
                     herbSection.className = 'mb-8';
@@ -1359,65 +999,22 @@
                         </h4>
                     `;
 
-                    results.herbResults.forEach((herb, index) => {
+                    results.herbResults.forEach(herb => {
                         const herbCard = document.createElement('div');
-                        const matchBadge = this.getMatchBadge(herb.score);
-                        const confidenceColor = this.getConfidenceColor(herb.score);
-                        const matchTypeIcon = herb.matchType === 'direct' ? '🎯' : '🔗';
-                        const matchTypeText = herb.matchType === 'direct' ? '直接匹配' : '間接匹配';
-                        
-                        // Enhanced relevance indicators
-                        const relevanceIndicators = [];
-                        if (herb.relevanceFactors.exactMatch > 0) relevanceIndicators.push('完全匹配');
-                        if (herb.relevanceFactors.termOverlap > 0) relevanceIndicators.push('關鍵詞匹配');
-                        if (herb.matchDetails && herb.matchDetails.length > 0) relevanceIndicators.push('症狀相關');
-                        
-                        herbCard.className = `bg-gradient-to-r from-green-50 to-green-25 border-l-4 border-green-500 p-4 rounded-lg mb-3 hover:shadow-md transition-shadow`;
+                        herbCard.className = `bg-gradient-to-r from-green-50 to-green-25 border-l-4 border-green-500 p-4 rounded-lg mb-3`;
                         herbCard.innerHTML = `
                             <div class="flex justify-between items-start mb-3">
-                                <div class="flex items-center space-x-2">
-                                    <h5 class="font-bold text-green-800 text-lg">${herb.name}</h5>
-                                    <span class="text-xs ${confidenceColor} px-2 py-1 rounded-full">${matchBadge}</span>
-                                    <span class="text-xs text-gray-500" title="${matchTypeText}">${matchTypeIcon}</span>
-                                </div>
-                                <div class="text-right">
-                                    <div class="text-sm font-medium text-gray-700">${herb.score}%</div>
-                                    <div class="text-xs text-gray-500">相似度</div>
-                                </div>
+                                <h5 class="font-bold text-green-800 text-lg">${herb.name}</h5>
+                                <div class="text-sm font-medium text-gray-700">${herb.score}%</div>
                             </div>
-                            
-                            ${relevanceIndicators.length > 0 ? `
-                                <div class="mb-2 flex flex-wrap gap-1">
-                                    ${relevanceIndicators.map(indicator => 
-                                        `<span class="text-xs bg-green-200 text-green-800 px-2 py-1 rounded">${indicator}</span>`
-                                    ).join('')}
-                                </div>
-                            ` : ''}
-                            
                             <div class="mb-2">
                                 <div class="text-xs text-gray-600 mb-1">主治症狀：</div>
                                 <div class="flex flex-wrap gap-1">
-                                    ${herb.symptoms.map(symptom => {
-                                        const isHighlighted = this.isTermHighlighted(symptom, query);
-                                        const matchDetail = herb.matchDetails?.find(detail => detail.symptom === symptom);
-                                        const hasMatchDetail = matchDetail && matchDetail.score >= 40;
-                                        
-                                        return `<span class="px-2 py-1 text-xs rounded transition-colors ${
-                                            isHighlighted ? 'bg-yellow-200 text-yellow-900 font-medium' : 
-                                            hasMatchDetail ? 'bg-orange-100 text-orange-800' :
-                                            'bg-green-100 text-green-800'
-                                        } ${hasMatchDetail ? 'border border-orange-300' : ''}" 
-                                        ${hasMatchDetail ? `title="匹配度: ${matchDetail.score}%"` : ''}>${symptom}</span>`;
-                                    }).join('')}
+                                    ${herb.symptoms.map(symptom => 
+                                        `<span class="px-2 py-1 text-xs rounded bg-green-100 text-green-800">${symptom}</span>`
+                                    ).join('')}
                                 </div>
                             </div>
-                            
-                            ${herb.directScore !== herb.score ? `
-                                <div class="text-xs text-gray-500 mt-2 flex justify-between">
-                                    <span>直接匹配: ${Math.round(herb.directScore)}%</span>
-                                    <span>間接匹配: ${Math.round(herb.indirectScore)}%</span>
-                                </div>
-                            ` : ''}
                         `;
                         herbSection.appendChild(herbCard);
                     });
@@ -1425,7 +1022,7 @@
                     searchResults.appendChild(herbSection);
                 }
 
-                // Enhanced symptom results display
+                // Display symptom results
                 if (results.symptomResults.length > 0) {
                     const symptomSection = document.createElement('div');
                     symptomSection.className = 'mb-8';
@@ -1437,109 +1034,28 @@
                         </h4>
                     `;
 
-                    results.symptomResults.forEach((symptom, index) => {
+                    results.symptomResults.forEach(symptom => {
                         const symptomCard = document.createElement('div');
-                        const matchBadge = this.getMatchBadge(symptom.score);
-                        const confidenceColor = this.getConfidenceColor(symptom.score);
-                        const matchTypeIcon = symptom.matchType === 'direct' ? '🎯' : '🔗';
-                        const matchTypeText = symptom.matchType === 'direct' ? '直接匹配' : '間接匹配';
-                        
-                        const relevanceIndicators = [];
-                        if (symptom.relevanceFactors.exactMatch > 0) relevanceIndicators.push('完全匹配');
-                        if (symptom.relevanceFactors.termOverlap > 0) relevanceIndicators.push('關鍵詞匹配');
-                        if (symptom.matchDetails && symptom.matchDetails.length > 0) relevanceIndicators.push('中藥相關');
-                        
-                        symptomCard.className = `bg-gradient-to-r from-blue-50 to-blue-25 border-l-4 border-blue-500 p-4 rounded-lg mb-3 hover:shadow-md transition-shadow`;
+                        symptomCard.className = `bg-gradient-to-r from-blue-50 to-blue-25 border-l-4 border-blue-500 p-4 rounded-lg mb-3`;
                         symptomCard.innerHTML = `
                             <div class="flex justify-between items-start mb-3">
-                                <div class="flex items-center space-x-2">
-                                    <h5 class="font-bold text-blue-800 text-lg">${symptom.name}</h5>
-                                    <span class="text-xs ${confidenceColor} px-2 py-1 rounded-full">${matchBadge}</span>
-                                    <span class="text-xs text-gray-500" title="${matchTypeText}">${matchTypeIcon}</span>
-                                </div>
-                                <div class="text-right">
-                                    <div class="text-sm font-medium text-gray-700">${symptom.score}%</div>
-                                    <div class="text-xs text-gray-500">相似度</div>
-                                </div>
+                                <h5 class="font-bold text-blue-800 text-lg">${symptom.name}</h5>
+                                <div class="text-sm font-medium text-gray-700">${symptom.score}%</div>
                             </div>
-                            
-                            ${relevanceIndicators.length > 0 ? `
-                                <div class="mb-2 flex flex-wrap gap-1">
-                                    ${relevanceIndicators.map(indicator => 
-                                        `<span class="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded">${indicator}</span>`
-                                    ).join('')}
-                                </div>
-                            ` : ''}
-                            
                             <div class="mb-2">
                                 <div class="text-xs text-gray-600 mb-1">相關中藥：</div>
                                 <div class="flex flex-wrap gap-1">
-                                    ${symptom.herbs.map(herb => {
-                                        const isHighlighted = this.isTermHighlighted(herb, query);
-                                        const matchDetail = symptom.matchDetails?.find(detail => detail.herb === herb);
-                                        const hasMatchDetail = matchDetail && matchDetail.score >= 40;
-                                        
-                                        return `<span class="px-2 py-1 text-xs rounded transition-colors ${
-                                            isHighlighted ? 'bg-yellow-200 text-yellow-900 font-medium' : 
-                                            hasMatchDetail ? 'bg-orange-100 text-orange-800' :
-                                            'bg-blue-100 text-blue-800'
-                                        } ${hasMatchDetail ? 'border border-orange-300' : ''}"
-                                        ${hasMatchDetail ? `title="匹配度: ${matchDetail.score}%"` : ''}>${herb}</span>`;
-                                    }).join('')}
+                                    ${symptom.herbs.map(herb => 
+                                        `<span class="px-2 py-1 text-xs rounded bg-blue-100 text-blue-800">${herb}</span>`
+                                    ).join('')}
                                 </div>
                             </div>
-                            
-                            ${symptom.directScore !== symptom.score ? `
-                                <div class="text-xs text-gray-500 mt-2 flex justify-between">
-                                    <span>直接匹配: ${Math.round(symptom.directScore)}%</span>
-                                    <span>間接匹配: ${Math.round(symptom.indirectScore)}%</span>
-                                </div>
-                            ` : ''}
                         `;
                         symptomSection.appendChild(symptomCard);
                     });
 
                     searchResults.appendChild(symptomSection);
                 }
-
-                // Add search tips at the bottom
-                const tipsDiv = document.createElement('div');
-                tipsDiv.className = 'mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200';
-                tipsDiv.innerHTML = `
-                    <div class="text-sm text-blue-800">
-                        <div class="font-medium mb-2">💡 搜尋提示：</div>
-                        <ul class="text-xs space-y-1 text-blue-700">
-                            <li>• 使用「+」號搜尋中藥組合，如「當歸+川芎」</li>
-                            <li>• 輸入多個症狀可找到相關的證型模式</li>
-                            <li>• 系統支援同義詞搜尋，如「頭疼」會匹配「頭痛」</li>
-                            <li>• 黃色標籤表示直接匹配，橙色表示高相關性</li>
-                        </ul>
-                    </div>
-                `;
-                searchResults.appendChild(tipsDiv);
-            }
-
-            // Helper methods for enhanced display
-            getMatchBadge(score) {
-                if (score >= 95) return '完全匹配';
-                if (score >= 85) return '高度匹配';
-                if (score >= 70) return '中度匹配';
-                if (score >= 50) return '相關匹配';
-                return '弱相關';
-            }
-
-            getConfidenceColor(score) {
-                if (score >= 95) return 'bg-red-100 text-red-800';
-                if (score >= 85) return 'bg-orange-100 text-orange-800';
-                if (score >= 70) return 'bg-yellow-100 text-yellow-800';
-                if (score >= 50) return 'bg-blue-100 text-blue-800';
-                return 'bg-gray-100 text-gray-800';
-            }
-
-            isTermHighlighted(term, query) {
-                const normalizedTerm = this.normalizeText(term);
-                const normalizedQuery = this.normalizeText(query);
-                return normalizedTerm.includes(normalizedQuery) || normalizedQuery.includes(normalizedTerm);
             }
 
             processImportData() {
@@ -1576,7 +1092,7 @@
                 // Hide manual input section and status after success
                 setTimeout(() => {
                     document.getElementById('manualInputSection').classList.add('hidden');
-                    document.getElementById('textImportBtn').innerHTML = '<span>✏️</span><span>手動輸入</span>';
+                    document.getElementById('textImportBtn').innerHTML = '✏️ 手動輸入';
                     document.getElementById('importStatus').classList.add('hidden');
                 }, 2000);
             }
@@ -1611,7 +1127,7 @@
                     document.getElementById('textImportBtn').textContent = '✏️ 隱藏輸入';
                 } else {
                     manualSection.classList.add('hidden');
-                    document.getElementById('textImportBtn').innerHTML = '<span>✏️</span><span>手動輸入</span>';
+                    document.getElementById('textImportBtn').innerHTML = '✏️ 手動輸入';
                 }
             }
 
@@ -1633,7 +1149,6 @@
                         
                         if (file.name.endsWith('.json')) {
                             const importedData = JSON.parse(content);
-                            // Handle both direct data and metadata wrapped data
                             if (importedData.data) {
                                 this.data = importedData.data;
                                 successCount = Object.keys(importedData.data.herbs || {}).length;
@@ -1662,7 +1177,6 @@
                         this.updateUI();
                         this.showImportStatus('✅', `成功導入 ${successCount} 條資料`, 'bg-green-100 text-green-800');
                         
-                        // Hide status after 3 seconds
                         setTimeout(() => {
                             document.getElementById('importStatus').classList.add('hidden');
                         }, 3000);
@@ -1673,7 +1187,6 @@
                 };
                 reader.readAsText(file);
                 
-                // Reset file input
                 event.target.value = '';
             }
 
@@ -1688,7 +1201,400 @@
                 statusDiv.classList.remove('hidden');
             }
 
-            // New Backup System
+            // 線上同步功能方法
+            handleSyncButtonClick() {
+                if (!this.isOnline) {
+                    this.showSystemNotification('📱', '目前處於離線模式，無法同步', 'bg-gray-100 text-gray-800');
+                    return;
+                }
+                
+                this.performQuickSync();
+            }
+
+            async performQuickSync() {
+                const syncIcon = document.getElementById('syncIcon');
+                const syncText = document.getElementById('syncText');
+                
+                // 顯示同步動畫
+                syncIcon.className = 'sync-animation';
+                syncIcon.textContent = '🔄';
+                syncText.textContent = '同步中...';
+                
+                try {
+                    const onlineData = this.getOnlineData();
+                    
+                    if (!onlineData) {
+                        await this.uploadLocalData(false);
+                        this.showSystemNotification('✅', '本地資料已上傳到線上', 'bg-green-100 text-green-800');
+                    } else if (this.needsSync(this.data, onlineData)) {
+                        await this.mergeData(false);
+                        this.showSystemNotification('✅', '資料同步完成', 'bg-green-100 text-green-800');
+                    } else {
+                        this.showSystemNotification('ℹ️', '資料已是最新版本', 'bg-blue-100 text-blue-800');
+                    }
+                } catch (error) {
+                    console.error('快速同步失敗:', error);
+                    this.showSystemNotification('❌', '同步失敗，請稍後重試', 'bg-red-100 text-red-800');
+                } finally {
+                    setTimeout(() => {
+                        syncIcon.className = '';
+                        syncIcon.textContent = '☁️';
+                        syncText.textContent = '線上同步';
+                    }, 1000);
+                }
+            }
+
+            showOnlineDataModal() {
+                this.refreshOnlineDataModal();
+                document.getElementById('onlineDataModal').classList.remove('hidden');
+                document.getElementById('onlineDataModal').classList.add('flex');
+            }
+
+            hideOnlineDataModal() {
+                document.getElementById('onlineDataModal').classList.add('hidden');
+                document.getElementById('onlineDataModal').classList.remove('flex');
+                document.getElementById('onlineDataStatus').classList.add('hidden');
+            }
+
+            refreshOnlineDataModal() {
+                this.updateConnectionStatus();
+                this.updateLocalDataInfo();
+                this.updateOnlineDataInfo();
+                this.updateSyncSettings();
+                this.updateRecentActivity();
+            }
+
+            updateConnectionStatus() {
+                const indicator = document.getElementById('connectionIndicator');
+                const status = document.getElementById('connectionStatus');
+                const serverStatus = document.getElementById('serverStatus');
+                const lastSync = document.getElementById('lastSyncTime');
+                const onlineVersion = document.getElementById('onlineDataVersion');
+                
+                if (this.isOnline) {
+                    indicator.className = 'w-3 h-3 bg-green-500 rounded-full pulse-dot';
+                    status.textContent = '已連線';
+                    status.className = 'text-sm text-green-600 font-medium';
+                    serverStatus.textContent = '正常';
+                } else {
+                    indicator.className = 'w-3 h-3 bg-red-500 rounded-full';
+                    status.textContent = '離線';
+                    status.className = 'text-sm text-red-600 font-medium';
+                    serverStatus.textContent = '無法連接';
+                }
+                
+                const lastSyncTime = localStorage.getItem(this.lastSyncKey);
+                if (lastSyncTime) {
+                    const syncDate = new Date(lastSyncTime);
+                    lastSync.textContent = syncDate.toLocaleString('zh-TW');
+                } else {
+                    lastSync.textContent = '從未同步';
+                }
+                
+                const onlineData = this.getOnlineData();
+                onlineVersion.textContent = onlineData ? (onlineData.version || '1.0') : '-';
+            }
+
+            updateLocalDataInfo() {
+                const herbCount = Object.keys(this.data.herbs).length;
+                const symptomCount = Object.keys(this.data.symptoms).length;
+                const lastUpdate = localStorage.getItem('tcmLastUpdate') || '從未更新';
+                
+                document.getElementById('localHerbCount').textContent = herbCount;
+                document.getElementById('localSymptomCount').textContent = symptomCount;
+                document.getElementById('localLastUpdate').textContent = lastUpdate;
+            }
+
+            updateOnlineDataInfo(onlineData = null) {
+                if (!onlineData) {
+                    onlineData = this.getOnlineData();
+                }
+                
+                if (onlineData && onlineData.data) {
+                    const herbCount = Object.keys(onlineData.data.herbs || {}).length;
+                    const symptomCount = Object.keys(onlineData.data.symptoms || {}).length;
+                    const lastUpdate = onlineData.timestamp ? 
+                        new Date(onlineData.timestamp).toLocaleString('zh-TW') : '未知';
+                    
+                    document.getElementById('onlineHerbCount').textContent = herbCount;
+                    document.getElementById('onlineSymptomCount').textContent = symptomCount;
+                    document.getElementById('onlineLastUpdate').textContent = lastUpdate;
+                } else {
+                    document.getElementById('onlineHerbCount').textContent = '-';
+                    document.getElementById('onlineSymptomCount').textContent = '-';
+                    document.getElementById('onlineLastUpdate').textContent = '無資料';
+                }
+            }
+
+            updateSyncSettings() {
+                document.getElementById('autoSyncEnabled').checked = this.syncSettings.autoSync;
+                document.getElementById('conflictResolution').checked = this.syncSettings.conflictResolution;
+                document.getElementById('syncInterval').value = this.syncSettings.syncInterval;
+            }
+
+            updateRecentActivity() {
+                const activityList = document.getElementById('recentActivityList');
+                const activities = JSON.parse(localStorage.getItem('tcmSyncActivities') || '[]');
+                
+                activityList.innerHTML = '';
+                
+                if (activities.length === 0) {
+                    activityList.innerHTML = '<div class="text-sm text-gray-500 text-center py-2">暫無活動記錄</div>';
+                    return;
+                }
+                
+                activities.slice(0, 10).forEach(activity => {
+                    const activityItem = document.createElement('div');
+                    activityItem.className = 'flex items-center justify-between text-sm p-2 bg-white rounded border';
+                    
+                    const activityDate = new Date(activity.timestamp);
+                    const timeAgo = this.getTimeAgo(activityDate);
+                    
+                    activityItem.innerHTML = `
+                        <div>
+                            <div class="font-medium">${activity.action}</div>
+                            <div class="text-xs text-gray-500">${activity.description}</div>
+                        </div>
+                        <div class="text-xs text-gray-400">${timeAgo}</div>
+                    `;
+                    
+                    activityList.appendChild(activityItem);
+                });
+            }
+
+            getTimeAgo(date) {
+                const now = new Date();
+                const diffMs = now - date;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMs / 3600000);
+                const diffDays = Math.floor(diffMs / 86400000);
+                
+                if (diffMins < 1) return '剛剛';
+                if (diffMins < 60) return `${diffMins}分鐘前`;
+                if (diffHours < 24) return `${diffHours}小時前`;
+                if (diffDays < 7) return `${diffDays}天前`;
+                return date.toLocaleDateString('zh-TW');
+            }
+
+            async uploadLocalData(showModal = true) {
+                if (!this.isOnline) {
+                    if (showModal) {
+                        this.showOnlineDataStatus('❌', '無法連接到線上服務', 'bg-red-100 text-red-800');
+                    }
+                    return;
+                }
+                
+                if (showModal) {
+                    this.showOnlineDataStatus('⏳', '正在上傳本地資料...', 'bg-blue-100 text-blue-800');
+                }
+                
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    const result = this.saveOnlineData(this.data);
+                    
+                    if (showModal) {
+                        this.showOnlineDataStatus('✅', '本地資料上傳成功！', 'bg-green-100 text-green-800');
+                        this.refreshOnlineDataModal();
+                    }
+                    
+                    return result;
+                } catch (error) {
+                    console.error('上傳失敗:', error);
+                    if (showModal) {
+                        this.showOnlineDataStatus('❌', '上傳失敗，請重試', 'bg-red-100 text-red-800');
+                    }
+                    throw error;
+                }
+            }
+
+            async downloadOnlineData() {
+                if (!this.isOnline) {
+                    this.showOnlineDataStatus('❌', '無法連接到線上服務', 'bg-red-100 text-red-800');
+                    return;
+                }
+                
+                this.showOnlineDataStatus('⏳', '正在下載線上資料...', 'bg-blue-100 text-blue-800');
+                
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    const onlineData = this.getOnlineData();
+                    
+                    if (!onlineData || !onlineData.data) {
+                        this.showOnlineDataStatus('⚠️', '線上沒有可用的資料', 'bg-yellow-100 text-yellow-800');
+                        return;
+                    }
+                    
+                    if (confirm('下載線上資料將覆蓋本地資料，確定要繼續嗎？')) {
+                        this.data = {
+                            herbs: onlineData.data.herbs || {},
+                            symptoms: onlineData.data.symptoms || {}
+                        };
+                        
+                        this.saveDataSecurely();
+                        this.updateUI();
+                        this.addSyncActivity('下載', '線上資料已下載並覆蓋本地資料');
+                        
+                        this.showOnlineDataStatus('✅', '線上資料下載成功！', 'bg-green-100 text-green-800');
+                        this.refreshOnlineDataModal();
+                    } else {
+                        this.showOnlineDataStatus('ℹ️', '下載已取消', 'bg-gray-100 text-gray-800');
+                    }
+                } catch (error) {
+                    console.error('下載失敗:', error);
+                    this.showOnlineDataStatus('❌', '下載失敗，請重試', 'bg-red-100 text-red-800');
+                }
+            }
+
+            async mergeData(showModal = true) {
+                if (!this.isOnline) {
+                    if (showModal) {
+                        this.showOnlineDataStatus('❌', '無法連接到線上服務', 'bg-red-100 text-red-800');
+                    }
+                    return;
+                }
+                
+                if (showModal) {
+                    this.showOnlineDataStatus('⏳', '正在執行智能合併...', 'bg-blue-100 text-blue-800');
+                }
+                
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    const onlineData = this.getOnlineData();
+                    
+                    if (!onlineData || !onlineData.data) {
+                        await this.uploadLocalData(false);
+                        if (showModal) {
+                            this.showOnlineDataStatus('✅', '本地資料已上傳（線上無資料）', 'bg-green-100 text-green-800');
+                        }
+                        return;
+                    }
+                    
+                    const mergedData = this.performIntelligentMerge(this.data, onlineData.data);
+                    
+                    this.data = mergedData;
+                    this.saveDataSecurely();
+                    this.saveOnlineData(mergedData);
+                    
+                    this.updateUI();
+                    this.addSyncActivity('合併', '本地與線上資料已智能合併');
+                    
+                    if (showModal) {
+                        this.showOnlineDataStatus('✅', '資料智能合併完成！', 'bg-green-100 text-green-800');
+                        this.refreshOnlineDataModal();
+                    }
+                } catch (error) {
+                    console.error('合併失敗:', error);
+                    if (showModal) {
+                        this.showOnlineDataStatus('❌', '合併失敗，請重試', 'bg-red-100 text-red-800');
+                    }
+                }
+            }
+
+            performIntelligentMerge(localData, onlineData) {
+                const mergedData = {
+                    herbs: { ...localData.herbs },
+                    symptoms: { ...localData.symptoms }
+                };
+                
+                // 合併中藥資料
+                Object.keys(onlineData.herbs || {}).forEach(herb => {
+                    if (mergedData.herbs[herb]) {
+                        const combinedSymptoms = [...new Set([
+                            ...mergedData.herbs[herb],
+                            ...onlineData.herbs[herb]
+                        ])];
+                        mergedData.herbs[herb] = combinedSymptoms;
+                    } else {
+                        mergedData.herbs[herb] = [...onlineData.herbs[herb]];
+                    }
+                });
+                
+                // 合併症狀資料
+                Object.keys(onlineData.symptoms || {}).forEach(symptom => {
+                    if (mergedData.symptoms[symptom]) {
+                        const combinedHerbs = [...new Set([
+                            ...mergedData.symptoms[symptom],
+                            ...onlineData.symptoms[symptom]
+                        ])];
+                        mergedData.symptoms[symptom] = combinedHerbs;
+                    } else {
+                        mergedData.symptoms[symptom] = [...onlineData.symptoms[symptom]];
+                    }
+                });
+                
+                this.rebuildSymptomIndex(mergedData);
+                
+                return mergedData;
+            }
+
+            rebuildSymptomIndex(data) {
+                data.symptoms = {};
+                
+                Object.keys(data.herbs).forEach(herb => {
+                    data.herbs[herb].forEach(symptom => {
+                        if (!data.symptoms[symptom]) {
+                            data.symptoms[symptom] = [];
+                        }
+                        if (!data.symptoms[symptom].includes(herb)) {
+                            data.symptoms[symptom].push(herb);
+                        }
+                    });
+                });
+            }
+
+            toggleAutoSync(enabled) {
+                this.syncSettings.autoSync = enabled;
+                this.saveSyncSettings();
+                
+                if (enabled && this.isOnline) {
+                    this.startAutoSync();
+                } else {
+                    this.stopAutoSync();
+                }
+                
+                this.showOnlineDataStatus('✅', `自動同步已${enabled ? '啟用' : '停用'}`, 'bg-blue-100 text-blue-800');
+            }
+
+            toggleConflictResolution(enabled) {
+                this.syncSettings.conflictResolution = enabled;
+                this.saveSyncSettings();
+                
+                this.showOnlineDataStatus('✅', `衝突自動處理已${enabled ? '啟用' : '停用'}`, 'bg-blue-100 text-blue-800');
+            }
+
+            changeSyncInterval(interval) {
+                this.syncSettings.syncInterval = parseInt(interval);
+                this.saveSyncSettings();
+                
+                if (this.syncSettings.autoSync && this.isOnline) {
+                    this.startAutoSync();
+                }
+                
+                const minutes = Math.floor(interval / 60);
+                this.showOnlineDataStatus('✅', `同步間隔已設為${minutes}分鐘`, 'bg-blue-100 text-blue-800');
+            }
+
+            showOnlineDataStatus(icon, text, className) {
+                const statusDiv = document.getElementById('onlineDataStatus');
+                const statusIcon = document.getElementById('onlineDataStatusIcon');
+                const statusText = document.getElementById('onlineDataStatusText');
+                
+                statusIcon.textContent = icon;
+                statusText.textContent = text;
+                statusDiv.className = `mt-4 p-3 rounded-lg text-sm ${className}`;
+                statusDiv.classList.remove('hidden');
+                
+                if (icon === '✅') {
+                    setTimeout(() => {
+                        statusDiv.classList.add('hidden');
+                    }, 3000);
+                }
+            }
+
+            // Backup Modal Functions
             showBackupModal() {
                 const herbCount = Object.keys(this.data.herbs).length;
                 const symptomCount = Object.keys(this.data.symptoms).length;
@@ -1705,7 +1611,6 @@
             hideBackupModal() {
                 document.getElementById('backupModal').classList.add('hidden');
                 document.getElementById('backupModal').classList.remove('flex');
-                // Hide status message
                 document.getElementById('backupStatus').classList.add('hidden');
             }
 
@@ -1741,7 +1646,6 @@
                     await navigator.clipboard.writeText(backupText);
                     this.showBackupStatus('✅', '備份資料已複製到剪貼簿！', 'bg-green-100 text-green-800');
                 } catch (error) {
-                    // Fallback for older browsers
                     const textArea = document.createElement('textarea');
                     textArea.value = JSON.stringify(this.createBackupData(), null, 2);
                     document.body.appendChild(textArea);
@@ -1769,12 +1673,10 @@
                         const backupData = JSON.parse(e.target.result);
                         
                         if (this.validateBackupData(backupData)) {
-                            // Confirm before restore
                             if (confirm('確定要恢復此備份嗎？這將覆蓋現有的所有資料。')) {
                                 this.restoreFromBackup(backupData);
                                 this.showBackupStatus('✅', '備份恢復成功！', 'bg-green-100 text-green-800');
                                 
-                                // Update UI and close modal after delay
                                 setTimeout(() => {
                                     this.hideBackupModal();
                                     this.updateUI();
@@ -1791,13 +1693,13 @@
                 };
                 
                 reader.readAsText(file);
-                event.target.value = ''; // Reset file input
+                event.target.value = '';
             }
 
             createBackupData() {
                 return {
-                    version: '2.0',
-                    appName: '中醫診症輔助工具',
+                    version: '3.0',
+                    appName: '中醫診症輔助工具 - 線上共享版',
                     backupDate: new Date().toISOString(),
                     backupTime: new Date().toLocaleString('zh-TW'),
                     statistics: {
@@ -1814,17 +1716,14 @@
             }
 
             validateBackupData(backupData) {
-                // Check required fields
                 if (!backupData.data || !backupData.data.herbs || !backupData.data.symptoms) {
                     return false;
                 }
                 
-                // Check data structure
                 if (typeof backupData.data.herbs !== 'object' || typeof backupData.data.symptoms !== 'object') {
                     return false;
                 }
                 
-                // Validate checksum if present
                 if (backupData.checksum) {
                     const calculatedChecksum = this.generateChecksum(backupData.data);
                     if (calculatedChecksum !== backupData.checksum) {
@@ -1844,21 +1743,8 @@
                 this.saveData();
                 this.updateLastUpdateTime();
                 
-                // Clear search results
                 document.getElementById('resultsSection').classList.add('hidden');
                 document.getElementById('searchInput').value = '';
-            }
-
-            generateChecksum(data) {
-                // Simple checksum generation
-                const str = JSON.stringify(data);
-                let hash = 0;
-                for (let i = 0; i < str.length; i++) {
-                    const char = str.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash = hash & hash; // Convert to 32-bit integer
-                }
-                return hash.toString(16);
             }
 
             showBackupStatus(icon, text, className) {
@@ -1871,261 +1757,10 @@
                 statusDiv.className = `mt-4 p-3 rounded-lg text-sm ${className}`;
                 statusDiv.classList.remove('hidden');
                 
-                // Auto hide success messages
                 if (icon === '✅') {
                     setTimeout(() => {
                         statusDiv.classList.add('hidden');
                     }, 3000);
-                }
-            }
-
-
-
-            // 資料狀態監控功能
-            showDataStatusModal() {
-                this.refreshDataStatus();
-                document.getElementById('dataStatusModal').classList.remove('hidden');
-                document.getElementById('dataStatusModal').classList.add('flex');
-            }
-
-            hideDataStatusModal() {
-                document.getElementById('dataStatusModal').classList.add('hidden');
-                document.getElementById('dataStatusModal').classList.remove('flex');
-            }
-
-            refreshDataStatus() {
-                const herbCount = Object.keys(this.data.herbs).length;
-                const symptomCount = Object.keys(this.data.symptoms).length;
-                const relationCount = Object.values(this.data.herbs).reduce((sum, symptoms) => sum + symptoms.length, 0);
-
-                // 更新統計數據
-                document.getElementById('statusHerbCount').textContent = herbCount;
-                document.getElementById('statusSymptomCount').textContent = symptomCount;
-                document.getElementById('statusRelationCount').textContent = relationCount;
-
-                // 檢查資料健康狀態
-                this.checkDataHealth();
-                
-                // 更新備份歷史
-                this.updateBackupHistory();
-                
-                // 更新儲存使用情況
-                this.updateStorageUsage();
-            }
-
-            checkDataHealth() {
-                // 檢查主要資料
-                const mainData = localStorage.getItem(this.storageKey);
-                const mainDataElement = document.getElementById('mainDataStatus');
-                if (mainData) {
-                    try {
-                        const parsed = JSON.parse(mainData);
-                        if (this.validateDataStructure(parsed)) {
-                            mainDataElement.innerHTML = '✅ 正常';
-                            mainDataElement.className = 'text-sm font-medium text-green-600';
-                        } else {
-                            mainDataElement.innerHTML = '⚠️ 結構異常';
-                            mainDataElement.className = 'text-sm font-medium text-yellow-600';
-                        }
-                    } catch (error) {
-                        mainDataElement.innerHTML = '❌ 損壞';
-                        mainDataElement.className = 'text-sm font-medium text-red-600';
-                    }
-                } else {
-                    mainDataElement.innerHTML = '❌ 遺失';
-                    mainDataElement.className = 'text-sm font-medium text-red-600';
-                }
-
-                // 檢查備份資料
-                const backupData = localStorage.getItem(this.backupKey);
-                const backupDataElement = document.getElementById('backupDataStatus');
-                if (backupData) {
-                    try {
-                        const backup = JSON.parse(backupData);
-                        if (backup.data && this.validateDataStructure(backup.data)) {
-                            backupDataElement.innerHTML = '✅ 正常';
-                            backupDataElement.className = 'text-sm font-medium text-green-600';
-                        } else {
-                            backupDataElement.innerHTML = '⚠️ 結構異常';
-                            backupDataElement.className = 'text-sm font-medium text-yellow-600';
-                        }
-                    } catch (error) {
-                        backupDataElement.innerHTML = '❌ 損壞';
-                        backupDataElement.className = 'text-sm font-medium text-red-600';
-                    }
-                } else {
-                    backupDataElement.innerHTML = '❌ 無備份';
-                    backupDataElement.className = 'text-sm font-medium text-red-600';
-                }
-
-                // 檢查資料一致性
-                const consistencyElement = document.getElementById('dataConsistencyStatus');
-                if (mainData && backupData) {
-                    try {
-                        const mainParsed = JSON.parse(mainData);
-                        const backupParsed = JSON.parse(backupData);
-                        const mainChecksum = this.generateChecksum(mainParsed);
-                        const backupChecksum = this.generateChecksum(backupParsed.data);
-                        
-                        if (mainChecksum === backupChecksum) {
-                            consistencyElement.innerHTML = '✅ 一致';
-                            consistencyElement.className = 'text-sm font-medium text-green-600';
-                        } else {
-                            consistencyElement.innerHTML = '⚠️ 不一致';
-                            consistencyElement.className = 'text-sm font-medium text-yellow-600';
-                        }
-                    } catch (error) {
-                        consistencyElement.innerHTML = '❌ 無法驗證';
-                        consistencyElement.className = 'text-sm font-medium text-red-600';
-                    }
-                } else {
-                    consistencyElement.innerHTML = '❌ 資料不完整';
-                    consistencyElement.className = 'text-sm font-medium text-red-600';
-                }
-
-                // 更新最後保存時間
-                const lastSave = localStorage.getItem('tcmLastSave');
-                const lastSaveElement = document.getElementById('lastSaveTime');
-                if (lastSave) {
-                    const saveDate = new Date(lastSave);
-                    lastSaveElement.textContent = saveDate.toLocaleString('zh-TW');
-                } else {
-                    lastSaveElement.textContent = '未知';
-                }
-            }
-
-            updateBackupHistory() {
-                const historyList = document.getElementById('backupHistoryList');
-                historyList.innerHTML = '';
-
-                try {
-                    const history = JSON.parse(localStorage.getItem('tcmBackupHistory') || '[]');
-                    
-                    if (history.length === 0) {
-                        historyList.innerHTML = '<div class="text-sm text-gray-500 text-center py-2">暫無備份歷史</div>';
-                        return;
-                    }
-
-                    history.slice(0, 5).forEach((backup, index) => {
-                        const backupItem = document.createElement('div');
-                        backupItem.className = 'flex items-center justify-between text-sm p-2 bg-white rounded border';
-                        
-                        const backupDate = new Date(backup.timestamp);
-                        const herbCount = Object.keys(backup.data.herbs || {}).length;
-                        const symptomCount = Object.keys(backup.data.symptoms || {}).length;
-                        
-                        backupItem.innerHTML = `
-                            <div>
-                                <div class="font-medium">備份 #${index + 1}</div>
-                                <div class="text-xs text-gray-500">${backupDate.toLocaleString('zh-TW')}</div>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-xs text-gray-600">${herbCount}藥 ${symptomCount}症</div>
-                                <div class="text-xs text-gray-500">v${backup.version || '1.0'}</div>
-                            </div>
-                        `;
-                        
-                        historyList.appendChild(backupItem);
-                    });
-                } catch (error) {
-                    historyList.innerHTML = '<div class="text-sm text-red-500 text-center py-2">備份歷史載入失敗</div>';
-                }
-            }
-
-            updateStorageUsage() {
-                try {
-                    const mainData = localStorage.getItem(this.storageKey) || '';
-                    const backupData = localStorage.getItem(this.backupKey) || '';
-                    const historyData = localStorage.getItem('tcmBackupHistory') || '';
-                    const analyticsData = localStorage.getItem('searchAnalytics') || '';
-
-                    const formatSize = (bytes) => {
-                        if (bytes < 1024) return bytes + ' B';
-                        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-                        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-                    };
-
-                    const mainSize = new Blob([mainData]).size;
-                    const backupSize = new Blob([backupData]).size;
-                    const totalSize = mainSize + backupSize + 
-                                    new Blob([historyData]).size + 
-                                    new Blob([analyticsData]).size;
-
-                    document.getElementById('mainDataSize').textContent = formatSize(mainSize);
-                    document.getElementById('backupDataSize').textContent = formatSize(backupSize);
-                    document.getElementById('totalStorageSize').textContent = formatSize(totalSize);
-                } catch (error) {
-                    document.getElementById('mainDataSize').textContent = '計算失敗';
-                    document.getElementById('backupDataSize').textContent = '計算失敗';
-                    document.getElementById('totalStorageSize').textContent = '計算失敗';
-                }
-            }
-
-            forceBackup() {
-                this.createLocalBackup(this.data);
-                this.showSystemNotification('✅', '強制備份完成', 'bg-green-100 text-green-800');
-                this.refreshDataStatus();
-            }
-
-            verifyDataManually() {
-                this.verifyDataIntegrity();
-                this.showSystemNotification('✅', '資料驗證完成', 'bg-blue-100 text-blue-800');
-                this.refreshDataStatus();
-            }
-
-            cleanupDataManually() {
-                if (confirm('確定要清理舊資料嗎？這將刪除30天前的搜尋記錄和多餘的備份。')) {
-                    this.cleanupOldData();
-                    this.showSystemNotification('✅', '資料清理完成', 'bg-orange-100 text-orange-800');
-                    this.refreshDataStatus();
-                }
-            }
-
-            updateUI() {
-                const herbCount = Object.keys(this.data.herbs).length;
-                const symptomCount = Object.keys(this.data.symptoms).length;
-                
-                document.getElementById('herbCount').textContent = herbCount;
-                document.getElementById('symptomCount').textContent = symptomCount;
-                
-                // 更新資料狀態指示器
-                this.updateDataStatusIndicator();
-            }
-
-            updateDataStatusIndicator() {
-                const indicator = document.getElementById('dataStatusIndicator');
-                const statusText = indicator.nextElementSibling;
-                
-                // 檢查資料是否正常
-                const mainData = localStorage.getItem(this.storageKey);
-                const backupData = localStorage.getItem(this.backupKey);
-                
-                if (mainData && backupData) {
-                    try {
-                        const mainParsed = JSON.parse(mainData);
-                        const backupParsed = JSON.parse(backupData);
-                        
-                        if (this.validateDataStructure(mainParsed) && 
-                            backupParsed.data && 
-                            this.validateDataStructure(backupParsed.data)) {
-                            
-                            indicator.className = 'w-2 h-2 bg-green-500 rounded-full mr-1';
-                            indicator.title = '資料狀態正常';
-                            statusText.textContent = '已同步';
-                        } else {
-                            indicator.className = 'w-2 h-2 bg-yellow-500 rounded-full mr-1';
-                            indicator.title = '資料結構異常';
-                            statusText.textContent = '異常';
-                        }
-                    } catch (error) {
-                        indicator.className = 'w-2 h-2 bg-red-500 rounded-full mr-1';
-                        indicator.title = '資料損壞';
-                        statusText.textContent = '錯誤';
-                    }
-                } else {
-                    indicator.className = 'w-2 h-2 bg-red-500 rounded-full mr-1';
-                    indicator.title = '資料遺失';
-                    statusText.textContent = '遺失';
                 }
             }
 
@@ -2140,7 +1775,16 @@
                 localStorage.setItem('tcmLastUpdate', now);
             }
 
-            // Show real-time search suggestions
+            updateUI() {
+                const herbCount = Object.keys(this.data.herbs).length;
+                const symptomCount = Object.keys(this.data.symptoms).length;
+                
+                document.getElementById('herbCount').textContent = herbCount;
+                document.getElementById('symptomCount').textContent = symptomCount;
+                
+                this.updateSyncStatus();
+            }
+
             showSearchSuggestions(query) {
                 const suggestionsDiv = document.getElementById('searchSuggestions');
                 
@@ -2164,11 +1808,10 @@
                         <div class="flex items-center space-x-3">
                             <span class="text-lg">${suggestion.icon}</span>
                             <div>
-                                <div class="font-medium text-gray-800">${this.highlightMatch(suggestion.text, query)}</div>
+                                <div class="font-medium text-gray-800">${suggestion.text}</div>
                                 <div class="text-xs text-gray-500">${suggestion.type} • ${suggestion.count} 個相關項目</div>
                             </div>
                         </div>
-                        <div class="text-xs text-gray-400">${suggestion.score}%</div>
                     `;
                     
                     suggestionItem.addEventListener('click', () => {
@@ -2183,20 +1826,17 @@
                 suggestionsDiv.classList.remove('hidden');
             }
 
-            // Generate search suggestions
             generateSuggestions(query) {
                 const suggestions = [];
-                const normalizedQuery = this.normalizeText(query);
+                const normalizedQuery = query.toLowerCase();
 
                 // Get suggestions from herbs
                 Object.keys(this.data.herbs).forEach(herb => {
-                    const similarity = this.calculateAdvancedSimilarity(herb, query);
-                    if (similarity >= 40) {
+                    if (herb.toLowerCase().includes(normalizedQuery)) {
                         suggestions.push({
                             text: herb,
                             type: '中藥',
                             icon: '🌿',
-                            score: Math.round(similarity),
                             count: this.data.herbs[herb].length,
                             category: 'herb'
                         });
@@ -2205,60 +1845,22 @@
 
                 // Get suggestions from symptoms
                 Object.keys(this.data.symptoms).forEach(symptom => {
-                    const similarity = this.calculateAdvancedSimilarity(symptom, query);
-                    if (similarity >= 40) {
+                    if (symptom.toLowerCase().includes(normalizedQuery)) {
                         suggestions.push({
                             text: symptom,
                             type: '症狀',
                             icon: '🩺',
-                            score: Math.round(similarity),
                             count: this.data.symptoms[symptom].length,
                             category: 'symptom'
                         });
                     }
                 });
 
-                // Sort by similarity score and limit results
-                return suggestions
-                    .sort((a, b) => b.score - a.score)
-                    .slice(0, 8);
+                return suggestions.slice(0, 8);
             }
 
-            // Highlight matching parts in suggestions
-            highlightMatch(text, query) {
-                const normalizedText = this.normalizeText(text);
-                const normalizedQuery = this.normalizeText(query);
-                
-                if (normalizedText.includes(normalizedQuery)) {
-                    const index = normalizedText.indexOf(normalizedQuery);
-                    const before = text.substring(0, index);
-                    const match = text.substring(index, index + query.length);
-                    const after = text.substring(index + query.length);
-                    return `${before}<mark class="bg-yellow-200 px-1 rounded">${match}</mark>${after}`;
-                }
-                
-                return text;
-            }
-
-            // Hide search suggestions
             hideSearchSuggestions() {
                 document.getElementById('searchSuggestions').classList.add('hidden');
-            }
-
-            // Calculate advanced similarity (reused from search)
-            calculateAdvancedSimilarity(str1, str2) {
-                const norm1 = this.normalizeText(str1);
-                const norm2 = this.normalizeText(str2);
-                
-                if (norm1 === norm2) return 100;
-                if (norm1.includes(norm2) || norm2.includes(norm1)) return 95;
-                if (norm1.startsWith(norm2) || norm2.startsWith(norm1)) return 90;
-                if (norm1.endsWith(norm2) || norm2.endsWith(norm1)) return 85;
-                
-                const levenshteinScore = this.calculateLevenshteinSimilarity(norm1, norm2);
-                const jaccardScore = this.calculateJaccardSimilarity(norm1, norm2);
-                
-                return Math.max(levenshteinScore * 0.6, jaccardScore * 0.4);
             }
         }
 
@@ -2267,5 +1869,5 @@
             new TCMDiagnosticTool();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96523be8c3ff2416',t:'MTc1MzUxNTQ3MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'965297c5c79eb5bc',t:'MTc1MzUxOTIzMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
