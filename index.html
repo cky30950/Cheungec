@@ -3,6 +3,628 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中醫診症輔助工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
+        
+        // Firebase 配置 - 請替換為您的實際配置
+        const firebaseConfig = {
+            apiKey: "your-api-key-here",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "your-app-id"
+        };
+        
+        // 初始化 Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // 將 Firebase 實例掛載到 window 對象供其他腳本使用
+        window.firebaseDB = db;
+        window.firebaseModules = {
+            collection,
+            doc,
+            setDoc,
+            getDoc,
+            getDocs,
+            deleteDoc
+        };
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .search-result:hover {
+            transform: translateY(-2px);
+            transition: all 0.2s ease;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-lg border-b-4 border-green-500">
+        <div class="max-w-6xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-r from-green-600 to-green-700 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">中</span>
+                    </div>
+                    <h1 class="text-2xl font-bold text-gray-800">中醫診症輔助工具</h1>
+                </div>
+                <div class="text-sm text-gray-600">
+                    專業版 v1.0
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto px-6 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Panel - Search -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        智能搜尋
+                    </h2>
+                    
+                    <div class="relative mb-4">
+                        <input 
+                            type="text" 
+                            id="searchInput" 
+                            placeholder="輸入症狀或中藥名稱進行搜尋..."
+                            class="w-full px-4 py-3 pl-12 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none transition-colors"
+                        >
+                        <svg class="w-5 h-5 text-gray-400 absolute left-4 top-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+
+                    <div class="flex space-x-2 mb-4">
+                        <button id="searchBtn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                            搜尋
+                        </button>
+                        <button id="clearBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                            清除
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search Results -->
+                <div id="searchResults" class="bg-white rounded-xl shadow-lg p-6 min-h-96">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">搜尋結果</h3>
+                    <div id="resultsContainer" class="text-gray-500 text-center py-12">
+                        請輸入症狀或中藥名稱開始搜尋
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Data Import -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+                        </svg>
+                        資料導入
+                    </h2>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            格式：中藥名：症狀
+                        </label>
+                        <textarea 
+                            id="importData" 
+                            placeholder="例如：&#10;當歸：補血調經&#10;黃芪：補氣固表&#10;人參：大補元氣"
+                            class="w-full h-32 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none resize-none"
+                        ></textarea>
+                    </div>
+                    
+                    <button id="importBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors mb-4">
+                        導入資料
+                    </button>
+                    
+                    <div id="importStatus" class="text-sm"></div>
+                </div>
+
+                <!-- Firebase Status -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">雲端狀態</h3>
+                        <div id="connectionStatus" class="flex items-center">
+                            <div class="w-3 h-3 bg-gray-400 rounded-full mr-2 animate-pulse"></div>
+                            <span class="text-sm text-gray-500">檢測中</span>
+                        </div>
+                    </div>
+                    
+                    <div id="lastSync" class="text-sm text-gray-500 mb-3">從未同步</div>
+                    
+                    <button id="testConnectionBtn" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition-colors">
+                        🔍 測試連接
+                    </button>
+                </div>
+
+                <!-- Firebase Configuration Notice -->
+                <div id="configNotice" class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-r-lg">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-yellow-700">
+                                <strong>Firebase 配置提醒：</strong><br>
+                                請在代碼中替換您的 Firebase 配置信息才能使用雲端功能
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Statistics -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">資料統計</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">中藥總數：</span>
+                            <span id="herbCount" class="font-semibold text-green-600">0</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">症狀總數：</span>
+                            <span id="symptomCount" class="font-semibold text-blue-600">0</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">關聯總數：</span>
+                            <span id="relationCount" class="font-semibold text-purple-600">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 space-y-2">
+                        <button id="saveToFirebaseBtn" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition-colors">
+                            💾 保存到雲端
+                        </button>
+                        <button id="loadFromFirebaseBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-medium transition-colors">
+                            ☁️ 從雲端載入
+                        </button>
+                        <button id="clearDataBtn" class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-medium transition-colors">
+                            🗑️ 清除所有資料
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 資料存儲
+        let medicineData = {};
+        let symptomData = {};
+
+        // DOM 元素
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const importData = document.getElementById('importData');
+        const importBtn = document.getElementById('importBtn');
+        const importStatus = document.getElementById('importStatus');
+        const herbCount = document.getElementById('herbCount');
+        const symptomCount = document.getElementById('symptomCount');
+        const relationCount = document.getElementById('relationCount');
+        const clearDataBtn = document.getElementById('clearDataBtn');
+        const saveToFirebaseBtn = document.getElementById('saveToFirebaseBtn');
+        const loadFromFirebaseBtn = document.getElementById('loadFromFirebaseBtn');
+        const testConnectionBtn = document.getElementById('testConnectionBtn');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const lastSync = document.getElementById('lastSync');
+        const configNotice = document.getElementById('configNotice');
+
+        // 初始化示例資料
+        function initSampleData() {
+            const sampleData = [
+                '當歸：補血調經,活血止痛',
+                '黃芪：補氣固表,利水消腫',
+                '人參：大補元氣,復脈固脫',
+                '甘草：補脾益氣,清熱解毒',
+                '白朮：健脾益氣,燥濕利水',
+                '茯苓：利水滲濕,健脾寧心',
+                '川芎：活血行氣,祛風止痛',
+                '白芍：養血調經,平肝止痛'
+            ];
+            
+            sampleData.forEach(line => {
+                processDataLine(line);
+            });
+            updateStatistics();
+        }
+
+        // 處理單行資料
+        function processDataLine(line) {
+            const parts = line.split('：');
+            if (parts.length === 2) {
+                const medicine = parts[0].trim();
+                const symptoms = parts[1].split(',').map(s => s.trim());
+                
+                if (!medicineData[medicine]) {
+                    medicineData[medicine] = new Set();
+                }
+                
+                symptoms.forEach(symptom => {
+                    medicineData[medicine].add(symptom);
+                    
+                    if (!symptomData[symptom]) {
+                        symptomData[symptom] = new Set();
+                    }
+                    symptomData[symptom].add(medicine);
+                });
+            }
+        }
+
+        // 搜尋功能
+        function performSearch() {
+            const query = searchInput.value.trim();
+            if (!query) {
+                resultsContainer.innerHTML = '<div class="text-gray-500 text-center py-12">請輸入搜尋內容</div>';
+                return;
+            }
+
+            let results = [];
+            
+            // 搜尋中藥
+            if (medicineData[query]) {
+                const symptoms = Array.from(medicineData[query]);
+                results.push({
+                    type: 'medicine',
+                    name: query,
+                    items: symptoms,
+                    title: `中藥「${query}」的功效`
+                });
+            }
+            
+            // 搜尋症狀
+            if (symptomData[query]) {
+                const medicines = Array.from(symptomData[query]);
+                results.push({
+                    type: 'symptom',
+                    name: query,
+                    items: medicines,
+                    title: `症狀「${query}」的對應中藥`
+                });
+            }
+            
+            // 模糊搜尋
+            if (results.length === 0) {
+                // 搜尋包含關鍵字的中藥
+                Object.keys(medicineData).forEach(medicine => {
+                    if (medicine.includes(query)) {
+                        const symptoms = Array.from(medicineData[medicine]);
+                        results.push({
+                            type: 'medicine',
+                            name: medicine,
+                            items: symptoms,
+                            title: `中藥「${medicine}」的功效`
+                        });
+                    }
+                });
+                
+                // 搜尋包含關鍵字的症狀
+                Object.keys(symptomData).forEach(symptom => {
+                    if (symptom.includes(query)) {
+                        const medicines = Array.from(symptomData[symptom]);
+                        results.push({
+                            type: 'symptom',
+                            name: symptom,
+                            items: medicines,
+                            title: `症狀「${symptom}」的對應中藥`
+                        });
+                    }
+                });
+            }
+            
+            displayResults(results, query);
+        }
+
+        // 顯示搜尋結果
+        function displayResults(results, query) {
+            if (results.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="text-gray-400 text-lg mb-2">😔</div>
+                        <div class="text-gray-500">未找到「${query}」的相關資料</div>
+                        <div class="text-sm text-gray-400 mt-2">請嘗試其他關鍵字或導入更多資料</div>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            results.forEach((result, index) => {
+                const bgColor = result.type === 'medicine' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200';
+                const iconColor = result.type === 'medicine' ? 'text-green-600' : 'text-blue-600';
+                const icon = result.type === 'medicine' ? '🌿' : '🔍';
+                
+                html += `
+                    <div class="search-result ${bgColor} border-2 rounded-lg p-4 mb-4 fade-in" style="animation-delay: ${index * 0.1}s">
+                        <h4 class="font-semibold ${iconColor} mb-3 flex items-center">
+                            <span class="mr-2">${icon}</span>
+                            ${result.title}
+                        </h4>
+                        <div class="flex flex-wrap gap-2">
+                            ${result.items.map(item => `
+                                <span class="bg-white px-3 py-1 rounded-full text-sm border shadow-sm hover:shadow-md transition-shadow cursor-pointer" onclick="searchInput.value='${item}'; performSearch();">
+                                    ${item}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            resultsContainer.innerHTML = html;
+        }
+
+        // 導入資料
+        function importDataFunction() {
+            const data = importData.value.trim();
+            if (!data) {
+                showImportStatus('請輸入資料', 'error');
+                return;
+            }
+
+            const lines = data.split('\n').filter(line => line.trim());
+            let successCount = 0;
+            let errorCount = 0;
+
+            lines.forEach(line => {
+                try {
+                    processDataLine(line);
+                    successCount++;
+                } catch (error) {
+                    errorCount++;
+                }
+            });
+
+            updateStatistics();
+            
+            if (errorCount === 0) {
+                showImportStatus(`成功導入 ${successCount} 條資料`, 'success');
+                importData.value = '';
+            } else {
+                showImportStatus(`導入完成：成功 ${successCount} 條，失敗 ${errorCount} 條`, 'warning');
+            }
+        }
+
+        // 顯示導入狀態
+        function showImportStatus(message, type) {
+            const colors = {
+                success: 'text-green-600',
+                error: 'text-red-600',
+                warning: 'text-yellow-600'
+            };
+            
+            importStatus.innerHTML = `<div class="${colors[type]} font-medium">${message}</div>`;
+            
+            setTimeout(() => {
+                importStatus.innerHTML = '';
+            }, 3000);
+        }
+
+        // 更新統計資料
+        function updateStatistics() {
+            herbCount.textContent = Object.keys(medicineData).length;
+            
+            const allSymptoms = new Set();
+            Object.values(medicineData).forEach(symptoms => {
+                symptoms.forEach(symptom => allSymptoms.add(symptom));
+            });
+            symptomCount.textContent = allSymptoms.size;
+            
+            let totalRelations = 0;
+            Object.values(medicineData).forEach(symptoms => {
+                totalRelations += symptoms.size;
+            });
+            relationCount.textContent = totalRelations;
+        }
+
+        // Firebase 狀態管理
+        function updateConnectionStatus(message, color = 'gray') {
+            const statusColors = {
+                connected: 'bg-green-500',
+                error: 'bg-red-500',
+                testing: 'bg-yellow-500',
+                gray: 'bg-gray-400'
+            };
+            
+            connectionStatus.innerHTML = `
+                <div class="w-3 h-3 ${statusColors[color]} rounded-full mr-2 ${color === 'testing' ? 'animate-pulse' : ''}"></div>
+                <span class="text-sm text-gray-700">${message}</span>
+            `;
+        }
+
+        function checkInitialStatus() {
+            // 檢查是否為預設配置
+            if (!window.firebaseDB || window.location.hostname === 'localhost') {
+                updateConnectionStatus('未配置', 'error');
+            } else {
+                checkFirebaseConnection();
+            }
+        }
+
+        async function checkFirebaseConnection() {
+            try {
+                updateConnectionStatus('檢測中', 'testing');
+                
+                if (!window.firebaseDB) {
+                    updateConnectionStatus('未配置', 'error');
+                    return false;
+                }
+
+                const { doc, getDoc } = window.firebaseModules;
+                await getDoc(doc(window.firebaseDB, 'tcm_data', 'connection_test'));
+                
+                updateConnectionStatus('已連接', 'connected');
+                configNotice.style.display = 'none';
+                return true;
+                
+            } catch (error) {
+                updateConnectionStatus('連接失敗', 'error');
+                return false;
+            }
+        }
+
+        function updateLastSyncTime() {
+            const now = new Date();
+            const timeString = now.toLocaleString('zh-TW', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            lastSync.textContent = timeString;
+        }
+
+        // Firebase 數據庫操作
+        async function saveToFirebase() {
+            try {
+                if (!window.firebaseDB) {
+                    showImportStatus('Firebase 未正確配置', 'error');
+                    return;
+                }
+
+                const { collection, doc, setDoc } = window.firebaseModules;
+                
+                // 轉換 Set 為 Array 以便存儲
+                const medicineDataForSave = {};
+                Object.keys(medicineData).forEach(key => {
+                    medicineDataForSave[key] = Array.from(medicineData[key]);
+                });
+
+                const symptomDataForSave = {};
+                Object.keys(symptomData).forEach(key => {
+                    symptomDataForSave[key] = Array.from(symptomData[key]);
+                });
+
+                // 保存到 Firebase
+                await setDoc(doc(window.firebaseDB, 'tcm_data', 'medicine_data'), {
+                    data: medicineDataForSave,
+                    lastUpdated: new Date().toISOString()
+                });
+
+                await setDoc(doc(window.firebaseDB, 'tcm_data', 'symptom_data'), {
+                    data: symptomDataForSave,
+                    lastUpdated: new Date().toISOString()
+                });
+
+                showImportStatus('資料已成功保存到雲端', 'success');
+                updateLastSyncTime();
+            } catch (error) {
+                console.error('保存失敗:', error);
+                showImportStatus('保存失敗：' + error.message, 'error');
+            }
+        }
+
+        async function loadFromFirebase() {
+            try {
+                if (!window.firebaseDB) {
+                    showImportStatus('Firebase 未正確配置', 'error');
+                    return;
+                }
+
+                const { doc, getDoc } = window.firebaseModules;
+
+                // 從 Firebase 載入資料
+                const medicineDoc = await getDoc(doc(window.firebaseDB, 'tcm_data', 'medicine_data'));
+                const symptomDoc = await getDoc(doc(window.firebaseDB, 'tcm_data', 'symptom_data'));
+
+                if (medicineDoc.exists() && symptomDoc.exists()) {
+                    const medicineDataFromDB = medicineDoc.data().data;
+                    const symptomDataFromDB = symptomDoc.data().data;
+
+                    // 轉換 Array 回 Set
+                    medicineData = {};
+                    Object.keys(medicineDataFromDB).forEach(key => {
+                        medicineData[key] = new Set(medicineDataFromDB[key]);
+                    });
+
+                    symptomData = {};
+                    Object.keys(symptomDataFromDB).forEach(key => {
+                        symptomData[key] = new Set(symptomDataFromDB[key]);
+                    });
+
+                    updateStatistics();
+                    showImportStatus('資料已從雲端載入', 'success');
+                    updateLastSyncTime();
+                    resultsContainer.innerHTML = '<div class="text-gray-500 text-center py-12">資料已載入，請開始搜尋</div>';
+                } else {
+                    showImportStatus('雲端沒有找到資料', 'warning');
+                }
+            } catch (error) {
+                console.error('載入失敗:', error);
+                showImportStatus('載入失敗：' + error.message, 'error');
+            }
+        }
+
+        // 清除所有資料
+        function clearAllData() {
+            if (confirm('確定要清除所有資料嗎？此操作無法復原。')) {
+                medicineData = {};
+                symptomData = {};
+                updateStatistics();
+                resultsContainer.innerHTML = '<div class="text-gray-500 text-center py-12">資料已清除，請重新導入</div>';
+                showImportStatus('所有資料已清除', 'success');
+            }
+        }
+
+        // 事件監聽器
+        searchBtn.addEventListener('click', performSearch);
+        clearBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            resultsContainer.innerHTML = '<div class="text-gray-500 text-center py-12">請輸入症狀或中藥名稱開始搜尋</div>';
+        });
+        
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+        
+        importBtn.addEventListener('click', importDataFunction);
+        saveToFirebaseBtn.addEventListener('click', saveToFirebase);
+        loadFromFirebaseBtn.addEventListener('click', loadFromFirebase);
+        clearDataBtn.addEventListener('click', clearAllData);
+        testConnectionBtn.addEventListener('click', checkFirebaseConnection);
+
+        // 初始化
+        initSampleData();
+        
+        // 延遲檢查 Firebase 連接狀態
+        setTimeout(() => {
+            checkInitialStatus();
+        }, 1000);
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96542b5af3f28142',t:'MTc1MzUzNTc2NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>中醫診症輔助工具 - Firebase版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
