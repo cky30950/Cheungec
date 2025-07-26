@@ -3,1730 +3,386 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>中醫處方推薦工具</title>
+    <title>中醫診症輔助系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .search-result {
+            transition: all 0.3s ease;
+        }
+        .search-result:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
     </style>
 </head>
-<body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
-    <div class="container mx-auto px-4 py-6 max-w-5xl">
-        <!-- 標題 -->
-        <div class="text-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">🌿 中醫處方工具</h1>
-        </div>
-
-        <!-- 主搜索區 -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div class="space-y-4">
-                <input type="text" id="symptomSearch" placeholder="輸入症狀搜索處方，例如：頭痛,發熱" 
-                       class="w-full px-4 py-3 text-lg border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none">
-                
-                <!-- 快速選擇按鈕 -->
-                <div class="flex flex-wrap gap-2" id="quickSelectGroups"></div>
-                
-                <button onclick="searchPrescriptions()" 
-                        class="w-full bg-green-500 hover:bg-green-600 text-white text-lg font-medium py-3 rounded-lg">
-                    🔍 搜索處方
-                </button>
-            </div>
-
-            <!-- 搜索結果 -->
-            <div id="searchResults" class="mt-6 hidden">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">推薦處方</h3>
-                <div id="resultsList" class="space-y-4"></div>
-            </div>
-        </div>
-
-        <!-- 批量導入區 -->
-        <div class="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-4 mb-4">
-            <h3 class="text-lg font-bold text-gray-700 mb-3">📋 批量導入中藥症狀</h3>
-            <div class="space-y-3">
-                <div class="grid md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">📝 文本導入</label>
-                        <textarea id="bulkImportText" 
-                                  placeholder="格式：中藥名：症狀1,症狀2,症狀3&#10;例如：&#10;當歸：血虛,月經不調,便秘&#10;黃芪：氣虛,疲勞,自汗&#10;甘草：咳嗽,胃痛,解毒&#10;&#10;💡 支持大量數據導入（建議單次不超過10萬字）"
-                                  rows="6" 
-                                  maxlength="100000"
-                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-y"></textarea>
+<body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-lg border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">中</span>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">📁 文件導入</label>
-                        <div class="space-y-2">
-                            <button onclick="document.getElementById('bulkImportFile').click()" 
-                                    class="w-full bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                                📁 選擇文件導入
-                            </button>
-                            <button onclick="downloadTemplate()" 
-                                    class="w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                                📄 下載模板文件
-                            </button>
-                        </div>
-                    </div>
+                    <h1 class="text-2xl font-bold text-gray-800">中醫診症輔助系統</h1>
                 </div>
-                <div class="flex justify-between items-center">
-                    <div class="flex gap-2">
-                        <button onclick="processBulkImport()" 
-                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
-                            ⚡ 開始導入
-                        </button>
-                        <button onclick="clearBulkImport()" 
-                                class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
-                            🧹 清空輸入
-                        </button>
-                    </div>
-                    <div id="charCount" class="text-sm text-gray-500">
-                        字數：0 / 100,000
-                    </div>
-                </div>
-            </div>
-            <input type="file" id="bulkImportFile" accept=".txt,.csv" style="display: none;" onchange="loadBulkImportFile(event)">
-        </div>
-
-        <!-- 標籤頁導航 -->
-        <div class="bg-white rounded-lg shadow-md mb-6">
-            <div class="flex border-b">
-                <button onclick="showTab('groups')" id="groupsTab" 
-                        class="flex-1 py-3 px-4 text-center font-medium border-b-2 border-green-500 text-green-600">
-                    症狀分組
-                </button>
-                <button onclick="showTab('symptoms')" id="symptomsTab" 
-                        class="flex-1 py-3 px-4 text-center font-medium text-gray-500 hover:text-gray-700">
-                    症狀管理
-                </button>
-                <button onclick="showTab('prescriptions')" id="prescriptionsTab" 
-                        class="flex-1 py-3 px-4 text-center font-medium text-gray-500 hover:text-gray-700">
-                    處方管理
-                </button>
-            </div>
-
-            <!-- 症狀分組標籤頁 -->
-            <div id="groupsContent" class="p-6">
-                <div class="grid md:grid-cols-2 gap-6">
-                    <!-- 創建分組 -->
-                    <div>
-                        <h3 class="text-lg font-bold mb-4">創建新分組</h3>
-                        <div class="space-y-3">
-                            <input type="text" id="newGroupName" placeholder="分組名稱" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                            <input type="text" id="newGroupSymptoms" placeholder="症狀（用逗號分隔）" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                            <select id="groupColor" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                                <option value="red">🔴 紅色</option>
-                                <option value="blue">🔵 藍色</option>
-                                <option value="green">🟢 綠色</option>
-                                <option value="orange">🟠 橙色</option>
-                                <option value="purple">🟣 紫色</option>
-                                <option value="pink">🩷 粉色</option>
-                            </select>
-                            <button onclick="addSymptomGroup()" 
-                                    class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg">
-                                ➕ 創建分組
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- 現有分組 -->
-                    <div>
-                        <h3 class="text-lg font-bold mb-4">現有分組</h3>
-                        <div id="symptomGroupsList" class="space-y-3 max-h-80 overflow-y-auto"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 症狀管理標籤頁 -->
-            <div id="symptomsContent" class="p-6 hidden">
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div>
-                        <h3 class="text-lg font-bold mb-4">添加症狀</h3>
-                        <div class="flex gap-2">
-                            <input type="text" id="newSymptom" placeholder="輸入新症狀" 
-                                   class="flex-1 px-3 py-2 border border-gray-300 rounded-lg">
-                            <button onclick="addSymptom()" 
-                                    class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
-                                ➕ 添加
-                            </button>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 class="text-lg font-bold mb-4">所有症狀 (<span id="symptomCount">0</span>)</h3>
-                        <div id="symptomsList" class="max-h-80 overflow-y-auto space-y-2"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 處方管理標籤頁 -->
-            <div id="prescriptionsContent" class="p-6 hidden">
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div>
-                        <h3 class="text-lg font-bold mb-4">添加處方</h3>
-                        <div class="space-y-3">
-                            <input type="text" id="prescriptionName" placeholder="處方名稱" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                            <textarea id="prescriptionIngredients" placeholder="藥材組成（每行一味藥）" rows="4"
-                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg"></textarea>
-                            <input type="text" id="prescriptionSymptoms" placeholder="適用症狀（用逗號分隔）" 
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                            <button onclick="addPrescription()" 
-                                    class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 rounded-lg">
-                                ➕ 添加處方
-                            </button>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 class="text-lg font-bold mb-4">現有處方 (<span id="prescriptionCount">0</span>)</h3>
-                        <div id="prescriptionsList" class="max-h-80 overflow-y-auto space-y-3"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 完整數據備份系統 -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-4">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">💾 數據備份中心</h2>
-            
-            <!-- 備份操作區 -->
-            <div class="grid md:grid-cols-3 gap-4 mb-6">
-                <!-- 導出備份 -->
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h3 class="font-bold text-blue-800 mb-3">📤 導出備份</h3>
-                    <div class="space-y-2">
-                        <button onclick="exportFullBackup()" 
-                                class="w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            💾 完整備份
-                        </button>
-                        <button onclick="exportCompressedBackup()" 
-                                class="w-full bg-blue-400 hover:bg-blue-500 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            🗜️ 壓縮備份
-                        </button>
-                        <button onclick="exportReadableBackup()" 
-                                class="w-full bg-blue-300 hover:bg-blue-400 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            📄 可讀格式
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- 導入恢復 -->
-                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <h3 class="font-bold text-green-800 mb-3">📥 導入恢復</h3>
-                    <div class="space-y-2">
-                        <button onclick="document.getElementById('importBackupFile').click()" 
-                                class="w-full bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            📂 選擇備份文件
-                        </button>
-                        <button onclick="showImportOptions()" 
-                                class="w-full bg-green-400 hover:bg-green-500 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            ⚙️ 導入選項
-                        </button>
-                        <button onclick="validateBackupFile()" 
-                                class="w-full bg-green-300 hover:bg-green-400 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            🔍 驗證備份
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- 自動備份 -->
-                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                    <h3 class="font-bold text-purple-800 mb-3">🔄 自動備份</h3>
-                    <div class="space-y-2">
-                        <button onclick="toggleAutoBackup()" id="autoBackupBtn"
-                                class="w-full bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            🔄 啟用自動備份
-                        </button>
-                        <button onclick="showBackupHistory()" 
-                                class="w-full bg-purple-400 hover:bg-purple-500 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            📚 備份歷史
-                        </button>
-                        <button onclick="cleanupBackups()" 
-                                class="w-full bg-purple-300 hover:bg-purple-400 text-white px-3 py-2 rounded-lg font-medium text-sm">
-                            🧹 清理備份
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 備份狀態顯示 -->
-            <div class="bg-gray-50 rounded-lg p-4 mb-4">
-                <div class="grid md:grid-cols-4 gap-4 text-center">
-                    <div>
-                        <div class="text-2xl font-bold text-blue-600" id="totalBackups">0</div>
-                        <div class="text-sm text-gray-600">總備份數</div>
-                    </div>
-                    <div>
-                        <div class="text-2xl font-bold text-green-600" id="lastBackupTime">從未</div>
-                        <div class="text-sm text-gray-600">最後備份</div>
-                    </div>
-                    <div>
-                        <div class="text-2xl font-bold text-purple-600" id="autoBackupStatus">關閉</div>
-                        <div class="text-sm text-gray-600">自動備份</div>
-                    </div>
-                    <div>
-                        <div class="text-2xl font-bold text-orange-600" id="dataSize">0KB</div>
-                        <div class="text-sm text-gray-600">數據大小</div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 操作結果顯示 -->
-            <div id="backupResult" class="hidden p-4 rounded-lg mb-4"></div>
-            
-            <!-- 危險操作區 -->
-            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                <h3 class="font-bold text-red-800 mb-3">⚠️ 危險操作</h3>
-                <div class="flex flex-wrap gap-2">
-                    <button onclick="clearAllData()" 
-                            class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
-                        🗑️ 清空所有數據
+                <div class="flex space-x-3">
+                    <button onclick="exportData()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
+                        匯出資料
                     </button>
-                    <button onclick="resetToDefaults()" 
-                            class="bg-red-400 hover:bg-red-500 text-white px-4 py-2 rounded-lg font-medium text-sm">
-                        🔄 重置為默認
-                    </button>
-                    <button onclick="emergencyBackup()" 
-                            class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
-                        🚨 緊急備份
+                    <button onclick="showImportModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                        導入資料
                     </button>
                 </div>
             </div>
-            
-            <!-- 隱藏的文件輸入 -->
-            <input type="file" id="importBackupFile" accept=".json,.txt" style="display: none;" onchange="importBackupFile(event)">
         </div>
+    </header>
 
-        <!-- 導入選項模態框 -->
-        <div id="importOptionsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
-            <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="bg-white rounded-lg p-6 max-w-md w-full">
-                    <h3 class="text-lg font-bold mb-4">⚙️ 導入選項</h3>
-                    <div class="space-y-3">
-                        <label class="flex items-center">
-                            <input type="radio" name="importMode" value="replace" checked class="mr-2">
-                            <span>🔄 完全替換（清空現有數據）</span>
-                        </label>
-                        <label class="flex items-center">
-                            <input type="radio" name="importMode" value="merge" class="mr-2">
-                            <span>🔗 合併數據（保留現有數據）</span>
-                        </label>
-                        <label class="flex items-center">
-                            <input type="radio" name="importMode" value="append" class="mr-2">
-                            <span>➕ 僅添加新數據</span>
-                        </label>
+    <div class="max-w-7xl mx-auto px-6 py-8">
+        <!-- Search Section -->
+        <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">智能查詢系統</h2>
+                <p class="text-gray-600">輸入症狀查找對應中藥，或輸入中藥查找適用症狀</p>
+            </div>
+            
+            <div class="max-w-2xl mx-auto">
+                <div class="relative">
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        placeholder="請輸入症狀或中藥名稱..."
+                        class="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                        oninput="performSearch()"
+                    >
+                    <div class="absolute right-4 top-1/2 transform -translate-y-1/2">
+                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
                     </div>
-                    <div class="flex gap-2 mt-6">
-                        <button onclick="closeImportOptions()" 
-                                class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg">
-                            取消
-                        </button>
-                        <button onclick="confirmImportOptions()" 
-                                class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg">
-                            確定
-                        </button>
-                    </div>
+                </div>
+                
+                <div class="flex justify-center mt-4 space-x-4">
+                    <button onclick="setSearchMode('symptom')" id="symptomBtn" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                        按症狀查藥
+                    </button>
+                    <button onclick="setSearchMode('herb')" id="herbBtn" class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium">
+                        按中藥查症狀
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- 備份歷史模態框 -->
-        <div id="backupHistoryModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
-            <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-96 overflow-y-auto">
-                    <h3 class="text-lg font-bold mb-4">📚 備份歷史</h3>
-                    <div id="backupHistoryList" class="space-y-2"></div>
-                    <div class="flex justify-end mt-6">
-                        <button onclick="closeBackupHistory()" 
-                                class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">
-                            關閉
-                        </button>
-                    </div>
+        <!-- Results Section -->
+        <div id="resultsSection" class="hidden">
+            <div class="bg-white rounded-2xl shadow-xl p-8">
+                <h3 class="text-2xl font-bold text-gray-800 mb-6" id="resultsTitle">查詢結果</h3>
+                <div id="searchResults" class="grid gap-4"></div>
+            </div>
+        </div>
+
+        <!-- Data Overview -->
+        <div class="bg-white rounded-2xl shadow-xl p-8">
+            <h3 class="text-2xl font-bold text-gray-800 mb-6">資料庫概覽</h3>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
+                    <h4 class="text-xl font-semibold text-gray-800 mb-4">已收錄中藥</h4>
+                    <div id="herbsList" class="space-y-2 max-h-64 overflow-y-auto"></div>
+                </div>
+                <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6">
+                    <h4 class="text-xl font-semibold text-gray-800 mb-4">已收錄症狀</h4>
+                    <div id="symptomsList" class="space-y-2 max-h-64 overflow-y-auto"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        // 數據存儲
-        let symptoms = JSON.parse(localStorage.getItem('tcm_symptoms') || '[]');
-        let symptomGroups = JSON.parse(localStorage.getItem('tcm_symptom_groups') || '[]');
-        let prescriptions = JSON.parse(localStorage.getItem('tcm_prescriptions') || '[]');
+    <!-- Import Modal -->
+    <div id="importModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-gray-800">導入資料</h3>
+                <button onclick="hideImportModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="mb-6">
+                <p class="text-gray-600 mb-4">請按以下格式輸入資料，每行一組：</p>
+                <div class="bg-gray-100 rounded-lg p-4 mb-4">
+                    <code class="text-sm">中藥名：症狀1,症狀2,症狀3</code>
+                </div>
+                <p class="text-sm text-gray-500">範例：當歸：血虛,月經不調,產後腹痛</p>
+            </div>
+            
+            <textarea 
+                id="importData" 
+                placeholder="請輸入資料..."
+                class="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none resize-none"
+            ></textarea>
+            
+            <div class="flex justify-end space-x-4 mt-6">
+                <button onclick="hideImportModal()" class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
+                    取消
+                </button>
+                <button onclick="importData()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                    導入
+                </button>
+            </div>
+        </div>
+    </div>
 
-        // 備份系統配置
-        const BACKUP_CONFIG = {
-            maxBackups: 50,
-            autoBackupInterval: 5 * 60 * 1000, // 5分鐘
-            compressionLevel: 9,
-            encryptionEnabled: false
+    <script>
+        // 資料庫結構
+        let database = {
+            herbs: {}, // 中藥 -> 症狀列表
+            symptoms: {} // 症狀 -> 中藥列表
         };
 
-        let autoBackupEnabled = localStorage.getItem('tcm_auto_backup_enabled') === 'true';
-        let autoBackupTimer = null;
+        let searchMode = 'symptom'; // 'symptom' 或 'herb'
 
-        // 初始化示例數據
-        if (symptoms.length === 0) {
-            symptoms = ['頭痛', '發熱', '咳嗽', '腹痛', '失眠', '疲勞', '食慾不振', '噁心', '偏頭痛', '頭暈', '高熱', '低熱', '乾咳', '濕咳', '胃痛', '腹脹'];
-            localStorage.setItem('tcm_symptoms', JSON.stringify(symptoms));
-        }
-
-        if (symptomGroups.length === 0) {
-            symptomGroups = [
-                {
-                    name: '頭部症狀',
-                    symptoms: ['頭痛', '偏頭痛', '頭暈'],
-                    color: 'red'
-                },
-                {
-                    name: '發熱症狀',
-                    symptoms: ['發熱', '高熱', '低熱'],
-                    color: 'orange'
-                },
-                {
-                    name: '咳嗽症狀',
-                    symptoms: ['咳嗽', '乾咳', '濕咳'],
-                    color: 'blue'
-                },
-                {
-                    name: '腸胃症狀',
-                    symptoms: ['腹痛', '胃痛', '腹脹', '食慾不振', '噁心'],
-                    color: 'green'
-                }
-            ];
-            localStorage.setItem('tcm_symptom_groups', JSON.stringify(symptomGroups));
-        }
-
-        if (prescriptions.length === 0) {
-            prescriptions = [
-                {
-                    name: '銀翹散',
-                    ingredients: '金銀花 15g\n連翹 15g\n薄荷 6g\n牛蒡子 9g\n桔梗 6g\n甘草 5g',
-                    symptoms: ['發熱', '咳嗽', '頭痛']
-                },
-                {
-                    name: '逍遙散',
-                    ingredients: '柴胡 6g\n當歸 9g\n白芍 9g\n白朮 9g\n茯苓 9g\n甘草 3g',
-                    symptoms: ['腹痛', '疲勞', '失眠']
-                },
-                {
-                    name: '平胃散',
-                    ingredients: '蒼朮 12g\n厚朴 9g\n陳皮 6g\n甘草 3g',
-                    symptoms: ['腹痛', '食慾不振', '噁心']
-                }
-            ];
-            localStorage.setItem('tcm_prescriptions', JSON.stringify(prescriptions));
-        }
-
-        // ==================== 完整備份系統 ====================
-
-        // 生成備份數據
-        function generateBackupData(includeMetadata = true) {
-            const backupData = {
-                symptoms: symptoms,
-                symptomGroups: symptomGroups,
-                prescriptions: prescriptions
-            };
-
-            if (includeMetadata) {
-                backupData.metadata = {
-                    version: '2.0',
-                    timestamp: new Date().toISOString(),
-                    dataCount: {
-                        symptoms: symptoms.length,
-                        symptomGroups: symptomGroups.length,
-                        prescriptions: prescriptions.length
-                    },
-                    checksum: generateChecksum(backupData),
-                    userAgent: navigator.userAgent,
-                    exportType: 'full'
-                };
-            }
-
-            return backupData;
-        }
-
-        // 生成校驗和
-        function generateChecksum(data) {
-            const str = JSON.stringify(data);
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                const char = str.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash; // 轉換為32位整數
-            }
-            return Math.abs(hash).toString(16);
-        }
-
-        // 完整備份導出
-        function exportFullBackup() {
-            try {
-                const backupData = generateBackupData(true);
-                const dataStr = JSON.stringify(backupData, null, 2);
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                
-                downloadFile(dataStr, `中醫處方完整備份_${timestamp}.json`, 'application/json');
-                
-                // 保存到備份歷史
-                saveToBackupHistory(backupData, 'full');
-                
-                showBackupResult('✅ 完整備份已成功導出！包含所有數據和元數據。', 'success');
-                updateBackupStatus();
-                
-            } catch (error) {
-                showBackupResult('❌ 完整備份失敗：' + error.message, 'error');
-            }
-        }
-
-        // 壓縮備份導出
-        function exportCompressedBackup() {
-            try {
-                const backupData = generateBackupData(false);
-                const compressedData = compressData(backupData);
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                
-                downloadFile(compressedData, `中醫處方壓縮備份_${timestamp}.json`, 'application/json');
-                
-                showBackupResult('✅ 壓縮備份已成功導出！文件大小已優化。', 'success');
-                updateBackupStatus();
-                
-            } catch (error) {
-                showBackupResult('❌ 壓縮備份失敗：' + error.message, 'error');
-            }
-        }
-
-        // 可讀格式導出
-        function exportReadableBackup() {
-            try {
-                let readableContent = '# 中醫處方數據備份\n';
-                readableContent += `導出時間：${new Date().toLocaleString('zh-TW')}\n\n`;
-                
-                // 症狀列表
-                readableContent += '## 症狀列表\n';
-                symptoms.forEach((symptom, index) => {
-                    readableContent += `${index + 1}. ${symptom}\n`;
-                });
-                
-                // 症狀分組
-                readableContent += '\n## 症狀分組\n';
-                symptomGroups.forEach((group, index) => {
-                    readableContent += `${index + 1}. ${group.name}（${group.color}）\n`;
-                    readableContent += `   症狀：${group.symptoms.join('、')}\n\n`;
-                });
-                
-                // 處方列表
-                readableContent += '## 處方列表\n';
-                prescriptions.forEach((prescription, index) => {
-                    readableContent += `${index + 1}. ${prescription.name}\n`;
-                    readableContent += `   藥材：\n${prescription.ingredients.split('\n').map(ing => '   - ' + ing).join('\n')}\n`;
-                    readableContent += `   適用症狀：${prescription.symptoms.join('、')}\n\n`;
-                });
-                
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                downloadFile(readableContent, `中醫處方可讀備份_${timestamp}.txt`, 'text/plain');
-                
-                showBackupResult('✅ 可讀格式備份已成功導出！可用文本編輯器查看。', 'success');
-                
-            } catch (error) {
-                showBackupResult('❌ 可讀格式導出失敗：' + error.message, 'error');
-            }
-        }
-
-        // 數據壓縮
-        function compressData(data) {
-            // 移除不必要的空格和格式化
-            const compressed = {
-                s: data.symptoms,
-                sg: data.symptomGroups.map(g => ({
-                    n: g.name,
-                    s: g.symptoms,
-                    c: g.color
-                })),
-                p: data.prescriptions.map(p => ({
-                    n: p.name,
-                    i: p.ingredients,
-                    s: p.symptoms
-                })),
-                t: new Date().toISOString()
-            };
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadData();
+            updateOverview();
             
-            return JSON.stringify(compressed);
-        }
-
-        // 解壓縮數據
-        function decompressData(compressedStr) {
-            try {
-                const compressed = JSON.parse(compressedStr);
-                
-                if (compressed.s && compressed.sg && compressed.p) {
-                    // 壓縮格式
-                    return {
-                        symptoms: compressed.s,
-                        symptomGroups: compressed.sg.map(g => ({
-                            name: g.n,
-                            symptoms: g.s,
-                            color: g.c
-                        })),
-                        prescriptions: compressed.p.map(p => ({
-                            name: p.n,
-                            ingredients: p.i,
-                            symptoms: p.s
-                        })),
-                        metadata: {
-                            timestamp: compressed.t,
-                            exportType: 'compressed'
-                        }
-                    };
-                } else {
-                    // 標準格式
-                    return compressed;
-                }
-            } catch (error) {
-                throw new Error('數據格式無法識別');
-            }
-        }
-
-        // 文件下載
-        function downloadFile(content, filename, mimeType) {
-            const blob = new Blob([content], { type: mimeType + ';charset=utf-8' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            URL.revokeObjectURL(link.href);
-        }
-
-        // 導入備份文件
-        function importBackupFile(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            showBackupResult('📂 正在讀取備份文件...', 'info');
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const content = e.target.result;
-                    const backupData = decompressData(content);
-                    
-                    // 驗證數據完整性
-                    if (!validateBackupData(backupData)) {
-                        throw new Error('備份文件數據不完整或格式錯誤');
-                    }
-                    
-                    // 根據導入模式處理數據
-                    const importMode = getImportMode();
-                    processImportData(backupData, importMode);
-                    
-                } catch (error) {
-                    showBackupResult('❌ 導入失敗：' + error.message, 'error');
-                }
-            };
-            
-            reader.onerror = function() {
-                showBackupResult('❌ 文件讀取失敗，請檢查文件是否損壞', 'error');
-            };
-            
-            reader.readAsText(file, 'UTF-8');
-            event.target.value = '';
-        }
-
-        // 驗證備份數據
-        function validateBackupData(data) {
-            if (!data || typeof data !== 'object') return false;
-            
-            // 檢查必要字段
-            if (!Array.isArray(data.symptoms) || 
-                !Array.isArray(data.symptomGroups) || 
-                !Array.isArray(data.prescriptions)) {
-                return false;
-            }
-            
-            // 檢查症狀分組格式
-            for (let group of data.symptomGroups) {
-                if (!group.name || !Array.isArray(group.symptoms) || !group.color) {
-                    return false;
-                }
-            }
-            
-            // 檢查處方格式
-            for (let prescription of data.prescriptions) {
-                if (!prescription.name || !prescription.ingredients || !Array.isArray(prescription.symptoms)) {
-                    return false;
-                }
-            }
-            
-            return true;
-        }
-
-        // 處理導入數據
-        function processImportData(backupData, mode) {
-            let importStats = {
-                symptoms: { added: 0, updated: 0, skipped: 0 },
-                symptomGroups: { added: 0, updated: 0, skipped: 0 },
-                prescriptions: { added: 0, updated: 0, skipped: 0 }
-            };
-            
-            if (mode === 'replace') {
-                // 完全替換
-                symptoms = [...backupData.symptoms];
-                symptomGroups = [...backupData.symptomGroups];
-                prescriptions = [...backupData.prescriptions];
-                
-                importStats.symptoms.added = symptoms.length;
-                importStats.symptomGroups.added = symptomGroups.length;
-                importStats.prescriptions.added = prescriptions.length;
-                
-            } else if (mode === 'merge') {
-                // 合併數據
-                importStats = mergeData(backupData);
-                
-            } else if (mode === 'append') {
-                // 僅添加新數據
-                importStats = appendNewData(backupData);
-            }
-            
-            // 保存數據
-            saveAllData();
-            
-            // 重新渲染界面
-            renderAll();
-            
-            // 創建緊急備份
-            createEmergencyBackup('import');
-            
-            // 顯示導入結果
-            showImportResults(importStats, backupData.metadata);
-        }
-
-        // 合併數據
-        function mergeData(backupData) {
-            let stats = {
-                symptoms: { added: 0, updated: 0, skipped: 0 },
-                symptomGroups: { added: 0, updated: 0, skipped: 0 },
-                prescriptions: { added: 0, updated: 0, skipped: 0 }
-            };
-            
-            // 合併症狀
-            backupData.symptoms.forEach(symptom => {
-                if (!symptoms.includes(symptom)) {
-                    symptoms.push(symptom);
-                    stats.symptoms.added++;
-                } else {
-                    stats.symptoms.skipped++;
-                }
-            });
-            
-            // 合併症狀分組
-            backupData.symptomGroups.forEach(newGroup => {
-                const existingIndex = symptomGroups.findIndex(g => g.name === newGroup.name);
-                if (existingIndex >= 0) {
-                    // 更新現有分組
-                    symptomGroups[existingIndex] = { ...newGroup };
-                    stats.symptomGroups.updated++;
-                } else {
-                    // 添加新分組
-                    symptomGroups.push({ ...newGroup });
-                    stats.symptomGroups.added++;
-                }
-            });
-            
-            // 合併處方
-            backupData.prescriptions.forEach(newPrescription => {
-                const existingIndex = prescriptions.findIndex(p => p.name === newPrescription.name);
-                if (existingIndex >= 0) {
-                    // 更新現有處方
-                    prescriptions[existingIndex] = { ...newPrescription };
-                    stats.prescriptions.updated++;
-                } else {
-                    // 添加新處方
-                    prescriptions.push({ ...newPrescription });
-                    stats.prescriptions.added++;
-                }
-            });
-            
-            return stats;
-        }
-
-        // 僅添加新數據
-        function appendNewData(backupData) {
-            let stats = {
-                symptoms: { added: 0, updated: 0, skipped: 0 },
-                symptomGroups: { added: 0, updated: 0, skipped: 0 },
-                prescriptions: { added: 0, updated: 0, skipped: 0 }
-            };
-            
-            // 添加新症狀
-            backupData.symptoms.forEach(symptom => {
-                if (!symptoms.includes(symptom)) {
-                    symptoms.push(symptom);
-                    stats.symptoms.added++;
-                } else {
-                    stats.symptoms.skipped++;
-                }
-            });
-            
-            // 添加新症狀分組
-            backupData.symptomGroups.forEach(newGroup => {
-                const exists = symptomGroups.some(g => g.name === newGroup.name);
-                if (!exists) {
-                    symptomGroups.push({ ...newGroup });
-                    stats.symptomGroups.added++;
-                } else {
-                    stats.symptomGroups.skipped++;
-                }
-            });
-            
-            // 添加新處方
-            backupData.prescriptions.forEach(newPrescription => {
-                const exists = prescriptions.some(p => p.name === newPrescription.name);
-                if (!exists) {
-                    prescriptions.push({ ...newPrescription });
-                    stats.prescriptions.added++;
-                } else {
-                    stats.prescriptions.skipped++;
-                }
-            });
-            
-            return stats;
-        }
-
-        // 顯示導入結果
-        function showImportResults(stats, metadata) {
-            let message = '✅ 數據導入完成！\n\n';
-            
-            message += `📊 症狀：新增 ${stats.symptoms.added}，更新 ${stats.symptoms.updated}，跳過 ${stats.symptoms.skipped}\n`;
-            message += `📋 分組：新增 ${stats.symptomGroups.added}，更新 ${stats.symptomGroups.updated}，跳過 ${stats.symptomGroups.skipped}\n`;
-            message += `💊 處方：新增 ${stats.prescriptions.added}，更新 ${stats.prescriptions.updated}，跳過 ${stats.prescriptions.skipped}\n`;
-            
-            if (metadata) {
-                message += `\n📅 備份時間：${new Date(metadata.timestamp).toLocaleString('zh-TW')}`;
-                if (metadata.exportType) {
-                    message += `\n📦 備份類型：${metadata.exportType}`;
-                }
-            }
-            
-            showBackupResult(message, 'success', 8000);
-            updateBackupStatus();
-        }
-
-        // 自動備份功能
-        function toggleAutoBackup() {
-            autoBackupEnabled = !autoBackupEnabled;
-            localStorage.setItem('tcm_auto_backup_enabled', autoBackupEnabled.toString());
-            
-            if (autoBackupEnabled) {
-                startAutoBackup();
-                document.getElementById('autoBackupBtn').textContent = '🔄 停用自動備份';
-                showBackupResult('✅ 自動備份已啟用，每5分鐘自動備份一次', 'success');
-            } else {
-                stopAutoBackup();
-                document.getElementById('autoBackupBtn').textContent = '🔄 啟用自動備份';
-                showBackupResult('⏸️ 自動備份已停用', 'info');
-            }
-            
-            updateBackupStatus();
-        }
-
-        function startAutoBackup() {
-            if (autoBackupTimer) {
-                clearInterval(autoBackupTimer);
-            }
-            
-            autoBackupTimer = setInterval(() => {
-                try {
-                    const backupData = generateBackupData(true);
-                    saveToBackupHistory(backupData, 'auto');
-                    console.log('自動備份完成：', new Date().toLocaleString());
-                } catch (error) {
-                    console.error('自動備份失敗：', error);
-                }
-            }, BACKUP_CONFIG.autoBackupInterval);
-        }
-
-        function stopAutoBackup() {
-            if (autoBackupTimer) {
-                clearInterval(autoBackupTimer);
-                autoBackupTimer = null;
-            }
-        }
-
-        // 保存到備份歷史
-        function saveToBackupHistory(backupData, type) {
-            try {
-                const historyKey = 'tcm_backup_history';
-                let history = JSON.parse(localStorage.getItem(historyKey) || '[]');
-                
-                const backupEntry = {
-                    id: Date.now(),
-                    timestamp: new Date().toISOString(),
-                    type: type,
-                    data: backupData,
-                    size: JSON.stringify(backupData).length
+            // 添加一些示例資料
+            if (Object.keys(database.herbs).length === 0) {
+                const sampleData = {
+                    '當歸': ['血虛', '月經不調', '產後腹痛', '跌打損傷'],
+                    '人參': ['氣虛', '脾胃虛弱', '心悸失眠', '陽痿'],
+                    '黃芪': ['氣虛', '自汗', '水腫', '慢性腹瀉'],
+                    '川芎': ['頭痛', '月經不調', '胸脅疼痛', '跌打損傷'],
+                    '白芍': ['血虛', '月經不調', '腹痛', '頭痛'],
+                    '甘草': ['脾胃虛弱', '咳嗽', '解毒', '調和諸藥']
                 };
                 
-                history.unshift(backupEntry);
-                
-                // 限制備份數量
-                if (history.length > BACKUP_CONFIG.maxBackups) {
-                    history = history.slice(0, BACKUP_CONFIG.maxBackups);
+                for (const [herb, symptoms] of Object.entries(sampleData)) {
+                    addHerbSymptoms(herb, symptoms);
                 }
-                
-                localStorage.setItem(historyKey, JSON.stringify(history));
-                
-            } catch (error) {
-                console.error('保存備份歷史失敗：', error);
+                saveData();
+                updateOverview();
             }
+        });
+
+        // 設置搜索模式
+        function setSearchMode(mode) {
+            searchMode = mode;
+            document.getElementById('symptomBtn').className = mode === 'symptom' 
+                ? 'px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium'
+                : 'px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium';
+            document.getElementById('herbBtn').className = mode === 'herb' 
+                ? 'px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium'
+                : 'px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium';
+            
+            const input = document.getElementById('searchInput');
+            input.placeholder = mode === 'symptom' ? '請輸入症狀名稱...' : '請輸入中藥名稱...';
+            performSearch();
         }
 
-        // 顯示備份歷史
-        function showBackupHistory() {
-            try {
-                const history = JSON.parse(localStorage.getItem('tcm_backup_history') || '[]');
-                const historyList = document.getElementById('backupHistoryList');
-                
-                if (history.length === 0) {
-                    historyList.innerHTML = '<div class="text-gray-500 text-center py-4">暫無備份歷史</div>';
-                } else {
-                    historyList.innerHTML = history.map((backup, index) => `
-                        <div class="bg-gray-50 border rounded-lg p-3 flex items-center justify-between">
-                            <div>
-                                <div class="font-medium">${getBackupTypeLabel(backup.type)} #${history.length - index}</div>
-                                <div class="text-sm text-gray-600">
-                                    ${new Date(backup.timestamp).toLocaleString('zh-TW')} 
-                                    (${formatFileSize(backup.size)})
-                                </div>
-                            </div>
-                            <div class="flex gap-2">
-                                <button onclick="restoreFromHistory(${backup.id})" 
-                                        class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
-                                    恢復
-                                </button>
-                                <button onclick="downloadFromHistory(${backup.id})" 
-                                        class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">
-                                    下載
-                                </button>
-                                <button onclick="deleteFromHistory(${backup.id})" 
-                                        class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm">
-                                    刪除
-                                </button>
-                            </div>
-                        </div>
-                    `).join('');
-                }
-                
-                document.getElementById('backupHistoryModal').classList.remove('hidden');
-                
-            } catch (error) {
-                showBackupResult('❌ 無法載入備份歷史：' + error.message, 'error');
+        // 執行搜索
+        function performSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            const resultsSection = document.getElementById('resultsSection');
+            const searchResults = document.getElementById('searchResults');
+            const resultsTitle = document.getElementById('resultsTitle');
+
+            if (!query) {
+                resultsSection.classList.add('hidden');
+                return;
             }
-        }
 
-        // 從歷史恢復
-        function restoreFromHistory(backupId) {
-            if (!confirm('確定要恢復此備份嗎？當前數據將被替換！')) return;
+            resultsSection.classList.remove('hidden');
             
-            try {
-                const history = JSON.parse(localStorage.getItem('tcm_backup_history') || '[]');
-                const backup = history.find(b => b.id === backupId);
-                
-                if (!backup) {
-                    throw new Error('備份不存在');
-                }
-                
-                // 創建緊急備份
-                createEmergencyBackup('restore');
-                
-                // 恢復數據
-                symptoms = [...backup.data.symptoms];
-                symptomGroups = [...backup.data.symptomGroups];
-                prescriptions = [...backup.data.prescriptions];
-                
-                saveAllData();
-                renderAll();
-                
-                closeBackupHistory();
-                showBackupResult('✅ 數據已從備份歷史恢復！', 'success');
-                
-            } catch (error) {
-                showBackupResult('❌ 恢復失敗：' + error.message, 'error');
-            }
-        }
-
-        // 從歷史下載
-        function downloadFromHistory(backupId) {
-            try {
-                const history = JSON.parse(localStorage.getItem('tcm_backup_history') || '[]');
-                const backup = history.find(b => b.id === backupId);
-                
-                if (!backup) {
-                    throw new Error('備份不存在');
-                }
-                
-                const timestamp = new Date(backup.timestamp).toISOString().replace(/[:.]/g, '-');
-                const filename = `中醫處方歷史備份_${timestamp}.json`;
-                
-                downloadFile(JSON.stringify(backup.data, null, 2), filename, 'application/json');
-                showBackupResult('✅ 歷史備份已下載！', 'success');
-                
-            } catch (error) {
-                showBackupResult('❌ 下載失敗：' + error.message, 'error');
-            }
-        }
-
-        // 從歷史刪除
-        function deleteFromHistory(backupId) {
-            if (!confirm('確定要刪除此備份嗎？此操作無法撤銷！')) return;
-            
-            try {
-                let history = JSON.parse(localStorage.getItem('tcm_backup_history') || '[]');
-                history = history.filter(b => b.id !== backupId);
-                
-                localStorage.setItem('tcm_backup_history', JSON.stringify(history));
-                showBackupHistory(); // 重新顯示列表
-                showBackupResult('✅ 備份已刪除！', 'success');
-                updateBackupStatus();
-                
-            } catch (error) {
-                showBackupResult('❌ 刪除失敗：' + error.message, 'error');
-            }
-        }
-
-        // 清理備份
-        function cleanupBackups() {
-            if (!confirm('確定要清理舊備份嗎？將只保留最新的10個備份。')) return;
-            
-            try {
-                let history = JSON.parse(localStorage.getItem('tcm_backup_history') || '[]');
-                const originalCount = history.length;
-                
-                if (history.length > 10) {
-                    history = history.slice(0, 10);
-                    localStorage.setItem('tcm_backup_history', JSON.stringify(history));
-                    
-                    const deletedCount = originalCount - history.length;
-                    showBackupResult(`✅ 已清理 ${deletedCount} 個舊備份，保留最新的 ${history.length} 個`, 'success');
-                } else {
-                    showBackupResult('ℹ️ 備份數量未超過限制，無需清理', 'info');
-                }
-                
-                updateBackupStatus();
-                
-            } catch (error) {
-                showBackupResult('❌ 清理失敗：' + error.message, 'error');
-            }
-        }
-
-        // 緊急備份
-        function emergencyBackup() {
-            try {
-                const backupData = generateBackupData(true);
-                backupData.metadata.exportType = 'emergency';
-                
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                downloadFile(JSON.stringify(backupData, null, 2), `緊急備份_${timestamp}.json`, 'application/json');
-                
-                // 同時保存到歷史
-                saveToBackupHistory(backupData, 'emergency');
-                
-                showBackupResult('🚨 緊急備份已完成！文件已下載並保存到歷史記錄。', 'success');
-                updateBackupStatus();
-                
-            } catch (error) {
-                showBackupResult('❌ 緊急備份失敗：' + error.message, 'error');
-            }
-        }
-
-        // 創建緊急備份（內部使用）
-        function createEmergencyBackup(reason) {
-            try {
-                const backupData = generateBackupData(true);
-                backupData.metadata.exportType = 'emergency';
-                backupData.metadata.reason = reason;
-                
-                saveToBackupHistory(backupData, 'emergency');
-                console.log('緊急備份已創建：', reason);
-                
-            } catch (error) {
-                console.error('創建緊急備份失敗：', error);
-            }
-        }
-
-        // 驗證備份文件
-        function validateBackupFile() {
-            document.getElementById('importBackupFile').click();
-            // 驗證邏輯在 importBackupFile 函數中處理
-        }
-
-        // 更新備份狀態顯示
-        function updateBackupStatus() {
-            try {
-                const history = JSON.parse(localStorage.getItem('tcm_backup_history') || '[]');
-                const dataSize = calculateDataSize();
-                
-                document.getElementById('totalBackups').textContent = history.length;
-                document.getElementById('dataSize').textContent = formatFileSize(dataSize);
-                document.getElementById('autoBackupStatus').textContent = autoBackupEnabled ? '開啟' : '關閉';
-                
-                if (history.length > 0) {
-                    const lastBackup = new Date(history[0].timestamp);
-                    document.getElementById('lastBackupTime').textContent = formatRelativeTime(lastBackup);
-                } else {
-                    document.getElementById('lastBackupTime').textContent = '從未';
-                }
-                
-            } catch (error) {
-                console.error('更新備份狀態失敗：', error);
-            }
-        }
-
-        // 計算數據大小
-        function calculateDataSize() {
-            const data = generateBackupData(false);
-            return JSON.stringify(data).length;
-        }
-
-        // 格式化文件大小
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + sizes[i];
-        }
-
-        // 格式化相對時間
-        function formatRelativeTime(date) {
-            const now = new Date();
-            const diff = now - date;
-            const minutes = Math.floor(diff / 60000);
-            const hours = Math.floor(minutes / 60);
-            const days = Math.floor(hours / 24);
-            
-            if (days > 0) return `${days}天前`;
-            if (hours > 0) return `${hours}小時前`;
-            if (minutes > 0) return `${minutes}分鐘前`;
-            return '剛剛';
-        }
-
-        // 獲取備份類型標籤
-        function getBackupTypeLabel(type) {
-            const labels = {
-                'full': '🔄 完整備份',
-                'auto': '⏰ 自動備份',
-                'emergency': '🚨 緊急備份',
-                'manual': '👤 手動備份',
-                'compressed': '🗜️ 壓縮備份'
-            };
-            return labels[type] || '📦 備份';
-        }
-
-        // 顯示備份結果
-        function showBackupResult(message, type = 'info', duration = 5000) {
-            const resultDiv = document.getElementById('backupResult');
-            resultDiv.classList.remove('hidden', 'bg-blue-50', 'bg-green-50', 'bg-red-50', 'bg-yellow-50');
-            resultDiv.classList.remove('text-blue-600', 'text-green-600', 'text-red-600', 'text-yellow-600');
-            
-            switch (type) {
-                case 'success':
-                    resultDiv.classList.add('bg-green-50', 'text-green-600');
-                    break;
-                case 'error':
-                    resultDiv.classList.add('bg-red-50', 'text-red-600');
-                    break;
-                case 'warning':
-                    resultDiv.classList.add('bg-yellow-50', 'text-yellow-600');
-                    break;
-                default:
-                    resultDiv.classList.add('bg-blue-50', 'text-blue-600');
-            }
-            
-            resultDiv.innerHTML = message.replace(/\n/g, '<br>');
-            
-            if (duration > 0) {
-                setTimeout(() => {
-                    resultDiv.classList.add('hidden');
-                }, duration);
-            }
-        }
-
-        // 模態框控制
-        function showImportOptions() {
-            document.getElementById('importOptionsModal').classList.remove('hidden');
-        }
-
-        function closeImportOptions() {
-            document.getElementById('importOptionsModal').classList.add('hidden');
-        }
-
-        function confirmImportOptions() {
-            closeImportOptions();
-            document.getElementById('importBackupFile').click();
-        }
-
-        function getImportMode() {
-            const selectedMode = document.querySelector('input[name="importMode"]:checked');
-            return selectedMode ? selectedMode.value : 'replace';
-        }
-
-        function closeBackupHistory() {
-            document.getElementById('backupHistoryModal').classList.add('hidden');
-        }
-
-        // 保存所有數據
-        function saveAllData() {
-            localStorage.setItem('tcm_symptoms', JSON.stringify(symptoms));
-            localStorage.setItem('tcm_symptom_groups', JSON.stringify(symptomGroups));
-            localStorage.setItem('tcm_prescriptions', JSON.stringify(prescriptions));
-        }
-
-        // 重新渲染所有界面
-        function renderAll() {
-            renderSymptomGroups();
-            renderSymptoms();
-            renderPrescriptions();
-            updateStats();
-        }
-
-        // 清空所有數據
-        function clearAllData() {
-            if (!confirm('⚠️ 確定要清空所有數據嗎？此操作無法撤銷！\n\n建議先進行緊急備份。')) return;
-            
-            // 創建緊急備份
-            createEmergencyBackup('clear_all');
-            
-            localStorage.removeItem('tcm_symptoms');
-            localStorage.removeItem('tcm_symptom_groups');
-            localStorage.removeItem('tcm_prescriptions');
-            
-            symptoms = [];
-            symptomGroups = [];
-            prescriptions = [];
-            
-            renderAll();
-            document.getElementById('searchResults').classList.add('hidden');
-            document.getElementById('symptomSearch').value = '';
-            
-            showBackupResult('✅ 所有數據已清空！緊急備份已自動創建。', 'success');
-            updateBackupStatus();
-        }
-
-        // 重置為默認數據
-        function resetToDefaults() {
-            if (!confirm('確定要重置為默認數據嗎？當前數據將被替換！')) return;
-            
-            // 創建緊急備份
-            createEmergencyBackup('reset_defaults');
-            
-            // 重置為初始數據
-            symptoms = ['頭痛', '發熱', '咳嗽', '腹痛', '失眠', '疲勞', '食慾不振', '噁心', '偏頭痛', '頭暈', '高熱', '低熱', '乾咳', '濕咳', '胃痛', '腹脹'];
-            
-            symptomGroups = [
-                { name: '頭部症狀', symptoms: ['頭痛', '偏頭痛', '頭暈'], color: 'red' },
-                { name: '發熱症狀', symptoms: ['發熱', '高熱', '低熱'], color: 'orange' },
-                { name: '咳嗽症狀', symptoms: ['咳嗽', '乾咳', '濕咳'], color: 'blue' },
-                { name: '腸胃症狀', symptoms: ['腹痛', '胃痛', '腹脹', '食慾不振', '噁心'], color: 'green' }
-            ];
-            
-            prescriptions = [
-                { name: '銀翹散', ingredients: '金銀花 15g\n連翹 15g\n薄荷 6g\n牛蒡子 9g\n桔梗 6g\n甘草 5g', symptoms: ['發熱', '咳嗽', '頭痛'] },
-                { name: '逍遙散', ingredients: '柴胡 6g\n當歸 9g\n白芍 9g\n白朮 9g\n茯苓 9g\n甘草 3g', symptoms: ['腹痛', '疲勞', '失眠'] },
-                { name: '平胃散', ingredients: '蒼朮 12g\n厚朴 9g\n陳皮 6g\n甘草 3g', symptoms: ['腹痛', '食慾不振', '噁心'] }
-            ];
-            
-            saveAllData();
-            renderAll();
-            
-            showBackupResult('✅ 已重置為默認數據！原數據的緊急備份已創建。', 'success');
-            updateBackupStatus();
-        }
-
-        // ==================== 原有功能保持不變 ====================
-
-        // 更新統計
-        function updateStats() {
-            document.getElementById('symptomCount').textContent = symptoms.length;
-            document.getElementById('prescriptionCount').textContent = prescriptions.length;
-        }
-
-        // 渲染症狀分組
-        function renderSymptomGroups() {
-            const container = document.getElementById('symptomGroupsList');
-            const colorMap = {
-                red: 'bg-red-100 text-red-800 border-red-300',
-                blue: 'bg-blue-100 text-blue-800 border-blue-300',
-                green: 'bg-green-100 text-green-800 border-green-300',
-                orange: 'bg-orange-100 text-orange-800 border-orange-300',
-                purple: 'bg-purple-100 text-purple-800 border-purple-300',
-                pink: 'bg-pink-100 text-pink-800 border-pink-300'
-            };
-            
-            container.innerHTML = symptomGroups.map((group, index) => `
-                <div class="border-2 rounded-lg p-4 ${colorMap[group.color] || 'bg-gray-100 text-gray-800 border-gray-300'}">
-                    <div class="flex items-center justify-between mb-2">
-                        <h4 class="font-bold text-lg">${group.name}</h4>
-                        <button onclick="removeSymptomGroup(${index})" 
-                                class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm">
-                            ❌ 刪除
-                        </button>
-                    </div>
-                    <div class="text-sm font-medium">
-                        ${group.symptoms.join('、')}
-                    </div>
-                </div>
-            `).join('');
-            
-            renderQuickSelectGroups();
-        }
-
-        // 渲染快速選擇分組按鈕
-        function renderQuickSelectGroups() {
-            const container = document.getElementById('quickSelectGroups');
-            const colorMap = {
-                red: 'bg-red-200 hover:bg-red-300 text-red-900',
-                blue: 'bg-blue-200 hover:bg-blue-300 text-blue-900',
-                green: 'bg-green-200 hover:bg-green-300 text-green-900',
-                orange: 'bg-orange-200 hover:bg-orange-300 text-orange-900',
-                purple: 'bg-purple-200 hover:bg-purple-300 text-purple-900',
-                pink: 'bg-pink-200 hover:bg-pink-300 text-pink-900'
-            };
-            
-            container.innerHTML = symptomGroups.map(group => `
-                <button onclick="selectSymptomGroup('${group.name}')" 
-                        class="px-4 py-2 rounded-lg font-medium transition duration-200 ${colorMap[group.color] || 'bg-gray-200 hover:bg-gray-300 text-gray-900'}">
-                    ${group.name}
-                </button>
-            `).join('');
-        }
-
-        // 渲染症狀列表
-        function renderSymptoms() {
-            const container = document.getElementById('symptomsList');
-            container.innerHTML = symptoms.map((symptom, index) => `
-                <div class="flex items-center justify-between bg-gray-100 px-4 py-3 rounded-lg">
-                    <span class="text-gray-800 font-medium">${symptom}</span>
-                    <button onclick="removeSymptom(${index})" 
-                            class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm">
-                        ❌
-                    </button>
-                </div>
-            `).join('');
-        }
-
-        // 渲染處方列表
-        function renderPrescriptions() {
-            const container = document.getElementById('prescriptionsList');
-            container.innerHTML = prescriptions.map((prescription, index) => `
-                <div class="bg-purple-50 border border-purple-200 p-4 rounded-lg">
-                    <div class="flex items-center justify-between mb-3">
-                        <h4 class="font-bold text-lg text-gray-800">${prescription.name}</h4>
-                        <button onclick="removePrescription(${index})" 
-                                class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm">
-                            ❌ 刪除
-                        </button>
-                    </div>
-                    <div class="mb-3">
-                        <div class="font-medium text-gray-700 mb-1">💊 藥材：</div>
-                        <div class="text-gray-600 bg-white p-2 rounded border text-sm">
-                            ${prescription.ingredients.replace(/\n/g, '<br>')}
-                        </div>
-                    </div>
-                    <div>
-                        <div class="font-medium text-gray-700 mb-1">🎯 適用症狀：</div>
-                        <div class="text-gray-600">${prescription.symptoms.join('、')}</div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // 添加症狀分組
-        function addSymptomGroup() {
-            const name = document.getElementById('newGroupName').value.trim();
-            const symptomsInput = document.getElementById('newGroupSymptoms').value.trim();
-            const color = document.getElementById('groupColor').value;
-            
-            if (name && symptomsInput) {
-                const groupSymptoms = symptomsInput.split(',').map(s => s.trim()).filter(s => s);
-                
-                groupSymptoms.forEach(symptom => {
-                    if (!symptoms.includes(symptom)) {
-                        symptoms.push(symptom);
-                    }
-                });
-                
-                symptomGroups.push({
-                    name: name,
-                    symptoms: groupSymptoms,
-                    color: color
-                });
-                
-                saveAllData();
-                
-                document.getElementById('newGroupName').value = '';
-                document.getElementById('newGroupSymptoms').value = '';
-                
-                renderSymptomGroups();
-                renderSymptoms();
-                updateStats();
-            }
-        }
-
-        // 刪除症狀分組
-        function removeSymptomGroup(index) {
-            symptomGroups.splice(index, 1);
-            saveAllData();
-            renderSymptomGroups();
-        }
-
-        // 選擇症狀分組
-        function selectSymptomGroup(groupName) {
-            const searchInput = document.getElementById('symptomSearch');
-            const currentValue = searchInput.value.trim();
-            
-            if (currentValue) {
-                searchInput.value = currentValue + ',' + groupName;
+            let results = [];
+            if (searchMode === 'symptom') {
+                // 按症狀查中藥
+                results = searchBySymptom(query);
+                resultsTitle.textContent = `症狀「${query}」對應的中藥`;
             } else {
-                searchInput.value = groupName;
+                // 按中藥查症狀
+                results = searchByHerb(query);
+                resultsTitle.textContent = `中藥「${query}」對應的症狀`;
             }
+
+            displayResults(results, searchResults);
         }
 
-        // 添加症狀
-        function addSymptom() {
-            const input = document.getElementById('newSymptom');
-            const symptom = input.value.trim();
-            
-            if (symptom && !symptoms.includes(symptom)) {
-                symptoms.push(symptom);
-                saveAllData();
-                input.value = '';
-                renderSymptoms();
-                updateStats();
-            }
-        }
-
-        // 刪除症狀
-        function removeSymptom(index) {
-            symptoms.splice(index, 1);
-            saveAllData();
-            renderSymptoms();
-            updateStats();
-        }
-
-        // 添加處方
-        function addPrescription() {
-            const name = document.getElementById('prescriptionName').value.trim();
-            const ingredients = document.getElementById('prescriptionIngredients').value.trim();
-            const symptomsInput = document.getElementById('prescriptionSymptoms').value.trim();
-            
-            if (name && ingredients && symptomsInput) {
-                const prescriptionSymptoms = symptomsInput.split(',').map(s => s.trim()).filter(s => s);
-                
-                prescriptions.push({
-                    name: name,
-                    ingredients: ingredients,
-                    symptoms: prescriptionSymptoms
-                });
-                
-                saveAllData();
-                
-                document.getElementById('prescriptionName').value = '';
-                document.getElementById('prescriptionIngredients').value = '';
-                document.getElementById('prescriptionSymptoms').value = '';
-                
-                renderPrescriptions();
-                updateStats();
-            }
-        }
-
-        // 刪除處方
-        function removePrescription(index) {
-            prescriptions.splice(index, 1);
-            saveAllData();
-            renderPrescriptions();
-            updateStats();
-        }
-
-        // 搜索處方
-        function searchPrescriptions() {
-            const searchInput = document.getElementById('symptomSearch').value.trim();
-            if (!searchInput) return;
-            
-            const searchTerms = searchInput.split(',').map(s => s.trim()).filter(s => s);
-            let allSearchSymptoms = [];
-            
-            searchTerms.forEach(term => {
-                const termLower = term.toLowerCase();
-                
-                const matchingGroup = symptomGroups.find(group => 
-                    group.name.toLowerCase() === termLower
-                );
-                
-                if (matchingGroup) {
-                    allSearchSymptoms.push(...matchingGroup.symptoms.map(s => s.toLowerCase()));
-                } else {
-                    allSearchSymptoms.push(termLower);
-                }
-            });
-            
-            allSearchSymptoms = [...new Set(allSearchSymptoms)];
-            
+        // 按症狀搜索中藥
+        function searchBySymptom(symptom) {
             const results = [];
-            
-            prescriptions.forEach(prescription => {
-                const matchCount = prescription.symptoms.filter(symptom => 
-                    allSearchSymptoms.some(searchSymptom => 
-                        symptom.toLowerCase().includes(searchSymptom)
-                    )
-                ).length;
-                
-                if (matchCount > 0) {
+            for (const [herb, symptoms] of Object.entries(database.herbs)) {
+                if (symptoms.some(s => s.includes(symptom))) {
                     results.push({
-                        ...prescription,
-                        matchCount: matchCount,
-                        matchPercentage: (matchCount / allSearchSymptoms.length * 100).toFixed(0)
+                        title: herb,
+                        items: symptoms.filter(s => s.includes(symptom)),
+                        type: 'herb'
                     });
+                }
+            }
+            return results;
+        }
+
+        // 按中藥搜索症狀
+        function searchByHerb(herb) {
+            const results = [];
+            for (const [herbName, symptoms] of Object.entries(database.herbs)) {
+                if (herbName.includes(herb)) {
+                    results.push({
+                        title: herbName,
+                        items: symptoms,
+                        type: 'symptom'
+                    });
+                }
+            }
+            return results;
+        }
+
+        // 顯示搜索結果
+        function displayResults(results, container) {
+            if (results.length === 0) {
+                container.innerHTML = '<div class="text-center py-8 text-gray-500">未找到相關資料</div>';
+                return;
+            }
+
+            container.innerHTML = results.map(result => `
+                <div class="search-result bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+                    <h4 class="text-xl font-semibold text-gray-800 mb-3">${result.title}</h4>
+                    <div class="flex flex-wrap gap-2">
+                        ${result.items.map(item => `
+                            <span class="px-3 py-1 bg-white text-gray-700 rounded-full text-sm border border-gray-200">
+                                ${item}
+                            </span>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 添加中藥和症狀的關聯
+        function addHerbSymptoms(herb, symptoms) {
+            database.herbs[herb] = symptoms;
+            
+            // 更新症狀索引
+            symptoms.forEach(symptom => {
+                if (!database.symptoms[symptom]) {
+                    database.symptoms[symptom] = [];
+                }
+                if (!database.symptoms[symptom].includes(herb)) {
+                    database.symptoms[symptom].push(herb);
                 }
             });
-            
-            results.sort((a, b) => b.matchCount - a.matchCount);
-            
-            const resultsContainer = document.getElementById('searchResults');
-            const resultsList = document.getElementById('resultsList');
-            
-            if (results.length > 0) {
-                resultsList.innerHTML = results.map(result => `
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div class="flex items-center justify-between mb-3">
-                            <h4 class="text-xl font-bold text-gray-800">${result.name}</h4>
-                            <span class="bg-green-500 text-white text-sm px-3 py-1 rounded-full">
-                                ${result.matchPercentage}% 匹配
-                            </span>
-                        </div>
-                        <div class="mb-3">
-                            <div class="text-gray-700 font-medium mb-1">💊 藥材組成：</div>
-                            <div class="text-gray-600 bg-white p-3 rounded border">
-                                ${result.ingredients.replace(/\n/g, '<br>')}
-                            </div>
-                        </div>
-                        <div>
-                            <div class="text-gray-700 font-medium mb-1">🎯 適用症狀：</div>
-                            <div class="text-gray-600">${result.symptoms.join('、')}</div>
-                        </div>
-                    </div>
-                `).join('');
-                resultsContainer.classList.remove('hidden');
-            } else {
-                resultsList.innerHTML = '<div class="text-gray-500 text-center py-8 text-lg">😔 未找到相關處方</div>';
-                resultsContainer.classList.remove('hidden');
-            }
         }
 
-        // 標籤頁切換
-        function showTab(tabName) {
-            document.getElementById('groupsContent').classList.add('hidden');
-            document.getElementById('symptomsContent').classList.add('hidden');
-            document.getElementById('prescriptionsContent').classList.add('hidden');
-            
-            document.getElementById('groupsTab').className = 'flex-1 py-3 px-4 text-center font-medium text-gray-500 hover:text-gray-700';
-            document.getElementById('symptomsTab').className = 'flex-1 py-3 px-4 text-center font-medium text-gray-500 hover:text-gray-700';
-            document.getElementById('prescriptionsTab').className = 'flex-1 py-3 px-4 text-center font-medium text-gray-500 hover:text-gray-700';
-            
-            document.getElementById(tabName + 'Content').classList.remove('hidden');
-            document.getElementById(tabName + 'Tab').className = 'flex-1 py-3 px-4 text-center font-medium border-b-2 border-green-500 text-green-600';
+        // 顯示導入模態框
+        function showImportModal() {
+            document.getElementById('importModal').classList.remove('hidden');
+            document.getElementById('importModal').classList.add('flex');
         }
 
-        // 批量導入功能
-        function downloadTemplate() {
-            const template = `當歸：血虛,月經不調,便秘
-黃芪：氣虛,疲勞,自汗
-甘草：咳嗽,胃痛,解毒
-人參：氣虛,心悸,失眠
-白朮：脾虛,腹脹,泄瀉
-茯苓：水腫,失眠,心悸
-川芎：頭痛,月經不調,胸痛
-白芍：腹痛,月經不調,肝鬱
-熟地黃：血虛,腎虛,頭暈
-何首烏：血虛,脫髮,便秘`;
-            
-            downloadFile(template, '中藥症狀導入模板.txt', 'text/plain');
-            showBackupResult('✅ 模板文件已下載！', 'success');
+        // 隱藏導入模態框
+        function hideImportModal() {
+            document.getElementById('importModal').classList.add('hidden');
+            document.getElementById('importModal').classList.remove('flex');
+            document.getElementById('importData').value = '';
         }
-        
-        function loadBulkImportFile(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('bulkImportText').value = e.target.result;
-                updateCharCount();
-                showBackupResult('✅ 文件內容已載入！', 'success');
-            };
-            reader.readAsText(file, 'UTF-8');
-            event.target.value = '';
-        }
-        
-        function clearBulkImport() {
-            document.getElementById('bulkImportText').value = '';
-            updateCharCount();
-        }
-        
-        function updateCharCount() {
-            const textarea = document.getElementById('bulkImportText');
-            const charCountDiv = document.getElementById('charCount');
-            const currentLength = textarea.value.length;
-            const maxLength = 100000;
-            
-            charCountDiv.textContent = `字數：${currentLength.toLocaleString()} / ${maxLength.toLocaleString()}`;
-            
-            if (currentLength > maxLength * 0.9) {
-                charCountDiv.className = 'text-sm text-red-500 font-medium';
-            } else if (currentLength > maxLength * 0.7) {
-                charCountDiv.className = 'text-sm text-yellow-600 font-medium';
-            } else {
-                charCountDiv.className = 'text-sm text-gray-500';
-            }
-        }
-        
-        function processBulkImport() {
-            const text = document.getElementById('bulkImportText').value.trim();
-            if (!text) {
-                showBackupResult('⚠️ 請先輸入要導入的內容！', 'warning');
-                return;
-            }
-            
-            if (text.length > 100000) {
-                showBackupResult('❌ 數據過大！請分批導入', 'error');
-                return;
-            }
-            
-            // 創建導入前備份
-            createEmergencyBackup('bulk_import');
-            
-            showBackupResult('⚡ 正在處理數據...', 'info');
-            
-            setTimeout(() => {
-                const lines = text.split('\n').filter(line => line.trim());
-                let successCount = 0;
-                let errorCount = 0;
-                
-                lines.forEach((line, index) => {
-                    const trimmedLine = line.trim();
-                    if (!trimmedLine) return;
+
+        // 導入資料
+        function importData() {
+            const data = document.getElementById('importData').value.trim();
+            if (!data) return;
+
+            const lines = data.split('\n');
+            let successCount = 0;
+
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) return;
+
+                const parts = trimmedLine.split('：');
+                if (parts.length === 2) {
+                    const herb = parts[0].trim();
+                    const symptoms = parts[1].split(',').map(s => s.trim()).filter(s => s);
                     
-                    const separators = ['：', ':'];
-                    let parts = null;
-                    
-                    for (let sep of separators) {
-                        if (trimmedLine.includes(sep)) {
-                            parts = trimmedLine.split(sep);
-                            break;
-                        }
+                    if (herb && symptoms.length > 0) {
+                        addHerbSymptoms(herb, symptoms);
+                        successCount++;
                     }
-                    
-                    if (!parts || parts.length !== 2) {
-                        errorCount++;
-                        return;
-                    }
-                    
-                    const herbName = parts[0].trim();
-                    const symptomsText = parts[1].trim();
-                    
-                    if (!herbName || !symptomsText) {
-                        errorCount++;
-                        return;
-                    }
-                    
-                    const symptomSeparators = [',', '，', ';', '；', '、'];
-                    let herbSymptoms = [symptomsText];
-                    
-                    for (let sep of symptomSeparators) {
-                        if (symptomsText.includes(sep)) {
-                            herbSymptoms = symptomsText.split(sep).map(s => s.trim()).filter(s => s);
-                            break;
-                        }
-                    }
-                    
-                    herbSymptoms.forEach(symptom => {
-                        if (symptom && !symptoms.includes(symptom)) {
-                            symptoms.push(symptom);
-                        }
-                    });
-                    
-                    const existingIndex = prescriptions.findIndex(p => p.name === herbName);
-                    
-                    if (existingIndex >= 0) {
-                        const existingSymptoms = prescriptions[existingIndex].symptoms;
-                        const combinedSymptoms = [...new Set([...existingSymptoms, ...herbSymptoms])];
-                        prescriptions[existingIndex].symptoms = combinedSymptoms;
-                    } else {
-                        const newPrescription = {
-                            name: herbName,
-                            ingredients: `${herbName} 適量\n（請諮詢中醫師確定具體用量）`,
-                            symptoms: herbSymptoms
-                        };
-                        prescriptions.push(newPrescription);
-                    }
-                    
-                    successCount++;
-                });
-                
-                saveAllData();
-                renderAll();
-                
-                let resultMessage = `📊 導入完成！\n✅ 成功：${successCount} 條`;
-                if (errorCount > 0) {
-                    resultMessage += `\n❌ 錯誤：${errorCount} 條`;
                 }
-                
-                showBackupResult(resultMessage, successCount > 0 ? 'success' : 'error', 8000);
-                
-                if (successCount > 0) {
-                    document.getElementById('bulkImportText').value = '';
-                    updateCharCount();
-                }
-                
-            }, 100);
-        }
+            });
 
-        // 事件監聽
-        document.getElementById('symptomSearch').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                searchPrescriptions();
-            }
-        });
-
-        document.getElementById('newSymptom').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                addSymptom();
-            }
-        });
-
-        document.getElementById('bulkImportText').addEventListener('input', updateCharCount);
-        document.getElementById('bulkImportText').addEventListener('paste', function() {
-            setTimeout(updateCharCount, 10);
-        });
-
-        // 初始化應用
-        function initApp() {
-            renderAll();
-            updateBackupStatus();
-            
-            // 啟動自動備份（如果已啟用）
-            if (autoBackupEnabled) {
-                startAutoBackup();
-                document.getElementById('autoBackupBtn').textContent = '🔄 停用自動備份';
+            if (successCount > 0) {
+                saveData();
+                updateOverview();
+                alert(`成功導入 ${successCount} 條資料！`);
+                hideImportModal();
+            } else {
+                alert('導入失敗，請檢查資料格式！');
             }
         }
 
-        // 頁面卸載時停止自動備份
-        window.addEventListener('beforeunload', function() {
-            stopAutoBackup();
-        });
+        // 匯出資料
+        function exportData() {
+            const exportData = Object.entries(database.herbs)
+                .map(([herb, symptoms]) => `${herb}：${symptoms.join(',')}`)
+                .join('\n');
 
-        // 啟動應用
-        initApp();
+            const blob = new Blob([exportData], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `中醫資料庫_${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 更新概覽
+        function updateOverview() {
+            const herbsList = document.getElementById('herbsList');
+            const symptomsList = document.getElementById('symptomsList');
+
+            // 顯示中藥列表
+            const herbs = Object.keys(database.herbs).sort();
+            herbsList.innerHTML = herbs.map(herb => `
+                <div class="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
+                    <span class="font-medium text-gray-800">${herb}</span>
+                    <span class="text-sm text-gray-500">${database.herbs[herb].length} 個症狀</span>
+                </div>
+            `).join('');
+
+            // 顯示症狀列表
+            const symptoms = Object.keys(database.symptoms).sort();
+            symptomsList.innerHTML = symptoms.map(symptom => `
+                <div class="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
+                    <span class="font-medium text-gray-800">${symptom}</span>
+                    <span class="text-sm text-gray-500">${database.symptoms[symptom].length} 種中藥</span>
+                </div>
+            `).join('');
+        }
+
+        // 保存資料到本地存儲
+        function saveData() {
+            localStorage.setItem('tcmDatabase', JSON.stringify(database));
+        }
+
+        // 從本地存儲載入資料
+        function loadData() {
+            const saved = localStorage.getItem('tcmDatabase');
+            if (saved) {
+                database = JSON.parse(saved);
+            }
+        }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'964b5d5903e8a0c5',t:'MTc1MzQ0MzQzOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9651166f3380b42b',t:'MTc1MzUwMzQ0OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
