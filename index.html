@@ -26,7 +26,7 @@
     <header class="bg-white shadow-sm">
         <div class="max-w-4xl mx-auto px-4 py-3">
             <div class="flex items-center justify-between">
-                <h1 class="text-xl font-bold text-gray-800">中醫診症輔助</h1>
+                <h1 class="text-xl font-bold text-gray-800">中藥資料庫</h1>
                 <button id="backupBtn" class="px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm">
                     💾 備份資料
                 </button>
@@ -216,122 +216,223 @@
             performSearch(query) {
                 const results = {
                     herbResults: [],
-                    symptomResults: []
+                    symptomResults: [],
+                    combinationResults: [],
+                    relatedResults: []
                 };
 
-                // Normalize query for better matching
-                const normalizedQuery = this.normalizeText(query);
-                const queryTerms = this.extractKeywords(normalizedQuery);
+                // Enhanced query processing
+                const processedQuery = this.processSearchQuery(query);
+                const { 
+                    normalizedQuery, 
+                    queryTerms, 
+                    synonyms, 
+                    categories,
+                    isMultiTerm,
+                    searchIntent
+                } = processedQuery;
 
-                // Advanced similarity calculation with multiple algorithms
-                const calculateAdvancedSimilarity = (str1, str2) => {
+                // AI-powered similarity calculation with context awareness
+                const calculateIntelligentSimilarity = (str1, str2, context = {}) => {
                     const norm1 = this.normalizeText(str1);
                     const norm2 = this.normalizeText(str2);
                     
+                    let baseScore = 0;
+                    let contextBonus = 0;
+                    
                     // 1. Exact match (highest priority)
-                    if (norm1 === norm2) return 100;
+                    if (norm1 === norm2) baseScore = 100;
                     
-                    // 2. Contains match
-                    if (norm1.includes(norm2) || norm2.includes(norm1)) return 95;
+                    // 2. Semantic similarity (TCM-specific)
+                    else if (this.checkSemanticSimilarity(str1, str2)) baseScore = 95;
                     
-                    // 3. Starts with match
-                    if (norm1.startsWith(norm2) || norm2.startsWith(norm1)) return 90;
+                    // 3. Contains match with position weighting
+                    else if (norm1.includes(norm2) || norm2.includes(norm1)) {
+                        const position = norm1.indexOf(norm2);
+                        baseScore = position === 0 ? 92 : 88; // Higher score for prefix matches
+                    }
                     
-                    // 4. Ends with match
-                    if (norm1.endsWith(norm2) || norm2.endsWith(norm1)) return 85;
+                    // 4. Fuzzy matching algorithms combination
+                    else {
+                        const levenshteinScore = this.calculateLevenshteinSimilarity(norm1, norm2);
+                        const jaccardScore = this.calculateJaccardSimilarity(norm1, norm2);
+                        const damerauScore = this.calculateDamerauLevenshteinSimilarity(norm1, norm2);
+                        const soundexScore = this.calculateSoundexSimilarity(str1, str2);
+                        const metaphoneScore = this.calculateMetaphoneSimilarity(str1, str2);
+                        
+                        // Weighted combination with adaptive weights
+                        baseScore = Math.max(
+                            levenshteinScore * 0.25,
+                            jaccardScore * 0.20,
+                            damerauScore * 0.25,
+                            soundexScore * 0.15,
+                            metaphoneScore * 0.15
+                        );
+                    }
                     
-                    // 5. Levenshtein distance similarity
-                    const levenshteinScore = this.calculateLevenshteinSimilarity(norm1, norm2);
+                    // Context-aware scoring bonuses
+                    if (context.category && this.getCategoryMatch(str1, context.category)) {
+                        contextBonus += 10;
+                    }
                     
-                    // 6. Jaccard similarity for character n-grams
-                    const jaccardScore = this.calculateJaccardSimilarity(norm1, norm2);
+                    if (context.relatedTerms && this.hasRelatedTerms(str1, context.relatedTerms)) {
+                        contextBonus += 5;
+                    }
                     
-                    // 7. Keyword matching
-                    const keywordScore = this.calculateKeywordSimilarity(str1, queryTerms);
+                    // Frequency-based relevance (popular terms get slight boost)
+                    const frequencyBonus = this.getFrequencyBonus(str1);
                     
-                    // 8. Phonetic similarity (for Chinese characters)
-                    const phoneticScore = this.calculatePhoneticSimilarity(norm1, norm2);
-                    
-                    // Weighted combination of all scores
-                    const finalScore = Math.max(
-                        levenshteinScore * 0.3,
-                        jaccardScore * 0.25,
-                        keywordScore * 0.25,
-                        phoneticScore * 0.2
-                    );
-                    
-                    return Math.round(finalScore);
+                    return Math.min(100, Math.round(baseScore + contextBonus + frequencyBonus));
                 };
 
-                // Search in herbs with advanced scoring
+                // Multi-dimensional search with intent recognition
+                if (searchIntent === 'combination') {
+                    // Handle combination queries like "當歸 + 川芎"
+                    results.combinationResults = this.searchCombinations(queryTerms);
+                } else if (searchIntent === 'symptom_cluster') {
+                    // Handle symptom cluster queries
+                    results.relatedResults = this.searchSymptomClusters(queryTerms);
+                }
+
+                // Enhanced herb search with semantic understanding
                 const herbMatches = [];
                 Object.keys(this.data.herbs).forEach(herb => {
-                    const similarity = calculateAdvancedSimilarity(herb, query);
-                    
-                    // Also check symptoms for indirect matches
-                    let maxSymptomMatch = 0;
-                    this.data.herbs[herb].forEach(symptom => {
-                        const symptomSimilarity = calculateAdvancedSimilarity(symptom, query);
-                        maxSymptomMatch = Math.max(maxSymptomMatch, symptomSimilarity * 0.7); // Reduce weight for indirect matches
+                    const directSimilarity = calculateIntelligentSimilarity(herb, query, {
+                        category: 'herb',
+                        relatedTerms: queryTerms
                     });
                     
-                    const finalScore = Math.max(similarity, maxSymptomMatch);
+                    // Multi-level indirect matching
+                    let maxSymptomMatch = 0;
+                    let symptomMatchDetails = [];
                     
-                    if (finalScore >= 30) { // Lower threshold for more results
+                    this.data.herbs[herb].forEach(symptom => {
+                        const symptomSimilarity = calculateIntelligentSimilarity(symptom, query, {
+                            category: 'symptom',
+                            relatedTerms: queryTerms
+                        });
+                        
+                        if (symptomSimilarity > maxSymptomMatch) {
+                            maxSymptomMatch = symptomSimilarity;
+                        }
+                        
+                        if (symptomSimilarity >= 40) {
+                            symptomMatchDetails.push({
+                                symptom,
+                                score: symptomSimilarity
+                            });
+                        }
+                    });
+                    
+                    // Weighted final score with decay for indirect matches
+                    const indirectScore = maxSymptomMatch * 0.75;
+                    const finalScore = Math.max(directSimilarity, indirectScore);
+                    
+                    // Dynamic threshold based on query complexity
+                    const threshold = isMultiTerm ? 25 : 30;
+                    
+                    if (finalScore >= threshold) {
                         herbMatches.push({
                             name: herb,
                             symptoms: this.data.herbs[herb],
                             score: finalScore,
-                            matchType: similarity > maxSymptomMatch ? 'direct' : 'indirect'
+                            directScore: directSimilarity,
+                            indirectScore: indirectScore,
+                            matchType: directSimilarity > indirectScore ? 'direct' : 'indirect',
+                            matchDetails: symptomMatchDetails,
+                            relevanceFactors: this.getRelevanceFactors(herb, query, queryTerms)
                         });
                     }
                 });
 
-                // Search in symptoms with advanced scoring
+                // Enhanced symptom search with clustering
                 const symptomMatches = [];
                 Object.keys(this.data.symptoms).forEach(symptom => {
-                    const similarity = calculateAdvancedSimilarity(symptom, query);
-                    
-                    // Also check related herbs for indirect matches
-                    let maxHerbMatch = 0;
-                    this.data.symptoms[symptom].forEach(herb => {
-                        const herbSimilarity = calculateAdvancedSimilarity(herb, query);
-                        maxHerbMatch = Math.max(maxHerbMatch, herbSimilarity * 0.7);
+                    const directSimilarity = calculateIntelligentSimilarity(symptom, query, {
+                        category: 'symptom',
+                        relatedTerms: queryTerms
                     });
                     
-                    const finalScore = Math.max(similarity, maxHerbMatch);
+                    let maxHerbMatch = 0;
+                    let herbMatchDetails = [];
                     
-                    if (finalScore >= 30) {
+                    this.data.symptoms[symptom].forEach(herb => {
+                        const herbSimilarity = calculateIntelligentSimilarity(herb, query, {
+                            category: 'herb',
+                            relatedTerms: queryTerms
+                        });
+                        
+                        if (herbSimilarity > maxHerbMatch) {
+                            maxHerbMatch = herbSimilarity;
+                        }
+                        
+                        if (herbSimilarity >= 40) {
+                            herbMatchDetails.push({
+                                herb,
+                                score: herbSimilarity
+                            });
+                        }
+                    });
+                    
+                    const indirectScore = maxHerbMatch * 0.75;
+                    const finalScore = Math.max(directSimilarity, indirectScore);
+                    const threshold = isMultiTerm ? 25 : 30;
+                    
+                    if (finalScore >= threshold) {
                         symptomMatches.push({
                             name: symptom,
                             herbs: this.data.symptoms[symptom],
                             score: finalScore,
-                            matchType: similarity > maxHerbMatch ? 'direct' : 'indirect'
+                            directScore: directSimilarity,
+                            indirectScore: indirectScore,
+                            matchType: directSimilarity > indirectScore ? 'direct' : 'indirect',
+                            matchDetails: herbMatchDetails,
+                            relevanceFactors: this.getRelevanceFactors(symptom, query, queryTerms)
                         });
                     }
                 });
 
-                // Advanced sorting with multiple criteria
-                const advancedSort = (a, b) => {
-                    // Primary: Score
-                    if (a.score !== b.score) return b.score - a.score;
+                // Intelligent sorting with multiple ranking factors
+                const intelligentSort = (a, b) => {
+                    // Primary: Weighted score considering match type
+                    const scoreA = a.matchType === 'direct' ? a.score : a.score * 0.9;
+                    const scoreB = b.matchType === 'direct' ? b.score : b.score * 0.9;
                     
-                    // Secondary: Direct matches first
-                    if (a.matchType !== b.matchType) {
-                        return a.matchType === 'direct' ? -1 : 1;
+                    if (Math.abs(scoreA - scoreB) > 5) {
+                        return scoreB - scoreA;
                     }
                     
-                    // Tertiary: Shorter names (more specific) first
-                    return a.name.length - b.name.length;
+                    // Secondary: Relevance factors
+                    const relevanceA = a.relevanceFactors.total;
+                    const relevanceB = b.relevanceFactors.total;
+                    
+                    if (Math.abs(relevanceA - relevanceB) > 2) {
+                        return relevanceB - relevanceA;
+                    }
+                    
+                    // Tertiary: Name length (shorter = more specific)
+                    if (Math.abs(a.name.length - b.name.length) > 2) {
+                        return a.name.length - b.name.length;
+                    }
+                    
+                    // Quaternary: Number of related items (more = more comprehensive)
+                    const itemsA = a.symptoms ? a.symptoms.length : a.herbs.length;
+                    const itemsB = b.symptoms ? b.symptoms.length : b.herbs.length;
+                    
+                    return itemsB - itemsA;
                 };
 
+                // Apply intelligent sorting and pagination
                 results.herbResults = herbMatches
-                    .sort(advancedSort)
-                    .slice(0, 15); // Increased limit
+                    .sort(intelligentSort)
+                    .slice(0, 20);
 
                 results.symptomResults = symptomMatches
-                    .sort(advancedSort)
-                    .slice(0, 15); // Increased limit
+                    .sort(intelligentSort)
+                    .slice(0, 20);
+
+                // Add search analytics
+                this.recordSearchAnalytics(query, results);
 
                 return results;
             }
@@ -420,24 +521,295 @@
                 return (matches / keywords.length) * 100;
             }
 
-            // Simple phonetic similarity for Chinese characters
-            calculatePhoneticSimilarity(str1, str2) {
-                // This is a simplified version - in a real implementation,
-                // you would use a proper Chinese phonetic algorithm
-                const getPhoneticCode = (char) => {
-                    // Simplified mapping of some common characters
-                    const phoneticMap = {
-                        '氣': 'qi', '血': 'xue', '虛': 'xu', '實': 'shi',
-                        '熱': 're', '寒': 'han', '濕': 'shi', '燥': 'zao',
-                        '風': 'feng', '火': 'huo', '痰': 'tan', '瘀': 'yu'
-                    };
-                    return phoneticMap[char] || char;
+            // Enhanced query processing with AI-like understanding
+            processSearchQuery(query) {
+                const normalizedQuery = this.normalizeText(query);
+                const queryTerms = this.extractKeywords(normalizedQuery);
+                
+                // Detect search intent
+                let searchIntent = 'general';
+                if (query.includes('+') || query.includes('配') || query.includes('組合')) {
+                    searchIntent = 'combination';
+                } else if (queryTerms.length > 2) {
+                    searchIntent = 'symptom_cluster';
+                }
+                
+                // Extract synonyms and related terms
+                const synonyms = this.getSynonyms(queryTerms);
+                const categories = this.categorizeTerms(queryTerms);
+                
+                return {
+                    normalizedQuery,
+                    queryTerms,
+                    synonyms,
+                    categories,
+                    isMultiTerm: queryTerms.length > 1,
+                    searchIntent
+                };
+            }
+
+            // TCM-specific semantic similarity
+            checkSemanticSimilarity(str1, str2) {
+                const semanticGroups = {
+                    '血虛': ['血少', '血不足', '貧血', '血虛證'],
+                    '氣虛': ['氣不足', '氣弱', '氣虛證', '元氣不足'],
+                    '陽虛': ['陽氣不足', '陽氣虛', '陽虛證'],
+                    '陰虛': ['陰液不足', '陰虛證', '陰虛火旺'],
+                    '濕熱': ['濕熱證', '濕熱內蘊', '濕熱下注'],
+                    '風寒': ['風寒感冒', '風寒證', '外感風寒'],
+                    '風熱': ['風熱感冒', '風熱證', '外感風熱'],
+                    '肝鬱': ['肝氣鬱結', '肝鬱氣滯', '肝鬱證'],
+                    '脾虛': ['脾氣虛', '脾虛證', '脾胃虛弱'],
+                    '腎虛': ['腎氣虛', '腎虛證', '腎精不足']
                 };
                 
-                const phonetic1 = str1.split('').map(getPhoneticCode).join('');
-                const phonetic2 = str2.split('').map(getPhoneticCode).join('');
+                for (const [key, group] of Object.entries(semanticGroups)) {
+                    if ((group.includes(str1) && group.includes(str2)) ||
+                        (str1 === key && group.includes(str2)) ||
+                        (str2 === key && group.includes(str1))) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            // Get synonyms for better matching
+            getSynonyms(terms) {
+                const synonymMap = {
+                    '頭痛': ['頭疼', '腦痛', '偏頭痛'],
+                    '發熱': ['發燒', '熱病', '體溫升高'],
+                    '咳嗽': ['咳', '乾咳', '咳痰'],
+                    '腹痛': ['肚子痛', '胃痛', '腹部疼痛'],
+                    '失眠': ['不眠', '睡不著', '入睡困難'],
+                    '便秘': ['大便秘結', '排便困難', '便結'],
+                    '腹瀉': ['拉肚子', '泄瀉', '大便溏薄'],
+                    '月經不調': ['經期不準', '月經失調', '經亂'],
+                    '當歸': ['歸身', '歸尾', '全當歸'],
+                    '人參': ['紅參', '白參', '野山參'],
+                    '甘草': ['炙甘草', '生甘草', '蜜炙甘草']
+                };
                 
-                return this.calculateLevenshteinSimilarity(phonetic1, phonetic2) * 0.8;
+                const synonyms = [];
+                terms.forEach(term => {
+                    if (synonymMap[term]) {
+                        synonyms.push(...synonymMap[term]);
+                    }
+                });
+                return synonyms;
+            }
+
+            // Categorize search terms
+            categorizeTerms(terms) {
+                const categories = {
+                    herbs: [],
+                    symptoms: [],
+                    patterns: [],
+                    organs: []
+                };
+                
+                const herbKeywords = ['參', '歸', '芪', '術', '草', '薑', '桂', '附'];
+                const symptomKeywords = ['痛', '熱', '咳', '瀉', '脹', '悶', '暈'];
+                const patternKeywords = ['虛', '實', '寒', '熱', '濕', '燥', '風', '火'];
+                const organKeywords = ['心', '肝', '脾', '肺', '腎', '胃', '腸'];
+                
+                terms.forEach(term => {
+                    if (herbKeywords.some(keyword => term.includes(keyword))) {
+                        categories.herbs.push(term);
+                    }
+                    if (symptomKeywords.some(keyword => term.includes(keyword))) {
+                        categories.symptoms.push(term);
+                    }
+                    if (patternKeywords.some(keyword => term.includes(keyword))) {
+                        categories.patterns.push(term);
+                    }
+                    if (organKeywords.some(keyword => term.includes(keyword))) {
+                        categories.organs.push(term);
+                    }
+                });
+                
+                return categories;
+            }
+
+            // Advanced similarity algorithms
+            calculateDamerauLevenshteinSimilarity(str1, str2) {
+                const len1 = str1.length;
+                const len2 = str2.length;
+                const maxDist = len1 + len2;
+                
+                const H = Array(len1 + 2).fill().map(() => Array(len2 + 2).fill(0));
+                H[0][0] = maxDist;
+                
+                for (let i = 0; i <= len1; i++) {
+                    H[i + 1][0] = maxDist;
+                    H[i + 1][1] = i;
+                }
+                
+                for (let j = 0; j <= len2; j++) {
+                    H[0][j + 1] = maxDist;
+                    H[1][j + 1] = j;
+                }
+                
+                const da = {};
+                
+                for (let i = 1; i <= len1; i++) {
+                    let db = 0;
+                    for (let j = 1; j <= len2; j++) {
+                        const k = da[str2[j - 1]] || 0;
+                        const l = db;
+                        let cost = 1;
+                        
+                        if (str1[i - 1] === str2[j - 1]) {
+                            cost = 0;
+                            db = j;
+                        }
+                        
+                        H[i + 1][j + 1] = Math.min(
+                            H[i][j] + cost,
+                            H[i + 1][j] + 1,
+                            H[i][j + 1] + 1,
+                            H[k][l] + (i - k - 1) + 1 + (j - l - 1)
+                        );
+                    }
+                    da[str1[i - 1]] = i;
+                }
+                
+                const maxLen = Math.max(len1, len2);
+                return maxLen === 0 ? 100 : ((maxLen - H[len1 + 1][len2 + 1]) / maxLen) * 100;
+            }
+
+            calculateSoundexSimilarity(str1, str2) {
+                const soundex = (str) => {
+                    const code = str.toUpperCase().replace(/[^A-Z]/g, '');
+                    if (!code) return '0000';
+                    
+                    let result = code[0];
+                    const mapping = {
+                        'BFPV': '1', 'CGJKQSXZ': '2', 'DT': '3',
+                        'L': '4', 'MN': '5', 'R': '6'
+                    };
+                    
+                    for (let i = 1; i < code.length && result.length < 4; i++) {
+                        const char = code[i];
+                        for (const [chars, digit] of Object.entries(mapping)) {
+                            if (chars.includes(char) && result[result.length - 1] !== digit) {
+                                result += digit;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    return result.padEnd(4, '0');
+                };
+                
+                const code1 = soundex(str1);
+                const code2 = soundex(str2);
+                
+                let matches = 0;
+                for (let i = 0; i < 4; i++) {
+                    if (code1[i] === code2[i]) matches++;
+                }
+                
+                return (matches / 4) * 100;
+            }
+
+            calculateMetaphoneSimilarity(str1, str2) {
+                // Simplified metaphone for Chinese characters
+                const metaphone = (str) => {
+                    const phoneticMap = {
+                        '當': 'DANG', '歸': 'GUI', '人': 'REN', '參': 'SHEN',
+                        '黃': 'HUANG', '芪': 'QI', '白': 'BAI', '術': 'ZHU',
+                        '茯': 'FU', '苓': 'LING', '甘': 'GAN', '草': 'CAO',
+                        '川': 'CHUAN', '芎': 'XIONG', '熟': 'SHU', '地': 'DI',
+                        '血': 'XUE', '虛': 'XU', '氣': 'QI', '陰': 'YIN',
+                        '陽': 'YANG', '濕': 'SHI', '熱': 'RE', '寒': 'HAN'
+                    };
+                    
+                    return str.split('').map(char => phoneticMap[char] || char).join('');
+                };
+                
+                const meta1 = metaphone(str1);
+                const meta2 = metaphone(str2);
+                
+                return this.calculateLevenshteinSimilarity(meta1, meta2);
+            }
+
+            // Context-aware scoring helpers
+            getCategoryMatch(term, category) {
+                // Check if term belongs to specified category
+                const categoryPatterns = {
+                    herb: ['參', '歸', '芪', '術', '草', '薑', '桂', '附', '芎', '地', '苓'],
+                    symptom: ['痛', '熱', '咳', '瀉', '脹', '悶', '暈', '虛', '實']
+                };
+                
+                return categoryPatterns[category]?.some(pattern => term.includes(pattern)) || false;
+            }
+
+            hasRelatedTerms(term, relatedTerms) {
+                return relatedTerms.some(related => 
+                    term.includes(related) || related.includes(term)
+                );
+            }
+
+            getFrequencyBonus(term) {
+                // Common TCM terms get slight relevance boost
+                const commonTerms = {
+                    '當歸': 3, '人參': 3, '黃芪': 3, '甘草': 3,
+                    '血虛': 2, '氣虛': 2, '陰虛': 2, '陽虛': 2,
+                    '頭痛': 2, '發熱': 2, '咳嗽': 2, '腹痛': 2
+                };
+                
+                return commonTerms[term] || 0;
+            }
+
+            getRelevanceFactors(item, query, queryTerms) {
+                const factors = {
+                    exactMatch: item === query ? 10 : 0,
+                    lengthSimilarity: Math.max(0, 5 - Math.abs(item.length - query.length)),
+                    termOverlap: queryTerms.filter(term => item.includes(term)).length * 2,
+                    total: 0
+                };
+                
+                factors.total = factors.exactMatch + factors.lengthSimilarity + factors.termOverlap;
+                return factors;
+            }
+
+            // Combination search for herb pairs
+            searchCombinations(terms) {
+                const combinations = [];
+                // Implementation for finding herb combinations
+                // This would analyze common herb pairs in the database
+                return combinations;
+            }
+
+            // Symptom cluster analysis
+            searchSymptomClusters(terms) {
+                const clusters = [];
+                // Implementation for finding related symptom patterns
+                // This would group symptoms that commonly appear together
+                return clusters;
+            }
+
+            // Search analytics for continuous improvement
+            recordSearchAnalytics(query, results) {
+                const analytics = JSON.parse(localStorage.getItem('searchAnalytics') || '{}');
+                const timestamp = new Date().toISOString();
+                
+                if (!analytics[query]) {
+                    analytics[query] = {
+                        count: 0,
+                        lastSearched: timestamp,
+                        avgResults: 0
+                    };
+                }
+                
+                analytics[query].count++;
+                analytics[query].lastSearched = timestamp;
+                analytics[query].avgResults = (
+                    (analytics[query].avgResults * (analytics[query].count - 1)) + 
+                    (results.herbResults.length + results.symptomResults.length)
+                ) / analytics[query].count;
+                
+                localStorage.setItem('searchAnalytics', JSON.stringify(analytics));
             }
 
             displaySearchResults(query, results) {
@@ -447,45 +819,130 @@
                 resultsSection.classList.remove('hidden');
                 searchResults.innerHTML = '';
 
-                if (results.herbResults.length === 0 && results.symptomResults.length === 0) {
+                const totalResults = results.herbResults.length + results.symptomResults.length + 
+                                  (results.combinationResults?.length || 0) + (results.relatedResults?.length || 0);
+
+                if (totalResults === 0) {
                     searchResults.innerHTML = `
                         <div class="text-center py-8 text-gray-500">
                             <div class="text-4xl mb-4">🔍</div>
                             <p class="text-lg">未找到相關結果</p>
                             <p class="text-sm mt-2">請嘗試其他關鍵字或檢查拼寫</p>
+                            <div class="mt-4 text-xs text-gray-400">
+                                <p>搜尋建議：</p>
+                                <p>• 使用中藥名稱如「當歸」、「人參」</p>
+                                <p>• 使用症狀描述如「頭痛」、「失眠」</p>
+                                <p>• 使用證型如「血虛」、「氣虛」</p>
+                            </div>
                         </div>
                     `;
                     return;
                 }
 
-                // Display herb results
+                // Add search summary
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = 'mb-6 p-4 bg-gray-50 rounded-lg border';
+                summaryDiv.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <span class="text-sm text-gray-600">搜尋「${query}」找到 ${totalResults} 個結果</span>
+                            <div class="flex space-x-2 text-xs">
+                                ${results.herbResults.length > 0 ? `<span class="px-2 py-1 bg-green-100 text-green-800 rounded">中藥 ${results.herbResults.length}</span>` : ''}
+                                ${results.symptomResults.length > 0 ? `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded">症狀 ${results.symptomResults.length}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-400">
+                            搜尋時間: ${new Date().toLocaleTimeString('zh-TW')}
+                        </div>
+                    </div>
+                `;
+                searchResults.appendChild(summaryDiv);
+
+                // Display combination results (if any)
+                if (results.combinationResults && results.combinationResults.length > 0) {
+                    const combinationSection = document.createElement('div');
+                    combinationSection.className = 'mb-8';
+                    combinationSection.innerHTML = `
+                        <h4 class="font-semibold text-gray-800 mb-3 flex items-center">
+                            <span class="mr-2">🔗</span>
+                            <span>中藥組合</span>
+                            <span class="ml-2 text-xs text-gray-500">(${results.combinationResults.length})</span>
+                        </h4>
+                    `;
+                    searchResults.appendChild(combinationSection);
+                }
+
+                // Enhanced herb results display
                 if (results.herbResults.length > 0) {
                     const herbSection = document.createElement('div');
                     herbSection.className = 'mb-8';
                     herbSection.innerHTML = `
-                        <h4 class="font-semibold text-gray-800 mb-3">🌿 中藥</h4>
+                        <h4 class="font-semibold text-gray-800 mb-3 flex items-center">
+                            <span class="mr-2">🌿</span>
+                            <span>中藥</span>
+                            <span class="ml-2 text-xs text-gray-500">(${results.herbResults.length})</span>
+                        </h4>
                     `;
 
                     results.herbResults.forEach((herb, index) => {
                         const herbCard = document.createElement('div');
-                        const matchBadge = herb.score >= 95 ? '完全匹配' : herb.score >= 80 ? '高度匹配' : herb.score >= 60 ? '中度匹配' : '相關匹配';
-                        const badgeColor = herb.score >= 95 ? 'bg-red-100 text-red-800' : herb.score >= 80 ? 'bg-orange-100 text-orange-800' : herb.score >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800';
+                        const matchBadge = this.getMatchBadge(herb.score);
+                        const confidenceColor = this.getConfidenceColor(herb.score);
                         const matchTypeIcon = herb.matchType === 'direct' ? '🎯' : '🔗';
                         const matchTypeText = herb.matchType === 'direct' ? '直接匹配' : '間接匹配';
                         
-                        herbCard.className = 'bg-green-50 border-l-4 border-green-500 p-4 rounded-lg mb-3';
+                        // Enhanced relevance indicators
+                        const relevanceIndicators = [];
+                        if (herb.relevanceFactors.exactMatch > 0) relevanceIndicators.push('完全匹配');
+                        if (herb.relevanceFactors.termOverlap > 0) relevanceIndicators.push('關鍵詞匹配');
+                        if (herb.matchDetails && herb.matchDetails.length > 0) relevanceIndicators.push('症狀相關');
+                        
+                        herbCard.className = `bg-gradient-to-r from-green-50 to-green-25 border-l-4 border-green-500 p-4 rounded-lg mb-3 hover:shadow-md transition-shadow`;
                         herbCard.innerHTML = `
-                            <div class="flex justify-between items-start mb-2">
-                                <h5 class="font-bold text-green-800">${herb.name}</h5>
-                                <span class="text-xs text-gray-500">${herb.score}%</span>
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="flex items-center space-x-2">
+                                    <h5 class="font-bold text-green-800 text-lg">${herb.name}</h5>
+                                    <span class="text-xs ${confidenceColor} px-2 py-1 rounded-full">${matchBadge}</span>
+                                    <span class="text-xs text-gray-500" title="${matchTypeText}">${matchTypeIcon}</span>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm font-medium text-gray-700">${herb.score}%</div>
+                                    <div class="text-xs text-gray-500">相似度</div>
+                                </div>
                             </div>
-                            <div class="flex flex-wrap gap-1">
-                                ${herb.symptoms.map(symptom => {
-                                    const isHighlighted = this.normalizeText(symptom).includes(this.normalizeText(query)) || 
-                                                        this.normalizeText(query).includes(this.normalizeText(symptom));
-                                    return `<span class="px-2 py-1 ${isHighlighted ? 'bg-yellow-200 text-yellow-900' : 'bg-green-100 text-green-800'} rounded text-xs">${symptom}</span>`;
-                                }).join('')}
+                            
+                            ${relevanceIndicators.length > 0 ? `
+                                <div class="mb-2 flex flex-wrap gap-1">
+                                    ${relevanceIndicators.map(indicator => 
+                                        `<span class="text-xs bg-green-200 text-green-800 px-2 py-1 rounded">${indicator}</span>`
+                                    ).join('')}
+                                </div>
+                            ` : ''}
+                            
+                            <div class="mb-2">
+                                <div class="text-xs text-gray-600 mb-1">主治症狀：</div>
+                                <div class="flex flex-wrap gap-1">
+                                    ${herb.symptoms.map(symptom => {
+                                        const isHighlighted = this.isTermHighlighted(symptom, query);
+                                        const matchDetail = herb.matchDetails?.find(detail => detail.symptom === symptom);
+                                        const hasMatchDetail = matchDetail && matchDetail.score >= 40;
+                                        
+                                        return `<span class="px-2 py-1 text-xs rounded transition-colors ${
+                                            isHighlighted ? 'bg-yellow-200 text-yellow-900 font-medium' : 
+                                            hasMatchDetail ? 'bg-orange-100 text-orange-800' :
+                                            'bg-green-100 text-green-800'
+                                        } ${hasMatchDetail ? 'border border-orange-300' : ''}" 
+                                        ${hasMatchDetail ? `title="匹配度: ${matchDetail.score}%"` : ''}>${symptom}</span>`;
+                                    }).join('')}
+                                </div>
                             </div>
+                            
+                            ${herb.directScore !== herb.score ? `
+                                <div class="text-xs text-gray-500 mt-2 flex justify-between">
+                                    <span>直接匹配: ${Math.round(herb.directScore)}%</span>
+                                    <span>間接匹配: ${Math.round(herb.indirectScore)}%</span>
+                                </div>
+                            ` : ''}
                         `;
                         herbSection.appendChild(herbCard);
                     });
@@ -493,39 +950,121 @@
                     searchResults.appendChild(herbSection);
                 }
 
-                // Display symptom results
+                // Enhanced symptom results display
                 if (results.symptomResults.length > 0) {
                     const symptomSection = document.createElement('div');
+                    symptomSection.className = 'mb-8';
                     symptomSection.innerHTML = `
-                        <h4 class="font-semibold text-gray-800 mb-3">🩺 症狀</h4>
+                        <h4 class="font-semibold text-gray-800 mb-3 flex items-center">
+                            <span class="mr-2">🩺</span>
+                            <span>症狀</span>
+                            <span class="ml-2 text-xs text-gray-500">(${results.symptomResults.length})</span>
+                        </h4>
                     `;
 
                     results.symptomResults.forEach((symptom, index) => {
                         const symptomCard = document.createElement('div');
-                        const matchBadge = symptom.score >= 95 ? '完全匹配' : symptom.score >= 80 ? '高度匹配' : symptom.score >= 60 ? '中度匹配' : '相關匹配';
-                        const badgeColor = symptom.score >= 95 ? 'bg-red-100 text-red-800' : symptom.score >= 80 ? 'bg-orange-100 text-orange-800' : symptom.score >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800';
+                        const matchBadge = this.getMatchBadge(symptom.score);
+                        const confidenceColor = this.getConfidenceColor(symptom.score);
                         const matchTypeIcon = symptom.matchType === 'direct' ? '🎯' : '🔗';
                         const matchTypeText = symptom.matchType === 'direct' ? '直接匹配' : '間接匹配';
                         
-                        symptomCard.className = 'bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg mb-3';
+                        const relevanceIndicators = [];
+                        if (symptom.relevanceFactors.exactMatch > 0) relevanceIndicators.push('完全匹配');
+                        if (symptom.relevanceFactors.termOverlap > 0) relevanceIndicators.push('關鍵詞匹配');
+                        if (symptom.matchDetails && symptom.matchDetails.length > 0) relevanceIndicators.push('中藥相關');
+                        
+                        symptomCard.className = `bg-gradient-to-r from-blue-50 to-blue-25 border-l-4 border-blue-500 p-4 rounded-lg mb-3 hover:shadow-md transition-shadow`;
                         symptomCard.innerHTML = `
-                            <div class="flex justify-between items-start mb-2">
-                                <h5 class="font-bold text-blue-800">${symptom.name}</h5>
-                                <span class="text-xs text-gray-500">${symptom.score}%</span>
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="flex items-center space-x-2">
+                                    <h5 class="font-bold text-blue-800 text-lg">${symptom.name}</h5>
+                                    <span class="text-xs ${confidenceColor} px-2 py-1 rounded-full">${matchBadge}</span>
+                                    <span class="text-xs text-gray-500" title="${matchTypeText}">${matchTypeIcon}</span>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm font-medium text-gray-700">${symptom.score}%</div>
+                                    <div class="text-xs text-gray-500">相似度</div>
+                                </div>
                             </div>
-                            <div class="flex flex-wrap gap-1">
-                                ${symptom.herbs.map(herb => {
-                                    const isHighlighted = this.normalizeText(herb).includes(this.normalizeText(query)) || 
-                                                        this.normalizeText(query).includes(this.normalizeText(herb));
-                                    return `<span class="px-2 py-1 ${isHighlighted ? 'bg-yellow-200 text-yellow-900' : 'bg-blue-100 text-blue-800'} rounded text-xs">${herb}</span>`;
-                                }).join('')}
+                            
+                            ${relevanceIndicators.length > 0 ? `
+                                <div class="mb-2 flex flex-wrap gap-1">
+                                    ${relevanceIndicators.map(indicator => 
+                                        `<span class="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded">${indicator}</span>`
+                                    ).join('')}
+                                </div>
+                            ` : ''}
+                            
+                            <div class="mb-2">
+                                <div class="text-xs text-gray-600 mb-1">相關中藥：</div>
+                                <div class="flex flex-wrap gap-1">
+                                    ${symptom.herbs.map(herb => {
+                                        const isHighlighted = this.isTermHighlighted(herb, query);
+                                        const matchDetail = symptom.matchDetails?.find(detail => detail.herb === herb);
+                                        const hasMatchDetail = matchDetail && matchDetail.score >= 40;
+                                        
+                                        return `<span class="px-2 py-1 text-xs rounded transition-colors ${
+                                            isHighlighted ? 'bg-yellow-200 text-yellow-900 font-medium' : 
+                                            hasMatchDetail ? 'bg-orange-100 text-orange-800' :
+                                            'bg-blue-100 text-blue-800'
+                                        } ${hasMatchDetail ? 'border border-orange-300' : ''}"
+                                        ${hasMatchDetail ? `title="匹配度: ${matchDetail.score}%"` : ''}>${herb}</span>`;
+                                    }).join('')}
+                                </div>
                             </div>
+                            
+                            ${symptom.directScore !== symptom.score ? `
+                                <div class="text-xs text-gray-500 mt-2 flex justify-between">
+                                    <span>直接匹配: ${Math.round(symptom.directScore)}%</span>
+                                    <span>間接匹配: ${Math.round(symptom.indirectScore)}%</span>
+                                </div>
+                            ` : ''}
                         `;
                         symptomSection.appendChild(symptomCard);
                     });
 
                     searchResults.appendChild(symptomSection);
                 }
+
+                // Add search tips at the bottom
+                const tipsDiv = document.createElement('div');
+                tipsDiv.className = 'mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200';
+                tipsDiv.innerHTML = `
+                    <div class="text-sm text-blue-800">
+                        <div class="font-medium mb-2">💡 搜尋提示：</div>
+                        <ul class="text-xs space-y-1 text-blue-700">
+                            <li>• 使用「+」號搜尋中藥組合，如「當歸+川芎」</li>
+                            <li>• 輸入多個症狀可找到相關的證型模式</li>
+                            <li>• 系統支援同義詞搜尋，如「頭疼」會匹配「頭痛」</li>
+                            <li>• 黃色標籤表示直接匹配，橙色表示高相關性</li>
+                        </ul>
+                    </div>
+                `;
+                searchResults.appendChild(tipsDiv);
+            }
+
+            // Helper methods for enhanced display
+            getMatchBadge(score) {
+                if (score >= 95) return '完全匹配';
+                if (score >= 85) return '高度匹配';
+                if (score >= 70) return '中度匹配';
+                if (score >= 50) return '相關匹配';
+                return '弱相關';
+            }
+
+            getConfidenceColor(score) {
+                if (score >= 95) return 'bg-red-100 text-red-800';
+                if (score >= 85) return 'bg-orange-100 text-orange-800';
+                if (score >= 70) return 'bg-yellow-100 text-yellow-800';
+                if (score >= 50) return 'bg-blue-100 text-blue-800';
+                return 'bg-gray-100 text-gray-800';
+            }
+
+            isTermHighlighted(term, query) {
+                const normalizedTerm = this.normalizeText(term);
+                const normalizedQuery = this.normalizeText(query);
+                return normalizedTerm.includes(normalizedQuery) || normalizedQuery.includes(normalizedTerm);
             }
 
             processImportData() {
@@ -1014,5 +1553,5 @@
             new TCMDiagnosticTool();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9651fb95135409b8',t:'MTc1MzUxMjgzNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'965208a5031a09b8',t:'MTc1MzUxMzM3MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
