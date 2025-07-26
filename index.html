@@ -23,153 +23,111 @@
 </head>
 <body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
     <!-- Header -->
-    <header class="bg-white shadow-lg border-b border-gray-200">
-        <div class="max-w-7xl mx-auto px-6 py-4">
+    <header class="bg-white shadow-sm">
+        <div class="max-w-4xl mx-auto px-4 py-3">
             <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
-                        <span class="text-white font-bold text-lg">中</span>
-                    </div>
-                    <h1 class="text-2xl font-bold text-gray-800">中醫診症輔助工具</h1>
-                </div>
-                <div class="flex space-x-3">
-                    <button id="exportBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
-                        <span>💾</span>
-                        <span>備份資料</span>
-                    </button>
-                </div>
+                <h1 class="text-xl font-bold text-gray-800">中醫診症輔助</h1>
+                <button id="exportBtn" class="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm">
+                    備份
+                </button>
             </div>
         </div>
     </header>
 
-    <div class="max-w-7xl mx-auto px-6 py-8">
+    <div class="max-w-4xl mx-auto px-4 py-6">
         <!-- Search Section -->
-        <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
-            <div class="text-center mb-6">
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">智能搜尋系統</h2>
-                <p class="text-gray-600">搜尋症狀找中藥，或搜尋中藥找症狀</p>
-            </div>
-            
-            <div class="max-w-2xl mx-auto">
-                <div class="relative">
-                    <input 
-                        type="text" 
-                        id="searchInput" 
-                        placeholder="輸入症狀或中藥名稱..." 
-                        class="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                        autocomplete="off"
-                    >
-                    <button id="searchBtn" class="absolute right-2 top-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                        🔍 搜尋
-                    </button>
-                    <div id="searchSuggestions" class="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 hidden z-10 max-h-64 overflow-y-auto"></div>
-                </div>
-                
-                <!-- Search Tips -->
-                <div class="mt-4 text-center">
-                    <p class="text-sm text-gray-500 mb-2">💡 搜尋提示：</p>
-                    <div class="flex flex-wrap justify-center gap-2">
-                        <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">支援模糊搜尋</span>
-                        <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">自動錯字修正</span>
-                        <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">關聯搜尋</span>
-                        <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">語音相似</span>
-                    </div>
-                </div>
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div class="relative">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="搜尋症狀或中藥..." 
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                    autocomplete="off"
+                >
+                <button id="searchBtn" class="absolute right-2 top-2 px-4 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm">
+                    搜尋
+                </button>
+                <div id="searchSuggestions" class="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 hidden z-10 max-h-64 overflow-y-auto"></div>
             </div>
         </div>
 
         <!-- Results Section -->
-        <div id="resultsSection" class="bg-white rounded-2xl shadow-xl p-8 mb-8 hidden">
-            <h3 class="text-2xl font-bold text-gray-800 mb-6">搜尋結果</h3>
+        <div id="resultsSection" class="bg-white rounded-lg shadow-sm p-6 mb-6 hidden">
             <div id="searchResults" class="space-y-4"></div>
         </div>
 
         <!-- Data Management Section -->
-        <div class="grid md:grid-cols-2 gap-8">
-            <!-- Import Section -->
-            <div class="bg-white rounded-2xl shadow-xl p-8">
-                <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                    <span class="mr-3">📥</span>
-                    資料導入
-                </h3>
-                <div class="space-y-4">
-                    <!-- Import Options -->
-                    <div class="grid grid-cols-2 gap-3 mb-4">
-                        <button id="fileImportBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2">
-                            <span>📁</span>
-                            <span>從檔案導入</span>
-                        </button>
-                        <button id="textImportBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2">
-                            <span>✏️</span>
-                            <span>手動輸入</span>
-                        </button>
-                    </div>
-                    
-                    <!-- Manual Input Section -->
-                    <div id="manualInputSection" class="hidden">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            資料格式：中藥名：症狀1,症狀2,症狀3
-                        </label>
-                        <textarea 
-                            id="importData" 
-                            rows="8" 
-                            placeholder="範例：&#10;當歸：血虛,月經不調,便秘&#10;黃芪：氣虛,自汗,水腫&#10;人參：氣虛,心悸,失眠"
-                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none resize-none"
-                        ></textarea>
-                        <button id="processImport" class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium mt-3">
-                            處理並導入資料
-                        </button>
-                    </div>
-                    
-                    <!-- File Import Status -->
-                    <div id="importStatus" class="hidden p-3 rounded-lg">
-                        <div class="flex items-center space-x-2">
-                            <span id="statusIcon">✅</span>
-                            <span id="statusText" class="text-sm font-medium"></span>
-                        </div>
-                    </div>
+        <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div class="flex flex-wrap gap-3 mb-4">
+                <button id="fileImportBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm">
+                    導入檔案
+                </button>
+                <button id="textImportBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm">
+                    手動輸入
+                </button>
+                <button id="clearData" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm">
+                    清空資料
+                </button>
+                <div class="ml-auto flex items-center space-x-4 text-sm text-gray-600">
+                    <span>中藥: <span id="herbCount" class="font-medium">0</span></span>
+                    <span>症狀: <span id="symptomCount" class="font-medium">0</span></span>
                 </div>
             </div>
-
-            <!-- Current Data Section -->
-            <div class="bg-white rounded-2xl shadow-xl p-8">
-                <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                    <span class="mr-3">📊</span>
-                    當前資料庫
-                </h3>
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                        <span class="text-gray-700">中藥總數</span>
-                        <span id="herbCount" class="font-bold text-blue-600">0</span>
-                    </div>
-                    <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                        <span class="text-gray-700">症狀總數</span>
-                        <span id="symptomCount" class="font-bold text-green-600">0</span>
-                    </div>
-                    <button id="clearData" class="w-full px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
-                        清空所有資料
-                    </button>
+            
+            <!-- Manual Input Section -->
+            <div id="manualInputSection" class="hidden">
+                <textarea 
+                    id="importData" 
+                    rows="6" 
+                    placeholder="格式：中藥名：症狀1,症狀2,症狀3&#10;範例：當歸：血虛,月經不調,便秘"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:outline-none resize-none text-sm mb-3"
+                ></textarea>
+                <button id="processImport" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm">
+                    導入資料
+                </button>
+            </div>
+            
+            <!-- File Import Status -->
+            <div id="importStatus" class="hidden p-3 rounded-md">
+                <div class="flex items-center space-x-2">
+                    <span id="statusIcon">✅</span>
+                    <span id="statusText" class="text-sm"></span>
                 </div>
             </div>
         </div>
 
-        <!-- Data Preview Section -->
-        <div id="dataPreview" class="bg-white rounded-2xl shadow-xl p-8 mt-8">
-            <h3 class="text-2xl font-bold text-gray-800 mb-6">資料預覽</h3>
-            <div class="grid md:grid-cols-2 gap-8">
-                <div>
-                    <h4 class="text-lg font-semibold text-gray-700 mb-4">中藥列表</h4>
-                    <div id="herbsList" class="max-h-64 overflow-y-auto space-y-2"></div>
+
+    </div>
+
+    <!-- Export Modal -->
+    <div id="exportModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">資料備份</h3>
+            
+            <div class="text-sm text-gray-600 mb-4">
+                <div class="flex justify-between">
+                    <span>中藥: <span id="exportHerbCount">0</span></span>
+                    <span>症狀: <span id="exportSymptomCount">0</span></span>
                 </div>
-                <div>
-                    <h4 class="text-lg font-semibold text-gray-700 mb-4">症狀列表</h4>
-                    <div id="symptomsList" class="max-h-64 overflow-y-auto space-y-2"></div>
-                </div>
+            </div>
+            
+            <div class="space-y-2">
+                <button id="exportJSON" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm">
+                    JSON 格式
+                </button>
+                <button id="exportTXT" class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm">
+                    文字格式
+                </button>
+                <button id="exportCSV" class="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm">
+                    CSV 格式
+                </button>
+                <button id="closeExportModal" class="w-full px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm">
+                    取消
+                </button>
             </div>
         </div>
     </div>
-
-
 
     <input type="file" id="fileInput" accept=".txt,.json" class="hidden">
 
@@ -204,7 +162,7 @@
                 });
 
                 // Import/Export
-                document.getElementById('exportBtn').addEventListener('click', () => this.exportData());
+                document.getElementById('exportBtn').addEventListener('click', () => this.showExportModal());
                 document.getElementById('processImport').addEventListener('click', () => this.processImportData());
                 document.getElementById('clearData').addEventListener('click', () => this.clearAllData());
 
@@ -212,6 +170,12 @@
                 document.getElementById('fileImportBtn').addEventListener('click', () => this.triggerFileImport());
                 document.getElementById('textImportBtn').addEventListener('click', () => this.toggleManualInput());
                 document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileImport(e));
+
+                // Export modal controls
+                document.getElementById('closeExportModal').addEventListener('click', () => this.hideExportModal());
+                document.getElementById('exportJSON').addEventListener('click', () => this.exportData('json'));
+                document.getElementById('exportTXT').addEventListener('click', () => this.exportData('txt'));
+                document.getElementById('exportCSV').addEventListener('click', () => this.exportData('csv'));
             }
 
             search() {
@@ -472,10 +436,7 @@
                     const herbSection = document.createElement('div');
                     herbSection.className = 'mb-8';
                     herbSection.innerHTML = `
-                        <h4 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                            <span class="mr-2">🌿</span>
-                            中藥資訊
-                        </h4>
+                        <h4 class="font-semibold text-gray-800 mb-3">🌿 中藥</h4>
                     `;
 
                     results.herbResults.forEach((herb, index) => {
@@ -485,26 +446,18 @@
                         const matchTypeIcon = herb.matchType === 'direct' ? '🎯' : '🔗';
                         const matchTypeText = herb.matchType === 'direct' ? '直接匹配' : '間接匹配';
                         
-                        herbCard.className = 'bg-green-50 border-l-4 border-green-500 p-6 rounded-lg mb-4 relative';
+                        herbCard.className = 'bg-green-50 border-l-4 border-green-500 p-4 rounded-lg mb-3';
                         herbCard.innerHTML = `
-                            <div class="flex justify-between items-start mb-3">
-                                <h5 class="text-lg font-bold text-green-800">${herb.name}</h5>
-                                <div class="flex items-center space-x-2">
-                                    <span class="px-2 py-1 ${badgeColor} rounded-full text-xs font-medium">${matchBadge}</span>
-                                    <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">${matchTypeIcon} ${matchTypeText}</span>
-                                    <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">排名 ${index + 1}</span>
-                                    <span class="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-mono">${herb.score}%</span>
-                                </div>
+                            <div class="flex justify-between items-start mb-2">
+                                <h5 class="font-bold text-green-800">${herb.name}</h5>
+                                <span class="text-xs text-gray-500">${herb.score}%</span>
                             </div>
-                            <div class="space-y-2">
-                                <p class="text-sm text-gray-600 font-medium">適用症狀：</p>
-                                <div class="flex flex-wrap gap-2">
-                                    ${herb.symptoms.map(symptom => {
-                                        const isHighlighted = this.normalizeText(symptom).includes(this.normalizeText(query)) || 
-                                                            this.normalizeText(query).includes(this.normalizeText(symptom));
-                                        return `<span class="px-3 py-1 ${isHighlighted ? 'bg-yellow-200 text-yellow-900 font-medium' : 'bg-green-100 text-green-800'} rounded-full text-sm">${symptom}</span>`;
-                                    }).join('')}
-                                </div>
+                            <div class="flex flex-wrap gap-1">
+                                ${herb.symptoms.map(symptom => {
+                                    const isHighlighted = this.normalizeText(symptom).includes(this.normalizeText(query)) || 
+                                                        this.normalizeText(query).includes(this.normalizeText(symptom));
+                                    return `<span class="px-2 py-1 ${isHighlighted ? 'bg-yellow-200 text-yellow-900' : 'bg-green-100 text-green-800'} rounded text-xs">${symptom}</span>`;
+                                }).join('')}
                             </div>
                         `;
                         herbSection.appendChild(herbCard);
@@ -517,10 +470,7 @@
                 if (results.symptomResults.length > 0) {
                     const symptomSection = document.createElement('div');
                     symptomSection.innerHTML = `
-                        <h4 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                            <span class="mr-2">🩺</span>
-                            症狀對應中藥
-                        </h4>
+                        <h4 class="font-semibold text-gray-800 mb-3">🩺 症狀</h4>
                     `;
 
                     results.symptomResults.forEach((symptom, index) => {
@@ -530,26 +480,18 @@
                         const matchTypeIcon = symptom.matchType === 'direct' ? '🎯' : '🔗';
                         const matchTypeText = symptom.matchType === 'direct' ? '直接匹配' : '間接匹配';
                         
-                        symptomCard.className = 'bg-blue-50 border-l-4 border-blue-500 p-6 rounded-lg mb-4 relative';
+                        symptomCard.className = 'bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg mb-3';
                         symptomCard.innerHTML = `
-                            <div class="flex justify-between items-start mb-3">
-                                <h5 class="text-lg font-bold text-blue-800">${symptom.name}</h5>
-                                <div class="flex items-center space-x-2">
-                                    <span class="px-2 py-1 ${badgeColor} rounded-full text-xs font-medium">${matchBadge}</span>
-                                    <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">${matchTypeIcon} ${matchTypeText}</span>
-                                    <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">排名 ${index + 1}</span>
-                                    <span class="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-mono">${symptom.score}%</span>
-                                </div>
+                            <div class="flex justify-between items-start mb-2">
+                                <h5 class="font-bold text-blue-800">${symptom.name}</h5>
+                                <span class="text-xs text-gray-500">${symptom.score}%</span>
                             </div>
-                            <div class="space-y-2">
-                                <p class="text-sm text-gray-600 font-medium">推薦中藥：</p>
-                                <div class="flex flex-wrap gap-2">
-                                    ${symptom.herbs.map(herb => {
-                                        const isHighlighted = this.normalizeText(herb).includes(this.normalizeText(query)) || 
-                                                            this.normalizeText(query).includes(this.normalizeText(herb));
-                                        return `<span class="px-3 py-1 ${isHighlighted ? 'bg-yellow-200 text-yellow-900 font-medium' : 'bg-blue-100 text-blue-800'} rounded-full text-sm">${herb}</span>`;
-                                    }).join('')}
-                                </div>
+                            <div class="flex flex-wrap gap-1">
+                                ${symptom.herbs.map(herb => {
+                                    const isHighlighted = this.normalizeText(herb).includes(this.normalizeText(query)) || 
+                                                        this.normalizeText(query).includes(this.normalizeText(herb));
+                                    return `<span class="px-2 py-1 ${isHighlighted ? 'bg-yellow-200 text-yellow-900' : 'bg-blue-100 text-blue-800'} rounded text-xs">${herb}</span>`;
+                                }).join('')}
                             </div>
                         `;
                         symptomSection.appendChild(symptomCard);
@@ -699,17 +641,121 @@
                 statusDiv.classList.remove('hidden');
             }
 
-            exportData() {
-                const dataStr = JSON.stringify(this.data, null, 2);
-                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            showExportModal() {
+                // Update export info
+                const herbCount = Object.keys(this.data.herbs).length;
+                const symptomCount = Object.keys(this.data.symptoms).length;
+                const dataStr = JSON.stringify(this.data);
+                const dataSize = Math.round(new Blob([dataStr]).size / 1024);
+                const currentTime = new Date().toLocaleString('zh-TW');
+
+                document.getElementById('exportHerbCount').textContent = herbCount;
+                document.getElementById('exportSymptomCount').textContent = symptomCount;
+                document.getElementById('exportDataSize').textContent = `${dataSize} KB`;
+                document.getElementById('exportDateTime').textContent = currentTime;
+
+                document.getElementById('exportModal').classList.remove('hidden');
+                document.getElementById('exportModal').classList.add('flex');
+            }
+
+            hideExportModal() {
+                document.getElementById('exportModal').classList.add('hidden');
+                document.getElementById('exportModal').classList.remove('flex');
+            }
+
+            exportData(format = 'json') {
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+                const timeStr = new Date().toISOString().replace(/[:.]/g, '-').split('T')[1].split('.')[0];
+                
+                let content, mimeType, extension, filename;
+
+                switch (format) {
+                    case 'json':
+                        // Enhanced JSON with metadata
+                        const enhancedData = {
+                            metadata: {
+                                version: '1.0',
+                                exportDate: new Date().toISOString(),
+                                herbCount: Object.keys(this.data.herbs).length,
+                                symptomCount: Object.keys(this.data.symptoms).length,
+                                description: '中醫診症輔助工具資料備份'
+                            },
+                            data: this.data
+                        };
+                        content = JSON.stringify(enhancedData, null, 2);
+                        mimeType = 'application/json';
+                        extension = 'json';
+                        filename = `TCM_Database_${timestamp}_${timeStr}.${extension}`;
+                        break;
+
+                    case 'txt':
+                        content = this.generateTextExport();
+                        mimeType = 'text/plain';
+                        extension = 'txt';
+                        filename = `TCM_Database_${timestamp}_${timeStr}.${extension}`;
+                        break;
+
+                    case 'csv':
+                        content = this.generateCSVExport();
+                        mimeType = 'text/csv';
+                        extension = 'csv';
+                        filename = `TCM_Database_${timestamp}_${timeStr}.${extension}`;
+                        break;
+                }
+
+                const dataBlob = new Blob([content], { type: mimeType });
                 const url = URL.createObjectURL(dataBlob);
                 
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `中醫資料備份_${new Date().toISOString().split('T')[0]}.json`;
+                link.download = filename;
                 link.click();
                 
                 URL.revokeObjectURL(url);
+                this.hideExportModal();
+            }
+
+            generateTextExport() {
+                const lines = [];
+                lines.push('='.repeat(60));
+                lines.push('中醫診症輔助工具 - 資料備份');
+                lines.push('='.repeat(60));
+                lines.push(`匯出時間: ${new Date().toLocaleString('zh-TW')}`);
+                lines.push(`中藥數量: ${Object.keys(this.data.herbs).length}`);
+                lines.push(`症狀數量: ${Object.keys(this.data.symptoms).length}`);
+                lines.push('');
+                
+                lines.push('中藥與症狀對應表:');
+                lines.push('-'.repeat(40));
+                Object.keys(this.data.herbs).forEach(herb => {
+                    lines.push(`${herb}：${this.data.herbs[herb].join('，')}`);
+                });
+                
+                lines.push('');
+                lines.push('症狀與中藥對應表:');
+                lines.push('-'.repeat(40));
+                Object.keys(this.data.symptoms).forEach(symptom => {
+                    lines.push(`${symptom}：${this.data.symptoms[symptom].join('，')}`);
+                });
+                
+                return lines.join('\n');
+            }
+
+            generateCSVExport() {
+                const lines = [];
+                lines.push('類型,名稱,相關項目');
+                
+                // Add herbs
+                Object.keys(this.data.herbs).forEach(herb => {
+                    lines.push(`中藥,"${herb}","${this.data.herbs[herb].join('，')}"`);
+                });
+                
+                // Add symptoms
+                Object.keys(this.data.symptoms).forEach(symptom => {
+                    lines.push(`症狀,"${symptom}","${this.data.symptoms[symptom].join('，')}"`);
+                });
+                
+                return lines.join('\n');
             }
 
             clearAllData() {
@@ -728,59 +774,9 @@
                 
                 document.getElementById('herbCount').textContent = herbCount;
                 document.getElementById('symptomCount').textContent = symptomCount;
-                
-                this.updateDataPreview();
             }
 
-            updateDataPreview() {
-                const herbsList = document.getElementById('herbsList');
-                const symptomsList = document.getElementById('symptomsList');
-                
-                herbsList.innerHTML = '';
-                symptomsList.innerHTML = '';
-                
-                // Display herbs
-                Object.keys(this.data.herbs).slice(0, 10).forEach(herb => {
-                    const herbItem = document.createElement('div');
-                    herbItem.className = 'p-3 bg-green-50 rounded-lg border border-green-200';
-                    herbItem.innerHTML = `
-                        <div class="font-medium text-green-800">${herb}</div>
-                        <div class="text-sm text-green-600 mt-1">
-                            ${this.data.herbs[herb].slice(0, 3).join(', ')}
-                            ${this.data.herbs[herb].length > 3 ? '...' : ''}
-                        </div>
-                    `;
-                    herbsList.appendChild(herbItem);
-                });
-                
-                // Display symptoms
-                Object.keys(this.data.symptoms).slice(0, 10).forEach(symptom => {
-                    const symptomItem = document.createElement('div');
-                    symptomItem.className = 'p-3 bg-blue-50 rounded-lg border border-blue-200';
-                    symptomItem.innerHTML = `
-                        <div class="font-medium text-blue-800">${symptom}</div>
-                        <div class="text-sm text-blue-600 mt-1">
-                            ${this.data.symptoms[symptom].slice(0, 3).join(', ')}
-                            ${this.data.symptoms[symptom].length > 3 ? '...' : ''}
-                        </div>
-                    `;
-                    symptomsList.appendChild(symptomItem);
-                });
-                
-                if (Object.keys(this.data.herbs).length > 10) {
-                    const moreItem = document.createElement('div');
-                    moreItem.className = 'p-3 text-center text-gray-500 text-sm';
-                    moreItem.textContent = `還有 ${Object.keys(this.data.herbs).length - 10} 個中藥...`;
-                    herbsList.appendChild(moreItem);
-                }
-                
-                if (Object.keys(this.data.symptoms).length > 10) {
-                    const moreItem = document.createElement('div');
-                    moreItem.className = 'p-3 text-center text-gray-500 text-sm';
-                    moreItem.textContent = `還有 ${Object.keys(this.data.symptoms).length - 10} 個症狀...`;
-                    symptomsList.appendChild(moreItem);
-                }
-            }
+
 
             saveData() {
                 localStorage.setItem('tcmData', JSON.stringify(this.data));
@@ -913,5 +909,5 @@
             new TCMDiagnosticTool();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96519f3f93a0094e',t:'MTc1MzUwOTA1My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9651ec99125e09b8',t:'MTc1MzUxMjIyMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
