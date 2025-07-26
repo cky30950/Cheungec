@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>中醫診症輔助系統</title>
+    <title>中醫診症輔助工具</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
@@ -13,12 +13,11 @@
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
-        .search-result {
-            transition: all 0.3s ease;
-        }
-        .search-result:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        .search-highlight {
+            background: linear-gradient(120deg, #fbbf24 0%, #f59e0b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
     </style>
 </head>
@@ -28,17 +27,15 @@
         <div class="max-w-7xl mx-auto px-6 py-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                    <div class="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
                         <span class="text-white font-bold text-lg">中</span>
                     </div>
-                    <h1 class="text-2xl font-bold text-gray-800">中醫診症輔助系統</h1>
+                    <h1 class="text-2xl font-bold text-gray-800">中醫診症輔助工具</h1>
                 </div>
                 <div class="flex space-x-3">
-                    <button onclick="exportData()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium">
-                        匯出資料
-                    </button>
-                    <button onclick="showImportModal()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
-                        導入資料
+                    <button id="exportBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
+                        <span>💾</span>
+                        <span>備份資料</span>
                     </button>
                 </div>
             </div>
@@ -48,9 +45,9 @@
     <div class="max-w-7xl mx-auto px-6 py-8">
         <!-- Search Section -->
         <div class="bg-white rounded-2xl shadow-xl p-8 mb-8">
-            <div class="text-center mb-8">
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">智能查詢系統</h2>
-                <p class="text-gray-600">輸入症狀查找對應中藥，或輸入中藥查找適用症狀</p>
+            <div class="text-center mb-6">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">智能搜尋系統</h2>
+                <p class="text-gray-600">搜尋症狀找中藥，或搜尋中藥找症狀</p>
             </div>
             
             <div class="max-w-2xl mx-auto">
@@ -58,331 +55,863 @@
                     <input 
                         type="text" 
                         id="searchInput" 
-                        placeholder="請輸入症狀或中藥名稱..."
+                        placeholder="輸入症狀或中藥名稱..." 
                         class="w-full px-6 py-4 text-lg border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                        oninput="performSearch()"
+                        autocomplete="off"
                     >
-                    <div class="absolute right-4 top-1/2 transform -translate-y-1/2">
-                        <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
-                    </div>
+                    <button id="searchBtn" class="absolute right-2 top-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        🔍 搜尋
+                    </button>
+                    <div id="searchSuggestions" class="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 hidden z-10 max-h-64 overflow-y-auto"></div>
                 </div>
                 
-                <div class="flex justify-center mt-4 space-x-4">
-                    <button onclick="setSearchMode('symptom')" id="symptomBtn" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
-                        按症狀查藥
-                    </button>
-                    <button onclick="setSearchMode('herb')" id="herbBtn" class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium">
-                        按中藥查症狀
-                    </button>
+                <!-- Search Tips -->
+                <div class="mt-4 text-center">
+                    <p class="text-sm text-gray-500 mb-2">💡 搜尋提示：</p>
+                    <div class="flex flex-wrap justify-center gap-2">
+                        <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">支援模糊搜尋</span>
+                        <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">自動錯字修正</span>
+                        <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">關聯搜尋</span>
+                        <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">語音相似</span>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Results Section -->
-        <div id="resultsSection" class="hidden">
+        <div id="resultsSection" class="bg-white rounded-2xl shadow-xl p-8 mb-8 hidden">
+            <h3 class="text-2xl font-bold text-gray-800 mb-6">搜尋結果</h3>
+            <div id="searchResults" class="space-y-4"></div>
+        </div>
+
+        <!-- Data Management Section -->
+        <div class="grid md:grid-cols-2 gap-8">
+            <!-- Import Section -->
             <div class="bg-white rounded-2xl shadow-xl p-8">
-                <h3 class="text-2xl font-bold text-gray-800 mb-6" id="resultsTitle">查詢結果</h3>
-                <div id="searchResults" class="grid gap-4"></div>
-            </div>
-        </div>
-
-        <!-- Data Overview -->
-        <div class="bg-white rounded-2xl shadow-xl p-8">
-            <h3 class="text-2xl font-bold text-gray-800 mb-6">資料庫概覽</h3>
-            <div class="grid md:grid-cols-2 gap-8">
-                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
-                    <h4 class="text-xl font-semibold text-gray-800 mb-4">已收錄中藥</h4>
-                    <div id="herbsList" class="space-y-2 max-h-64 overflow-y-auto"></div>
-                </div>
-                <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6">
-                    <h4 class="text-xl font-semibold text-gray-800 mb-4">已收錄症狀</h4>
-                    <div id="symptomsList" class="space-y-2 max-h-64 overflow-y-auto"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Import Modal -->
-    <div id="importModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold text-gray-800">導入資料</h3>
-                <button onclick="hideImportModal()" class="text-gray-500 hover:text-gray-700">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="mb-6">
-                <p class="text-gray-600 mb-4">請按以下格式輸入資料，每行一組：</p>
-                <div class="bg-gray-100 rounded-lg p-4 mb-4">
-                    <code class="text-sm">中藥名：症狀1,症狀2,症狀3</code>
-                </div>
-                <p class="text-sm text-gray-500">範例：當歸：血虛,月經不調,產後腹痛</p>
-            </div>
-            
-            <textarea 
-                id="importData" 
-                placeholder="請輸入資料..."
-                class="w-full h-64 p-4 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none resize-none"
-            ></textarea>
-            
-            <div class="flex justify-end space-x-4 mt-6">
-                <button onclick="hideImportModal()" class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors">
-                    取消
-                </button>
-                <button onclick="importData()" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                    導入
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // 資料庫結構
-        let database = {
-            herbs: {}, // 中藥 -> 症狀列表
-            symptoms: {} // 症狀 -> 中藥列表
-        };
-
-        let searchMode = 'symptom'; // 'symptom' 或 'herb'
-
-        // 初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            loadData();
-            updateOverview();
-            
-            // 添加一些示例資料
-            if (Object.keys(database.herbs).length === 0) {
-                const sampleData = {
-                    '當歸': ['血虛', '月經不調', '產後腹痛', '跌打損傷'],
-                    '人參': ['氣虛', '脾胃虛弱', '心悸失眠', '陽痿'],
-                    '黃芪': ['氣虛', '自汗', '水腫', '慢性腹瀉'],
-                    '川芎': ['頭痛', '月經不調', '胸脅疼痛', '跌打損傷'],
-                    '白芍': ['血虛', '月經不調', '腹痛', '頭痛'],
-                    '甘草': ['脾胃虛弱', '咳嗽', '解毒', '調和諸藥']
-                };
-                
-                for (const [herb, symptoms] of Object.entries(sampleData)) {
-                    addHerbSymptoms(herb, symptoms);
-                }
-                saveData();
-                updateOverview();
-            }
-        });
-
-        // 設置搜索模式
-        function setSearchMode(mode) {
-            searchMode = mode;
-            document.getElementById('symptomBtn').className = mode === 'symptom' 
-                ? 'px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium'
-                : 'px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium';
-            document.getElementById('herbBtn').className = mode === 'herb' 
-                ? 'px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium'
-                : 'px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium';
-            
-            const input = document.getElementById('searchInput');
-            input.placeholder = mode === 'symptom' ? '請輸入症狀名稱...' : '請輸入中藥名稱...';
-            performSearch();
-        }
-
-        // 執行搜索
-        function performSearch() {
-            const query = document.getElementById('searchInput').value.trim();
-            const resultsSection = document.getElementById('resultsSection');
-            const searchResults = document.getElementById('searchResults');
-            const resultsTitle = document.getElementById('resultsTitle');
-
-            if (!query) {
-                resultsSection.classList.add('hidden');
-                return;
-            }
-
-            resultsSection.classList.remove('hidden');
-            
-            let results = [];
-            if (searchMode === 'symptom') {
-                // 按症狀查中藥
-                results = searchBySymptom(query);
-                resultsTitle.textContent = `症狀「${query}」對應的中藥`;
-            } else {
-                // 按中藥查症狀
-                results = searchByHerb(query);
-                resultsTitle.textContent = `中藥「${query}」對應的症狀`;
-            }
-
-            displayResults(results, searchResults);
-        }
-
-        // 按症狀搜索中藥
-        function searchBySymptom(symptom) {
-            const results = [];
-            for (const [herb, symptoms] of Object.entries(database.herbs)) {
-                if (symptoms.some(s => s.includes(symptom))) {
-                    results.push({
-                        title: herb,
-                        items: symptoms.filter(s => s.includes(symptom)),
-                        type: 'herb'
-                    });
-                }
-            }
-            return results;
-        }
-
-        // 按中藥搜索症狀
-        function searchByHerb(herb) {
-            const results = [];
-            for (const [herbName, symptoms] of Object.entries(database.herbs)) {
-                if (herbName.includes(herb)) {
-                    results.push({
-                        title: herbName,
-                        items: symptoms,
-                        type: 'symptom'
-                    });
-                }
-            }
-            return results;
-        }
-
-        // 顯示搜索結果
-        function displayResults(results, container) {
-            if (results.length === 0) {
-                container.innerHTML = '<div class="text-center py-8 text-gray-500">未找到相關資料</div>';
-                return;
-            }
-
-            container.innerHTML = results.map(result => `
-                <div class="search-result bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
-                    <h4 class="text-xl font-semibold text-gray-800 mb-3">${result.title}</h4>
-                    <div class="flex flex-wrap gap-2">
-                        ${result.items.map(item => `
-                            <span class="px-3 py-1 bg-white text-gray-700 rounded-full text-sm border border-gray-200">
-                                ${item}
-                            </span>
-                        `).join('')}
+                <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                    <span class="mr-3">📥</span>
+                    資料導入
+                </h3>
+                <div class="space-y-4">
+                    <!-- Import Options -->
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <button id="fileImportBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2">
+                            <span>📁</span>
+                            <span>從檔案導入</span>
+                        </button>
+                        <button id="textImportBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2">
+                            <span>✏️</span>
+                            <span>手動輸入</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Manual Input Section -->
+                    <div id="manualInputSection" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            資料格式：中藥名：症狀1,症狀2,症狀3
+                        </label>
+                        <textarea 
+                            id="importData" 
+                            rows="8" 
+                            placeholder="範例：&#10;當歸：血虛,月經不調,便秘&#10;黃芪：氣虛,自汗,水腫&#10;人參：氣虛,心悸,失眠"
+                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none resize-none"
+                        ></textarea>
+                        <button id="processImport" class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium mt-3">
+                            處理並導入資料
+                        </button>
+                    </div>
+                    
+                    <!-- File Import Status -->
+                    <div id="importStatus" class="hidden p-3 rounded-lg">
+                        <div class="flex items-center space-x-2">
+                            <span id="statusIcon">✅</span>
+                            <span id="statusText" class="text-sm font-medium"></span>
+                        </div>
                     </div>
                 </div>
-            `).join('');
-        }
+            </div>
 
-        // 添加中藥和症狀的關聯
-        function addHerbSymptoms(herb, symptoms) {
-            database.herbs[herb] = symptoms;
-            
-            // 更新症狀索引
-            symptoms.forEach(symptom => {
-                if (!database.symptoms[symptom]) {
-                    database.symptoms[symptom] = [];
-                }
-                if (!database.symptoms[symptom].includes(herb)) {
-                    database.symptoms[symptom].push(herb);
-                }
-            });
-        }
+            <!-- Current Data Section -->
+            <div class="bg-white rounded-2xl shadow-xl p-8">
+                <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                    <span class="mr-3">📊</span>
+                    當前資料庫
+                </h3>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                        <span class="text-gray-700">中藥總數</span>
+                        <span id="herbCount" class="font-bold text-blue-600">0</span>
+                    </div>
+                    <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                        <span class="text-gray-700">症狀總數</span>
+                        <span id="symptomCount" class="font-bold text-green-600">0</span>
+                    </div>
+                    <button id="clearData" class="w-full px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium">
+                        清空所有資料
+                    </button>
+                </div>
+            </div>
+        </div>
 
-        // 顯示導入模態框
-        function showImportModal() {
-            document.getElementById('importModal').classList.remove('hidden');
-            document.getElementById('importModal').classList.add('flex');
-        }
+        <!-- Data Preview Section -->
+        <div id="dataPreview" class="bg-white rounded-2xl shadow-xl p-8 mt-8">
+            <h3 class="text-2xl font-bold text-gray-800 mb-6">資料預覽</h3>
+            <div class="grid md:grid-cols-2 gap-8">
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-700 mb-4">中藥列表</h4>
+                    <div id="herbsList" class="max-h-64 overflow-y-auto space-y-2"></div>
+                </div>
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-700 mb-4">症狀列表</h4>
+                    <div id="symptomsList" class="max-h-64 overflow-y-auto space-y-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        // 隱藏導入模態框
-        function hideImportModal() {
-            document.getElementById('importModal').classList.add('hidden');
-            document.getElementById('importModal').classList.remove('flex');
-            document.getElementById('importData').value = '';
-        }
 
-        // 導入資料
-        function importData() {
-            const data = document.getElementById('importData').value.trim();
-            if (!data) return;
 
-            const lines = data.split('\n');
-            let successCount = 0;
+    <input type="file" id="fileInput" accept=".txt,.json" class="hidden">
 
-            lines.forEach(line => {
-                const trimmedLine = line.trim();
-                if (!trimmedLine) return;
+    <script>
+        class TCMDiagnosticTool {
+            constructor() {
+                this.data = JSON.parse(localStorage.getItem('tcmData')) || {
+                    herbs: {}, // 中藥 -> [症狀]
+                    symptoms: {} // 症狀 -> [中藥]
+                };
+                this.initializeEventListeners();
+                this.updateUI();
+            }
 
-                const parts = trimmedLine.split('：');
-                if (parts.length === 2) {
-                    const herb = parts[0].trim();
-                    const symptoms = parts[1].split(',').map(s => s.trim()).filter(s => s);
+            initializeEventListeners() {
+                // Search functionality
+                document.getElementById('searchBtn').addEventListener('click', () => this.search());
+                document.getElementById('searchInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.search();
+                });
+                
+                // Real-time search suggestions
+                document.getElementById('searchInput').addEventListener('input', (e) => {
+                    this.showSearchSuggestions(e.target.value);
+                });
+                
+                // Hide suggestions when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('#searchInput') && !e.target.closest('#searchSuggestions')) {
+                        this.hideSearchSuggestions();
+                    }
+                });
+
+                // Import/Export
+                document.getElementById('exportBtn').addEventListener('click', () => this.exportData());
+                document.getElementById('processImport').addEventListener('click', () => this.processImportData());
+                document.getElementById('clearData').addEventListener('click', () => this.clearAllData());
+
+                // Import controls
+                document.getElementById('fileImportBtn').addEventListener('click', () => this.triggerFileImport());
+                document.getElementById('textImportBtn').addEventListener('click', () => this.toggleManualInput());
+                document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileImport(e));
+            }
+
+            search() {
+                const query = document.getElementById('searchInput').value.trim();
+                if (!query) return;
+
+                const results = this.performSearch(query);
+                this.displaySearchResults(query, results);
+            }
+
+            performSearch(query) {
+                const results = {
+                    herbResults: [],
+                    symptomResults: []
+                };
+
+                // Normalize query for better matching
+                const normalizedQuery = this.normalizeText(query);
+                const queryTerms = this.extractKeywords(normalizedQuery);
+
+                // Advanced similarity calculation with multiple algorithms
+                const calculateAdvancedSimilarity = (str1, str2) => {
+                    const norm1 = this.normalizeText(str1);
+                    const norm2 = this.normalizeText(str2);
                     
-                    if (herb && symptoms.length > 0) {
-                        addHerbSymptoms(herb, symptoms);
-                        successCount++;
+                    // 1. Exact match (highest priority)
+                    if (norm1 === norm2) return 100;
+                    
+                    // 2. Contains match
+                    if (norm1.includes(norm2) || norm2.includes(norm1)) return 95;
+                    
+                    // 3. Starts with match
+                    if (norm1.startsWith(norm2) || norm2.startsWith(norm1)) return 90;
+                    
+                    // 4. Ends with match
+                    if (norm1.endsWith(norm2) || norm2.endsWith(norm1)) return 85;
+                    
+                    // 5. Levenshtein distance similarity
+                    const levenshteinScore = this.calculateLevenshteinSimilarity(norm1, norm2);
+                    
+                    // 6. Jaccard similarity for character n-grams
+                    const jaccardScore = this.calculateJaccardSimilarity(norm1, norm2);
+                    
+                    // 7. Keyword matching
+                    const keywordScore = this.calculateKeywordSimilarity(str1, queryTerms);
+                    
+                    // 8. Phonetic similarity (for Chinese characters)
+                    const phoneticScore = this.calculatePhoneticSimilarity(norm1, norm2);
+                    
+                    // Weighted combination of all scores
+                    const finalScore = Math.max(
+                        levenshteinScore * 0.3,
+                        jaccardScore * 0.25,
+                        keywordScore * 0.25,
+                        phoneticScore * 0.2
+                    );
+                    
+                    return Math.round(finalScore);
+                };
+
+                // Search in herbs with advanced scoring
+                const herbMatches = [];
+                Object.keys(this.data.herbs).forEach(herb => {
+                    const similarity = calculateAdvancedSimilarity(herb, query);
+                    
+                    // Also check symptoms for indirect matches
+                    let maxSymptomMatch = 0;
+                    this.data.herbs[herb].forEach(symptom => {
+                        const symptomSimilarity = calculateAdvancedSimilarity(symptom, query);
+                        maxSymptomMatch = Math.max(maxSymptomMatch, symptomSimilarity * 0.7); // Reduce weight for indirect matches
+                    });
+                    
+                    const finalScore = Math.max(similarity, maxSymptomMatch);
+                    
+                    if (finalScore >= 30) { // Lower threshold for more results
+                        herbMatches.push({
+                            name: herb,
+                            symptoms: this.data.herbs[herb],
+                            score: finalScore,
+                            matchType: similarity > maxSymptomMatch ? 'direct' : 'indirect'
+                        });
+                    }
+                });
+
+                // Search in symptoms with advanced scoring
+                const symptomMatches = [];
+                Object.keys(this.data.symptoms).forEach(symptom => {
+                    const similarity = calculateAdvancedSimilarity(symptom, query);
+                    
+                    // Also check related herbs for indirect matches
+                    let maxHerbMatch = 0;
+                    this.data.symptoms[symptom].forEach(herb => {
+                        const herbSimilarity = calculateAdvancedSimilarity(herb, query);
+                        maxHerbMatch = Math.max(maxHerbMatch, herbSimilarity * 0.7);
+                    });
+                    
+                    const finalScore = Math.max(similarity, maxHerbMatch);
+                    
+                    if (finalScore >= 30) {
+                        symptomMatches.push({
+                            name: symptom,
+                            herbs: this.data.symptoms[symptom],
+                            score: finalScore,
+                            matchType: similarity > maxHerbMatch ? 'direct' : 'indirect'
+                        });
+                    }
+                });
+
+                // Advanced sorting with multiple criteria
+                const advancedSort = (a, b) => {
+                    // Primary: Score
+                    if (a.score !== b.score) return b.score - a.score;
+                    
+                    // Secondary: Direct matches first
+                    if (a.matchType !== b.matchType) {
+                        return a.matchType === 'direct' ? -1 : 1;
+                    }
+                    
+                    // Tertiary: Shorter names (more specific) first
+                    return a.name.length - b.name.length;
+                };
+
+                results.herbResults = herbMatches
+                    .sort(advancedSort)
+                    .slice(0, 15); // Increased limit
+
+                results.symptomResults = symptomMatches
+                    .sort(advancedSort)
+                    .slice(0, 15); // Increased limit
+
+                return results;
+            }
+
+            // Text normalization for better matching
+            normalizeText(text) {
+                return text.toLowerCase()
+                    .replace(/\s+/g, '') // Remove spaces
+                    .replace(/[，。、；：！？]/g, '') // Remove Chinese punctuation
+                    .replace(/[,.\-;:!?]/g, ''); // Remove English punctuation
+            }
+
+            // Extract keywords from query
+            extractKeywords(query) {
+                // Split by common separators and filter out short terms
+                return query.split(/[，。、；：\s,.\-;:]+/)
+                    .filter(term => term.length > 0)
+                    .map(term => term.trim());
+            }
+
+            // Levenshtein distance similarity
+            calculateLevenshteinSimilarity(str1, str2) {
+                const matrix = [];
+                const len1 = str1.length;
+                const len2 = str2.length;
+
+                for (let i = 0; i <= len1; i++) {
+                    matrix[i] = [i];
+                }
+
+                for (let j = 0; j <= len2; j++) {
+                    matrix[0][j] = j;
+                }
+
+                for (let i = 1; i <= len1; i++) {
+                    for (let j = 1; j <= len2; j++) {
+                        if (str1.charAt(i - 1) === str2.charAt(j - 1)) {
+                            matrix[i][j] = matrix[i - 1][j - 1];
+                        } else {
+                            matrix[i][j] = Math.min(
+                                matrix[i - 1][j - 1] + 1,
+                                matrix[i][j - 1] + 1,
+                                matrix[i - 1][j] + 1
+                            );
+                        }
                     }
                 }
-            });
 
-            if (successCount > 0) {
-                saveData();
-                updateOverview();
-                alert(`成功導入 ${successCount} 條資料！`);
-                hideImportModal();
-            } else {
-                alert('導入失敗，請檢查資料格式！');
+                const maxLen = Math.max(len1, len2);
+                return maxLen === 0 ? 100 : ((maxLen - matrix[len1][len2]) / maxLen) * 100;
+            }
+
+            // Jaccard similarity for character n-grams
+            calculateJaccardSimilarity(str1, str2, n = 2) {
+                const getNGrams = (str, n) => {
+                    const ngrams = new Set();
+                    for (let i = 0; i <= str.length - n; i++) {
+                        ngrams.add(str.substring(i, i + n));
+                    }
+                    return ngrams;
+                };
+
+                const ngrams1 = getNGrams(str1, n);
+                const ngrams2 = getNGrams(str2, n);
+                
+                const intersection = new Set([...ngrams1].filter(x => ngrams2.has(x)));
+                const union = new Set([...ngrams1, ...ngrams2]);
+                
+                return union.size === 0 ? 0 : (intersection.size / union.size) * 100;
+            }
+
+            // Keyword matching similarity
+            calculateKeywordSimilarity(text, keywords) {
+                if (keywords.length === 0) return 0;
+                
+                const normalizedText = this.normalizeText(text);
+                let matches = 0;
+                
+                keywords.forEach(keyword => {
+                    const normalizedKeyword = this.normalizeText(keyword);
+                    if (normalizedText.includes(normalizedKeyword)) {
+                        matches++;
+                    }
+                });
+                
+                return (matches / keywords.length) * 100;
+            }
+
+            // Simple phonetic similarity for Chinese characters
+            calculatePhoneticSimilarity(str1, str2) {
+                // This is a simplified version - in a real implementation,
+                // you would use a proper Chinese phonetic algorithm
+                const getPhoneticCode = (char) => {
+                    // Simplified mapping of some common characters
+                    const phoneticMap = {
+                        '氣': 'qi', '血': 'xue', '虛': 'xu', '實': 'shi',
+                        '熱': 're', '寒': 'han', '濕': 'shi', '燥': 'zao',
+                        '風': 'feng', '火': 'huo', '痰': 'tan', '瘀': 'yu'
+                    };
+                    return phoneticMap[char] || char;
+                };
+                
+                const phonetic1 = str1.split('').map(getPhoneticCode).join('');
+                const phonetic2 = str2.split('').map(getPhoneticCode).join('');
+                
+                return this.calculateLevenshteinSimilarity(phonetic1, phonetic2) * 0.8;
+            }
+
+            displaySearchResults(query, results) {
+                const resultsSection = document.getElementById('resultsSection');
+                const searchResults = document.getElementById('searchResults');
+                
+                resultsSection.classList.remove('hidden');
+                searchResults.innerHTML = '';
+
+                if (results.herbResults.length === 0 && results.symptomResults.length === 0) {
+                    searchResults.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <div class="text-4xl mb-4">🔍</div>
+                            <p class="text-lg">未找到相關結果</p>
+                            <p class="text-sm mt-2">請嘗試其他關鍵字或檢查拼寫</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Display herb results
+                if (results.herbResults.length > 0) {
+                    const herbSection = document.createElement('div');
+                    herbSection.className = 'mb-8';
+                    herbSection.innerHTML = `
+                        <h4 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                            <span class="mr-2">🌿</span>
+                            中藥資訊
+                        </h4>
+                    `;
+
+                    results.herbResults.forEach((herb, index) => {
+                        const herbCard = document.createElement('div');
+                        const matchBadge = herb.score >= 95 ? '完全匹配' : herb.score >= 80 ? '高度匹配' : herb.score >= 60 ? '中度匹配' : '相關匹配';
+                        const badgeColor = herb.score >= 95 ? 'bg-red-100 text-red-800' : herb.score >= 80 ? 'bg-orange-100 text-orange-800' : herb.score >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800';
+                        const matchTypeIcon = herb.matchType === 'direct' ? '🎯' : '🔗';
+                        const matchTypeText = herb.matchType === 'direct' ? '直接匹配' : '間接匹配';
+                        
+                        herbCard.className = 'bg-green-50 border-l-4 border-green-500 p-6 rounded-lg mb-4 relative';
+                        herbCard.innerHTML = `
+                            <div class="flex justify-between items-start mb-3">
+                                <h5 class="text-lg font-bold text-green-800">${herb.name}</h5>
+                                <div class="flex items-center space-x-2">
+                                    <span class="px-2 py-1 ${badgeColor} rounded-full text-xs font-medium">${matchBadge}</span>
+                                    <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">${matchTypeIcon} ${matchTypeText}</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">排名 ${index + 1}</span>
+                                    <span class="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-mono">${herb.score}%</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <p class="text-sm text-gray-600 font-medium">適用症狀：</p>
+                                <div class="flex flex-wrap gap-2">
+                                    ${herb.symptoms.map(symptom => {
+                                        const isHighlighted = this.normalizeText(symptom).includes(this.normalizeText(query)) || 
+                                                            this.normalizeText(query).includes(this.normalizeText(symptom));
+                                        return `<span class="px-3 py-1 ${isHighlighted ? 'bg-yellow-200 text-yellow-900 font-medium' : 'bg-green-100 text-green-800'} rounded-full text-sm">${symptom}</span>`;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        `;
+                        herbSection.appendChild(herbCard);
+                    });
+
+                    searchResults.appendChild(herbSection);
+                }
+
+                // Display symptom results
+                if (results.symptomResults.length > 0) {
+                    const symptomSection = document.createElement('div');
+                    symptomSection.innerHTML = `
+                        <h4 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                            <span class="mr-2">🩺</span>
+                            症狀對應中藥
+                        </h4>
+                    `;
+
+                    results.symptomResults.forEach((symptom, index) => {
+                        const symptomCard = document.createElement('div');
+                        const matchBadge = symptom.score >= 95 ? '完全匹配' : symptom.score >= 80 ? '高度匹配' : symptom.score >= 60 ? '中度匹配' : '相關匹配';
+                        const badgeColor = symptom.score >= 95 ? 'bg-red-100 text-red-800' : symptom.score >= 80 ? 'bg-orange-100 text-orange-800' : symptom.score >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800';
+                        const matchTypeIcon = symptom.matchType === 'direct' ? '🎯' : '🔗';
+                        const matchTypeText = symptom.matchType === 'direct' ? '直接匹配' : '間接匹配';
+                        
+                        symptomCard.className = 'bg-blue-50 border-l-4 border-blue-500 p-6 rounded-lg mb-4 relative';
+                        symptomCard.innerHTML = `
+                            <div class="flex justify-between items-start mb-3">
+                                <h5 class="text-lg font-bold text-blue-800">${symptom.name}</h5>
+                                <div class="flex items-center space-x-2">
+                                    <span class="px-2 py-1 ${badgeColor} rounded-full text-xs font-medium">${matchBadge}</span>
+                                    <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">${matchTypeIcon} ${matchTypeText}</span>
+                                    <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">排名 ${index + 1}</span>
+                                    <span class="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-mono">${symptom.score}%</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <p class="text-sm text-gray-600 font-medium">推薦中藥：</p>
+                                <div class="flex flex-wrap gap-2">
+                                    ${symptom.herbs.map(herb => {
+                                        const isHighlighted = this.normalizeText(herb).includes(this.normalizeText(query)) || 
+                                                            this.normalizeText(query).includes(this.normalizeText(herb));
+                                        return `<span class="px-3 py-1 ${isHighlighted ? 'bg-yellow-200 text-yellow-900 font-medium' : 'bg-blue-100 text-blue-800'} rounded-full text-sm">${herb}</span>`;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        `;
+                        symptomSection.appendChild(symptomCard);
+                    });
+
+                    searchResults.appendChild(symptomSection);
+                }
+            }
+
+            processImportData() {
+                const importText = document.getElementById('importData').value.trim();
+                if (!importText) {
+                    this.showImportStatus('⚠️', '請輸入要導入的資料', 'bg-yellow-100 text-yellow-800');
+                    return;
+                }
+
+                this.showImportStatus('⏳', '正在處理資料...', 'bg-blue-100 text-blue-800');
+
+                const lines = importText.split('\n').filter(line => line.trim());
+                let successCount = 0;
+
+                lines.forEach(line => {
+                    const parts = line.split('：');
+                    if (parts.length === 2) {
+                        const herb = parts[0].trim();
+                        const symptoms = parts[1].split(',').map(s => s.trim()).filter(s => s);
+                        
+                        if (herb && symptoms.length > 0) {
+                            this.addHerbData(herb, symptoms);
+                            successCount++;
+                        }
+                    }
+                });
+
+                this.saveData();
+                this.updateUI();
+                document.getElementById('importData').value = '';
+                
+                this.showImportStatus('✅', `成功導入 ${successCount} 條中藥資料`, 'bg-green-100 text-green-800');
+                
+                // Hide manual input section and status after success
+                setTimeout(() => {
+                    document.getElementById('manualInputSection').classList.add('hidden');
+                    document.getElementById('textImportBtn').innerHTML = '<span>✏️</span><span>手動輸入</span>';
+                    document.getElementById('importStatus').classList.add('hidden');
+                }, 2000);
+            }
+
+            addHerbData(herb, symptoms) {
+                // Add to herbs data
+                if (!this.data.herbs[herb]) {
+                    this.data.herbs[herb] = [];
+                }
+                
+                symptoms.forEach(symptom => {
+                    if (!this.data.herbs[herb].includes(symptom)) {
+                        this.data.herbs[herb].push(symptom);
+                    }
+                    
+                    // Add to symptoms data
+                    if (!this.data.symptoms[symptom]) {
+                        this.data.symptoms[symptom] = [];
+                    }
+                    if (!this.data.symptoms[symptom].includes(herb)) {
+                        this.data.symptoms[symptom].push(herb);
+                    }
+                });
+            }
+
+            toggleManualInput() {
+                const manualSection = document.getElementById('manualInputSection');
+                const isHidden = manualSection.classList.contains('hidden');
+                
+                if (isHidden) {
+                    manualSection.classList.remove('hidden');
+                    document.getElementById('textImportBtn').textContent = '✏️ 隱藏輸入';
+                } else {
+                    manualSection.classList.add('hidden');
+                    document.getElementById('textImportBtn').innerHTML = '<span>✏️</span><span>手動輸入</span>';
+                }
+            }
+
+            triggerFileImport() {
+                document.getElementById('fileInput').click();
+            }
+
+            handleFileImport(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                this.showImportStatus('⏳', '正在處理檔案...', 'bg-blue-100 text-blue-800');
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const content = e.target.result;
+                        let successCount = 0;
+                        
+                        if (file.name.endsWith('.json')) {
+                            const importedData = JSON.parse(content);
+                            this.data = importedData;
+                            successCount = Object.keys(importedData.herbs || {}).length;
+                        } else {
+                            // Process text file
+                            const lines = content.split('\n').filter(line => line.trim());
+                            lines.forEach(line => {
+                                const parts = line.split('：');
+                                if (parts.length === 2) {
+                                    const herb = parts[0].trim();
+                                    const symptoms = parts[1].split(',').map(s => s.trim()).filter(s => s);
+                                    
+                                    if (herb && symptoms.length > 0) {
+                                        this.addHerbData(herb, symptoms);
+                                        successCount++;
+                                    }
+                                }
+                            });
+                        }
+                        
+                        this.saveData();
+                        this.updateUI();
+                        this.showImportStatus('✅', `成功導入 ${successCount} 條資料`, 'bg-green-100 text-green-800');
+                        
+                        // Hide status after 3 seconds
+                        setTimeout(() => {
+                            document.getElementById('importStatus').classList.add('hidden');
+                        }, 3000);
+                        
+                    } catch (error) {
+                        this.showImportStatus('❌', '檔案格式錯誤，請檢查檔案內容', 'bg-red-100 text-red-800');
+                    }
+                };
+                reader.readAsText(file);
+                
+                // Reset file input
+                event.target.value = '';
+            }
+
+            showImportStatus(icon, text, className) {
+                const statusDiv = document.getElementById('importStatus');
+                const statusIcon = document.getElementById('statusIcon');
+                const statusText = document.getElementById('statusText');
+                
+                statusIcon.textContent = icon;
+                statusText.textContent = text;
+                statusDiv.className = `p-3 rounded-lg ${className}`;
+                statusDiv.classList.remove('hidden');
+            }
+
+            exportData() {
+                const dataStr = JSON.stringify(this.data, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `中醫資料備份_${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                
+                URL.revokeObjectURL(url);
+            }
+
+            clearAllData() {
+                if (confirm('確定要清空所有資料嗎？此操作無法復原。')) {
+                    this.data = { herbs: {}, symptoms: {} };
+                    this.saveData();
+                    this.updateUI();
+                    document.getElementById('resultsSection').classList.add('hidden');
+                    alert('所有資料已清空');
+                }
+            }
+
+            updateUI() {
+                const herbCount = Object.keys(this.data.herbs).length;
+                const symptomCount = Object.keys(this.data.symptoms).length;
+                
+                document.getElementById('herbCount').textContent = herbCount;
+                document.getElementById('symptomCount').textContent = symptomCount;
+                
+                this.updateDataPreview();
+            }
+
+            updateDataPreview() {
+                const herbsList = document.getElementById('herbsList');
+                const symptomsList = document.getElementById('symptomsList');
+                
+                herbsList.innerHTML = '';
+                symptomsList.innerHTML = '';
+                
+                // Display herbs
+                Object.keys(this.data.herbs).slice(0, 10).forEach(herb => {
+                    const herbItem = document.createElement('div');
+                    herbItem.className = 'p-3 bg-green-50 rounded-lg border border-green-200';
+                    herbItem.innerHTML = `
+                        <div class="font-medium text-green-800">${herb}</div>
+                        <div class="text-sm text-green-600 mt-1">
+                            ${this.data.herbs[herb].slice(0, 3).join(', ')}
+                            ${this.data.herbs[herb].length > 3 ? '...' : ''}
+                        </div>
+                    `;
+                    herbsList.appendChild(herbItem);
+                });
+                
+                // Display symptoms
+                Object.keys(this.data.symptoms).slice(0, 10).forEach(symptom => {
+                    const symptomItem = document.createElement('div');
+                    symptomItem.className = 'p-3 bg-blue-50 rounded-lg border border-blue-200';
+                    symptomItem.innerHTML = `
+                        <div class="font-medium text-blue-800">${symptom}</div>
+                        <div class="text-sm text-blue-600 mt-1">
+                            ${this.data.symptoms[symptom].slice(0, 3).join(', ')}
+                            ${this.data.symptoms[symptom].length > 3 ? '...' : ''}
+                        </div>
+                    `;
+                    symptomsList.appendChild(symptomItem);
+                });
+                
+                if (Object.keys(this.data.herbs).length > 10) {
+                    const moreItem = document.createElement('div');
+                    moreItem.className = 'p-3 text-center text-gray-500 text-sm';
+                    moreItem.textContent = `還有 ${Object.keys(this.data.herbs).length - 10} 個中藥...`;
+                    herbsList.appendChild(moreItem);
+                }
+                
+                if (Object.keys(this.data.symptoms).length > 10) {
+                    const moreItem = document.createElement('div');
+                    moreItem.className = 'p-3 text-center text-gray-500 text-sm';
+                    moreItem.textContent = `還有 ${Object.keys(this.data.symptoms).length - 10} 個症狀...`;
+                    symptomsList.appendChild(moreItem);
+                }
+            }
+
+            saveData() {
+                localStorage.setItem('tcmData', JSON.stringify(this.data));
+            }
+
+            // Show real-time search suggestions
+            showSearchSuggestions(query) {
+                const suggestionsDiv = document.getElementById('searchSuggestions');
+                
+                if (!query || query.length < 1) {
+                    this.hideSearchSuggestions();
+                    return;
+                }
+
+                const suggestions = this.generateSuggestions(query);
+                
+                if (suggestions.length === 0) {
+                    this.hideSearchSuggestions();
+                    return;
+                }
+
+                suggestionsDiv.innerHTML = '';
+                suggestions.forEach(suggestion => {
+                    const suggestionItem = document.createElement('div');
+                    suggestionItem.className = 'px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 flex items-center justify-between';
+                    suggestionItem.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <span class="text-lg">${suggestion.icon}</span>
+                            <div>
+                                <div class="font-medium text-gray-800">${this.highlightMatch(suggestion.text, query)}</div>
+                                <div class="text-xs text-gray-500">${suggestion.type} • ${suggestion.count} 個相關項目</div>
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-400">${suggestion.score}%</div>
+                    `;
+                    
+                    suggestionItem.addEventListener('click', () => {
+                        document.getElementById('searchInput').value = suggestion.text;
+                        this.hideSearchSuggestions();
+                        this.search();
+                    });
+                    
+                    suggestionsDiv.appendChild(suggestionItem);
+                });
+
+                suggestionsDiv.classList.remove('hidden');
+            }
+
+            // Generate search suggestions
+            generateSuggestions(query) {
+                const suggestions = [];
+                const normalizedQuery = this.normalizeText(query);
+
+                // Get suggestions from herbs
+                Object.keys(this.data.herbs).forEach(herb => {
+                    const similarity = this.calculateAdvancedSimilarity(herb, query);
+                    if (similarity >= 40) {
+                        suggestions.push({
+                            text: herb,
+                            type: '中藥',
+                            icon: '🌿',
+                            score: Math.round(similarity),
+                            count: this.data.herbs[herb].length,
+                            category: 'herb'
+                        });
+                    }
+                });
+
+                // Get suggestions from symptoms
+                Object.keys(this.data.symptoms).forEach(symptom => {
+                    const similarity = this.calculateAdvancedSimilarity(symptom, query);
+                    if (similarity >= 40) {
+                        suggestions.push({
+                            text: symptom,
+                            type: '症狀',
+                            icon: '🩺',
+                            score: Math.round(similarity),
+                            count: this.data.symptoms[symptom].length,
+                            category: 'symptom'
+                        });
+                    }
+                });
+
+                // Sort by similarity score and limit results
+                return suggestions
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 8);
+            }
+
+            // Highlight matching parts in suggestions
+            highlightMatch(text, query) {
+                const normalizedText = this.normalizeText(text);
+                const normalizedQuery = this.normalizeText(query);
+                
+                if (normalizedText.includes(normalizedQuery)) {
+                    const index = normalizedText.indexOf(normalizedQuery);
+                    const before = text.substring(0, index);
+                    const match = text.substring(index, index + query.length);
+                    const after = text.substring(index + query.length);
+                    return `${before}<mark class="bg-yellow-200 px-1 rounded">${match}</mark>${after}`;
+                }
+                
+                return text;
+            }
+
+            // Hide search suggestions
+            hideSearchSuggestions() {
+                document.getElementById('searchSuggestions').classList.add('hidden');
+            }
+
+            // Calculate advanced similarity (reused from search)
+            calculateAdvancedSimilarity(str1, str2) {
+                const norm1 = this.normalizeText(str1);
+                const norm2 = this.normalizeText(str2);
+                
+                if (norm1 === norm2) return 100;
+                if (norm1.includes(norm2) || norm2.includes(norm1)) return 95;
+                if (norm1.startsWith(norm2) || norm2.startsWith(norm1)) return 90;
+                if (norm1.endsWith(norm2) || norm2.endsWith(norm1)) return 85;
+                
+                const levenshteinScore = this.calculateLevenshteinSimilarity(norm1, norm2);
+                const jaccardScore = this.calculateJaccardSimilarity(norm1, norm2);
+                
+                return Math.max(levenshteinScore * 0.6, jaccardScore * 0.4);
             }
         }
 
-        // 匯出資料
-        function exportData() {
-            const exportData = Object.entries(database.herbs)
-                .map(([herb, symptoms]) => `${herb}：${symptoms.join(',')}`)
-                .join('\n');
-
-            const blob = new Blob([exportData], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `中醫資料庫_${new Date().toISOString().split('T')[0]}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        // 更新概覽
-        function updateOverview() {
-            const herbsList = document.getElementById('herbsList');
-            const symptomsList = document.getElementById('symptomsList');
-
-            // 顯示中藥列表
-            const herbs = Object.keys(database.herbs).sort();
-            herbsList.innerHTML = herbs.map(herb => `
-                <div class="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
-                    <span class="font-medium text-gray-800">${herb}</span>
-                    <span class="text-sm text-gray-500">${database.herbs[herb].length} 個症狀</span>
-                </div>
-            `).join('');
-
-            // 顯示症狀列表
-            const symptoms = Object.keys(database.symptoms).sort();
-            symptomsList.innerHTML = symptoms.map(symptom => `
-                <div class="flex justify-between items-center py-2 px-3 bg-white rounded-lg">
-                    <span class="font-medium text-gray-800">${symptom}</span>
-                    <span class="text-sm text-gray-500">${database.symptoms[symptom].length} 種中藥</span>
-                </div>
-            `).join('');
-        }
-
-        // 保存資料到本地存儲
-        function saveData() {
-            localStorage.setItem('tcmDatabase', JSON.stringify(database));
-        }
-
-        // 從本地存儲載入資料
-        function loadData() {
-            const saved = localStorage.getItem('tcmDatabase');
-            if (saved) {
-                database = JSON.parse(saved);
-            }
-        }
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            new TCMDiagnosticTool();
+        });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9651166f3380b42b',t:'MTc1MzUwMzQ0OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96519f3f93a0094e',t:'MTc1MzUwOTA1My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
