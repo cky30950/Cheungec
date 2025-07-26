@@ -66,9 +66,6 @@
                 <button id="textImportBtn" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm">
                     手動輸入
                 </button>
-                <button id="clearData" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm">
-                    清空資料
-                </button>
                 <div class="ml-auto flex items-center space-x-4 text-sm text-gray-600">
                     <span>中藥: <span id="herbCount" class="font-medium">0</span></span>
                     <span>症狀: <span id="symptomCount" class="font-medium">0</span></span>
@@ -164,7 +161,6 @@
                 // Import/Export
                 document.getElementById('exportBtn').addEventListener('click', () => this.showExportModal());
                 document.getElementById('processImport').addEventListener('click', () => this.processImportData());
-                document.getElementById('clearData').addEventListener('click', () => this.clearAllData());
 
                 // Import controls
                 document.getElementById('fileImportBtn').addEventListener('click', () => this.triggerFileImport());
@@ -592,8 +588,14 @@
                         
                         if (file.name.endsWith('.json')) {
                             const importedData = JSON.parse(content);
-                            this.data = importedData;
-                            successCount = Object.keys(importedData.herbs || {}).length;
+                            // Handle both direct data and metadata wrapped data
+                            if (importedData.data) {
+                                this.data = importedData.data;
+                                successCount = Object.keys(importedData.data.herbs || {}).length;
+                            } else {
+                                this.data = importedData;
+                                successCount = Object.keys(importedData.herbs || {}).length;
+                            }
                         } else {
                             // Process text file
                             const lines = content.split('\n').filter(line => line.trim());
@@ -758,15 +760,7 @@
                 return lines.join('\n');
             }
 
-            clearAllData() {
-                if (confirm('確定要清空所有資料嗎？此操作無法復原。')) {
-                    this.data = { herbs: {}, symptoms: {} };
-                    this.saveData();
-                    this.updateUI();
-                    document.getElementById('resultsSection').classList.add('hidden');
-                    alert('所有資料已清空');
-                }
-            }
+
 
             updateUI() {
                 const herbCount = Object.keys(this.data.herbs).length;
@@ -909,5 +903,5 @@
             new TCMDiagnosticTool();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9651ec99125e09b8',t:'MTc1MzUxMjIyMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9651f60dc2e309b8',t:'MTc1MzUxMjYwOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
