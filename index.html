@@ -27,8 +27,8 @@
         <div class="max-w-4xl mx-auto px-4 py-3">
             <div class="flex items-center justify-between">
                 <h1 class="text-xl font-bold text-gray-800">中醫診症輔助</h1>
-                <button id="exportBtn" class="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm">
-                    備份
+                <button id="backupBtn" class="px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm">
+                    💾 備份資料
                 </button>
             </div>
         </div>
@@ -97,36 +97,66 @@
 
     </div>
 
-    <!-- Export Modal -->
-    <div id="exportModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">資料備份</h3>
+    <!-- Backup Modal -->
+    <div id="backupModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                    💾 資料備份
+                </h3>
+                <button id="closeBackupModal" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+            </div>
             
-            <div class="text-sm text-gray-600 mb-4">
-                <div class="flex justify-between">
-                    <span>中藥: <span id="exportHerbCount">0</span></span>
-                    <span>症狀: <span id="exportSymptomCount">0</span></span>
+            <!-- Backup Info -->
+            <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-blue-600" id="backupHerbCount">0</div>
+                        <div class="text-gray-600">中藥</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold text-green-600" id="backupSymptomCount">0</div>
+                        <div class="text-gray-600">症狀</div>
+                    </div>
+                </div>
+                <div class="text-center mt-3 text-xs text-gray-500">
+                    最後更新：<span id="lastUpdateTime">-</span>
                 </div>
             </div>
             
-            <div class="space-y-2">
-                <button id="exportJSON" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm">
-                    JSON 格式
+            <!-- Backup Options -->
+            <div class="space-y-3">
+                <button id="downloadBackup" class="w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center space-x-2">
+                    <span>📥</span>
+                    <span>下載備份檔案</span>
                 </button>
-                <button id="exportTXT" class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm">
-                    文字格式
+                
+                <button id="copyBackup" class="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2">
+                    <span>📋</span>
+                    <span>複製到剪貼簿</span>
                 </button>
-                <button id="exportCSV" class="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm">
-                    CSV 格式
-                </button>
-                <button id="closeExportModal" class="w-full px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors text-sm">
-                    取消
-                </button>
+                
+                <div class="border-t pt-3">
+                    <div class="text-sm text-gray-600 mb-2">或者恢復備份：</div>
+                    <button id="restoreBackup" class="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center space-x-2">
+                        <span>📤</span>
+                        <span>選擇備份檔案恢復</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Status Message -->
+            <div id="backupStatus" class="hidden mt-4 p-3 rounded-lg text-sm">
+                <div class="flex items-center space-x-2">
+                    <span id="backupStatusIcon">✅</span>
+                    <span id="backupStatusText"></span>
+                </div>
             </div>
         </div>
     </div>
 
     <input type="file" id="fileInput" accept=".txt,.json" class="hidden">
+    <input type="file" id="backupFileInput" accept=".json" class="hidden">
 
     <script>
         class TCMDiagnosticTool {
@@ -158,8 +188,8 @@
                     }
                 });
 
-                // Import/Export
-                document.getElementById('exportBtn').addEventListener('click', () => this.showExportModal());
+                // Backup functionality
+                document.getElementById('backupBtn').addEventListener('click', () => this.showBackupModal());
                 document.getElementById('processImport').addEventListener('click', () => this.processImportData());
 
                 // Import controls
@@ -167,11 +197,12 @@
                 document.getElementById('textImportBtn').addEventListener('click', () => this.toggleManualInput());
                 document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileImport(e));
 
-                // Export modal controls
-                document.getElementById('closeExportModal').addEventListener('click', () => this.hideExportModal());
-                document.getElementById('exportJSON').addEventListener('click', () => this.exportData('json'));
-                document.getElementById('exportTXT').addEventListener('click', () => this.exportData('txt'));
-                document.getElementById('exportCSV').addEventListener('click', () => this.exportData('csv'));
+                // Backup modal controls
+                document.getElementById('closeBackupModal').addEventListener('click', () => this.hideBackupModal());
+                document.getElementById('downloadBackup').addEventListener('click', () => this.downloadBackup());
+                document.getElementById('copyBackup').addEventListener('click', () => this.copyBackupToClipboard());
+                document.getElementById('restoreBackup').addEventListener('click', () => this.triggerBackupRestore());
+                document.getElementById('backupFileInput').addEventListener('change', (e) => this.handleBackupRestore(e));
             }
 
             search() {
@@ -643,121 +674,195 @@
                 statusDiv.classList.remove('hidden');
             }
 
-            showExportModal() {
-                // Update export info
+            // New Backup System
+            showBackupModal() {
                 const herbCount = Object.keys(this.data.herbs).length;
                 const symptomCount = Object.keys(this.data.symptoms).length;
-                const dataStr = JSON.stringify(this.data);
-                const dataSize = Math.round(new Blob([dataStr]).size / 1024);
-                const currentTime = new Date().toLocaleString('zh-TW');
-
-                document.getElementById('exportHerbCount').textContent = herbCount;
-                document.getElementById('exportSymptomCount').textContent = symptomCount;
-                document.getElementById('exportDataSize').textContent = `${dataSize} KB`;
-                document.getElementById('exportDateTime').textContent = currentTime;
-
-                document.getElementById('exportModal').classList.remove('hidden');
-                document.getElementById('exportModal').classList.add('flex');
-            }
-
-            hideExportModal() {
-                document.getElementById('exportModal').classList.add('hidden');
-                document.getElementById('exportModal').classList.remove('flex');
-            }
-
-            exportData(format = 'json') {
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
-                const timeStr = new Date().toISOString().replace(/[:.]/g, '-').split('T')[1].split('.')[0];
+                const lastUpdate = localStorage.getItem('tcmLastUpdate') || '從未更新';
                 
-                let content, mimeType, extension, filename;
+                document.getElementById('backupHerbCount').textContent = herbCount;
+                document.getElementById('backupSymptomCount').textContent = symptomCount;
+                document.getElementById('lastUpdateTime').textContent = lastUpdate;
+                
+                document.getElementById('backupModal').classList.remove('hidden');
+                document.getElementById('backupModal').classList.add('flex');
+            }
 
-                switch (format) {
-                    case 'json':
-                        // Enhanced JSON with metadata
-                        const enhancedData = {
-                            metadata: {
-                                version: '1.0',
-                                exportDate: new Date().toISOString(),
-                                herbCount: Object.keys(this.data.herbs).length,
-                                symptomCount: Object.keys(this.data.symptoms).length,
-                                description: '中醫診症輔助工具資料備份'
-                            },
-                            data: this.data
-                        };
-                        content = JSON.stringify(enhancedData, null, 2);
-                        mimeType = 'application/json';
-                        extension = 'json';
-                        filename = `TCM_Database_${timestamp}_${timeStr}.${extension}`;
-                        break;
+            hideBackupModal() {
+                document.getElementById('backupModal').classList.add('hidden');
+                document.getElementById('backupModal').classList.remove('flex');
+                // Hide status message
+                document.getElementById('backupStatus').classList.add('hidden');
+            }
 
-                    case 'txt':
-                        content = this.generateTextExport();
-                        mimeType = 'text/plain';
-                        extension = 'txt';
-                        filename = `TCM_Database_${timestamp}_${timeStr}.${extension}`;
-                        break;
-
-                    case 'csv':
-                        content = this.generateCSVExport();
-                        mimeType = 'text/csv';
-                        extension = 'csv';
-                        filename = `TCM_Database_${timestamp}_${timeStr}.${extension}`;
-                        break;
+            downloadBackup() {
+                try {
+                    const backupData = this.createBackupData();
+                    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+                    const filename = `TCM_Backup_${timestamp}.json`;
+                    
+                    const blob = new Blob([JSON.stringify(backupData, null, 2)], { 
+                        type: 'application/json' 
+                    });
+                    
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    link.click();
+                    
+                    URL.revokeObjectURL(url);
+                    
+                    this.showBackupStatus('✅', '備份檔案已下載完成！', 'bg-green-100 text-green-800');
+                } catch (error) {
+                    this.showBackupStatus('❌', '下載失敗，請重試', 'bg-red-100 text-red-800');
                 }
-
-                const dataBlob = new Blob([content], { type: mimeType });
-                const url = URL.createObjectURL(dataBlob);
-                
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = filename;
-                link.click();
-                
-                URL.revokeObjectURL(url);
-                this.hideExportModal();
             }
 
-            generateTextExport() {
-                const lines = [];
-                lines.push('='.repeat(60));
-                lines.push('中醫診症輔助工具 - 資料備份');
-                lines.push('='.repeat(60));
-                lines.push(`匯出時間: ${new Date().toLocaleString('zh-TW')}`);
-                lines.push(`中藥數量: ${Object.keys(this.data.herbs).length}`);
-                lines.push(`症狀數量: ${Object.keys(this.data.symptoms).length}`);
-                lines.push('');
-                
-                lines.push('中藥與症狀對應表:');
-                lines.push('-'.repeat(40));
-                Object.keys(this.data.herbs).forEach(herb => {
-                    lines.push(`${herb}：${this.data.herbs[herb].join('，')}`);
-                });
-                
-                lines.push('');
-                lines.push('症狀與中藥對應表:');
-                lines.push('-'.repeat(40));
-                Object.keys(this.data.symptoms).forEach(symptom => {
-                    lines.push(`${symptom}：${this.data.symptoms[symptom].join('，')}`);
-                });
-                
-                return lines.join('\n');
+            async copyBackupToClipboard() {
+                try {
+                    const backupData = this.createBackupData();
+                    const backupText = JSON.stringify(backupData, null, 2);
+                    
+                    await navigator.clipboard.writeText(backupText);
+                    this.showBackupStatus('✅', '備份資料已複製到剪貼簿！', 'bg-green-100 text-green-800');
+                } catch (error) {
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = JSON.stringify(this.createBackupData(), null, 2);
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    
+                    this.showBackupStatus('✅', '備份資料已複製到剪貼簿！', 'bg-green-100 text-green-800');
+                }
             }
 
-            generateCSVExport() {
-                const lines = [];
-                lines.push('類型,名稱,相關項目');
+            triggerBackupRestore() {
+                document.getElementById('backupFileInput').click();
+            }
+
+            handleBackupRestore(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                this.showBackupStatus('⏳', '正在恢復備份...', 'bg-blue-100 text-blue-800');
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const backupData = JSON.parse(e.target.result);
+                        
+                        if (this.validateBackupData(backupData)) {
+                            // Confirm before restore
+                            if (confirm('確定要恢復此備份嗎？這將覆蓋現有的所有資料。')) {
+                                this.restoreFromBackup(backupData);
+                                this.showBackupStatus('✅', '備份恢復成功！', 'bg-green-100 text-green-800');
+                                
+                                // Update UI and close modal after delay
+                                setTimeout(() => {
+                                    this.hideBackupModal();
+                                    this.updateUI();
+                                }, 1500);
+                            } else {
+                                this.showBackupStatus('ℹ️', '恢復已取消', 'bg-gray-100 text-gray-800');
+                            }
+                        } else {
+                            this.showBackupStatus('❌', '備份檔案格式不正確', 'bg-red-100 text-red-800');
+                        }
+                    } catch (error) {
+                        this.showBackupStatus('❌', '備份檔案損壞或格式錯誤', 'bg-red-100 text-red-800');
+                    }
+                };
                 
-                // Add herbs
-                Object.keys(this.data.herbs).forEach(herb => {
-                    lines.push(`中藥,"${herb}","${this.data.herbs[herb].join('，')}"`);
-                });
+                reader.readAsText(file);
+                event.target.value = ''; // Reset file input
+            }
+
+            createBackupData() {
+                return {
+                    version: '2.0',
+                    appName: '中醫診症輔助工具',
+                    backupDate: new Date().toISOString(),
+                    backupTime: new Date().toLocaleString('zh-TW'),
+                    statistics: {
+                        herbCount: Object.keys(this.data.herbs).length,
+                        symptomCount: Object.keys(this.data.symptoms).length,
+                        totalRelations: Object.values(this.data.herbs).reduce((sum, symptoms) => sum + symptoms.length, 0)
+                    },
+                    data: {
+                        herbs: this.data.herbs,
+                        symptoms: this.data.symptoms
+                    },
+                    checksum: this.generateChecksum(this.data)
+                };
+            }
+
+            validateBackupData(backupData) {
+                // Check required fields
+                if (!backupData.data || !backupData.data.herbs || !backupData.data.symptoms) {
+                    return false;
+                }
                 
-                // Add symptoms
-                Object.keys(this.data.symptoms).forEach(symptom => {
-                    lines.push(`症狀,"${symptom}","${this.data.symptoms[symptom].join('，')}"`);
-                });
+                // Check data structure
+                if (typeof backupData.data.herbs !== 'object' || typeof backupData.data.symptoms !== 'object') {
+                    return false;
+                }
                 
-                return lines.join('\n');
+                // Validate checksum if present
+                if (backupData.checksum) {
+                    const calculatedChecksum = this.generateChecksum(backupData.data);
+                    if (calculatedChecksum !== backupData.checksum) {
+                        console.warn('Backup checksum mismatch - data may be corrupted');
+                    }
+                }
+                
+                return true;
+            }
+
+            restoreFromBackup(backupData) {
+                this.data = {
+                    herbs: backupData.data.herbs,
+                    symptoms: backupData.data.symptoms
+                };
+                
+                this.saveData();
+                this.updateLastUpdateTime();
+                
+                // Clear search results
+                document.getElementById('resultsSection').classList.add('hidden');
+                document.getElementById('searchInput').value = '';
+            }
+
+            generateChecksum(data) {
+                // Simple checksum generation
+                const str = JSON.stringify(data);
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash; // Convert to 32-bit integer
+                }
+                return hash.toString(16);
+            }
+
+            showBackupStatus(icon, text, className) {
+                const statusDiv = document.getElementById('backupStatus');
+                const statusIcon = document.getElementById('backupStatusIcon');
+                const statusText = document.getElementById('backupStatusText');
+                
+                statusIcon.textContent = icon;
+                statusText.textContent = text;
+                statusDiv.className = `mt-4 p-3 rounded-lg text-sm ${className}`;
+                statusDiv.classList.remove('hidden');
+                
+                // Auto hide success messages
+                if (icon === '✅') {
+                    setTimeout(() => {
+                        statusDiv.classList.add('hidden');
+                    }, 3000);
+                }
             }
 
 
@@ -774,6 +879,12 @@
 
             saveData() {
                 localStorage.setItem('tcmData', JSON.stringify(this.data));
+                this.updateLastUpdateTime();
+            }
+
+            updateLastUpdateTime() {
+                const now = new Date().toLocaleString('zh-TW');
+                localStorage.setItem('tcmLastUpdate', now);
             }
 
             // Show real-time search suggestions
@@ -903,5 +1014,5 @@
             new TCMDiagnosticTool();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9651f60dc2e309b8',t:'MTc1MzUxMjYwOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9651fb95135409b8',t:'MTc1MzUxMjgzNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
