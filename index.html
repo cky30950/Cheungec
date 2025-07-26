@@ -39,9 +39,16 @@
                 <div class="flex items-center">
                     <h1 class="text-2xl font-bold text-gray-900">中醫診症輔助工具</h1>
                 </div>
-                <div class="flex items-center space-x-3">
-                    <span class="text-sm text-gray-600">Firebase連接狀態</span>
-                    <div id="connectionStatus" class="connection-indicator disconnected"></div>
+                <div class="flex items-center space-x-6">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-600">連接狀態</span>
+                        <div id="connectionStatus" class="connection-indicator disconnected"></div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-600">自動備份</span>
+                        <div id="backupStatus" class="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">待機中</div>
+                    </div>
+                    <div id="lastBackupTime" class="text-xs text-gray-500"></div>
                 </div>
             </div>
         </div>
@@ -119,12 +126,20 @@
                         </div>
                     </div>
                     
-                    <button 
-                        id="clearDataBtn"
-                        class="w-full mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-                    >
-                        清除所有資料
-                    </button>
+                    <div class="space-y-2 mt-4">
+                        <button 
+                            id="manualBackupBtn"
+                            class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                        >
+                            立即備份
+                        </button>
+                        <button 
+                            id="clearDataBtn"
+                            class="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                        >
+                            清除所有資料
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -155,6 +170,8 @@
         // 初始化 Firebase
         let database;
         let isConnected = false;
+        let autoBackupInterval;
+        let lastBackupTime = null;
         
         try {
             firebase.initializeApp(firebaseConfig);
@@ -165,6 +182,13 @@
             connectedRef.on('value', (snapshot) => {
                 isConnected = snapshot.val();
                 updateConnectionStatus();
+                
+                // 連接成功時啟動自動備份
+                if (isConnected) {
+                    startAutoBackup();
+                } else {
+                    stopAutoBackup();
+                }
             });
         } catch (error) {
             console.log('Firebase 初始化失敗，使用本地存儲模式');
@@ -204,11 +228,103 @@
             }, 3000);
         }
 
+        // 啟動自動備份
+        function startAutoBackup() {
+            if (autoBackupInterval) {
+                clearInterval(autoBackupInterval);
+            }
+            
+            // 每30秒檢查一次是否需要備份
+            autoBackupInterval = setInterval(async () => {
+                await performAutoBackup();
+            }, 30000);
+            
+            updateBackupStatus('運行中', 'bg-green-100 text-green-600');
+        }
+
+        // 停止自動備份
+        function stopAutoBackup() {
+            if (autoBackupInterval) {
+                clearInterval(autoBackupInterval);
+                autoBackupInterval = null;
+            }
+            updateBackupStatus('已停止', 'bg-red-100 text-red-600');
+        }
+
+        // 執行自動備份
+        async function performAutoBackup() {
+            if (!isConnected || !database) return;
+            
+            try {
+                updateBackupStatus('備份中...', 'bg-yellow-100 text-yellow-600');
+                
+                // 創建備份資料
+                const backupData = {
+                    tcmData: localData,
+                    timestamp: Date.now(),
+                    version: '1.0'
+                };
+                
+                // 同步主要資料
+                await database.ref('tcmData').set(localData);
+                
+                // 創建帶時間戳的備份
+                const backupKey = new Date().toISOString().replace(/[:.]/g, '-');
+                await database.ref(`backups/${backupKey}`).set(backupData);
+                
+                // 只保留最近10個備份
+                const backupsRef = database.ref('backups');
+                const snapshot = await backupsRef.orderByKey().once('value');
+                const backups = snapshot.val();
+                
+                if (backups) {
+                    const backupKeys = Object.keys(backups).sort();
+                    if (backupKeys.length > 10) {
+                        const keysToDelete = backupKeys.slice(0, backupKeys.length - 10);
+                        for (const key of keysToDelete) {
+                            await backupsRef.child(key).remove();
+                        }
+                    }
+                }
+                
+                lastBackupTime = new Date();
+                updateBackupStatus('運行中', 'bg-green-100 text-green-600');
+                updateLastBackupTime();
+                
+            } catch (error) {
+                console.error('自動備份失敗:', error);
+                updateBackupStatus('備份失敗', 'bg-red-100 text-red-600');
+            }
+        }
+
+        // 更新備份狀態顯示
+        function updateBackupStatus(status, className) {
+            const statusEl = document.getElementById('backupStatus');
+            statusEl.textContent = status;
+            statusEl.className = `text-xs px-2 py-1 rounded-full ${className}`;
+        }
+
+        // 更新最後備份時間顯示
+        function updateLastBackupTime() {
+            const timeEl = document.getElementById('lastBackupTime');
+            if (lastBackupTime) {
+                const timeStr = lastBackupTime.toLocaleString('zh-TW', {
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                timeEl.textContent = `最後備份: ${timeStr}`;
+            }
+        }
+
         // 同步資料到 Firebase
         async function syncToFirebase(data) {
             if (isConnected && database) {
                 try {
                     await database.ref('tcmData').set(data);
+                    // 觸發立即備份
+                    setTimeout(() => performAutoBackup(), 1000);
                     return true;
                 } catch (error) {
                     console.error('Firebase 同步失敗:', error);
@@ -390,6 +506,15 @@
             }
         });
 
+        document.getElementById('manualBackupBtn').addEventListener('click', async () => {
+            if (isConnected) {
+                await performAutoBackup();
+                showNotification('手動備份完成');
+            } else {
+                showNotification('Firebase未連接，無法備份', 'error');
+            }
+        });
+
         document.getElementById('clearDataBtn').addEventListener('click', () => {
             if (confirm('確定要清除所有資料嗎？此操作無法復原。')) {
                 localData = {};
@@ -404,7 +529,20 @@
         // 初始化
         loadFromFirebase().then(() => {
             updateStatistics();
+            // 載入最後備份時間
+            if (database && isConnected) {
+                database.ref('backups').orderByKey().limitToLast(1).once('value').then(snapshot => {
+                    const backups = snapshot.val();
+                    if (backups) {
+                        const lastBackup = Object.values(backups)[0];
+                        if (lastBackup && lastBackup.timestamp) {
+                            lastBackupTime = new Date(lastBackup.timestamp);
+                            updateLastBackupTime();
+                        }
+                    }
+                });
+            }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9654b6de55699b48',t:'MTc1MzU0MTQ3OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9654c4bb230bc5e8',t:'MTc1MzU0MjA0Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
