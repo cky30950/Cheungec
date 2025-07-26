@@ -6,868 +6,405 @@
     <title>中醫診症輔助工具</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; }
-        .glass-effect {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+        .connection-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
         }
-        .search-result-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        .connected {
+            background-color: #10b981;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
         }
-        .fade-in {
-            animation: fadeIn 0.3s ease-in;
+        .disconnected {
+            background-color: #ef4444;
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
         }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .search-result {
+            transition: all 0.2s ease;
+        }
+        .search-result:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
     </style>
 </head>
-<body class="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 min-h-screen">
+<body class="bg-gray-50 min-h-screen">
     <!-- Header -->
-    <header class="bg-white shadow-lg border-b border-emerald-100">
-        <div class="max-w-7xl mx-auto px-6 py-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-leaf text-white text-lg"></i>
-                    </div>
-                    <h1 class="text-2xl font-bold text-gray-800">中醫診症輔助工具</h1>
+    <header class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <h1 class="text-2xl font-bold text-gray-900">中醫診症輔助工具</h1>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <div id="userInfo" class="hidden items-center space-x-3">
-                        <img id="userAvatar" class="w-8 h-8 rounded-full" src="" alt="用戶頭像">
-                        <span id="userName" class="text-sm text-gray-700"></span>
-                        <button id="logoutBtn" class="text-sm text-red-600 hover:text-red-700">登出</button>
-                    </div>
-                    <button id="loginBtn" class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                        <i class="fas fa-sign-in-alt"></i>
-                        <span>登入</span>
-                    </button>
-                    <button id="syncBtn" class="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
-                        <i class="fas fa-cloud-upload-alt"></i>
-                        <span>同步資料</span>
-                    </button>
-                    <div id="syncStatus" class="text-sm text-gray-600"></div>
+                <div class="flex items-center space-x-3">
+                    <span class="text-sm text-gray-600">Firebase連接狀態</span>
+                    <div id="connectionStatus" class="connection-indicator disconnected"></div>
                 </div>
             </div>
         </div>
     </header>
 
-    <div class="max-w-7xl mx-auto px-6 py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Search Panel -->
+            <!-- 搜尋區域 -->
             <div class="lg:col-span-2">
-                <div class="bg-white rounded-2xl shadow-xl p-6 mb-6">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                        <i class="fas fa-search text-emerald-600 mr-2"></i>
-                        智能搜尋
-                    </h2>
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">搜尋症狀或中藥</h2>
                     
-                    <div class="relative mb-4">
+                    <div class="relative mb-6">
                         <input 
                             type="text" 
                             id="searchInput" 
-                            placeholder="輸入症狀或中藥名稱進行搜尋..."
-                            class="w-full px-4 py-3 pl-12 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                            placeholder="輸入症狀或中藥名稱..."
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900"
                         >
-                        <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                    </div>
-
-                    <div class="flex space-x-2 mb-6">
-                        <button id="searchSymptom" class="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors active">
-                            搜尋症狀
-                        </button>
-                        <button id="searchHerb" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-                            搜尋中藥
+                        <button 
+                            id="searchBtn"
+                            class="absolute right-2 top-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                        >
+                            搜尋
                         </button>
                     </div>
 
-                    <div id="searchResults" class="space-y-3 max-h-96 overflow-y-auto"></div>
+                    <!-- 搜尋結果 -->
+                    <div id="searchResults" class="space-y-3">
+                        <div class="text-gray-500 text-center py-8">
+                            輸入關鍵字開始搜尋
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Data Import Panel -->
+            <!-- 資料管理區域 -->
             <div class="space-y-6">
-                <div class="bg-white rounded-2xl shadow-xl p-6">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                        <i class="fas fa-upload text-blue-600 mr-2"></i>
-                        資料導入
-                    </h2>
+                <!-- 資料導入 -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">資料導入</h2>
                     
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            格式：中藥名：症狀1,症狀2
+                            格式：中藥名：症狀
                         </label>
                         <textarea 
-                            id="importData" 
-                            rows="8" 
-                            placeholder="例如：&#10;當歸：血虛,月經不調,便秘&#10;黃芪：氣虛,自汗,水腫&#10;人參：氣虛,心悸,失眠"
-                            class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                            id="importData"
+                            rows="6"
+                            placeholder="例如：&#10;當歸：補血調經&#10;黃芪：補氣固表&#10;人參：大補元氣"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
                         ></textarea>
                     </div>
                     
-                    <button id="importBtn" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                        <i class="fas fa-plus mr-2"></i>
+                    <button 
+                        id="importBtn"
+                        class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                    >
                         導入資料
                     </button>
                 </div>
 
-                <!-- Statistics Panel -->
-                <div class="bg-white rounded-2xl shadow-xl p-6">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                        <i class="fas fa-chart-bar text-purple-600 mr-2"></i>
-                        資料統計
-                    </h2>
+                <!-- 資料統計 -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">資料統計</h2>
                     
                     <div class="space-y-3">
-                        <div class="flex justify-between items-center p-3 bg-emerald-50 rounded-lg">
-                            <span class="text-emerald-700 font-medium">中藥總數</span>
-                            <span id="herbCount" class="text-emerald-800 font-bold text-lg">0</span>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">中藥總數</span>
+                            <span id="herbCount" class="font-semibold text-blue-600">0</span>
                         </div>
-                        <div class="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                            <span class="text-blue-700 font-medium">症狀總數</span>
-                            <span id="symptomCount" class="text-blue-800 font-bold text-lg">0</span>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">症狀總數</span>
+                            <span id="symptomCount" class="font-semibold text-green-600">0</span>
                         </div>
-                        <div class="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
-                            <span class="text-purple-700 font-medium">關聯總數</span>
-                            <span id="relationCount" class="text-purple-800 font-bold text-lg">0</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Backup & Restore Panel -->
-                <div class="bg-white rounded-2xl shadow-xl p-6">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                        <i class="fas fa-database text-indigo-600 mr-2"></i>
-                        備份管理
-                    </h2>
-                    
-                    <div class="space-y-3">
-                        <button id="backupBtn" class="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-                            <i class="fas fa-save mr-2"></i>
-                            創建備份
-                        </button>
-                        <button id="restoreBtn" class="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
-                            <i class="fas fa-undo mr-2"></i>
-                            恢復備份
-                        </button>
-                        <button id="exportBtn" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                            <i class="fas fa-download mr-2"></i>
-                            導出資料
-                        </button>
-                        <input type="file" id="importFile" accept=".json" class="hidden">
-                        <button id="importFileBtn" class="w-full px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors">
-                            <i class="fas fa-upload mr-2"></i>
-                            導入檔案
-                        </button>
                     </div>
                     
-                    <div id="backupList" class="mt-4 space-y-2 max-h-40 overflow-y-auto"></div>
-                </div>
-
-                <!-- Clear Data Button -->
-                <button id="clearBtn" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-                    <i class="fas fa-trash mr-2"></i>
-                    清除所有資料
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Login Modal -->
-    <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">登入帳戶</h2>
-            
-            <div class="space-y-4">
-                <button id="googleLoginBtn" class="w-full flex items-center justify-center space-x-3 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-                    <i class="fab fa-google"></i>
-                    <span>使用 Google 登入</span>
-                </button>
-                
-                <div class="relative">
-                    <div class="absolute inset-0 flex items-center">
-                        <div class="w-full border-t border-gray-300"></div>
-                    </div>
-                    <div class="relative flex justify-center text-sm">
-                        <span class="px-2 bg-white text-gray-500">或</span>
-                    </div>
-                </div>
-                
-                <div class="space-y-3">
-                    <input type="email" id="emailInput" placeholder="電子郵件" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <input type="password" id="passwordInput" placeholder="密碼" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                
-                <div class="flex space-x-3">
-                    <button id="emailLoginBtn" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                        登入
-                    </button>
-                    <button id="emailRegisterBtn" class="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                        註冊
+                    <button 
+                        id="clearDataBtn"
+                        class="w-full mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                    >
+                        清除所有資料
                     </button>
                 </div>
             </div>
-            
-            <button id="closeLoginModal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-                <i class="fas fa-times text-xl"></i>
-            </button>
         </div>
     </div>
 
-    <!-- Backup Selection Modal -->
-    <div id="backupModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">選擇備份</h2>
-            
-            <div id="backupModalList" class="space-y-2 max-h-60 overflow-y-auto mb-6"></div>
-            
-            <button id="closeBackupModal" class="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-                取消
-            </button>
-            
-            <button id="closeBackupModalX" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-                <i class="fas fa-times text-xl"></i>
-            </button>
+    <!-- 通知訊息 -->
+    <div id="notification" class="fixed top-4 right-4 z-50 hidden">
+        <div class="bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-sm">
+            <div class="flex items-center">
+                <div id="notificationIcon" class="mr-3"></div>
+                <div id="notificationMessage" class="text-gray-900"></div>
+            </div>
         </div>
-    </div>
-
-    <!-- Toast Notification -->
-    <div id="toast" class="fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50">
-        <span id="toastMessage"></span>
     </div>
 
     <script>
-        // Firebase configuration (請替換為您的實際配置)
+        // Firebase 配置
         const firebaseConfig = {
             apiKey: "AIzaSyBtUcrBYiE4B1O4xkvIqwxM52Hrh-i6pL8",
             authDomain: "cheungec-ea477.firebaseapp.com",
+            databaseURL: "https://cheungec-ea477-default-rtdb.firebaseio.com/",
             projectId: "cheungec-ea477",
             storageBucket: "cheungec-ea477.firebasestorage.app",
             messagingSenderId: "986510230799",
             appId: "1:986510230799:web:f603e67b605e71294f2a7a"
         };
 
-        // Initialize Firebase
-        let db = null;
-        let auth = null;
-        let storage = null;
-        let currentUser = null;
-
+        // 初始化 Firebase
+        let database;
+        let isConnected = false;
+        
         try {
             firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            auth = firebase.auth();
-            storage = firebase.storage();
+            database = firebase.database();
             
-            // Enable offline persistence
-            db.enablePersistence().catch((err) => {
-                if (err.code == 'failed-precondition') {
-                    console.log('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-                } else if (err.code == 'unimplemented') {
-                    console.log('The current browser does not support persistence.');
-                }
+            // 監聽連接狀態
+            const connectedRef = database.ref('.info/connected');
+            connectedRef.on('value', (snapshot) => {
+                isConnected = snapshot.val();
+                updateConnectionStatus();
             });
-            
         } catch (error) {
-            console.log('Firebase initialization failed:', error);
-            showToast('Firebase 初始化失敗，將使用本地存儲', 'warning');
+            console.log('Firebase 初始化失敗，使用本地存儲模式');
+            updateConnectionStatus();
         }
 
-        // Data storage
-        let herbData = JSON.parse(localStorage.getItem('herbData')) || {};
-        let searchMode = 'symptom'; // 'symptom' or 'herb'
+        // 本地資料存儲
+        let localData = JSON.parse(localStorage.getItem('tcmData')) || {};
 
-        // DOM elements
-        const searchInput = document.getElementById('searchInput');
-        const searchResults = document.getElementById('searchResults');
-        const importData = document.getElementById('importData');
-        const importBtn = document.getElementById('importBtn');
-        const clearBtn = document.getElementById('clearBtn');
-        const syncBtn = document.getElementById('syncBtn');
-        const syncStatus = document.getElementById('syncStatus');
-        const searchSymptomBtn = document.getElementById('searchSymptom');
-        const searchHerbBtn = document.getElementById('searchHerb');
-        const toast = document.getElementById('toast');
-        const toastMessage = document.getElementById('toastMessage');
-        
-        // Auth elements
-        const loginBtn = document.getElementById('loginBtn');
-        const logoutBtn = document.getElementById('logoutBtn');
-        const userInfo = document.getElementById('userInfo');
-        const userName = document.getElementById('userName');
-        const userAvatar = document.getElementById('userAvatar');
-        const loginModal = document.getElementById('loginModal');
-        const closeLoginModal = document.getElementById('closeLoginModal');
-        const googleLoginBtn = document.getElementById('googleLoginBtn');
-        const emailLoginBtn = document.getElementById('emailLoginBtn');
-        const emailRegisterBtn = document.getElementById('emailRegisterBtn');
-        const emailInput = document.getElementById('emailInput');
-        const passwordInput = document.getElementById('passwordInput');
-        
-        // Backup elements
-        const backupBtn = document.getElementById('backupBtn');
-        const restoreBtn = document.getElementById('restoreBtn');
-        const exportBtn = document.getElementById('exportBtn');
-        const importFileBtn = document.getElementById('importFileBtn');
-        const importFile = document.getElementById('importFile');
-        const backupList = document.getElementById('backupList');
-        const backupModal = document.getElementById('backupModal');
-        const backupModalList = document.getElementById('backupModalList');
-        const closeBackupModal = document.getElementById('closeBackupModal');
-        const closeBackupModalX = document.getElementById('closeBackupModalX');
-
-        // Initialize
-        updateStatistics();
-        updateSyncStatus();
-        
-        // Auth state listener
-        if (auth) {
-            auth.onAuthStateChanged((user) => {
-                currentUser = user;
-                updateAuthUI();
-                if (user) {
-                    loadUserData();
-                    loadBackupList();
-                }
-            });
-        }
-
-        // Search mode toggle
-        searchSymptomBtn.addEventListener('click', () => {
-            searchMode = 'symptom';
-            searchSymptomBtn.classList.add('bg-emerald-100', 'text-emerald-700');
-            searchSymptomBtn.classList.remove('bg-gray-100', 'text-gray-700');
-            searchHerbBtn.classList.add('bg-gray-100', 'text-gray-700');
-            searchHerbBtn.classList.remove('bg-emerald-100', 'text-emerald-700');
-            searchInput.placeholder = '輸入症狀搜尋對應中藥...';
-            performSearch();
-        });
-
-        searchHerbBtn.addEventListener('click', () => {
-            searchMode = 'herb';
-            searchHerbBtn.classList.add('bg-emerald-100', 'text-emerald-700');
-            searchHerbBtn.classList.remove('bg-gray-100', 'text-gray-700');
-            searchSymptomBtn.classList.add('bg-gray-100', 'text-gray-700');
-            searchSymptomBtn.classList.remove('bg-emerald-100', 'text-emerald-700');
-            searchInput.placeholder = '輸入中藥名稱搜尋對應症狀...';
-            performSearch();
-        });
-
-        // Search functionality
-        searchInput.addEventListener('input', performSearch);
-
-        function performSearch() {
-            const query = searchInput.value.trim().toLowerCase();
-            searchResults.innerHTML = '';
-
-            if (!query) {
-                searchResults.innerHTML = '<div class="text-gray-500 text-center py-8">請輸入搜尋關鍵字</div>';
-                return;
-            }
-
-            let results = [];
-
-            if (searchMode === 'symptom') {
-                // Search for herbs by symptom
-                Object.keys(herbData).forEach(herb => {
-                    const symptoms = herbData[herb];
-                    if (symptoms.some(symptom => symptom.toLowerCase().includes(query))) {
-                        results.push({
-                            title: herb,
-                            subtitle: '中藥',
-                            content: symptoms,
-                            type: 'herb'
-                        });
-                    }
-                });
+        // 更新連接狀態指示器
+        function updateConnectionStatus() {
+            const indicator = document.getElementById('connectionStatus');
+            if (isConnected) {
+                indicator.className = 'connection-indicator connected';
             } else {
-                // Search for symptoms by herb
-                Object.keys(herbData).forEach(herb => {
-                    if (herb.toLowerCase().includes(query)) {
-                        results.push({
-                            title: herb,
-                            subtitle: '中藥',
-                            content: herbData[herb],
-                            type: 'herb'
-                        });
-                    }
-                });
+                indicator.className = 'connection-indicator disconnected';
             }
-
-            if (results.length === 0) {
-                searchResults.innerHTML = '<div class="text-gray-500 text-center py-8">未找到相關結果</div>';
-                return;
-            }
-
-            results.forEach(result => {
-                const resultElement = document.createElement('div');
-                resultElement.className = 'search-result-item bg-gradient-to-r from-white to-gray-50 p-4 rounded-xl border border-gray-200 transition-all duration-200 fade-in';
-                
-                resultElement.innerHTML = `
-                    <div class="flex items-start justify-between">
-                        <div class="flex-1">
-                            <div class="flex items-center space-x-2 mb-2">
-                                <h3 class="font-semibold text-gray-800 text-lg">${result.title}</h3>
-                                <span class="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full">${result.subtitle}</span>
-                            </div>
-                            <div class="flex flex-wrap gap-2">
-                                ${result.content.map(item => 
-                                    `<span class="px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full">${item}</span>`
-                                ).join('')}
-                            </div>
-                        </div>
-                        <i class="fas fa-leaf text-emerald-500 text-xl ml-4"></i>
-                    </div>
-                `;
-                
-                searchResults.appendChild(resultElement);
-            });
         }
 
-        // Import functionality
-        importBtn.addEventListener('click', () => {
-            const data = importData.value.trim();
-            if (!data) {
-                showToast('請輸入要導入的資料', 'error');
-                return;
-            }
-
-            const lines = data.split('\n');
-            let importCount = 0;
-
-            lines.forEach(line => {
-                const trimmedLine = line.trim();
-                if (!trimmedLine) return;
-
-                const colonIndex = trimmedLine.indexOf('：');
-                if (colonIndex === -1) return;
-
-                const herb = trimmedLine.substring(0, colonIndex).trim();
-                const symptomsStr = trimmedLine.substring(colonIndex + 1).trim();
-                const symptoms = symptomsStr.split(',').map(s => s.trim()).filter(s => s);
-
-                if (herb && symptoms.length > 0) {
-                    if (!herbData[herb]) {
-                        herbData[herb] = [];
-                    }
-                    
-                    symptoms.forEach(symptom => {
-                        if (!herbData[herb].includes(symptom)) {
-                            herbData[herb].push(symptom);
-                        }
-                    });
-                    importCount++;
-                }
-            });
-
-            if (importCount > 0) {
-                localStorage.setItem('herbData', JSON.stringify(herbData));
-                updateStatistics();
-                importData.value = '';
-                showToast(`成功導入 ${importCount} 條記錄`, 'success');
-                performSearch();
+        // 顯示通知
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            const icon = document.getElementById('notificationIcon');
+            const messageEl = document.getElementById('notificationMessage');
+            
+            messageEl.textContent = message;
+            
+            if (type === 'success') {
+                icon.innerHTML = '<div class="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"><span class="text-white text-xs">✓</span></div>';
             } else {
-                showToast('導入失敗，請檢查資料格式', 'error');
+                icon.innerHTML = '<div class="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"><span class="text-white text-xs">!</span></div>';
             }
-        });
-
-        // Clear data
-        clearBtn.addEventListener('click', () => {
-            if (confirm('確定要清除所有資料嗎？此操作無法復原。')) {
-                herbData = {};
-                localStorage.removeItem('herbData');
-                updateStatistics();
-                searchResults.innerHTML = '';
-                showToast('所有資料已清除', 'success');
-            }
-        });
-
-        // Authentication functionality
-        loginBtn.addEventListener('click', () => {
-            loginModal.classList.remove('hidden');
-        });
-
-        closeLoginModal.addEventListener('click', () => {
-            loginModal.classList.add('hidden');
-        });
-
-        logoutBtn.addEventListener('click', async () => {
-            if (auth && currentUser) {
-                try {
-                    await auth.signOut();
-                    showToast('已登出', 'success');
-                } catch (error) {
-                    showToast('登出失敗：' + error.message, 'error');
-                }
-            }
-        });
-
-        googleLoginBtn.addEventListener('click', async () => {
-            if (!auth) {
-                showToast('Firebase 未配置', 'error');
-                return;
-            }
-
-            try {
-                const provider = new firebase.auth.GoogleAuthProvider();
-                await auth.signInWithPopup(provider);
-                loginModal.classList.add('hidden');
-                showToast('Google 登入成功', 'success');
-            } catch (error) {
-                showToast('Google 登入失敗：' + error.message, 'error');
-            }
-        });
-
-        emailLoginBtn.addEventListener('click', async () => {
-            const email = emailInput.value.trim();
-            const password = passwordInput.value.trim();
-
-            if (!email || !password) {
-                showToast('請輸入電子郵件和密碼', 'error');
-                return;
-            }
-
-            if (!auth) {
-                showToast('Firebase 未配置', 'error');
-                return;
-            }
-
-            try {
-                await auth.signInWithEmailAndPassword(email, password);
-                loginModal.classList.add('hidden');
-                emailInput.value = '';
-                passwordInput.value = '';
-                showToast('登入成功', 'success');
-            } catch (error) {
-                showToast('登入失敗：' + error.message, 'error');
-            }
-        });
-
-        emailRegisterBtn.addEventListener('click', async () => {
-            const email = emailInput.value.trim();
-            const password = passwordInput.value.trim();
-
-            if (!email || !password) {
-                showToast('請輸入電子郵件和密碼', 'error');
-                return;
-            }
-
-            if (password.length < 6) {
-                showToast('密碼至少需要6個字符', 'error');
-                return;
-            }
-
-            if (!auth) {
-                showToast('Firebase 未配置', 'error');
-                return;
-            }
-
-            try {
-                await auth.createUserWithEmailAndPassword(email, password);
-                loginModal.classList.add('hidden');
-                emailInput.value = '';
-                passwordInput.value = '';
-                showToast('註冊成功', 'success');
-            } catch (error) {
-                showToast('註冊失敗：' + error.message, 'error');
-            }
-        });
-
-        // Sync functionality
-        syncBtn.addEventListener('click', async () => {
-            if (!db) {
-                showToast('Firebase 未配置，資料僅保存在本地', 'warning');
-                return;
-            }
-
-            if (!currentUser) {
-                showToast('請先登入以同步資料', 'warning');
-                loginModal.classList.remove('hidden');
-                return;
-            }
-
-            try {
-                syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>同步中...';
-                syncBtn.disabled = true;
-
-                await db.collection('users').doc(currentUser.uid).collection('herbData').doc('main').set({
-                    data: herbData,
-                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
-                    userEmail: currentUser.email
-                });
-
-                localStorage.setItem('lastSync', new Date().toISOString());
-                showToast('資料同步成功', 'success');
-                updateSyncStatus();
-            } catch (error) {
-                showToast('同步失敗：' + error.message, 'error');
-            } finally {
-                syncBtn.innerHTML = '<i class="fas fa-cloud-upload-alt mr-2"></i>同步資料';
-                syncBtn.disabled = false;
-            }
-        });
-
-        // Update statistics
-        function updateStatistics() {
-            const herbCount = Object.keys(herbData).length;
-            const allSymptoms = new Set();
-            let relationCount = 0;
-
-            Object.values(herbData).forEach(symptoms => {
-                symptoms.forEach(symptom => allSymptoms.add(symptom));
-                relationCount += symptoms.length;
-            });
-
-            document.getElementById('herbCount').textContent = herbCount;
-            document.getElementById('symptomCount').textContent = allSymptoms.size;
-            document.getElementById('relationCount').textContent = relationCount;
-        }
-
-        // Update sync status
-        function updateSyncStatus() {
-            const lastSync = localStorage.getItem('lastSync');
-            if (lastSync) {
-                syncStatus.textContent = `上次同步：${new Date(lastSync).toLocaleString()}`;
-            } else {
-                syncStatus.textContent = '尚未同步';
-            }
-        }
-
-        // Toast notification
-        function showToast(message, type = 'info') {
-            toastMessage.textContent = message;
             
-            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform transition-transform duration-300 z-50 ${
-                type === 'success' ? 'bg-green-500 text-white' :
-                type === 'error' ? 'bg-red-500 text-white' :
-                type === 'warning' ? 'bg-yellow-500 text-white' :
-                'bg-blue-500 text-white'
-            }`;
-            
-            toast.style.transform = 'translateX(0)';
-            
+            notification.classList.remove('hidden');
             setTimeout(() => {
-                toast.style.transform = 'translateX(100%)';
+                notification.classList.add('hidden');
             }, 3000);
         }
 
-        // Backup functionality
-        backupBtn.addEventListener('click', async () => {
-            if (!currentUser) {
-                showToast('請先登入以創建備份', 'warning');
-                loginModal.classList.remove('hidden');
-                return;
-            }
-
-            if (!db) {
-                showToast('Firebase 未配置', 'error');
-                return;
-            }
-
-            try {
-                const backupId = Date.now().toString();
-                const backupData = {
-                    id: backupId,
-                    data: herbData,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    userEmail: currentUser.email,
-                    herbCount: Object.keys(herbData).length,
-                    name: `備份 ${new Date().toLocaleString()}`
-                };
-
-                await db.collection('users').doc(currentUser.uid).collection('backups').doc(backupId).set(backupData);
-                
-                showToast('備份創建成功', 'success');
-                loadBackupList();
-            } catch (error) {
-                showToast('備份失敗：' + error.message, 'error');
-            }
-        });
-
-        restoreBtn.addEventListener('click', () => {
-            if (!currentUser) {
-                showToast('請先登入以恢復備份', 'warning');
-                loginModal.classList.remove('hidden');
-                return;
-            }
-            backupModal.classList.remove('hidden');
-            loadBackupModalList();
-        });
-
-        closeBackupModal.addEventListener('click', () => {
-            backupModal.classList.add('hidden');
-        });
-
-        closeBackupModalX.addEventListener('click', () => {
-            backupModal.classList.add('hidden');
-        });
-
-        exportBtn.addEventListener('click', () => {
-            const dataStr = JSON.stringify(herbData, null, 2);
-            const dataBlob = new Blob([dataStr], {type: 'application/json'});
-            const url = URL.createObjectURL(dataBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `中醫資料_${new Date().toISOString().split('T')[0]}.json`;
-            link.click();
-            URL.revokeObjectURL(url);
-            showToast('資料已導出', 'success');
-        });
-
-        importFileBtn.addEventListener('click', () => {
-            importFile.click();
-        });
-
-        importFile.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
+        // 同步資料到 Firebase
+        async function syncToFirebase(data) {
+            if (isConnected && database) {
                 try {
-                    const importedData = JSON.parse(e.target.result);
-                    
-                    if (confirm('導入檔案將覆蓋現有資料，確定要繼續嗎？')) {
-                        herbData = importedData;
-                        localStorage.setItem('herbData', JSON.stringify(herbData));
+                    await database.ref('tcmData').set(data);
+                    return true;
+                } catch (error) {
+                    console.error('Firebase 同步失敗:', error);
+                    return false;
+                }
+            }
+            return false;
+        }
+
+        // 從 Firebase 載入資料
+        async function loadFromFirebase() {
+            if (isConnected && database) {
+                try {
+                    const snapshot = await database.ref('tcmData').once('value');
+                    const data = snapshot.val();
+                    if (data) {
+                        localData = data;
+                        localStorage.setItem('tcmData', JSON.stringify(localData));
                         updateStatistics();
-                        performSearch();
-                        showToast('檔案導入成功', 'success');
+                        return true;
                     }
                 } catch (error) {
-                    showToast('檔案格式錯誤', 'error');
+                    console.error('Firebase 載入失敗:', error);
                 }
-            };
-            reader.readAsText(file);
-            importFile.value = '';
-        });
+            }
+            return false;
+        }
 
-        // Load user data from Firebase
-        async function loadUserData() {
-            if (!db || !currentUser) return;
-
-            try {
-                const doc = await db.collection('users').doc(currentUser.uid).collection('herbData').doc('main').get();
-                if (doc.exists) {
-                    const firebaseData = doc.data();
-                    if (firebaseData.data) {
-                        herbData = firebaseData.data;
-                        localStorage.setItem('herbData', JSON.stringify(herbData));
-                        if (firebaseData.lastUpdated) {
-                            localStorage.setItem('lastSync', firebaseData.lastUpdated.toDate().toISOString());
+        // 搜尋功能
+        function search(query) {
+            const results = [];
+            const lowerQuery = query.toLowerCase();
+            
+            // 搜尋中藥
+            for (const herb in localData) {
+                if (herb.toLowerCase().includes(lowerQuery)) {
+                    results.push({
+                        type: 'herb',
+                        name: herb,
+                        symptoms: localData[herb]
+                    });
+                }
+            }
+            
+            // 搜尋症狀
+            for (const herb in localData) {
+                const symptoms = localData[herb];
+                for (const symptom of symptoms) {
+                    if (symptom.toLowerCase().includes(lowerQuery)) {
+                        const existingResult = results.find(r => r.type === 'symptom' && r.name === symptom);
+                        if (existingResult) {
+                            existingResult.herbs.push(herb);
+                        } else {
+                            results.push({
+                                type: 'symptom',
+                                name: symptom,
+                                herbs: [herb]
+                            });
                         }
-                        updateStatistics();
-                        updateSyncStatus();
-                        performSearch();
-                        showToast('已從雲端載入個人資料', 'success');
                     }
                 }
-            } catch (error) {
-                console.log('Failed to load user data:', error);
             }
+            
+            return results;
         }
 
-        // Load backup list
-        async function loadBackupList() {
-            if (!db || !currentUser) return;
-
-            try {
-                const snapshot = await db.collection('users').doc(currentUser.uid).collection('backups')
-                    .orderBy('createdAt', 'desc').limit(5).get();
-                
-                backupList.innerHTML = '';
-                
-                if (snapshot.empty) {
-                    backupList.innerHTML = '<div class="text-gray-500 text-sm text-center py-2">暫無備份</div>';
-                    return;
-                }
-
-                snapshot.forEach((doc) => {
-                    const backup = doc.data();
-                    const backupElement = document.createElement('div');
-                    backupElement.className = 'flex justify-between items-center p-2 bg-gray-50 rounded text-sm';
-                    backupElement.innerHTML = `
-                        <span>${backup.name}</span>
-                        <span class="text-gray-500">${backup.herbCount} 項</span>
-                    `;
-                    backupList.appendChild(backupElement);
-                });
-            } catch (error) {
-                console.log('Failed to load backup list:', error);
+        // 顯示搜尋結果
+        function displayResults(results) {
+            const container = document.getElementById('searchResults');
+            
+            if (results.length === 0) {
+                container.innerHTML = '<div class="text-gray-500 text-center py-8">未找到相關結果</div>';
+                return;
             }
-        }
-
-        // Load backup modal list
-        async function loadBackupModalList() {
-            if (!db || !currentUser) return;
-
-            try {
-                const snapshot = await db.collection('users').doc(currentUser.uid).collection('backups')
-                    .orderBy('createdAt', 'desc').get();
-                
-                backupModalList.innerHTML = '';
-                
-                if (snapshot.empty) {
-                    backupModalList.innerHTML = '<div class="text-gray-500 text-center py-4">暫無備份可恢復</div>';
-                    return;
-                }
-
-                snapshot.forEach((doc) => {
-                    const backup = doc.data();
-                    const backupElement = document.createElement('div');
-                    backupElement.className = 'flex justify-between items-center p-3 bg-gray-50 rounded hover:bg-gray-100 cursor-pointer transition-colors';
-                    backupElement.innerHTML = `
-                        <div>
-                            <div class="font-medium">${backup.name}</div>
-                            <div class="text-sm text-gray-500">${backup.herbCount} 項中藥資料</div>
+            
+            let html = '';
+            results.forEach(result => {
+                if (result.type === 'herb') {
+                    html += `
+                        <div class="search-result bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mr-2">中藥</span>
+                                <h3 class="font-semibold text-gray-900">${result.name}</h3>
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                <strong>主治症狀：</strong>
+                                <div class="mt-1 flex flex-wrap gap-1">
+                                    ${result.symptoms.map(symptom => `<span class="bg-white px-2 py-1 rounded text-xs border">${symptom}</span>`).join('')}
+                                </div>
+                            </div>
                         </div>
-                        <button class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
-                            恢復
-                        </button>
                     `;
-                    
-                    backupElement.querySelector('button').addEventListener('click', async () => {
-                        if (confirm('恢復備份將覆蓋現有資料，確定要繼續嗎？')) {
-                            herbData = backup.data;
-                            localStorage.setItem('herbData', JSON.stringify(herbData));
-                            updateStatistics();
-                            performSearch();
-                            backupModal.classList.add('hidden');
-                            showToast('備份恢復成功', 'success');
-                        }
-                    });
-                    
-                    backupModalList.appendChild(backupElement);
-                });
-            } catch (error) {
-                showToast('載入備份列表失敗：' + error.message, 'error');
-            }
+                } else {
+                    html += `
+                        <div class="search-result bg-green-50 border border-green-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full mr-2">症狀</span>
+                                <h3 class="font-semibold text-gray-900">${result.name}</h3>
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                <strong>相關中藥：</strong>
+                                <div class="mt-1 flex flex-wrap gap-1">
+                                    ${result.herbs.map(herb => `<span class="bg-white px-2 py-1 rounded text-xs border">${herb}</span>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            container.innerHTML = html;
         }
 
-        // Update auth UI
-        function updateAuthUI() {
-            if (currentUser) {
-                loginBtn.classList.add('hidden');
-                userInfo.classList.remove('hidden');
-                userInfo.classList.add('flex');
-                userName.textContent = currentUser.displayName || currentUser.email;
-                userAvatar.src = currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.email)}&background=10b981&color=fff`;
-            } else {
-                loginBtn.classList.remove('hidden');
-                userInfo.classList.add('hidden');
-                userInfo.classList.remove('flex');
-            }
+        // 導入資料
+        function importData(text) {
+            const lines = text.split('\n').filter(line => line.trim());
+            let importCount = 0;
+            
+            lines.forEach(line => {
+                const parts = line.split('：');
+                if (parts.length === 2) {
+                    const herb = parts[0].trim();
+                    const symptom = parts[1].trim();
+                    
+                    if (!localData[herb]) {
+                        localData[herb] = [];
+                    }
+                    
+                    if (!localData[herb].includes(symptom)) {
+                        localData[herb].push(symptom);
+                        importCount++;
+                    }
+                }
+            });
+            
+            localStorage.setItem('tcmData', JSON.stringify(localData));
+            syncToFirebase(localData);
+            updateStatistics();
+            
+            return importCount;
         }
+
+        // 更新統計資料
+        function updateStatistics() {
+            const herbCount = Object.keys(localData).length;
+            let symptomSet = new Set();
+            
+            Object.values(localData).forEach(symptoms => {
+                symptoms.forEach(symptom => symptomSet.add(symptom));
+            });
+            
+            document.getElementById('herbCount').textContent = herbCount;
+            document.getElementById('symptomCount').textContent = symptomSet.size;
+        }
+
+        // 事件監聽器
+        document.getElementById('searchBtn').addEventListener('click', () => {
+            const query = document.getElementById('searchInput').value.trim();
+            if (query) {
+                const results = search(query);
+                displayResults(results);
+            }
+        });
+
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('searchBtn').click();
+            }
+        });
+
+        document.getElementById('importBtn').addEventListener('click', () => {
+            const text = document.getElementById('importData').value.trim();
+            if (text) {
+                const count = importData(text);
+                showNotification(`成功導入 ${count} 筆資料`);
+                document.getElementById('importData').value = '';
+            } else {
+                showNotification('請輸入要導入的資料', 'error');
+            }
+        });
+
+        document.getElementById('clearDataBtn').addEventListener('click', () => {
+            if (confirm('確定要清除所有資料嗎？此操作無法復原。')) {
+                localData = {};
+                localStorage.removeItem('tcmData');
+                syncToFirebase({});
+                updateStatistics();
+                document.getElementById('searchResults').innerHTML = '<div class="text-gray-500 text-center py-8">輸入關鍵字開始搜尋</div>';
+                showNotification('所有資料已清除');
+            }
+        });
+
+        // 初始化
+        loadFromFirebase().then(() => {
+            updateStatistics();
+        });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'965494480644ddc7',t:'MTc1MzU0MDA2MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9654b6de55699b48',t:'MTc1MzU0MTQ3OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
