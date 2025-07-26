@@ -3,8 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>中醫診症輔助工具 - 線上共享版</title>
+    <title>中醫診症輔助工具 - 雲端同步版</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+        
+        // Firebase 配置 (請替換為您的實際配置)
+        const firebaseConfig = {
+            apiKey: "demo-api-key",
+            authDomain: "tcm-tool-demo.firebaseapp.com",
+            projectId: "tcm-tool-demo",
+            storageBucket: "tcm-tool-demo.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef123456"
+        };
+        
+        // 初始化 Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        // 將 Firebase 實例掛載到 window 供其他腳本使用
+        window.firebaseApp = app;
+        window.firebaseDb = db;
+        window.firebaseAuth = auth;
+        window.firebaseModules = {
+            doc, setDoc, getDoc, onSnapshot, serverTimestamp,
+            signInAnonymously, onAuthStateChanged
+        };
+    </script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; }
@@ -33,6 +65,18 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+        .cloud-status {
+            transition: all 0.3s ease;
+        }
+        .cloud-status.connected {
+            color: #10b981;
+        }
+        .cloud-status.disconnected {
+            color: #ef4444;
+        }
+        .cloud-status.syncing {
+            color: #3b82f6;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
@@ -40,14 +84,25 @@
     <header class="bg-white shadow-sm">
         <div class="max-w-4xl mx-auto px-4 py-3">
             <div class="flex items-center justify-between">
-                <h1 class="text-xl font-bold text-gray-800">中藥資料庫 - 線上共享版</h1>
+                <div class="flex items-center space-x-3">
+                    <h1 class="text-xl font-bold text-gray-800">中藥資料庫</h1>
+                    <div class="flex items-center space-x-2 text-sm">
+                        <div id="cloudStatus" class="cloud-status disconnected flex items-center space-x-1">
+                            <span id="cloudIcon">☁️</span>
+                            <span id="cloudText">連接中...</span>
+                        </div>
+                        <div id="userInfo" class="text-xs text-gray-500 hidden">
+                            設備ID: <span id="deviceId">-</span>
+                        </div>
+                    </div>
+                </div>
                 <div class="flex items-center space-x-3">
                     <button id="syncBtn" class="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm flex items-center space-x-1">
-                        <span id="syncIcon">☁️</span>
-                        <span id="syncText">線上同步</span>
+                        <span id="syncIcon">🔄</span>
+                        <span id="syncText">立即同步</span>
                     </button>
-                    <button id="onlineDataBtn" class="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm">
-                        🌐 線上資料
+                    <button id="shareBtn" class="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm">
+                        🔗 分享資料
                     </button>
                     <button id="backupBtn" class="px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm">
                         💾 備份
@@ -58,6 +113,20 @@
     </header>
 
     <div class="max-w-4xl mx-auto px-4 py-6">
+        <!-- Connection Status Banner -->
+        <div id="connectionBanner" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 hidden">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div id="connectionIndicator" class="w-3 h-3 bg-blue-500 rounded-full pulse-dot"></div>
+                    <div>
+                        <div id="connectionMessage" class="text-sm font-medium text-blue-800">正在連接雲端服務...</div>
+                        <div id="connectionDetails" class="text-xs text-blue-600">初始化 Firebase 連接</div>
+                    </div>
+                </div>
+                <button id="dismissBanner" class="text-blue-400 hover:text-blue-600">×</button>
+            </div>
+        </div>
+
         <!-- Search Section -->
         <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
             <div class="relative">
@@ -94,8 +163,11 @@
                     <span>中藥: <span id="herbCount" class="font-medium">0</span></span>
                     <span>症狀: <span id="symptomCount" class="font-medium">0</span></span>
                     <span class="flex items-center">
-                        <span id="dataStatusIndicator" class="w-2 h-2 bg-green-500 rounded-full mr-1 pulse-dot" title="資料狀態正常"></span>
+                        <span id="dataStatusIndicator" class="w-2 h-2 bg-gray-500 rounded-full mr-1" title="資料狀態"></span>
                         <span id="syncStatusText" class="text-xs">本地</span>
+                    </span>
+                    <span class="text-xs text-gray-400">
+                        最後同步: <span id="lastSyncTime">從未</span>
                     </span>
                 </div>
             </div>
@@ -123,150 +195,62 @@
         </div>
     </div>
 
-    <!-- Online Data Management Modal -->
-    <div id="onlineDataModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <!-- Share Data Modal -->
+    <div id="shareModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-xl font-bold text-gray-800 flex items-center">
-                    🌐 線上資料共享中心
+                    🔗 分享資料
                 </h3>
-                <button id="closeOnlineDataModal" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+                <button id="closeShareModal" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
             </div>
             
-            <!-- Connection Status -->
-            <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-3">
-                        <div id="connectionIndicator" class="w-3 h-3 bg-green-500 rounded-full pulse-dot"></div>
-                        <div>
-                            <div id="connectionStatus" class="text-sm text-green-600 font-medium">已連線</div>
-                            <div class="text-xs text-gray-500">伺服器狀態: <span id="serverStatus">正常</span></div>
-                        </div>
+            <!-- Share Options -->
+            <div class="space-y-4">
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <div class="text-sm font-medium text-gray-800 mb-2">您的分享代碼</div>
+                    <div class="flex items-center space-x-2">
+                        <input 
+                            type="text" 
+                            id="shareCode" 
+                            readonly 
+                            class="flex-1 px-3 py-2 bg-white border border-gray-300 rounded text-sm font-mono"
+                            value="載入中..."
+                        >
+                        <button id="copyShareCode" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                            複製
+                        </button>
                     </div>
-                    <div class="text-right">
-                        <div class="text-xs text-gray-500">最後同步</div>
-                        <div id="lastSyncTime" class="text-sm font-medium">從未同步</div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Data Comparison -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <!-- Local Data -->
-                <div class="bg-blue-50 rounded-lg p-4">
-                    <h4 class="font-semibold text-blue-800 mb-3 flex items-center">
-                        <span class="mr-2">💻</span>
-                        本地資料
-                    </h4>
-                    <div class="space-y-2">
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">中藥數量</span>
-                            <span id="localHerbCount" class="text-sm font-medium">0</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">症狀數量</span>
-                            <span id="localSymptomCount" class="text-sm font-medium">0</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">最後更新</span>
-                            <span id="localLastUpdate" class="text-sm text-gray-500">-</span>
-                        </div>
+                    <div class="text-xs text-gray-500 mt-2">
+                        其他設備可使用此代碼存取您的資料
                     </div>
                 </div>
                 
-                <!-- Online Data -->
-                <div class="bg-green-50 rounded-lg p-4">
-                    <h4 class="font-semibold text-green-800 mb-3 flex items-center">
-                        <span class="mr-2">☁️</span>
-                        線上資料
-                        <span class="ml-2 text-xs bg-green-200 text-green-800 px-2 py-1 rounded">v<span id="onlineDataVersion">1.0</span></span>
-                    </h4>
-                    <div class="space-y-2">
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">中藥數量</span>
-                            <span id="onlineHerbCount" class="text-sm font-medium">-</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">症狀數量</span>
-                            <span id="onlineSymptomCount" class="text-sm font-medium">-</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">最後更新</span>
-                            <span id="onlineLastUpdate" class="text-sm text-gray-500">-</span>
-                        </div>
+                <div class="border-t pt-4">
+                    <div class="text-sm font-medium text-gray-800 mb-2">存取他人分享的資料</div>
+                    <div class="flex items-center space-x-2">
+                        <input 
+                            type="text" 
+                            id="accessCode" 
+                            placeholder="輸入分享代碼"
+                            class="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
+                        >
+                        <button id="accessSharedData" class="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">
+                            存取
+                        </button>
                     </div>
-                </div>
-            </div>
-            
-            <!-- Sync Actions -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <button id="uploadDataBtn" class="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2">
-                    <span>📤</span>
-                    <span>上傳本地資料</span>
-                </button>
-                
-                <button id="downloadDataBtn" class="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2">
-                    <span>📥</span>
-                    <span>下載線上資料</span>
-                </button>
-                
-                <button id="mergeDataBtn" class="px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center space-x-2">
-                    <span>🔄</span>
-                    <span>智能合併</span>
-                </button>
-            </div>
-            
-            <!-- Sync Settings -->
-            <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                <h4 class="font-semibold text-gray-800 mb-3">同步設定</h4>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-600">自動同步</span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="autoSyncEnabled" class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                    </div>
-                    
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-600">衝突自動處理</span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="conflictResolution" class="sr-only peer">
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                    </div>
-                    
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-gray-600">同步間隔</span>
-                        <select id="syncInterval" class="text-sm border border-gray-300 rounded px-2 py-1">
-                            <option value="300">5分鐘</option>
-                            <option value="600">10分鐘</option>
-                            <option value="1800">30分鐘</option>
-                            <option value="3600">1小時</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Recent Activity -->
-            <div class="bg-gray-50 rounded-lg p-4">
-                <h4 class="font-semibold text-gray-800 mb-3">最近活動</h4>
-                <div id="recentActivityList" class="space-y-2 max-h-32 overflow-y-auto">
-                    <!-- Activity items will be inserted here -->
                 </div>
             </div>
             
             <!-- Status Message -->
-            <div id="onlineDataStatus" class="hidden mt-4 p-3 rounded-lg text-sm">
+            <div id="shareStatus" class="hidden mt-4 p-3 rounded-lg text-sm">
                 <div class="flex items-center space-x-2">
-                    <span id="onlineDataStatusIcon">✅</span>
-                    <span id="onlineDataStatusText"></span>
+                    <span id="shareStatusIcon">✅</span>
+                    <span id="shareStatusText"></span>
                 </div>
             </div>
         </div>
     </div>
-
-
 
     <!-- Backup Modal -->
     <div id="backupModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
@@ -291,7 +275,7 @@
                     </div>
                 </div>
                 <div class="text-center mt-3 text-xs text-gray-500">
-                    最後更新：<span id="lastUpdateTime">-</span>
+                    雲端同步: <span id="cloudSyncStatus" class="font-medium">-</span>
                 </div>
             </div>
             
@@ -330,517 +314,346 @@
     <input type="file" id="backupFileInput" accept=".json" class="hidden">
 
     <script>
-        class TCMDiagnosticTool {
+        class CloudTCMTool {
             constructor() {
-                this.storageKey = 'tcmData_v3';
-                this.backupKey = 'tcmDataBackup_v3';
-                this.onlineDataKey = 'tcmOnlineData_v3';
-                this.lastSyncKey = 'tcmLastSync_v3';
-                this.syncSettingsKey = 'tcmSyncSettings_v3';
-                this.versionKey = 'tcmDataVersion';
-                this.currentVersion = '3.0';
+                this.storageKey = 'tcmData_v4';
+                this.currentVersion = '4.0';
                 
-                // 線上同步相關設定
-                this.isOnline = true; // 模擬線上狀態
-                this.syncSettings = this.loadSyncSettings();
-                this.autoSyncTimer = null;
+                // Firebase 相關
+                this.isFirebaseReady = false;
+                this.currentUser = null;
+                this.deviceId = this.getOrCreateDeviceId();
+                this.unsubscribeSnapshot = null;
                 
-                // 初始化資料持久化系統
-                this.initializeDataPersistence();
-                
-                this.data = this.loadDataWithBackup() || {
-                    herbs: {}, // 中藥 -> [症狀]
-                    symptoms: {} // 症狀 -> [中藥]
+                // 資料狀態
+                this.data = {
+                    herbs: {},
+                    symptoms: {}
                 };
                 
-                this.initializeEventListeners();
-                this.updateUI();
-                this.startAutoBackup();
-                this.initializeOnlineSync();
-            }
-
-            // 載入同步設定
-            loadSyncSettings() {
-                try {
-                    const settings = localStorage.getItem(this.syncSettingsKey);
-                    return settings ? JSON.parse(settings) : {
-                        autoSync: false,
-                        conflictResolution: true,
-                        syncInterval: 1800 // 30分鐘
-                    };
-                } catch (error) {
-                    return {
-                        autoSync: false,
-                        conflictResolution: true,
-                        syncInterval: 1800
-                    };
-                }
-            }
-
-            // 保存同步設定
-            saveSyncSettings() {
-                localStorage.setItem(this.syncSettingsKey, JSON.stringify(this.syncSettings));
-            }
-
-            // 初始化線上同步功能
-            initializeOnlineSync() {
-                // 檢查是否需要自動同步
-                if (this.syncSettings.autoSync && this.isOnline) {
-                    this.startAutoSync();
-                }
-                
-                // 模擬線上狀態檢查
-                this.checkOnlineStatus();
-                
-                // 定期檢查線上狀態
-                setInterval(() => {
-                    this.checkOnlineStatus();
-                }, 30000); // 每30秒檢查一次
-            }
-
-            // 檢查線上狀態
-            checkOnlineStatus() {
-                // 模擬線上狀態檢查
                 this.isOnline = navigator.onLine;
-                this.updateSyncStatus();
+                this.lastSyncTime = null;
+                this.syncInProgress = false;
+                
+                // 初始化
+                this.initializeApp();
             }
 
-            // 更新同步狀態顯示
-            updateSyncStatus() {
-                const indicator = document.getElementById('dataStatusIndicator');
-                const statusText = document.getElementById('syncStatusText');
+            async initializeApp() {
+                // 顯示連接橫幅
+                this.showConnectionBanner('正在初始化雲端服務...', '連接 Firebase');
                 
-                if (this.isOnline) {
-                    const lastSync = localStorage.getItem(this.lastSyncKey);
-                    if (lastSync) {
-                        const syncTime = new Date(lastSync);
-                        const now = new Date();
-                        const diffMinutes = Math.floor((now - syncTime) / 60000);
-                        
-                        if (diffMinutes < 5) {
-                            indicator.className = 'w-2 h-2 bg-green-500 rounded-full mr-1 pulse-dot';
-                            statusText.textContent = '已同步';
-                        } else if (diffMinutes < 60) {
-                            indicator.className = 'w-2 h-2 bg-yellow-500 rounded-full mr-1';
-                            statusText.textContent = '需同步';
+                // 載入本地資料
+                this.loadLocalData();
+                this.updateUI();
+                
+                // 初始化事件監聽器
+                this.initializeEventListeners();
+                
+                // 等待 Firebase 初始化
+                await this.waitForFirebase();
+                
+                // 初始化 Firebase 認證和資料庫
+                await this.initializeFirebase();
+                
+                // 隱藏連接橫幅
+                setTimeout(() => {
+                    this.hideConnectionBanner();
+                }, 2000);
+            }
+
+            async waitForFirebase() {
+                return new Promise((resolve) => {
+                    const checkFirebase = () => {
+                        if (window.firebaseDb && window.firebaseAuth && window.firebaseModules) {
+                            resolve();
                         } else {
-                            indicator.className = 'w-2 h-2 bg-orange-500 rounded-full mr-1';
-                            statusText.textContent = '過期';
+                            setTimeout(checkFirebase, 100);
+                        }
+                    };
+                    checkFirebase();
+                });
+            }
+
+            async initializeFirebase() {
+                try {
+                    const { onAuthStateChanged, signInAnonymously } = window.firebaseModules;
+                    
+                    // 監聽認證狀態
+                    onAuthStateChanged(window.firebaseAuth, async (user) => {
+                        if (user) {
+                            this.currentUser = user;
+                            this.isFirebaseReady = true;
+                            this.updateCloudStatus('connected', '雲端已連接');
+                            
+                            // 設置即時資料監聽
+                            await this.setupRealtimeListener();
+                            
+                            // 執行初始同步
+                            await this.performInitialSync();
+                            
+                        } else {
+                            this.updateCloudStatus('disconnected', '未連接');
+                        }
+                    });
+                    
+                    // 匿名登入
+                    await signInAnonymously(window.firebaseAuth);
+                    
+                } catch (error) {
+                    console.error('Firebase 初始化失敗:', error);
+                    this.updateCloudStatus('disconnected', '連接失敗');
+                    this.showSystemNotification('❌', 'Firebase 連接失敗，使用離線模式', 'bg-red-100 text-red-800');
+                }
+            }
+
+            async setupRealtimeListener() {
+                if (!this.isFirebaseReady || this.unsubscribeSnapshot) return;
+                
+                try {
+                    const { doc, onSnapshot } = window.firebaseModules;
+                    const docRef = doc(window.firebaseDb, 'tcmData', this.deviceId);
+                    
+                    this.unsubscribeSnapshot = onSnapshot(docRef, (docSnapshot) => {
+                        if (docSnapshot.exists() && !this.syncInProgress) {
+                            const cloudData = docSnapshot.data();
+                            if (cloudData && cloudData.data) {
+                                const cloudChecksum = this.generateChecksum(cloudData.data);
+                                const localChecksum = this.generateChecksum(this.data);
+                                
+                                if (cloudChecksum !== localChecksum) {
+                                    this.handleCloudDataUpdate(cloudData);
+                                }
+                            }
+                        }
+                    }, (error) => {
+                        console.error('即時監聽錯誤:', error);
+                    });
+                    
+                } catch (error) {
+                    console.error('設置即時監聽失敗:', error);
+                }
+            }
+
+            handleCloudDataUpdate(cloudData) {
+                if (confirm('檢測到雲端資料更新，是否同步到本地？')) {
+                    this.data = cloudData.data;
+                    this.saveLocalData();
+                    this.updateUI();
+                    this.lastSyncTime = new Date();
+                    this.updateSyncStatus();
+                    this.showSystemNotification('🔄', '已同步雲端資料更新', 'bg-blue-100 text-blue-800');
+                }
+            }
+
+            async performInitialSync() {
+                if (!this.isFirebaseReady) return;
+                
+                try {
+                    const { doc, getDoc } = window.firebaseModules;
+                    const docRef = doc(window.firebaseDb, 'tcmData', this.deviceId);
+                    const docSnap = await getDoc(docRef);
+                    
+                    if (docSnap.exists()) {
+                        const cloudData = docSnap.data();
+                        const cloudTimestamp = cloudData.lastModified?.toDate() || new Date(0);
+                        const localTimestamp = new Date(localStorage.getItem('tcmLastModified') || 0);
+                        
+                        if (cloudTimestamp > localTimestamp) {
+                            this.data = cloudData.data;
+                            this.saveLocalData();
+                            this.updateUI();
+                            this.showSystemNotification('📥', '已載入雲端資料', 'bg-green-100 text-green-800');
+                        } else if (localTimestamp > cloudTimestamp) {
+                            await this.syncToCloud();
                         }
                     } else {
-                        indicator.className = 'w-2 h-2 bg-blue-500 rounded-full mr-1';
-                        statusText.textContent = '線上';
+                        // 雲端沒有資料，上傳本地資料
+                        if (Object.keys(this.data.herbs).length > 0) {
+                            await this.syncToCloud();
+                        }
                     }
-                } else {
-                    indicator.className = 'w-2 h-2 bg-gray-500 rounded-full mr-1';
-                    statusText.textContent = '離線';
-                }
-            }
-
-            // 開始自動同步
-            startAutoSync() {
-                this.stopAutoSync(); // 先停止現有的定時器
-                
-                if (this.syncSettings.autoSync && this.isOnline) {
-                    this.autoSyncTimer = setInterval(() => {
-                        this.performQuickSync();
-                    }, this.syncSettings.syncInterval * 1000);
-                }
-            }
-
-            // 停止自動同步
-            stopAutoSync() {
-                if (this.autoSyncTimer) {
-                    clearInterval(this.autoSyncTimer);
-                    this.autoSyncTimer = null;
-                }
-            }
-
-            // 模擬線上資料存取
-            getOnlineData() {
-                try {
-                    const onlineData = localStorage.getItem(this.onlineDataKey);
-                    return onlineData ? JSON.parse(onlineData) : null;
+                    
+                    this.lastSyncTime = new Date();
+                    this.updateSyncStatus();
+                    
                 } catch (error) {
-                    console.error('獲取線上資料失敗:', error);
-                    return null;
+                    console.error('初始同步失敗:', error);
                 }
             }
 
-            saveOnlineData(data) {
+            async syncToCloud() {
+                if (!this.isFirebaseReady || this.syncInProgress) return;
+                
+                this.syncInProgress = true;
+                this.updateCloudStatus('syncing', '同步中...');
+                
                 try {
-                    const onlineData = {
-                        data: data,
-                        timestamp: new Date().toISOString(),
+                    const { doc, setDoc, serverTimestamp } = window.firebaseModules;
+                    const docRef = doc(window.firebaseDb, 'tcmData', this.deviceId);
+                    
+                    const cloudData = {
+                        data: this.data,
+                        lastModified: serverTimestamp(),
                         version: this.currentVersion,
-                        checksum: this.generateChecksum(data)
+                        deviceId: this.deviceId,
+                        checksum: this.generateChecksum(this.data)
                     };
                     
-                    localStorage.setItem(this.onlineDataKey, JSON.stringify(onlineData));
-                    localStorage.setItem(this.lastSyncKey, new Date().toISOString());
+                    await setDoc(docRef, cloudData);
                     
-                    this.addSyncActivity('上傳', '本地資料已上傳到線上');
+                    this.lastSyncTime = new Date();
+                    localStorage.setItem('tcmLastModified', this.lastSyncTime.toISOString());
+                    
+                    this.updateCloudStatus('connected', '雲端已連接');
                     this.updateSyncStatus();
                     
                     return true;
                 } catch (error) {
-                    console.error('保存線上資料失敗:', error);
-                    return false;
+                    console.error('同步到雲端失敗:', error);
+                    this.updateCloudStatus('disconnected', '同步失敗');
+                    throw error;
+                } finally {
+                    this.syncInProgress = false;
                 }
             }
 
-            // 檢查是否需要同步
-            needsSync(localData, onlineData) {
-                if (!onlineData || !onlineData.data) return true;
+            async accessSharedData(shareCode) {
+                if (!this.isFirebaseReady) {
+                    throw new Error('雲端服務未就緒');
+                }
                 
-                const localChecksum = this.generateChecksum(localData);
-                const onlineChecksum = onlineData.checksum || this.generateChecksum(onlineData.data);
-                
-                return localChecksum !== onlineChecksum;
-            }
-
-            // 添加同步活動記錄
-            addSyncActivity(action, description) {
                 try {
-                    const activities = JSON.parse(localStorage.getItem('tcmSyncActivities') || '[]');
+                    const { doc, getDoc } = window.firebaseModules;
+                    const docRef = doc(window.firebaseDb, 'tcmData', shareCode);
+                    const docSnap = await getDoc(docRef);
                     
-                    activities.unshift({
-                        action: action,
-                        description: description,
-                        timestamp: new Date().toISOString()
-                    });
-                    
-                    // 保持最多50條記錄
-                    if (activities.length > 50) {
-                        activities.splice(50);
+                    if (docSnap.exists()) {
+                        const sharedData = docSnap.data();
+                        return sharedData.data;
+                    } else {
+                        throw new Error('分享代碼無效或資料不存在');
                     }
-                    
-                    localStorage.setItem('tcmSyncActivities', JSON.stringify(activities));
                 } catch (error) {
-                    console.error('添加活動記錄失敗:', error);
+                    console.error('存取分享資料失敗:', error);
+                    throw error;
                 }
             }
 
-            // 資料持久化系統初始化
-            initializeDataPersistence() {
-                // 檢查版本並處理資料遷移
-                const storedVersion = localStorage.getItem(this.versionKey);
-                if (storedVersion !== this.currentVersion) {
-                    this.migrateData(storedVersion);
-                    localStorage.setItem(this.versionKey, this.currentVersion);
+            getOrCreateDeviceId() {
+                let deviceId = localStorage.getItem('tcmDeviceId');
+                if (!deviceId) {
+                    deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    localStorage.setItem('tcmDeviceId', deviceId);
+                }
+                return deviceId;
+            }
+
+            loadLocalData() {
+                try {
+                    const stored = localStorage.getItem(this.storageKey);
+                    if (stored) {
+                        this.data = JSON.parse(stored);
+                    }
+                } catch (error) {
+                    console.error('載入本地資料失敗:', error);
+                }
+            }
+
+            saveLocalData() {
+                try {
+                    localStorage.setItem(this.storageKey, JSON.stringify(this.data));
+                    localStorage.setItem('tcmLastModified', new Date().toISOString());
+                } catch (error) {
+                    console.error('保存本地資料失敗:', error);
+                }
+            }
+
+            updateCloudStatus(status, message) {
+                const cloudStatus = document.getElementById('cloudStatus');
+                const cloudIcon = document.getElementById('cloudIcon');
+                const cloudText = document.getElementById('cloudText');
+                
+                cloudStatus.className = `cloud-status ${status} flex items-center space-x-1`;
+                
+                switch (status) {
+                    case 'connected':
+                        cloudIcon.textContent = '☁️';
+                        break;
+                    case 'disconnected':
+                        cloudIcon.textContent = '⚠️';
+                        break;
+                    case 'syncing':
+                        cloudIcon.textContent = '🔄';
+                        cloudIcon.classList.add('sync-animation');
+                        break;
                 }
                 
-                // 設置頁面關閉前的資料保存
-                window.addEventListener('beforeunload', () => {
-                    this.emergencySave();
-                });
+                cloudText.textContent = message;
                 
-                // 設置頁面可見性變化時的資料保存
-                document.addEventListener('visibilitychange', () => {
-                    if (document.hidden) {
-                        this.emergencySave();
-                    }
-                });
-                
-                // 設置定期資料完整性檢查
-                setInterval(() => {
-                    this.verifyDataIntegrity();
-                }, 30000); // 每30秒檢查一次
-            }
-
-            // 載入資料並提供備份恢復機制
-            loadDataWithBackup() {
-                try {
-                    // 嘗試載入主要資料
-                    const mainData = localStorage.getItem(this.storageKey);
-                    if (mainData) {
-                        const parsedData = JSON.parse(mainData);
-                        if (this.validateDataStructure(parsedData)) {
-                            // 創建備份
-                            this.createLocalBackup(parsedData);
-                            return parsedData;
-                        }
-                    }
-                    
-                    // 主要資料無效，嘗試載入備份
-                    console.warn('主要資料無效，嘗試載入備份...');
-                    const backupData = localStorage.getItem(this.backupKey);
-                    if (backupData) {
-                        const parsedBackup = JSON.parse(backupData);
-                        if (parsedBackup.data && this.validateDataStructure(parsedBackup.data)) {
-                            // 恢復主要資料
-                            localStorage.setItem(this.storageKey, JSON.stringify(parsedBackup.data));
-                            this.showDataRecoveryNotification();
-                            return parsedBackup.data;
-                        }
-                    }
-                    
-                } catch (error) {
-                    console.error('資料載入失敗:', error);
-                    this.showDataErrorNotification();
+                if (status !== 'syncing') {
+                    cloudIcon.classList.remove('sync-animation');
                 }
                 
-                return null;
+                // 更新用戶信息
+                document.getElementById('deviceId').textContent = this.deviceId.substring(0, 12) + '...';
+                document.getElementById('userInfo').classList.remove('hidden');
             }
 
-            // 驗證資料結構完整性
-            validateDataStructure(data) {
-                if (!data || typeof data !== 'object') return false;
-                if (!data.herbs || typeof data.herbs !== 'object') return false;
-                if (!data.symptoms || typeof data.symptoms !== 'object') return false;
+            updateSyncStatus() {
+                const indicator = document.getElementById('dataStatusIndicator');
+                const statusText = document.getElementById('syncStatusText');
+                const lastSyncElement = document.getElementById('lastSyncTime');
                 
-                // 檢查資料一致性
-                for (const [herb, symptoms] of Object.entries(data.herbs)) {
-                    if (!Array.isArray(symptoms)) return false;
-                    for (const symptom of symptoms) {
-                        if (!data.symptoms[symptom] || !data.symptoms[symptom].includes(herb)) {
-                            console.warn(`資料不一致: ${herb} -> ${symptom}`);
-                        }
-                    }
-                }
-                
-                return true;
-            }
-
-            // 安全保存資料
-            saveDataSecurely(data = this.data) {
-                try {
-                    const dataString = JSON.stringify(data);
-                    const timestamp = new Date().toISOString();
+                if (this.isFirebaseReady && this.lastSyncTime) {
+                    const now = new Date();
+                    const diffMinutes = Math.floor((now - this.lastSyncTime) / 60000);
                     
-                    // 保存主要資料
-                    localStorage.setItem(this.storageKey, dataString);
-                    
-                    // 創建備份
-                    this.createLocalBackup(data);
-                    
-                    // 更新時間戳
-                    localStorage.setItem('tcmLastUpdate', new Date().toLocaleString('zh-TW'));
-                    localStorage.setItem('tcmLastSave', timestamp);
-                    
-                    // 驗證保存是否成功
-                    const verification = localStorage.getItem(this.storageKey);
-                    if (verification !== dataString) {
-                        throw new Error('資料保存驗證失敗');
+                    if (diffMinutes < 5) {
+                        indicator.className = 'w-2 h-2 bg-green-500 rounded-full mr-1 pulse-dot';
+                        statusText.textContent = '已同步';
+                    } else if (diffMinutes < 60) {
+                        indicator.className = 'w-2 h-2 bg-yellow-500 rounded-full mr-1';
+                        statusText.textContent = '需同步';
+                    } else {
+                        indicator.className = 'w-2 h-2 bg-orange-500 rounded-full mr-1';
+                        statusText.textContent = '過期';
                     }
                     
-                    return true;
-                } catch (error) {
-                    console.error('資料保存失敗:', error);
-                    this.handleSaveError(error);
-                    return false;
-                }
-            }
-
-            // 創建本地備份
-            createLocalBackup(data) {
-                try {
-                    const backupData = {
-                        data: data,
-                        timestamp: new Date().toISOString(),
-                        version: this.currentVersion,
-                        checksum: this.generateChecksum(data)
-                    };
-                    
-                    localStorage.setItem(this.backupKey, JSON.stringify(backupData));
-                    
-                    // 保持多個備份版本
-                    this.maintainBackupHistory(backupData);
-                } catch (error) {
-                    console.error('備份創建失敗:', error);
-                }
-            }
-
-            // 維護備份歷史
-            maintainBackupHistory(currentBackup) {
-                try {
-                    const historyKey = 'tcmBackupHistory';
-                    let history = JSON.parse(localStorage.getItem(historyKey) || '[]');
-                    
-                    // 添加當前備份
-                    history.unshift(currentBackup);
-                    
-                    // 保持最多5個備份
-                    history = history.slice(0, 5);
-                    
-                    localStorage.setItem(historyKey, JSON.stringify(history));
-                } catch (error) {
-                    console.error('備份歷史維護失敗:', error);
-                }
-            }
-
-            // 緊急保存
-            emergencySave() {
-                try {
-                    this.saveDataSecurely();
-                    console.log('緊急保存完成');
-                } catch (error) {
-                    console.error('緊急保存失敗:', error);
-                }
-            }
-
-            // 資料完整性驗證
-            verifyDataIntegrity() {
-                try {
-                    const currentData = localStorage.getItem(this.storageKey);
-                    if (!currentData) {
-                        console.warn('主要資料遺失，嘗試恢復...');
-                        this.recoverFromBackup();
-                        return;
-                    }
-                    
-                    const parsedData = JSON.parse(currentData);
-                    if (!this.validateDataStructure(parsedData)) {
-                        console.warn('資料結構損壞，嘗試恢復...');
-                        this.recoverFromBackup();
-                        return;
-                    }
-                    
-                    // 檢查資料是否與記憶體中的資料一致
-                    const memoryChecksum = this.generateChecksum(this.data);
-                    const storageChecksum = this.generateChecksum(parsedData);
-                    
-                    if (memoryChecksum !== storageChecksum) {
-                        console.warn('記憶體與儲存資料不一致，重新同步...');
-                        this.saveDataSecurely();
-                    }
-                    
-                } catch (error) {
-                    console.error('資料完整性檢查失敗:', error);
-                    this.recoverFromBackup();
-                }
-            }
-
-            // 從備份恢復
-            recoverFromBackup() {
-                try {
-                    const backupData = localStorage.getItem(this.backupKey);
-                    if (backupData) {
-                        const backup = JSON.parse(backupData);
-                        if (backup.data && this.validateDataStructure(backup.data)) {
-                            this.data = backup.data;
-                            this.saveDataSecurely();
-                            this.updateUI();
-                            this.showDataRecoveryNotification();
-                            return true;
-                        }
-                    }
-                    
-                    // 嘗試從備份歷史恢復
-                    const historyData = localStorage.getItem('tcmBackupHistory');
-                    if (historyData) {
-                        const history = JSON.parse(historyData);
-                        for (const backup of history) {
-                            if (backup.data && this.validateDataStructure(backup.data)) {
-                                this.data = backup.data;
-                                this.saveDataSecurely();
-                                this.updateUI();
-                                this.showDataRecoveryNotification();
-                                return true;
-                            }
-                        }
-                    }
-                    
-                } catch (error) {
-                    console.error('備份恢復失敗:', error);
-                }
-                
-                this.showDataErrorNotification();
-                return false;
-            }
-
-            // 資料遷移
-            migrateData(oldVersion) {
-                try {
-                    console.log(`資料遷移: ${oldVersion} -> ${this.currentVersion}`);
-                    
-                    // 從舊版本遷移
-                    if (!oldVersion || oldVersion === '1.0' || oldVersion === '2.0') {
-                        const oldData = localStorage.getItem('tcmData') || localStorage.getItem('tcmData_v2');
-                        if (oldData) {
-                            const parsed = JSON.parse(oldData);
-                            if (this.validateDataStructure(parsed)) {
-                                this.saveDataSecurely(parsed);
-                                console.log('成功從舊版本遷移資料');
-                            }
-                        }
-                    }
-                    
-                } catch (error) {
-                    console.error('資料遷移失敗:', error);
-                }
-            }
-
-            // 開始自動備份
-            startAutoBackup() {
-                // 每5分鐘自動備份一次
-                setInterval(() => {
-                    this.createLocalBackup(this.data);
-                }, 5 * 60 * 1000);
-                
-                // 每小時驗證一次資料完整性
-                setInterval(() => {
-                    this.verifyDataIntegrity();
-                }, 60 * 60 * 1000);
-            }
-
-            // 處理保存錯誤
-            handleSaveError(error) {
-                if (error.name === 'QuotaExceededError') {
-                    this.showStorageFullNotification();
-                    this.cleanupOldData();
+                    lastSyncElement.textContent = this.lastSyncTime.toLocaleTimeString('zh-TW');
                 } else {
-                    this.showDataErrorNotification();
+                    indicator.className = 'w-2 h-2 bg-gray-500 rounded-full mr-1';
+                    statusText.textContent = '本地';
+                    lastSyncElement.textContent = '從未';
                 }
             }
 
-            // 清理舊資料
-            cleanupOldData() {
-                try {
-                    // 清理搜尋分析資料
-                    const analytics = JSON.parse(localStorage.getItem('searchAnalytics') || '{}');
-                    const cutoffDate = new Date();
-                    cutoffDate.setDate(cutoffDate.getDate() - 30); // 保留30天
-                    
-                    Object.keys(analytics).forEach(query => {
-                        const lastSearched = new Date(analytics[query].lastSearched);
-                        if (lastSearched < cutoffDate) {
-                            delete analytics[query];
-                        }
-                    });
-                    
-                    localStorage.setItem('searchAnalytics', JSON.stringify(analytics));
-                    
-                    // 清理備份歷史，只保留最新的3個
-                    const history = JSON.parse(localStorage.getItem('tcmBackupHistory') || '[]');
-                    if (history.length > 3) {
-                        localStorage.setItem('tcmBackupHistory', JSON.stringify(history.slice(0, 3)));
-                    }
-                    
-                    console.log('舊資料清理完成');
-                } catch (error) {
-                    console.error('資料清理失敗:', error);
+            showConnectionBanner(message, details) {
+                const banner = document.getElementById('connectionBanner');
+                const messageElement = document.getElementById('connectionMessage');
+                const detailsElement = document.getElementById('connectionDetails');
+                
+                messageElement.textContent = message;
+                detailsElement.textContent = details;
+                banner.classList.remove('hidden');
+            }
+
+            hideConnectionBanner() {
+                document.getElementById('connectionBanner').classList.add('hidden');
+            }
+
+            generateChecksum(data) {
+                const str = JSON.stringify(data);
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    const char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash;
                 }
+                return hash.toString(16);
             }
 
-            // 顯示資料恢復通知
-            showDataRecoveryNotification() {
-                this.showSystemNotification('🔄', '資料已從備份恢復', 'bg-blue-100 text-blue-800', 5000);
-            }
-
-            // 顯示資料錯誤通知
-            showDataErrorNotification() {
-                this.showSystemNotification('⚠️', '資料載入出現問題，請檢查或重新導入', 'bg-red-100 text-red-800', 8000);
-            }
-
-            // 顯示儲存空間不足通知
-            showStorageFullNotification() {
-                this.showSystemNotification('💾', '儲存空間不足，已清理舊資料', 'bg-yellow-100 text-yellow-800', 6000);
-            }
-
-            // 顯示系統通知
             showSystemNotification(icon, message, className, duration = 3000) {
-                // 創建通知元素
                 const notification = document.createElement('div');
                 notification.className = `fixed top-4 right-4 ${className} p-4 rounded-lg shadow-lg z-50 max-w-sm`;
                 notification.innerHTML = `
@@ -856,7 +669,6 @@
                 
                 document.body.appendChild(notification);
                 
-                // 自動移除
                 setTimeout(() => {
                     if (notification.parentElement) {
                         notification.remove();
@@ -864,67 +676,145 @@
                 }, duration);
             }
 
-            generateChecksum(data) {
-                // Simple checksum generation
-                const str = JSON.stringify(data);
-                let hash = 0;
-                for (let i = 0; i < str.length; i++) {
-                    const char = str.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash = hash & hash; // Convert to 32-bit integer
-                }
-                return hash.toString(16);
-            }
-
             initializeEventListeners() {
-                // Search functionality
+                // 搜尋功能
                 document.getElementById('searchBtn').addEventListener('click', () => this.search());
                 document.getElementById('searchInput').addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') this.search();
                 });
-                
-                // Real-time search suggestions
                 document.getElementById('searchInput').addEventListener('input', (e) => {
                     this.showSearchSuggestions(e.target.value);
                 });
-                
-                // Hide suggestions when clicking outside
-                document.addEventListener('click', (e) => {
-                    if (!e.target.closest('#searchInput') && !e.target.closest('#searchSuggestions')) {
-                        this.hideSearchSuggestions();
-                    }
-                });
 
-                // Backup functionality
+                // 同步功能
+                document.getElementById('syncBtn').addEventListener('click', () => this.handleSyncClick());
+
+                // 分享功能
+                document.getElementById('shareBtn').addEventListener('click', () => this.showShareModal());
+                document.getElementById('closeShareModal').addEventListener('click', () => this.hideShareModal());
+                document.getElementById('copyShareCode').addEventListener('click', () => this.copyShareCode());
+                document.getElementById('accessSharedData').addEventListener('click', () => this.handleAccessSharedData());
+
+                // 備份功能
                 document.getElementById('backupBtn').addEventListener('click', () => this.showBackupModal());
-                document.getElementById('processImport').addEventListener('click', () => this.processImportData());
-
-                // Import controls
-                document.getElementById('fileImportBtn').addEventListener('click', () => this.triggerFileImport());
-                document.getElementById('textImportBtn').addEventListener('click', () => this.toggleManualInput());
-                document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileImport(e));
-
-                // Online sync controls
-                document.getElementById('syncBtn').addEventListener('click', () => this.handleSyncButtonClick());
-                document.getElementById('onlineDataBtn').addEventListener('click', () => this.showOnlineDataModal());
-                document.getElementById('closeOnlineDataModal').addEventListener('click', () => this.hideOnlineDataModal());
-                document.getElementById('uploadDataBtn').addEventListener('click', () => this.uploadLocalData());
-                document.getElementById('downloadDataBtn').addEventListener('click', () => this.downloadOnlineData());
-                document.getElementById('mergeDataBtn').addEventListener('click', () => this.mergeData());
-                document.getElementById('autoSyncEnabled').addEventListener('change', (e) => this.toggleAutoSync(e.target.checked));
-                document.getElementById('conflictResolution').addEventListener('change', (e) => this.toggleConflictResolution(e.target.checked));
-                document.getElementById('syncInterval').addEventListener('change', (e) => this.changeSyncInterval(e.target.value));
-
-
-
-                // Backup modal controls
                 document.getElementById('closeBackupModal').addEventListener('click', () => this.hideBackupModal());
                 document.getElementById('downloadBackup').addEventListener('click', () => this.downloadBackup());
                 document.getElementById('copyBackup').addEventListener('click', () => this.copyBackupToClipboard());
                 document.getElementById('restoreBackup').addEventListener('click', () => this.triggerBackupRestore());
                 document.getElementById('backupFileInput').addEventListener('change', (e) => this.handleBackupRestore(e));
+
+                // 資料管理
+                document.getElementById('fileImportBtn').addEventListener('click', () => this.triggerFileImport());
+                document.getElementById('textImportBtn').addEventListener('click', () => this.toggleManualInput());
+                document.getElementById('processImport').addEventListener('click', () => this.processImportData());
+                document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileImport(e));
+
+                // 連接橫幅
+                document.getElementById('dismissBanner').addEventListener('click', () => this.hideConnectionBanner());
+
+                // 點擊外部隱藏建議
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('#searchInput') && !e.target.closest('#searchSuggestions')) {
+                        this.hideSearchSuggestions();
+                    }
+                });
             }
 
+            async handleSyncClick() {
+                if (!this.isFirebaseReady) {
+                    this.showSystemNotification('⚠️', '雲端服務未就緒', 'bg-yellow-100 text-yellow-800');
+                    return;
+                }
+
+                const syncIcon = document.getElementById('syncIcon');
+                const syncText = document.getElementById('syncText');
+                
+                syncIcon.classList.add('sync-animation');
+                syncText.textContent = '同步中...';
+                
+                try {
+                    await this.syncToCloud();
+                    this.showSystemNotification('✅', '資料同步成功', 'bg-green-100 text-green-800');
+                } catch (error) {
+                    this.showSystemNotification('❌', '同步失敗: ' + error.message, 'bg-red-100 text-red-800');
+                } finally {
+                    setTimeout(() => {
+                        syncIcon.classList.remove('sync-animation');
+                        syncText.textContent = '立即同步';
+                    }, 1000);
+                }
+            }
+
+            showShareModal() {
+                document.getElementById('shareCode').value = this.deviceId;
+                document.getElementById('shareModal').classList.remove('hidden');
+                document.getElementById('shareModal').classList.add('flex');
+            }
+
+            hideShareModal() {
+                document.getElementById('shareModal').classList.add('hidden');
+                document.getElementById('shareModal').classList.remove('flex');
+                document.getElementById('shareStatus').classList.add('hidden');
+            }
+
+            async copyShareCode() {
+                try {
+                    await navigator.clipboard.writeText(this.deviceId);
+                    this.showShareStatus('✅', '分享代碼已複製', 'bg-green-100 text-green-800');
+                } catch (error) {
+                    this.showShareStatus('❌', '複製失敗', 'bg-red-100 text-red-800');
+                }
+            }
+
+            async handleAccessSharedData() {
+                const shareCode = document.getElementById('accessCode').value.trim();
+                if (!shareCode) {
+                    this.showShareStatus('⚠️', '請輸入分享代碼', 'bg-yellow-100 text-yellow-800');
+                    return;
+                }
+
+                this.showShareStatus('⏳', '正在存取分享資料...', 'bg-blue-100 text-blue-800');
+
+                try {
+                    const sharedData = await this.accessSharedData(shareCode);
+                    
+                    if (confirm('確定要載入分享的資料嗎？這將覆蓋現有資料。')) {
+                        this.data = sharedData;
+                        this.saveLocalData();
+                        await this.syncToCloud();
+                        this.updateUI();
+                        
+                        this.showShareStatus('✅', '分享資料載入成功', 'bg-green-100 text-green-800');
+                        
+                        setTimeout(() => {
+                            this.hideShareModal();
+                        }, 2000);
+                    } else {
+                        this.showShareStatus('ℹ️', '載入已取消', 'bg-gray-100 text-gray-800');
+                    }
+                } catch (error) {
+                    this.showShareStatus('❌', error.message, 'bg-red-100 text-red-800');
+                }
+            }
+
+            showShareStatus(icon, text, className) {
+                const statusDiv = document.getElementById('shareStatus');
+                const statusIcon = document.getElementById('shareStatusIcon');
+                const statusText = document.getElementById('shareStatusText');
+                
+                statusIcon.textContent = icon;
+                statusText.textContent = text;
+                statusDiv.className = `mt-4 p-3 rounded-lg text-sm ${className}`;
+                statusDiv.classList.remove('hidden');
+                
+                if (icon === '✅') {
+                    setTimeout(() => {
+                        statusDiv.classList.add('hidden');
+                    }, 3000);
+                }
+            }
+
+            // 搜尋相關方法
             search() {
                 const query = document.getElementById('searchInput').value.trim();
                 if (!query) return;
@@ -939,10 +829,9 @@
                     symptomResults: []
                 };
 
-                // Simple search implementation
                 const normalizedQuery = query.toLowerCase();
 
-                // Search herbs
+                // 搜尋中藥
                 Object.keys(this.data.herbs).forEach(herb => {
                     if (herb.toLowerCase().includes(normalizedQuery)) {
                         results.herbResults.push({
@@ -953,7 +842,7 @@
                     }
                 });
 
-                // Search symptoms
+                // 搜尋症狀
                 Object.keys(this.data.symptoms).forEach(symptom => {
                     if (symptom.toLowerCase().includes(normalizedQuery)) {
                         results.symptomResults.push({
@@ -987,7 +876,7 @@
                     return;
                 }
 
-                // Display herb results
+                // 顯示中藥結果
                 if (results.herbResults.length > 0) {
                     const herbSection = document.createElement('div');
                     herbSection.className = 'mb-8';
@@ -1022,7 +911,7 @@
                     searchResults.appendChild(herbSection);
                 }
 
-                // Display symptom results
+                // 顯示症狀結果
                 if (results.symptomResults.length > 0) {
                     const symptomSection = document.createElement('div');
                     symptomSection.className = 'mb-8';
@@ -1056,733 +945,6 @@
 
                     searchResults.appendChild(symptomSection);
                 }
-            }
-
-            processImportData() {
-                const importText = document.getElementById('importData').value.trim();
-                if (!importText) {
-                    this.showImportStatus('⚠️', '請輸入要導入的資料', 'bg-yellow-100 text-yellow-800');
-                    return;
-                }
-
-                this.showImportStatus('⏳', '正在處理資料...', 'bg-blue-100 text-blue-800');
-
-                const lines = importText.split('\n').filter(line => line.trim());
-                let successCount = 0;
-
-                lines.forEach(line => {
-                    const parts = line.split('：');
-                    if (parts.length === 2) {
-                        const herb = parts[0].trim();
-                        const symptoms = parts[1].split(',').map(s => s.trim()).filter(s => s);
-                        
-                        if (herb && symptoms.length > 0) {
-                            this.addHerbData(herb, symptoms);
-                            successCount++;
-                        }
-                    }
-                });
-
-                this.saveData();
-                this.updateUI();
-                document.getElementById('importData').value = '';
-                
-                this.showImportStatus('✅', `成功導入 ${successCount} 條中藥資料`, 'bg-green-100 text-green-800');
-                
-                // Hide manual input section and status after success
-                setTimeout(() => {
-                    document.getElementById('manualInputSection').classList.add('hidden');
-                    document.getElementById('textImportBtn').innerHTML = '✏️ 手動輸入';
-                    document.getElementById('importStatus').classList.add('hidden');
-                }, 2000);
-            }
-
-            addHerbData(herb, symptoms) {
-                // Add to herbs data
-                if (!this.data.herbs[herb]) {
-                    this.data.herbs[herb] = [];
-                }
-                
-                symptoms.forEach(symptom => {
-                    if (!this.data.herbs[herb].includes(symptom)) {
-                        this.data.herbs[herb].push(symptom);
-                    }
-                    
-                    // Add to symptoms data
-                    if (!this.data.symptoms[symptom]) {
-                        this.data.symptoms[symptom] = [];
-                    }
-                    if (!this.data.symptoms[symptom].includes(herb)) {
-                        this.data.symptoms[symptom].push(herb);
-                    }
-                });
-            }
-
-            toggleManualInput() {
-                const manualSection = document.getElementById('manualInputSection');
-                const isHidden = manualSection.classList.contains('hidden');
-                
-                if (isHidden) {
-                    manualSection.classList.remove('hidden');
-                    document.getElementById('textImportBtn').textContent = '✏️ 隱藏輸入';
-                } else {
-                    manualSection.classList.add('hidden');
-                    document.getElementById('textImportBtn').innerHTML = '✏️ 手動輸入';
-                }
-            }
-
-            triggerFileImport() {
-                document.getElementById('fileInput').click();
-            }
-
-            handleFileImport(event) {
-                const file = event.target.files[0];
-                if (!file) return;
-
-                this.showImportStatus('⏳', '正在處理檔案...', 'bg-blue-100 text-blue-800');
-
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const content = e.target.result;
-                        let successCount = 0;
-                        
-                        if (file.name.endsWith('.json')) {
-                            const importedData = JSON.parse(content);
-                            if (importedData.data) {
-                                this.data = importedData.data;
-                                successCount = Object.keys(importedData.data.herbs || {}).length;
-                            } else {
-                                this.data = importedData;
-                                successCount = Object.keys(importedData.herbs || {}).length;
-                            }
-                        } else {
-                            // Process text file
-                            const lines = content.split('\n').filter(line => line.trim());
-                            lines.forEach(line => {
-                                const parts = line.split('：');
-                                if (parts.length === 2) {
-                                    const herb = parts[0].trim();
-                                    const symptoms = parts[1].split(',').map(s => s.trim()).filter(s => s);
-                                    
-                                    if (herb && symptoms.length > 0) {
-                                        this.addHerbData(herb, symptoms);
-                                        successCount++;
-                                    }
-                                }
-                            });
-                        }
-                        
-                        this.saveData();
-                        this.updateUI();
-                        this.showImportStatus('✅', `成功導入 ${successCount} 條資料`, 'bg-green-100 text-green-800');
-                        
-                        setTimeout(() => {
-                            document.getElementById('importStatus').classList.add('hidden');
-                        }, 3000);
-                        
-                    } catch (error) {
-                        this.showImportStatus('❌', '檔案格式錯誤，請檢查檔案內容', 'bg-red-100 text-red-800');
-                    }
-                };
-                reader.readAsText(file);
-                
-                event.target.value = '';
-            }
-
-            showImportStatus(icon, text, className) {
-                const statusDiv = document.getElementById('importStatus');
-                const statusIcon = document.getElementById('statusIcon');
-                const statusText = document.getElementById('statusText');
-                
-                statusIcon.textContent = icon;
-                statusText.textContent = text;
-                statusDiv.className = `p-3 rounded-lg ${className}`;
-                statusDiv.classList.remove('hidden');
-            }
-
-            // 線上同步功能方法
-            handleSyncButtonClick() {
-                if (!this.isOnline) {
-                    this.showSystemNotification('📱', '目前處於離線模式，無法同步', 'bg-gray-100 text-gray-800');
-                    return;
-                }
-                
-                this.performQuickSync();
-            }
-
-            async performQuickSync() {
-                const syncIcon = document.getElementById('syncIcon');
-                const syncText = document.getElementById('syncText');
-                
-                // 顯示同步動畫
-                syncIcon.className = 'sync-animation';
-                syncIcon.textContent = '🔄';
-                syncText.textContent = '同步中...';
-                
-                try {
-                    const onlineData = this.getOnlineData();
-                    
-                    if (!onlineData) {
-                        await this.uploadLocalData(false);
-                        this.showSystemNotification('✅', '本地資料已上傳到線上', 'bg-green-100 text-green-800');
-                    } else if (this.needsSync(this.data, onlineData)) {
-                        await this.mergeData(false);
-                        this.showSystemNotification('✅', '資料同步完成', 'bg-green-100 text-green-800');
-                    } else {
-                        this.showSystemNotification('ℹ️', '資料已是最新版本', 'bg-blue-100 text-blue-800');
-                    }
-                } catch (error) {
-                    console.error('快速同步失敗:', error);
-                    this.showSystemNotification('❌', '同步失敗，請稍後重試', 'bg-red-100 text-red-800');
-                } finally {
-                    setTimeout(() => {
-                        syncIcon.className = '';
-                        syncIcon.textContent = '☁️';
-                        syncText.textContent = '線上同步';
-                    }, 1000);
-                }
-            }
-
-            showOnlineDataModal() {
-                this.refreshOnlineDataModal();
-                document.getElementById('onlineDataModal').classList.remove('hidden');
-                document.getElementById('onlineDataModal').classList.add('flex');
-            }
-
-            hideOnlineDataModal() {
-                document.getElementById('onlineDataModal').classList.add('hidden');
-                document.getElementById('onlineDataModal').classList.remove('flex');
-                document.getElementById('onlineDataStatus').classList.add('hidden');
-            }
-
-            refreshOnlineDataModal() {
-                this.updateConnectionStatus();
-                this.updateLocalDataInfo();
-                this.updateOnlineDataInfo();
-                this.updateSyncSettings();
-                this.updateRecentActivity();
-            }
-
-            updateConnectionStatus() {
-                const indicator = document.getElementById('connectionIndicator');
-                const status = document.getElementById('connectionStatus');
-                const serverStatus = document.getElementById('serverStatus');
-                const lastSync = document.getElementById('lastSyncTime');
-                const onlineVersion = document.getElementById('onlineDataVersion');
-                
-                if (this.isOnline) {
-                    indicator.className = 'w-3 h-3 bg-green-500 rounded-full pulse-dot';
-                    status.textContent = '已連線';
-                    status.className = 'text-sm text-green-600 font-medium';
-                    serverStatus.textContent = '正常';
-                } else {
-                    indicator.className = 'w-3 h-3 bg-red-500 rounded-full';
-                    status.textContent = '離線';
-                    status.className = 'text-sm text-red-600 font-medium';
-                    serverStatus.textContent = '無法連接';
-                }
-                
-                const lastSyncTime = localStorage.getItem(this.lastSyncKey);
-                if (lastSyncTime) {
-                    const syncDate = new Date(lastSyncTime);
-                    lastSync.textContent = syncDate.toLocaleString('zh-TW');
-                } else {
-                    lastSync.textContent = '從未同步';
-                }
-                
-                const onlineData = this.getOnlineData();
-                onlineVersion.textContent = onlineData ? (onlineData.version || '1.0') : '-';
-            }
-
-            updateLocalDataInfo() {
-                const herbCount = Object.keys(this.data.herbs).length;
-                const symptomCount = Object.keys(this.data.symptoms).length;
-                const lastUpdate = localStorage.getItem('tcmLastUpdate') || '從未更新';
-                
-                document.getElementById('localHerbCount').textContent = herbCount;
-                document.getElementById('localSymptomCount').textContent = symptomCount;
-                document.getElementById('localLastUpdate').textContent = lastUpdate;
-            }
-
-            updateOnlineDataInfo(onlineData = null) {
-                if (!onlineData) {
-                    onlineData = this.getOnlineData();
-                }
-                
-                if (onlineData && onlineData.data) {
-                    const herbCount = Object.keys(onlineData.data.herbs || {}).length;
-                    const symptomCount = Object.keys(onlineData.data.symptoms || {}).length;
-                    const lastUpdate = onlineData.timestamp ? 
-                        new Date(onlineData.timestamp).toLocaleString('zh-TW') : '未知';
-                    
-                    document.getElementById('onlineHerbCount').textContent = herbCount;
-                    document.getElementById('onlineSymptomCount').textContent = symptomCount;
-                    document.getElementById('onlineLastUpdate').textContent = lastUpdate;
-                } else {
-                    document.getElementById('onlineHerbCount').textContent = '-';
-                    document.getElementById('onlineSymptomCount').textContent = '-';
-                    document.getElementById('onlineLastUpdate').textContent = '無資料';
-                }
-            }
-
-            updateSyncSettings() {
-                document.getElementById('autoSyncEnabled').checked = this.syncSettings.autoSync;
-                document.getElementById('conflictResolution').checked = this.syncSettings.conflictResolution;
-                document.getElementById('syncInterval').value = this.syncSettings.syncInterval;
-            }
-
-            updateRecentActivity() {
-                const activityList = document.getElementById('recentActivityList');
-                const activities = JSON.parse(localStorage.getItem('tcmSyncActivities') || '[]');
-                
-                activityList.innerHTML = '';
-                
-                if (activities.length === 0) {
-                    activityList.innerHTML = '<div class="text-sm text-gray-500 text-center py-2">暫無活動記錄</div>';
-                    return;
-                }
-                
-                activities.slice(0, 10).forEach(activity => {
-                    const activityItem = document.createElement('div');
-                    activityItem.className = 'flex items-center justify-between text-sm p-2 bg-white rounded border';
-                    
-                    const activityDate = new Date(activity.timestamp);
-                    const timeAgo = this.getTimeAgo(activityDate);
-                    
-                    activityItem.innerHTML = `
-                        <div>
-                            <div class="font-medium">${activity.action}</div>
-                            <div class="text-xs text-gray-500">${activity.description}</div>
-                        </div>
-                        <div class="text-xs text-gray-400">${timeAgo}</div>
-                    `;
-                    
-                    activityList.appendChild(activityItem);
-                });
-            }
-
-            getTimeAgo(date) {
-                const now = new Date();
-                const diffMs = now - date;
-                const diffMins = Math.floor(diffMs / 60000);
-                const diffHours = Math.floor(diffMs / 3600000);
-                const diffDays = Math.floor(diffMs / 86400000);
-                
-                if (diffMins < 1) return '剛剛';
-                if (diffMins < 60) return `${diffMins}分鐘前`;
-                if (diffHours < 24) return `${diffHours}小時前`;
-                if (diffDays < 7) return `${diffDays}天前`;
-                return date.toLocaleDateString('zh-TW');
-            }
-
-            async uploadLocalData(showModal = true) {
-                if (!this.isOnline) {
-                    if (showModal) {
-                        this.showOnlineDataStatus('❌', '無法連接到線上服務', 'bg-red-100 text-red-800');
-                    }
-                    return;
-                }
-                
-                if (showModal) {
-                    this.showOnlineDataStatus('⏳', '正在上傳本地資料...', 'bg-blue-100 text-blue-800');
-                }
-                
-                try {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    
-                    const result = this.saveOnlineData(this.data);
-                    
-                    if (showModal) {
-                        this.showOnlineDataStatus('✅', '本地資料上傳成功！', 'bg-green-100 text-green-800');
-                        this.refreshOnlineDataModal();
-                    }
-                    
-                    return result;
-                } catch (error) {
-                    console.error('上傳失敗:', error);
-                    if (showModal) {
-                        this.showOnlineDataStatus('❌', '上傳失敗，請重試', 'bg-red-100 text-red-800');
-                    }
-                    throw error;
-                }
-            }
-
-            async downloadOnlineData() {
-                if (!this.isOnline) {
-                    this.showOnlineDataStatus('❌', '無法連接到線上服務', 'bg-red-100 text-red-800');
-                    return;
-                }
-                
-                this.showOnlineDataStatus('⏳', '正在下載線上資料...', 'bg-blue-100 text-blue-800');
-                
-                try {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    
-                    const onlineData = this.getOnlineData();
-                    
-                    if (!onlineData || !onlineData.data) {
-                        this.showOnlineDataStatus('⚠️', '線上沒有可用的資料', 'bg-yellow-100 text-yellow-800');
-                        return;
-                    }
-                    
-                    if (confirm('下載線上資料將覆蓋本地資料，確定要繼續嗎？')) {
-                        this.data = {
-                            herbs: onlineData.data.herbs || {},
-                            symptoms: onlineData.data.symptoms || {}
-                        };
-                        
-                        this.saveDataSecurely();
-                        this.updateUI();
-                        this.addSyncActivity('下載', '線上資料已下載並覆蓋本地資料');
-                        
-                        this.showOnlineDataStatus('✅', '線上資料下載成功！', 'bg-green-100 text-green-800');
-                        this.refreshOnlineDataModal();
-                    } else {
-                        this.showOnlineDataStatus('ℹ️', '下載已取消', 'bg-gray-100 text-gray-800');
-                    }
-                } catch (error) {
-                    console.error('下載失敗:', error);
-                    this.showOnlineDataStatus('❌', '下載失敗，請重試', 'bg-red-100 text-red-800');
-                }
-            }
-
-            async mergeData(showModal = true) {
-                if (!this.isOnline) {
-                    if (showModal) {
-                        this.showOnlineDataStatus('❌', '無法連接到線上服務', 'bg-red-100 text-red-800');
-                    }
-                    return;
-                }
-                
-                if (showModal) {
-                    this.showOnlineDataStatus('⏳', '正在執行智能合併...', 'bg-blue-100 text-blue-800');
-                }
-                
-                try {
-                    await new Promise(resolve => setTimeout(resolve, 1500));
-                    
-                    const onlineData = this.getOnlineData();
-                    
-                    if (!onlineData || !onlineData.data) {
-                        await this.uploadLocalData(false);
-                        if (showModal) {
-                            this.showOnlineDataStatus('✅', '本地資料已上傳（線上無資料）', 'bg-green-100 text-green-800');
-                        }
-                        return;
-                    }
-                    
-                    const mergedData = this.performIntelligentMerge(this.data, onlineData.data);
-                    
-                    this.data = mergedData;
-                    this.saveDataSecurely();
-                    this.saveOnlineData(mergedData);
-                    
-                    this.updateUI();
-                    this.addSyncActivity('合併', '本地與線上資料已智能合併');
-                    
-                    if (showModal) {
-                        this.showOnlineDataStatus('✅', '資料智能合併完成！', 'bg-green-100 text-green-800');
-                        this.refreshOnlineDataModal();
-                    }
-                } catch (error) {
-                    console.error('合併失敗:', error);
-                    if (showModal) {
-                        this.showOnlineDataStatus('❌', '合併失敗，請重試', 'bg-red-100 text-red-800');
-                    }
-                }
-            }
-
-            performIntelligentMerge(localData, onlineData) {
-                const mergedData = {
-                    herbs: { ...localData.herbs },
-                    symptoms: { ...localData.symptoms }
-                };
-                
-                // 合併中藥資料
-                Object.keys(onlineData.herbs || {}).forEach(herb => {
-                    if (mergedData.herbs[herb]) {
-                        const combinedSymptoms = [...new Set([
-                            ...mergedData.herbs[herb],
-                            ...onlineData.herbs[herb]
-                        ])];
-                        mergedData.herbs[herb] = combinedSymptoms;
-                    } else {
-                        mergedData.herbs[herb] = [...onlineData.herbs[herb]];
-                    }
-                });
-                
-                // 合併症狀資料
-                Object.keys(onlineData.symptoms || {}).forEach(symptom => {
-                    if (mergedData.symptoms[symptom]) {
-                        const combinedHerbs = [...new Set([
-                            ...mergedData.symptoms[symptom],
-                            ...onlineData.symptoms[symptom]
-                        ])];
-                        mergedData.symptoms[symptom] = combinedHerbs;
-                    } else {
-                        mergedData.symptoms[symptom] = [...onlineData.symptoms[symptom]];
-                    }
-                });
-                
-                this.rebuildSymptomIndex(mergedData);
-                
-                return mergedData;
-            }
-
-            rebuildSymptomIndex(data) {
-                data.symptoms = {};
-                
-                Object.keys(data.herbs).forEach(herb => {
-                    data.herbs[herb].forEach(symptom => {
-                        if (!data.symptoms[symptom]) {
-                            data.symptoms[symptom] = [];
-                        }
-                        if (!data.symptoms[symptom].includes(herb)) {
-                            data.symptoms[symptom].push(herb);
-                        }
-                    });
-                });
-            }
-
-            toggleAutoSync(enabled) {
-                this.syncSettings.autoSync = enabled;
-                this.saveSyncSettings();
-                
-                if (enabled && this.isOnline) {
-                    this.startAutoSync();
-                } else {
-                    this.stopAutoSync();
-                }
-                
-                this.showOnlineDataStatus('✅', `自動同步已${enabled ? '啟用' : '停用'}`, 'bg-blue-100 text-blue-800');
-            }
-
-            toggleConflictResolution(enabled) {
-                this.syncSettings.conflictResolution = enabled;
-                this.saveSyncSettings();
-                
-                this.showOnlineDataStatus('✅', `衝突自動處理已${enabled ? '啟用' : '停用'}`, 'bg-blue-100 text-blue-800');
-            }
-
-            changeSyncInterval(interval) {
-                this.syncSettings.syncInterval = parseInt(interval);
-                this.saveSyncSettings();
-                
-                if (this.syncSettings.autoSync && this.isOnline) {
-                    this.startAutoSync();
-                }
-                
-                const minutes = Math.floor(interval / 60);
-                this.showOnlineDataStatus('✅', `同步間隔已設為${minutes}分鐘`, 'bg-blue-100 text-blue-800');
-            }
-
-            showOnlineDataStatus(icon, text, className) {
-                const statusDiv = document.getElementById('onlineDataStatus');
-                const statusIcon = document.getElementById('onlineDataStatusIcon');
-                const statusText = document.getElementById('onlineDataStatusText');
-                
-                statusIcon.textContent = icon;
-                statusText.textContent = text;
-                statusDiv.className = `mt-4 p-3 rounded-lg text-sm ${className}`;
-                statusDiv.classList.remove('hidden');
-                
-                if (icon === '✅') {
-                    setTimeout(() => {
-                        statusDiv.classList.add('hidden');
-                    }, 3000);
-                }
-            }
-
-            // Backup Modal Functions
-            showBackupModal() {
-                const herbCount = Object.keys(this.data.herbs).length;
-                const symptomCount = Object.keys(this.data.symptoms).length;
-                const lastUpdate = localStorage.getItem('tcmLastUpdate') || '從未更新';
-                
-                document.getElementById('backupHerbCount').textContent = herbCount;
-                document.getElementById('backupSymptomCount').textContent = symptomCount;
-                document.getElementById('lastUpdateTime').textContent = lastUpdate;
-                
-                document.getElementById('backupModal').classList.remove('hidden');
-                document.getElementById('backupModal').classList.add('flex');
-            }
-
-            hideBackupModal() {
-                document.getElementById('backupModal').classList.add('hidden');
-                document.getElementById('backupModal').classList.remove('flex');
-                document.getElementById('backupStatus').classList.add('hidden');
-            }
-
-            downloadBackup() {
-                try {
-                    const backupData = this.createBackupData();
-                    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-                    const filename = `TCM_Backup_${timestamp}.json`;
-                    
-                    const blob = new Blob([JSON.stringify(backupData, null, 2)], { 
-                        type: 'application/json' 
-                    });
-                    
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = filename;
-                    link.click();
-                    
-                    URL.revokeObjectURL(url);
-                    
-                    this.showBackupStatus('✅', '備份檔案已下載完成！', 'bg-green-100 text-green-800');
-                } catch (error) {
-                    this.showBackupStatus('❌', '下載失敗，請重試', 'bg-red-100 text-red-800');
-                }
-            }
-
-            async copyBackupToClipboard() {
-                try {
-                    const backupData = this.createBackupData();
-                    const backupText = JSON.stringify(backupData, null, 2);
-                    
-                    await navigator.clipboard.writeText(backupText);
-                    this.showBackupStatus('✅', '備份資料已複製到剪貼簿！', 'bg-green-100 text-green-800');
-                } catch (error) {
-                    const textArea = document.createElement('textarea');
-                    textArea.value = JSON.stringify(this.createBackupData(), null, 2);
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                    
-                    this.showBackupStatus('✅', '備份資料已複製到剪貼簿！', 'bg-green-100 text-green-800');
-                }
-            }
-
-            triggerBackupRestore() {
-                document.getElementById('backupFileInput').click();
-            }
-
-            handleBackupRestore(event) {
-                const file = event.target.files[0];
-                if (!file) return;
-
-                this.showBackupStatus('⏳', '正在恢復備份...', 'bg-blue-100 text-blue-800');
-
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const backupData = JSON.parse(e.target.result);
-                        
-                        if (this.validateBackupData(backupData)) {
-                            if (confirm('確定要恢復此備份嗎？這將覆蓋現有的所有資料。')) {
-                                this.restoreFromBackup(backupData);
-                                this.showBackupStatus('✅', '備份恢復成功！', 'bg-green-100 text-green-800');
-                                
-                                setTimeout(() => {
-                                    this.hideBackupModal();
-                                    this.updateUI();
-                                }, 1500);
-                            } else {
-                                this.showBackupStatus('ℹ️', '恢復已取消', 'bg-gray-100 text-gray-800');
-                            }
-                        } else {
-                            this.showBackupStatus('❌', '備份檔案格式不正確', 'bg-red-100 text-red-800');
-                        }
-                    } catch (error) {
-                        this.showBackupStatus('❌', '備份檔案損壞或格式錯誤', 'bg-red-100 text-red-800');
-                    }
-                };
-                
-                reader.readAsText(file);
-                event.target.value = '';
-            }
-
-            createBackupData() {
-                return {
-                    version: '3.0',
-                    appName: '中醫診症輔助工具 - 線上共享版',
-                    backupDate: new Date().toISOString(),
-                    backupTime: new Date().toLocaleString('zh-TW'),
-                    statistics: {
-                        herbCount: Object.keys(this.data.herbs).length,
-                        symptomCount: Object.keys(this.data.symptoms).length,
-                        totalRelations: Object.values(this.data.herbs).reduce((sum, symptoms) => sum + symptoms.length, 0)
-                    },
-                    data: {
-                        herbs: this.data.herbs,
-                        symptoms: this.data.symptoms
-                    },
-                    checksum: this.generateChecksum(this.data)
-                };
-            }
-
-            validateBackupData(backupData) {
-                if (!backupData.data || !backupData.data.herbs || !backupData.data.symptoms) {
-                    return false;
-                }
-                
-                if (typeof backupData.data.herbs !== 'object' || typeof backupData.data.symptoms !== 'object') {
-                    return false;
-                }
-                
-                if (backupData.checksum) {
-                    const calculatedChecksum = this.generateChecksum(backupData.data);
-                    if (calculatedChecksum !== backupData.checksum) {
-                        console.warn('Backup checksum mismatch - data may be corrupted');
-                    }
-                }
-                
-                return true;
-            }
-
-            restoreFromBackup(backupData) {
-                this.data = {
-                    herbs: backupData.data.herbs,
-                    symptoms: backupData.data.symptoms
-                };
-                
-                this.saveData();
-                this.updateLastUpdateTime();
-                
-                document.getElementById('resultsSection').classList.add('hidden');
-                document.getElementById('searchInput').value = '';
-            }
-
-            showBackupStatus(icon, text, className) {
-                const statusDiv = document.getElementById('backupStatus');
-                const statusIcon = document.getElementById('backupStatusIcon');
-                const statusText = document.getElementById('backupStatusText');
-                
-                statusIcon.textContent = icon;
-                statusText.textContent = text;
-                statusDiv.className = `mt-4 p-3 rounded-lg text-sm ${className}`;
-                statusDiv.classList.remove('hidden');
-                
-                if (icon === '✅') {
-                    setTimeout(() => {
-                        statusDiv.classList.add('hidden');
-                    }, 3000);
-                }
-            }
-
-
-
-            saveData() {
-                this.saveDataSecurely();
-            }
-
-            updateLastUpdateTime() {
-                const now = new Date().toLocaleString('zh-TW');
-                localStorage.setItem('tcmLastUpdate', now);
-            }
-
-            updateUI() {
-                const herbCount = Object.keys(this.data.herbs).length;
-                const symptomCount = Object.keys(this.data.symptoms).length;
-                
-                document.getElementById('herbCount').textContent = herbCount;
-                document.getElementById('symptomCount').textContent = symptomCount;
-                
-                this.updateSyncStatus();
             }
 
             showSearchSuggestions(query) {
@@ -1830,7 +992,7 @@
                 const suggestions = [];
                 const normalizedQuery = query.toLowerCase();
 
-                // Get suggestions from herbs
+                // 從中藥獲取建議
                 Object.keys(this.data.herbs).forEach(herb => {
                     if (herb.toLowerCase().includes(normalizedQuery)) {
                         suggestions.push({
@@ -1843,7 +1005,7 @@
                     }
                 });
 
-                // Get suggestions from symptoms
+                // 從症狀獲取建議
                 Object.keys(this.data.symptoms).forEach(symptom => {
                     if (symptom.toLowerCase().includes(normalizedQuery)) {
                         suggestions.push({
@@ -1862,12 +1024,361 @@
             hideSearchSuggestions() {
                 document.getElementById('searchSuggestions').classList.add('hidden');
             }
+
+            // 資料管理方法
+            triggerFileImport() {
+                document.getElementById('fileInput').click();
+            }
+
+            toggleManualInput() {
+                const manualSection = document.getElementById('manualInputSection');
+                const isHidden = manualSection.classList.contains('hidden');
+                
+                if (isHidden) {
+                    manualSection.classList.remove('hidden');
+                    document.getElementById('textImportBtn').textContent = '✏️ 隱藏輸入';
+                } else {
+                    manualSection.classList.add('hidden');
+                    document.getElementById('textImportBtn').innerHTML = '✏️ 手動輸入';
+                }
+            }
+
+            async processImportData() {
+                const importText = document.getElementById('importData').value.trim();
+                if (!importText) {
+                    this.showImportStatus('⚠️', '請輸入要導入的資料', 'bg-yellow-100 text-yellow-800');
+                    return;
+                }
+
+                this.showImportStatus('⏳', '正在處理資料...', 'bg-blue-100 text-blue-800');
+
+                const lines = importText.split('\n').filter(line => line.trim());
+                let successCount = 0;
+
+                lines.forEach(line => {
+                    const parts = line.split('：');
+                    if (parts.length === 2) {
+                        const herb = parts[0].trim();
+                        const symptoms = parts[1].split(',').map(s => s.trim()).filter(s => s);
+                        
+                        if (herb && symptoms.length > 0) {
+                            this.addHerbData(herb, symptoms);
+                            successCount++;
+                        }
+                    }
+                });
+
+                this.saveLocalData();
+                this.updateUI();
+                document.getElementById('importData').value = '';
+                
+                this.showImportStatus('✅', `成功導入 ${successCount} 條中藥資料`, 'bg-green-100 text-green-800');
+                
+                // 自動同步到雲端
+                if (this.isFirebaseReady) {
+                    try {
+                        await this.syncToCloud();
+                    } catch (error) {
+                        console.error('自動同步失敗:', error);
+                    }
+                }
+                
+                setTimeout(() => {
+                    document.getElementById('manualInputSection').classList.add('hidden');
+                    document.getElementById('textImportBtn').innerHTML = '✏️ 手動輸入';
+                    document.getElementById('importStatus').classList.add('hidden');
+                }, 2000);
+            }
+
+            addHerbData(herb, symptoms) {
+                if (!this.data.herbs[herb]) {
+                    this.data.herbs[herb] = [];
+                }
+                
+                symptoms.forEach(symptom => {
+                    if (!this.data.herbs[herb].includes(symptom)) {
+                        this.data.herbs[herb].push(symptom);
+                    }
+                    
+                    if (!this.data.symptoms[symptom]) {
+                        this.data.symptoms[symptom] = [];
+                    }
+                    if (!this.data.symptoms[symptom].includes(herb)) {
+                        this.data.symptoms[symptom].push(herb);
+                    }
+                });
+            }
+
+            handleFileImport(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                this.showImportStatus('⏳', '正在處理檔案...', 'bg-blue-100 text-blue-800');
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const content = e.target.result;
+                        let successCount = 0;
+                        
+                        if (file.name.endsWith('.json')) {
+                            const importedData = JSON.parse(content);
+                            if (importedData.data) {
+                                this.data = importedData.data;
+                                successCount = Object.keys(importedData.data.herbs || {}).length;
+                            } else {
+                                this.data = importedData;
+                                successCount = Object.keys(importedData.herbs || {}).length;
+                            }
+                        } else {
+                            const lines = content.split('\n').filter(line => line.trim());
+                            lines.forEach(line => {
+                                const parts = line.split('：');
+                                if (parts.length === 2) {
+                                    const herb = parts[0].trim();
+                                    const symptoms = parts[1].split(',').map(s => s.trim()).filter(s => s);
+                                    
+                                    if (herb && symptoms.length > 0) {
+                                        this.addHerbData(herb, symptoms);
+                                        successCount++;
+                                    }
+                                }
+                            });
+                        }
+                        
+                        this.saveLocalData();
+                        this.updateUI();
+                        this.showImportStatus('✅', `成功導入 ${successCount} 條資料`, 'bg-green-100 text-green-800');
+                        
+                        // 自動同步到雲端
+                        if (this.isFirebaseReady) {
+                            try {
+                                await this.syncToCloud();
+                            } catch (error) {
+                                console.error('自動同步失敗:', error);
+                            }
+                        }
+                        
+                        setTimeout(() => {
+                            document.getElementById('importStatus').classList.add('hidden');
+                        }, 3000);
+                        
+                    } catch (error) {
+                        this.showImportStatus('❌', '檔案格式錯誤，請檢查檔案內容', 'bg-red-100 text-red-800');
+                    }
+                };
+                reader.readAsText(file);
+                
+                event.target.value = '';
+            }
+
+            showImportStatus(icon, text, className) {
+                const statusDiv = document.getElementById('importStatus');
+                const statusIcon = document.getElementById('statusIcon');
+                const statusText = document.getElementById('statusText');
+                
+                statusIcon.textContent = icon;
+                statusText.textContent = text;
+                statusDiv.className = `p-3 rounded-lg ${className}`;
+                statusDiv.classList.remove('hidden');
+            }
+
+            // 備份相關方法
+            showBackupModal() {
+                const herbCount = Object.keys(this.data.herbs).length;
+                const symptomCount = Object.keys(this.data.symptoms).length;
+                const cloudStatus = this.isFirebaseReady ? '已連接' : '未連接';
+                
+                document.getElementById('backupHerbCount').textContent = herbCount;
+                document.getElementById('backupSymptomCount').textContent = symptomCount;
+                document.getElementById('cloudSyncStatus').textContent = cloudStatus;
+                
+                document.getElementById('backupModal').classList.remove('hidden');
+                document.getElementById('backupModal').classList.add('flex');
+            }
+
+            hideBackupModal() {
+                document.getElementById('backupModal').classList.add('hidden');
+                document.getElementById('backupModal').classList.remove('flex');
+                document.getElementById('backupStatus').classList.add('hidden');
+            }
+
+            downloadBackup() {
+                try {
+                    const backupData = this.createBackupData();
+                    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+                    const filename = `TCM_CloudBackup_${timestamp}.json`;
+                    
+                    const blob = new Blob([JSON.stringify(backupData, null, 2)], { 
+                        type: 'application/json' 
+                    });
+                    
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    link.click();
+                    
+                    URL.revokeObjectURL(url);
+                    
+                    this.showBackupStatus('✅', '備份檔案已下載完成！', 'bg-green-100 text-green-800');
+                } catch (error) {
+                    this.showBackupStatus('❌', '下載失敗，請重試', 'bg-red-100 text-red-800');
+                }
+            }
+
+            async copyBackupToClipboard() {
+                try {
+                    const backupData = this.createBackupData();
+                    const backupText = JSON.stringify(backupData, null, 2);
+                    
+                    await navigator.clipboard.writeText(backupText);
+                    this.showBackupStatus('✅', '備份資料已複製到剪貼簿！', 'bg-green-100 text-green-800');
+                } catch (error) {
+                    const textArea = document.createElement('textarea');
+                    textArea.value = JSON.stringify(this.createBackupData(), null, 2);
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    
+                    this.showBackupStatus('✅', '備份資料已複製到剪貼簿！', 'bg-green-100 text-green-800');
+                }
+            }
+
+            triggerBackupRestore() {
+                document.getElementById('backupFileInput').click();
+            }
+
+            async handleBackupRestore(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                this.showBackupStatus('⏳', '正在恢復備份...', 'bg-blue-100 text-blue-800');
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const backupData = JSON.parse(e.target.result);
+                        
+                        if (this.validateBackupData(backupData)) {
+                            if (confirm('確定要恢復此備份嗎？這將覆蓋現有的所有資料。')) {
+                                this.restoreFromBackup(backupData);
+                                
+                                // 同步到雲端
+                                if (this.isFirebaseReady) {
+                                    try {
+                                        await this.syncToCloud();
+                                    } catch (error) {
+                                        console.error('恢復後同步失敗:', error);
+                                    }
+                                }
+                                
+                                this.showBackupStatus('✅', '備份恢復成功！', 'bg-green-100 text-green-800');
+                                
+                                setTimeout(() => {
+                                    this.hideBackupModal();
+                                    this.updateUI();
+                                }, 1500);
+                            } else {
+                                this.showBackupStatus('ℹ️', '恢復已取消', 'bg-gray-100 text-gray-800');
+                            }
+                        } else {
+                            this.showBackupStatus('❌', '備份檔案格式不正確', 'bg-red-100 text-red-800');
+                        }
+                    } catch (error) {
+                        this.showBackupStatus('❌', '備份檔案損壞或格式錯誤', 'bg-red-100 text-red-800');
+                    }
+                };
+                
+                reader.readAsText(file);
+                event.target.value = '';
+            }
+
+            createBackupData() {
+                return {
+                    version: this.currentVersion,
+                    appName: '中醫診症輔助工具 - 雲端同步版',
+                    backupDate: new Date().toISOString(),
+                    backupTime: new Date().toLocaleString('zh-TW'),
+                    deviceId: this.deviceId,
+                    cloudSync: this.isFirebaseReady,
+                    statistics: {
+                        herbCount: Object.keys(this.data.herbs).length,
+                        symptomCount: Object.keys(this.data.symptoms).length,
+                        totalRelations: Object.values(this.data.herbs).reduce((sum, symptoms) => sum + symptoms.length, 0)
+                    },
+                    data: {
+                        herbs: this.data.herbs,
+                        symptoms: this.data.symptoms
+                    },
+                    checksum: this.generateChecksum(this.data)
+                };
+            }
+
+            validateBackupData(backupData) {
+                if (!backupData.data || !backupData.data.herbs || !backupData.data.symptoms) {
+                    return false;
+                }
+                
+                if (typeof backupData.data.herbs !== 'object' || typeof backupData.data.symptoms !== 'object') {
+                    return false;
+                }
+                
+                if (backupData.checksum) {
+                    const calculatedChecksum = this.generateChecksum(backupData.data);
+                    if (calculatedChecksum !== backupData.checksum) {
+                        console.warn('Backup checksum mismatch - data may be corrupted');
+                    }
+                }
+                
+                return true;
+            }
+
+            restoreFromBackup(backupData) {
+                this.data = {
+                    herbs: backupData.data.herbs,
+                    symptoms: backupData.data.symptoms
+                };
+                
+                this.saveLocalData();
+                
+                document.getElementById('resultsSection').classList.add('hidden');
+                document.getElementById('searchInput').value = '';
+            }
+
+            showBackupStatus(icon, text, className) {
+                const statusDiv = document.getElementById('backupStatus');
+                const statusIcon = document.getElementById('backupStatusIcon');
+                const statusText = document.getElementById('backupStatusText');
+                
+                statusIcon.textContent = icon;
+                statusText.textContent = text;
+                statusDiv.className = `mt-4 p-3 rounded-lg text-sm ${className}`;
+                statusDiv.classList.remove('hidden');
+                
+                if (icon === '✅') {
+                    setTimeout(() => {
+                        statusDiv.classList.add('hidden');
+                    }, 3000);
+                }
+            }
+
+            updateUI() {
+                const herbCount = Object.keys(this.data.herbs).length;
+                const symptomCount = Object.keys(this.data.symptoms).length;
+                
+                document.getElementById('herbCount').textContent = herbCount;
+                document.getElementById('symptomCount').textContent = symptomCount;
+                
+                this.updateSyncStatus();
+            }
         }
 
-        // Initialize the application
+        // 初始化應用程式
         document.addEventListener('DOMContentLoaded', () => {
-            new TCMDiagnosticTool();
+            new CloudTCMTool();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'965297c5c79eb5bc',t:'MTc1MzUxOTIzMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9652d95cf50184ab',t:'MTc1MzUyMTkxOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
