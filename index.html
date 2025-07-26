@@ -5,46 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>中醫診症輔助工具</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDK -->
-    <script type="module">
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyBtUcrBYiE4B1O4xkvIqwxM52Hrh-i6pL8",
-  authDomain: "cheungec-ea477.firebaseapp.com",
-  databaseURL: "https://cheungec-ea477-default-rtdb.firebaseio.com",
-  projectId: "cheungec-ea477",
-  storageBucket: "cheungec-ea477.firebasestorage.app",
-  messagingSenderId: "986510230799",
-  appId: "1:986510230799:web:f603e67b605e71294f2a7a",
-  measurementId: "G-4H26EC2H4Y"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-        
-        // 將 Firebase 實例掛載到 window 對象供其他腳本使用
-        window.firebaseDB = db;
-        window.firebaseModules = {
-            collection,
-            doc,
-            setDoc,
-            getDoc,
-            getDocs,
-            deleteDoc
-        };
-    </script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .search-result-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
         }
         .fade-in {
             animation: fadeIn 0.3s ease-in;
@@ -53,39 +29,46 @@ const analytics = getAnalytics(app);
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .search-result:hover {
-            transform: translateY(-2px);
-            transition: all 0.2s ease;
-        }
     </style>
 </head>
-<body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
+<body class="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 min-h-screen">
     <!-- Header -->
-    <header class="bg-white shadow-lg border-b-4 border-green-500">
-        <div class="max-w-6xl mx-auto px-6 py-4">
+    <header class="bg-white shadow-lg border-b border-emerald-100">
+        <div class="max-w-7xl mx-auto px-6 py-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 bg-gradient-to-r from-green-600 to-green-700 rounded-lg flex items-center justify-center">
-                        <span class="text-white font-bold text-lg">中</span>
+                    <div class="w-10 h-10 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-leaf text-white text-lg"></i>
                     </div>
                     <h1 class="text-2xl font-bold text-gray-800">中醫診症輔助工具</h1>
                 </div>
-                <div class="text-sm text-gray-600">
-                    專業版 v1.0
+                <div class="flex items-center space-x-4">
+                    <div id="userInfo" class="hidden items-center space-x-3">
+                        <img id="userAvatar" class="w-8 h-8 rounded-full" src="" alt="用戶頭像">
+                        <span id="userName" class="text-sm text-gray-700"></span>
+                        <button id="logoutBtn" class="text-sm text-red-600 hover:text-red-700">登出</button>
+                    </div>
+                    <button id="loginBtn" class="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-sign-in-alt"></i>
+                        <span>登入</span>
+                    </button>
+                    <button id="syncBtn" class="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span>同步資料</span>
+                    </button>
+                    <div id="syncStatus" class="text-sm text-gray-600"></div>
                 </div>
             </div>
         </div>
     </header>
 
-    <div class="max-w-6xl mx-auto px-6 py-8">
+    <div class="max-w-7xl mx-auto px-6 py-8">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Left Panel - Search -->
+            <!-- Search Panel -->
             <div class="lg:col-span-2">
-                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <div class="bg-white rounded-2xl shadow-xl p-6 mb-6">
                     <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
+                        <i class="fas fa-search text-emerald-600 mr-2"></i>
                         智能搜尋
                     </h2>
                     
@@ -94,535 +77,797 @@ const analytics = getAnalytics(app);
                             type="text" 
                             id="searchInput" 
                             placeholder="輸入症狀或中藥名稱進行搜尋..."
-                            class="w-full px-4 py-3 pl-12 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none transition-colors"
+                            class="w-full px-4 py-3 pl-12 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                         >
-                        <svg class="w-5 h-5 text-gray-400 absolute left-4 top-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
+                        <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                     </div>
 
-                    <div class="flex space-x-2 mb-4">
-                        <button id="searchBtn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                            搜尋
+                    <div class="flex space-x-2 mb-6">
+                        <button id="searchSymptom" class="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors active">
+                            搜尋症狀
                         </button>
-                        <button id="clearBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                            清除
+                        <button id="searchHerb" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                            搜尋中藥
                         </button>
                     </div>
-                </div>
 
-                <!-- Search Results -->
-                <div id="searchResults" class="bg-white rounded-xl shadow-lg p-6 min-h-96">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">搜尋結果</h3>
-                    <div id="resultsContainer" class="text-gray-500 text-center py-12">
-                        請輸入症狀或中藥名稱開始搜尋
-                    </div>
+                    <div id="searchResults" class="space-y-3 max-h-96 overflow-y-auto"></div>
                 </div>
             </div>
 
-            <!-- Right Panel - Data Import -->
-            <div class="lg:col-span-1">
-                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <!-- Data Import Panel -->
+            <div class="space-y-6">
+                <div class="bg-white rounded-2xl shadow-xl p-6">
                     <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
-                        </svg>
+                        <i class="fas fa-upload text-blue-600 mr-2"></i>
                         資料導入
                     </h2>
                     
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            格式：中藥名：症狀
+                            格式：中藥名：症狀1,症狀2
                         </label>
                         <textarea 
                             id="importData" 
-                            placeholder="例如：&#10;當歸：補血調經&#10;黃芪：補氣固表&#10;人參：大補元氣"
-                            class="w-full h-32 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none resize-none"
+                            rows="8" 
+                            placeholder="例如：&#10;當歸：血虛,月經不調,便秘&#10;黃芪：氣虛,自汗,水腫&#10;人參：氣虛,心悸,失眠"
+                            class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                         ></textarea>
                     </div>
                     
-                    <button id="importBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors mb-4">
+                    <button id="importBtn" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>
                         導入資料
                     </button>
-                    
-                    <div id="importStatus" class="text-sm"></div>
                 </div>
 
-                <!-- Firebase Status -->
-                <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800">雲端狀態</h3>
-                        <div id="connectionStatus" class="flex items-center">
-                            <div class="w-3 h-3 bg-gray-400 rounded-full mr-2 animate-pulse"></div>
-                            <span class="text-sm text-gray-500">檢測中</span>
-                        </div>
-                    </div>
+                <!-- Statistics Panel -->
+                <div class="bg-white rounded-2xl shadow-xl p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                        <i class="fas fa-chart-bar text-purple-600 mr-2"></i>
+                        資料統計
+                    </h2>
                     
-                    <div id="lastSync" class="text-sm text-gray-500 mb-3">從未同步</div>
-                    
-                    <button id="testConnectionBtn" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition-colors">
-                        🔍 測試連接
-                    </button>
-                </div>
-
-                <!-- Firebase Configuration Notice -->
-                <div id="configNotice" class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-r-lg">
-                    <div class="flex">
-                        <div class="flex-shrink-0">
-                            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 00-1-1z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-                        <div class="ml-3">
-                            <p class="text-sm text-yellow-700">
-                                <strong>Firebase 配置提醒：</strong><br>
-                                請在代碼中替換您的 Firebase 配置信息才能使用雲端功能
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Data Statistics -->
-                <div class="bg-white rounded-xl shadow-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">資料統計</h3>
                     <div class="space-y-3">
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">中藥總數：</span>
-                            <span id="herbCount" class="font-semibold text-green-600">0</span>
+                        <div class="flex justify-between items-center p-3 bg-emerald-50 rounded-lg">
+                            <span class="text-emerald-700 font-medium">中藥總數</span>
+                            <span id="herbCount" class="text-emerald-800 font-bold text-lg">0</span>
                         </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">症狀總數：</span>
-                            <span id="symptomCount" class="font-semibold text-blue-600">0</span>
+                        <div class="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                            <span class="text-blue-700 font-medium">症狀總數</span>
+                            <span id="symptomCount" class="text-blue-800 font-bold text-lg">0</span>
                         </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">關聯總數：</span>
-                            <span id="relationCount" class="font-semibold text-purple-600">0</span>
+                        <div class="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
+                            <span class="text-purple-700 font-medium">關聯總數</span>
+                            <span id="relationCount" class="text-purple-800 font-bold text-lg">0</span>
                         </div>
-                    </div>
-                    
-                    <div class="mt-4 space-y-2">
-                        <button id="saveToFirebaseBtn" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition-colors">
-                            💾 保存到雲端
-                        </button>
-                        <button id="loadFromFirebaseBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-medium transition-colors">
-                            ☁️ 從雲端載入
-                        </button>
-                        <button id="clearDataBtn" class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-medium transition-colors">
-                            🗑️ 清除所有資料
-                        </button>
                     </div>
                 </div>
+
+                <!-- Backup & Restore Panel -->
+                <div class="bg-white rounded-2xl shadow-xl p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+                        <i class="fas fa-database text-indigo-600 mr-2"></i>
+                        備份管理
+                    </h2>
+                    
+                    <div class="space-y-3">
+                        <button id="backupBtn" class="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                            <i class="fas fa-save mr-2"></i>
+                            創建備份
+                        </button>
+                        <button id="restoreBtn" class="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors">
+                            <i class="fas fa-undo mr-2"></i>
+                            恢復備份
+                        </button>
+                        <button id="exportBtn" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                            <i class="fas fa-download mr-2"></i>
+                            導出資料
+                        </button>
+                        <input type="file" id="importFile" accept=".json" class="hidden">
+                        <button id="importFileBtn" class="w-full px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors">
+                            <i class="fas fa-upload mr-2"></i>
+                            導入檔案
+                        </button>
+                    </div>
+                    
+                    <div id="backupList" class="mt-4 space-y-2 max-h-40 overflow-y-auto"></div>
+                </div>
+
+                <!-- Clear Data Button -->
+                <button id="clearBtn" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                    <i class="fas fa-trash mr-2"></i>
+                    清除所有資料
+                </button>
             </div>
         </div>
     </div>
 
-    <script>
-        // 資料存儲
-        let medicineData = {};
-        let symptomData = {};
+    <!-- Login Modal -->
+    <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">登入帳戶</h2>
+            
+            <div class="space-y-4">
+                <button id="googleLoginBtn" class="w-full flex items-center justify-center space-x-3 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
+                    <i class="fab fa-google"></i>
+                    <span>使用 Google 登入</span>
+                </button>
+                
+                <div class="relative">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div class="relative flex justify-center text-sm">
+                        <span class="px-2 bg-white text-gray-500">或</span>
+                    </div>
+                </div>
+                
+                <div class="space-y-3">
+                    <input type="email" id="emailInput" placeholder="電子郵件" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <input type="password" id="passwordInput" placeholder="密碼" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <div class="flex space-x-3">
+                    <button id="emailLoginBtn" class="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        登入
+                    </button>
+                    <button id="emailRegisterBtn" class="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                        註冊
+                    </button>
+                </div>
+            </div>
+            
+            <button id="closeLoginModal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+    </div>
 
-        // DOM 元素
+    <!-- Backup Selection Modal -->
+    <div id="backupModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">選擇備份</h2>
+            
+            <div id="backupModalList" class="space-y-2 max-h-60 overflow-y-auto mb-6"></div>
+            
+            <button id="closeBackupModal" class="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                取消
+            </button>
+            
+            <button id="closeBackupModalX" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50">
+        <span id="toastMessage"></span>
+    </div>
+
+    <script>
+        // Firebase configuration (請替換為您的實際配置)
+        const firebaseConfig = {
+            apiKey: "your-api-key",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "your-app-id"
+        };
+
+        // Initialize Firebase
+        let db = null;
+        let auth = null;
+        let storage = null;
+        let currentUser = null;
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+            storage = firebase.storage();
+            
+            // Enable offline persistence
+            db.enablePersistence().catch((err) => {
+                if (err.code == 'failed-precondition') {
+                    console.log('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+                } else if (err.code == 'unimplemented') {
+                    console.log('The current browser does not support persistence.');
+                }
+            });
+            
+        } catch (error) {
+            console.log('Firebase initialization failed:', error);
+            showToast('Firebase 初始化失敗，將使用本地存儲', 'warning');
+        }
+
+        // Data storage
+        let herbData = JSON.parse(localStorage.getItem('herbData')) || {};
+        let searchMode = 'symptom'; // 'symptom' or 'herb'
+
+        // DOM elements
         const searchInput = document.getElementById('searchInput');
-        const searchBtn = document.getElementById('searchBtn');
-        const clearBtn = document.getElementById('clearBtn');
-        const resultsContainer = document.getElementById('resultsContainer');
+        const searchResults = document.getElementById('searchResults');
         const importData = document.getElementById('importData');
         const importBtn = document.getElementById('importBtn');
-        const importStatus = document.getElementById('importStatus');
-        const herbCount = document.getElementById('herbCount');
-        const symptomCount = document.getElementById('symptomCount');
-        const relationCount = document.getElementById('relationCount');
-        const clearDataBtn = document.getElementById('clearDataBtn');
-        const saveToFirebaseBtn = document.getElementById('saveToFirebaseBtn');
-        const loadFromFirebaseBtn = document.getElementById('loadFromFirebaseBtn');
-        const testConnectionBtn = document.getElementById('testConnectionBtn');
-        const connectionStatus = document.getElementById('connectionStatus');
-        const lastSync = document.getElementById('lastSync');
-        const configNotice = document.getElementById('configNotice');
+        const clearBtn = document.getElementById('clearBtn');
+        const syncBtn = document.getElementById('syncBtn');
+        const syncStatus = document.getElementById('syncStatus');
+        const searchSymptomBtn = document.getElementById('searchSymptom');
+        const searchHerbBtn = document.getElementById('searchHerb');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+        
+        // Auth elements
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const userInfo = document.getElementById('userInfo');
+        const userName = document.getElementById('userName');
+        const userAvatar = document.getElementById('userAvatar');
+        const loginModal = document.getElementById('loginModal');
+        const closeLoginModal = document.getElementById('closeLoginModal');
+        const googleLoginBtn = document.getElementById('googleLoginBtn');
+        const emailLoginBtn = document.getElementById('emailLoginBtn');
+        const emailRegisterBtn = document.getElementById('emailRegisterBtn');
+        const emailInput = document.getElementById('emailInput');
+        const passwordInput = document.getElementById('passwordInput');
+        
+        // Backup elements
+        const backupBtn = document.getElementById('backupBtn');
+        const restoreBtn = document.getElementById('restoreBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const importFileBtn = document.getElementById('importFileBtn');
+        const importFile = document.getElementById('importFile');
+        const backupList = document.getElementById('backupList');
+        const backupModal = document.getElementById('backupModal');
+        const backupModalList = document.getElementById('backupModalList');
+        const closeBackupModal = document.getElementById('closeBackupModal');
+        const closeBackupModalX = document.getElementById('closeBackupModalX');
 
-        // 初始化示例資料
-        function initSampleData() {
-            const sampleData = [
-                '當歸：補血調經,活血止痛',
-                '黃芪：補氣固表,利水消腫',
-                '人參：大補元氣,復脈固脫',
-                '甘草：補脾益氣,清熱解毒',
-                '白朮：健脾益氣,燥濕利水',
-                '茯苓：利水滲濕,健脾寧心',
-                '川芎：活血行氣,祛風止痛',
-                '白芍：養血調經,平肝止痛'
-            ];
-            
-            sampleData.forEach(line => {
-                processDataLine(line);
-            });
-            updateStatistics();
-        }
-
-        // 處理單行資料
-        function processDataLine(line) {
-            const parts = line.split('：');
-            if (parts.length === 2) {
-                const medicine = parts[0].trim();
-                const symptoms = parts[1].split(',').map(s => s.trim());
-                
-                if (!medicineData[medicine]) {
-                    medicineData[medicine] = new Set();
+        // Initialize
+        updateStatistics();
+        updateSyncStatus();
+        
+        // Auth state listener
+        if (auth) {
+            auth.onAuthStateChanged((user) => {
+                currentUser = user;
+                updateAuthUI();
+                if (user) {
+                    loadUserData();
+                    loadBackupList();
                 }
-                
-                symptoms.forEach(symptom => {
-                    medicineData[medicine].add(symptom);
-                    
-                    if (!symptomData[symptom]) {
-                        symptomData[symptom] = new Set();
-                    }
-                    symptomData[symptom].add(medicine);
-                });
-            }
+            });
         }
 
-        // 搜尋功能
+        // Search mode toggle
+        searchSymptomBtn.addEventListener('click', () => {
+            searchMode = 'symptom';
+            searchSymptomBtn.classList.add('bg-emerald-100', 'text-emerald-700');
+            searchSymptomBtn.classList.remove('bg-gray-100', 'text-gray-700');
+            searchHerbBtn.classList.add('bg-gray-100', 'text-gray-700');
+            searchHerbBtn.classList.remove('bg-emerald-100', 'text-emerald-700');
+            searchInput.placeholder = '輸入症狀搜尋對應中藥...';
+            performSearch();
+        });
+
+        searchHerbBtn.addEventListener('click', () => {
+            searchMode = 'herb';
+            searchHerbBtn.classList.add('bg-emerald-100', 'text-emerald-700');
+            searchHerbBtn.classList.remove('bg-gray-100', 'text-gray-700');
+            searchSymptomBtn.classList.add('bg-gray-100', 'text-gray-700');
+            searchSymptomBtn.classList.remove('bg-emerald-100', 'text-emerald-700');
+            searchInput.placeholder = '輸入中藥名稱搜尋對應症狀...';
+            performSearch();
+        });
+
+        // Search functionality
+        searchInput.addEventListener('input', performSearch);
+
         function performSearch() {
-            const query = searchInput.value.trim();
+            const query = searchInput.value.trim().toLowerCase();
+            searchResults.innerHTML = '';
+
             if (!query) {
-                resultsContainer.innerHTML = '<div class="text-gray-500 text-center py-12">請輸入搜尋內容</div>';
+                searchResults.innerHTML = '<div class="text-gray-500 text-center py-8">請輸入搜尋關鍵字</div>';
                 return;
             }
 
             let results = [];
-            
-            // 搜尋中藥
-            if (medicineData[query]) {
-                const symptoms = Array.from(medicineData[query]);
-                results.push({
-                    type: 'medicine',
-                    name: query,
-                    items: symptoms,
-                    title: `中藥「${query}」的功效`
-                });
-            }
-            
-            // 搜尋症狀
-            if (symptomData[query]) {
-                const medicines = Array.from(symptomData[query]);
-                results.push({
-                    type: 'symptom',
-                    name: query,
-                    items: medicines,
-                    title: `症狀「${query}」的對應中藥`
-                });
-            }
-            
-            // 模糊搜尋
-            if (results.length === 0) {
-                // 搜尋包含關鍵字的中藥
-                Object.keys(medicineData).forEach(medicine => {
-                    if (medicine.includes(query)) {
-                        const symptoms = Array.from(medicineData[medicine]);
-                        results.push({
-                            type: 'medicine',
-                            name: medicine,
-                            items: symptoms,
-                            title: `中藥「${medicine}」的功效`
-                        });
-                    }
-                });
-                
-                // 搜尋包含關鍵字的症狀
-                Object.keys(symptomData).forEach(symptom => {
-                    if (symptom.includes(query)) {
-                        const medicines = Array.from(symptomData[symptom]);
-                        results.push({
-                            type: 'symptom',
-                            name: symptom,
-                            items: medicines,
-                            title: `症狀「${symptom}」的對應中藥`
-                        });
-                    }
-                });
-            }
-            
-            displayResults(results, query);
-        }
 
-        // 顯示搜尋結果
-        function displayResults(results, query) {
+            if (searchMode === 'symptom') {
+                // Search for herbs by symptom
+                Object.keys(herbData).forEach(herb => {
+                    const symptoms = herbData[herb];
+                    if (symptoms.some(symptom => symptom.toLowerCase().includes(query))) {
+                        results.push({
+                            title: herb,
+                            subtitle: '中藥',
+                            content: symptoms,
+                            type: 'herb'
+                        });
+                    }
+                });
+            } else {
+                // Search for symptoms by herb
+                Object.keys(herbData).forEach(herb => {
+                    if (herb.toLowerCase().includes(query)) {
+                        results.push({
+                            title: herb,
+                            subtitle: '中藥',
+                            content: herbData[herb],
+                            type: 'herb'
+                        });
+                    }
+                });
+            }
+
             if (results.length === 0) {
-                resultsContainer.innerHTML = `
-                    <div class="text-center py-12">
-                        <div class="text-gray-400 text-lg mb-2">😔</div>
-                        <div class="text-gray-500">未找到「${query}」的相關資料</div>
-                        <div class="text-sm text-gray-400 mt-2">請嘗試其他關鍵字或導入更多資料</div>
-                    </div>
-                `;
+                searchResults.innerHTML = '<div class="text-gray-500 text-center py-8">未找到相關結果</div>';
                 return;
             }
 
-            let html = '';
-            results.forEach((result, index) => {
-                const bgColor = result.type === 'medicine' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200';
-                const iconColor = result.type === 'medicine' ? 'text-green-600' : 'text-blue-600';
-                const icon = result.type === 'medicine' ? '🌿' : '🔍';
+            results.forEach(result => {
+                const resultElement = document.createElement('div');
+                resultElement.className = 'search-result-item bg-gradient-to-r from-white to-gray-50 p-4 rounded-xl border border-gray-200 transition-all duration-200 fade-in';
                 
-                html += `
-                    <div class="search-result ${bgColor} border-2 rounded-lg p-4 mb-4 fade-in" style="animation-delay: ${index * 0.1}s">
-                        <h4 class="font-semibold ${iconColor} mb-3 flex items-center">
-                            <span class="mr-2">${icon}</span>
-                            ${result.title}
-                        </h4>
-                        <div class="flex flex-wrap gap-2">
-                            ${result.items.map(item => `
-                                <span class="bg-white px-3 py-1 rounded-full text-sm border shadow-sm hover:shadow-md transition-shadow cursor-pointer" onclick="searchInput.value='${item}'; performSearch();">
-                                    ${item}
-                                </span>
-                            `).join('')}
+                resultElement.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-2">
+                                <h3 class="font-semibold text-gray-800 text-lg">${result.title}</h3>
+                                <span class="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full">${result.subtitle}</span>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                ${result.content.map(item => 
+                                    `<span class="px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full">${item}</span>`
+                                ).join('')}
+                            </div>
                         </div>
+                        <i class="fas fa-leaf text-emerald-500 text-xl ml-4"></i>
                     </div>
                 `;
+                
+                searchResults.appendChild(resultElement);
             });
-            
-            resultsContainer.innerHTML = html;
         }
 
-        // 導入資料
-        function importDataFunction() {
+        // Import functionality
+        importBtn.addEventListener('click', () => {
             const data = importData.value.trim();
             if (!data) {
-                showImportStatus('請輸入資料', 'error');
+                showToast('請輸入要導入的資料', 'error');
                 return;
             }
 
-            const lines = data.split('\n').filter(line => line.trim());
-            let successCount = 0;
-            let errorCount = 0;
+            const lines = data.split('\n');
+            let importCount = 0;
 
             lines.forEach(line => {
-                try {
-                    processDataLine(line);
-                    successCount++;
-                } catch (error) {
-                    errorCount++;
+                const trimmedLine = line.trim();
+                if (!trimmedLine) return;
+
+                const colonIndex = trimmedLine.indexOf('：');
+                if (colonIndex === -1) return;
+
+                const herb = trimmedLine.substring(0, colonIndex).trim();
+                const symptomsStr = trimmedLine.substring(colonIndex + 1).trim();
+                const symptoms = symptomsStr.split(',').map(s => s.trim()).filter(s => s);
+
+                if (herb && symptoms.length > 0) {
+                    if (!herbData[herb]) {
+                        herbData[herb] = [];
+                    }
+                    
+                    symptoms.forEach(symptom => {
+                        if (!herbData[herb].includes(symptom)) {
+                            herbData[herb].push(symptom);
+                        }
+                    });
+                    importCount++;
                 }
             });
 
-            updateStatistics();
-            
-            if (errorCount === 0) {
-                showImportStatus(`成功導入 ${successCount} 條資料`, 'success');
+            if (importCount > 0) {
+                localStorage.setItem('herbData', JSON.stringify(herbData));
+                updateStatistics();
                 importData.value = '';
+                showToast(`成功導入 ${importCount} 條記錄`, 'success');
+                performSearch();
             } else {
-                showImportStatus(`導入完成：成功 ${successCount} 條，失敗 ${errorCount} 條`, 'warning');
+                showToast('導入失敗，請檢查資料格式', 'error');
+            }
+        });
+
+        // Clear data
+        clearBtn.addEventListener('click', () => {
+            if (confirm('確定要清除所有資料嗎？此操作無法復原。')) {
+                herbData = {};
+                localStorage.removeItem('herbData');
+                updateStatistics();
+                searchResults.innerHTML = '';
+                showToast('所有資料已清除', 'success');
+            }
+        });
+
+        // Authentication functionality
+        loginBtn.addEventListener('click', () => {
+            loginModal.classList.remove('hidden');
+        });
+
+        closeLoginModal.addEventListener('click', () => {
+            loginModal.classList.add('hidden');
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            if (auth && currentUser) {
+                try {
+                    await auth.signOut();
+                    showToast('已登出', 'success');
+                } catch (error) {
+                    showToast('登出失敗：' + error.message, 'error');
+                }
+            }
+        });
+
+        googleLoginBtn.addEventListener('click', async () => {
+            if (!auth) {
+                showToast('Firebase 未配置', 'error');
+                return;
+            }
+
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                await auth.signInWithPopup(provider);
+                loginModal.classList.add('hidden');
+                showToast('Google 登入成功', 'success');
+            } catch (error) {
+                showToast('Google 登入失敗：' + error.message, 'error');
+            }
+        });
+
+        emailLoginBtn.addEventListener('click', async () => {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+
+            if (!email || !password) {
+                showToast('請輸入電子郵件和密碼', 'error');
+                return;
+            }
+
+            if (!auth) {
+                showToast('Firebase 未配置', 'error');
+                return;
+            }
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                loginModal.classList.add('hidden');
+                emailInput.value = '';
+                passwordInput.value = '';
+                showToast('登入成功', 'success');
+            } catch (error) {
+                showToast('登入失敗：' + error.message, 'error');
+            }
+        });
+
+        emailRegisterBtn.addEventListener('click', async () => {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+
+            if (!email || !password) {
+                showToast('請輸入電子郵件和密碼', 'error');
+                return;
+            }
+
+            if (password.length < 6) {
+                showToast('密碼至少需要6個字符', 'error');
+                return;
+            }
+
+            if (!auth) {
+                showToast('Firebase 未配置', 'error');
+                return;
+            }
+
+            try {
+                await auth.createUserWithEmailAndPassword(email, password);
+                loginModal.classList.add('hidden');
+                emailInput.value = '';
+                passwordInput.value = '';
+                showToast('註冊成功', 'success');
+            } catch (error) {
+                showToast('註冊失敗：' + error.message, 'error');
+            }
+        });
+
+        // Sync functionality
+        syncBtn.addEventListener('click', async () => {
+            if (!db) {
+                showToast('Firebase 未配置，資料僅保存在本地', 'warning');
+                return;
+            }
+
+            if (!currentUser) {
+                showToast('請先登入以同步資料', 'warning');
+                loginModal.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>同步中...';
+                syncBtn.disabled = true;
+
+                await db.collection('users').doc(currentUser.uid).collection('herbData').doc('main').set({
+                    data: herbData,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                    userEmail: currentUser.email
+                });
+
+                localStorage.setItem('lastSync', new Date().toISOString());
+                showToast('資料同步成功', 'success');
+                updateSyncStatus();
+            } catch (error) {
+                showToast('同步失敗：' + error.message, 'error');
+            } finally {
+                syncBtn.innerHTML = '<i class="fas fa-cloud-upload-alt mr-2"></i>同步資料';
+                syncBtn.disabled = false;
+            }
+        });
+
+        // Update statistics
+        function updateStatistics() {
+            const herbCount = Object.keys(herbData).length;
+            const allSymptoms = new Set();
+            let relationCount = 0;
+
+            Object.values(herbData).forEach(symptoms => {
+                symptoms.forEach(symptom => allSymptoms.add(symptom));
+                relationCount += symptoms.length;
+            });
+
+            document.getElementById('herbCount').textContent = herbCount;
+            document.getElementById('symptomCount').textContent = allSymptoms.size;
+            document.getElementById('relationCount').textContent = relationCount;
+        }
+
+        // Update sync status
+        function updateSyncStatus() {
+            const lastSync = localStorage.getItem('lastSync');
+            if (lastSync) {
+                syncStatus.textContent = `上次同步：${new Date(lastSync).toLocaleString()}`;
+            } else {
+                syncStatus.textContent = '尚未同步';
             }
         }
 
-        // 顯示導入狀態
-        function showImportStatus(message, type) {
-            const colors = {
-                success: 'text-green-600',
-                error: 'text-red-600',
-                warning: 'text-yellow-600'
-            };
+        // Toast notification
+        function showToast(message, type = 'info') {
+            toastMessage.textContent = message;
             
-            importStatus.innerHTML = `<div class="${colors[type]} font-medium">${message}</div>`;
+            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform transition-transform duration-300 z-50 ${
+                type === 'success' ? 'bg-green-500 text-white' :
+                type === 'error' ? 'bg-red-500 text-white' :
+                type === 'warning' ? 'bg-yellow-500 text-white' :
+                'bg-blue-500 text-white'
+            }`;
+            
+            toast.style.transform = 'translateX(0)';
             
             setTimeout(() => {
-                importStatus.innerHTML = '';
+                toast.style.transform = 'translateX(100%)';
             }, 3000);
         }
 
-        // 更新統計資料
-        function updateStatistics() {
-            herbCount.textContent = Object.keys(medicineData).length;
-            
-            const allSymptoms = new Set();
-            Object.values(medicineData).forEach(symptoms => {
-                symptoms.forEach(symptom => allSymptoms.add(symptom));
-            });
-            symptomCount.textContent = allSymptoms.size;
-            
-            let totalRelations = 0;
-            Object.values(medicineData).forEach(symptoms => {
-                totalRelations += symptoms.size;
-            });
-            relationCount.textContent = totalRelations;
-        }
+        // Backup functionality
+        backupBtn.addEventListener('click', async () => {
+            if (!currentUser) {
+                showToast('請先登入以創建備份', 'warning');
+                loginModal.classList.remove('hidden');
+                return;
+            }
 
-        // Firebase 狀態管理
-        function updateConnectionStatus(message, color = 'gray') {
-            const statusColors = {
-                connected: 'bg-green-500',
-                error: 'bg-red-500',
-                testing: 'bg-yellow-500',
-                gray: 'bg-gray-400'
+            if (!db) {
+                showToast('Firebase 未配置', 'error');
+                return;
+            }
+
+            try {
+                const backupId = Date.now().toString();
+                const backupData = {
+                    id: backupId,
+                    data: herbData,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    userEmail: currentUser.email,
+                    herbCount: Object.keys(herbData).length,
+                    name: `備份 ${new Date().toLocaleString()}`
+                };
+
+                await db.collection('users').doc(currentUser.uid).collection('backups').doc(backupId).set(backupData);
+                
+                showToast('備份創建成功', 'success');
+                loadBackupList();
+            } catch (error) {
+                showToast('備份失敗：' + error.message, 'error');
+            }
+        });
+
+        restoreBtn.addEventListener('click', () => {
+            if (!currentUser) {
+                showToast('請先登入以恢復備份', 'warning');
+                loginModal.classList.remove('hidden');
+                return;
+            }
+            backupModal.classList.remove('hidden');
+            loadBackupModalList();
+        });
+
+        closeBackupModal.addEventListener('click', () => {
+            backupModal.classList.add('hidden');
+        });
+
+        closeBackupModalX.addEventListener('click', () => {
+            backupModal.classList.add('hidden');
+        });
+
+        exportBtn.addEventListener('click', () => {
+            const dataStr = JSON.stringify(herbData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `中醫資料_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            showToast('資料已導出', 'success');
+        });
+
+        importFileBtn.addEventListener('click', () => {
+            importFile.click();
+        });
+
+        importFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (confirm('導入檔案將覆蓋現有資料，確定要繼續嗎？')) {
+                        herbData = importedData;
+                        localStorage.setItem('herbData', JSON.stringify(herbData));
+                        updateStatistics();
+                        performSearch();
+                        showToast('檔案導入成功', 'success');
+                    }
+                } catch (error) {
+                    showToast('檔案格式錯誤', 'error');
+                }
             };
-            
-            connectionStatus.innerHTML = `
-                <div class="w-3 h-3 ${statusColors[color]} rounded-full mr-2 ${color === 'testing' ? 'animate-pulse' : ''}"></div>
-                <span class="text-sm text-gray-700">${message}</span>
-            `;
+            reader.readAsText(file);
+            importFile.value = '';
+        });
+
+        // Load user data from Firebase
+        async function loadUserData() {
+            if (!db || !currentUser) return;
+
+            try {
+                const doc = await db.collection('users').doc(currentUser.uid).collection('herbData').doc('main').get();
+                if (doc.exists) {
+                    const firebaseData = doc.data();
+                    if (firebaseData.data) {
+                        herbData = firebaseData.data;
+                        localStorage.setItem('herbData', JSON.stringify(herbData));
+                        if (firebaseData.lastUpdated) {
+                            localStorage.setItem('lastSync', firebaseData.lastUpdated.toDate().toISOString());
+                        }
+                        updateStatistics();
+                        updateSyncStatus();
+                        performSearch();
+                        showToast('已從雲端載入個人資料', 'success');
+                    }
+                }
+            } catch (error) {
+                console.log('Failed to load user data:', error);
+            }
         }
 
-        function checkInitialStatus() {
-            // 檢查是否為預設配置
-            if (!window.firebaseDB || window.location.hostname === 'localhost') {
-                updateConnectionStatus('未配置', 'error');
+        // Load backup list
+        async function loadBackupList() {
+            if (!db || !currentUser) return;
+
+            try {
+                const snapshot = await db.collection('users').doc(currentUser.uid).collection('backups')
+                    .orderBy('createdAt', 'desc').limit(5).get();
+                
+                backupList.innerHTML = '';
+                
+                if (snapshot.empty) {
+                    backupList.innerHTML = '<div class="text-gray-500 text-sm text-center py-2">暫無備份</div>';
+                    return;
+                }
+
+                snapshot.forEach((doc) => {
+                    const backup = doc.data();
+                    const backupElement = document.createElement('div');
+                    backupElement.className = 'flex justify-between items-center p-2 bg-gray-50 rounded text-sm';
+                    backupElement.innerHTML = `
+                        <span>${backup.name}</span>
+                        <span class="text-gray-500">${backup.herbCount} 項</span>
+                    `;
+                    backupList.appendChild(backupElement);
+                });
+            } catch (error) {
+                console.log('Failed to load backup list:', error);
+            }
+        }
+
+        // Load backup modal list
+        async function loadBackupModalList() {
+            if (!db || !currentUser) return;
+
+            try {
+                const snapshot = await db.collection('users').doc(currentUser.uid).collection('backups')
+                    .orderBy('createdAt', 'desc').get();
+                
+                backupModalList.innerHTML = '';
+                
+                if (snapshot.empty) {
+                    backupModalList.innerHTML = '<div class="text-gray-500 text-center py-4">暫無備份可恢復</div>';
+                    return;
+                }
+
+                snapshot.forEach((doc) => {
+                    const backup = doc.data();
+                    const backupElement = document.createElement('div');
+                    backupElement.className = 'flex justify-between items-center p-3 bg-gray-50 rounded hover:bg-gray-100 cursor-pointer transition-colors';
+                    backupElement.innerHTML = `
+                        <div>
+                            <div class="font-medium">${backup.name}</div>
+                            <div class="text-sm text-gray-500">${backup.herbCount} 項中藥資料</div>
+                        </div>
+                        <button class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                            恢復
+                        </button>
+                    `;
+                    
+                    backupElement.querySelector('button').addEventListener('click', async () => {
+                        if (confirm('恢復備份將覆蓋現有資料，確定要繼續嗎？')) {
+                            herbData = backup.data;
+                            localStorage.setItem('herbData', JSON.stringify(herbData));
+                            updateStatistics();
+                            performSearch();
+                            backupModal.classList.add('hidden');
+                            showToast('備份恢復成功', 'success');
+                        }
+                    });
+                    
+                    backupModalList.appendChild(backupElement);
+                });
+            } catch (error) {
+                showToast('載入備份列表失敗：' + error.message, 'error');
+            }
+        }
+
+        // Update auth UI
+        function updateAuthUI() {
+            if (currentUser) {
+                loginBtn.classList.add('hidden');
+                userInfo.classList.remove('hidden');
+                userInfo.classList.add('flex');
+                userName.textContent = currentUser.displayName || currentUser.email;
+                userAvatar.src = currentUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.email)}&background=10b981&color=fff`;
             } else {
-                checkFirebaseConnection();
+                loginBtn.classList.remove('hidden');
+                userInfo.classList.add('hidden');
+                userInfo.classList.remove('flex');
             }
         }
-
-        async function checkFirebaseConnection() {
-            try {
-                updateConnectionStatus('檢測中', 'testing');
-                
-                if (!window.firebaseDB) {
-                    updateConnectionStatus('未配置', 'error');
-                    return false;
-                }
-
-                const { doc, getDoc } = window.firebaseModules;
-                await getDoc(doc(window.firebaseDB, 'tcm_data', 'connection_test'));
-                
-                updateConnectionStatus('已連接', 'connected');
-                configNotice.style.display = 'none';
-                return true;
-                
-            } catch (error) {
-                updateConnectionStatus('連接失敗', 'error');
-                return false;
-            }
-        }
-
-        function updateLastSyncTime() {
-            const now = new Date();
-            const timeString = now.toLocaleString('zh-TW', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            lastSync.textContent = timeString;
-        }
-
-        // Firebase 數據庫操作
-        async function saveToFirebase() {
-            try {
-                if (!window.firebaseDB) {
-                    showImportStatus('Firebase 未正確配置', 'error');
-                    return;
-                }
-
-                const { collection, doc, setDoc } = window.firebaseModules;
-                
-                // 轉換 Set 為 Array 以便存儲
-                const medicineDataForSave = {};
-                Object.keys(medicineData).forEach(key => {
-                    medicineDataForSave[key] = Array.from(medicineData[key]);
-                });
-
-                const symptomDataForSave = {};
-                Object.keys(symptomData).forEach(key => {
-                    symptomDataForSave[key] = Array.from(symptomData[key]);
-                });
-
-                // 保存到 Firebase
-                await setDoc(doc(window.firebaseDB, 'tcm_data', 'medicine_data'), {
-                    data: medicineDataForSave,
-                    lastUpdated: new Date().toISOString()
-                });
-
-                await setDoc(doc(window.firebaseDB, 'tcm_data', 'symptom_data'), {
-                    data: symptomDataForSave,
-                    lastUpdated: new Date().toISOString()
-                });
-
-                showImportStatus('資料已成功保存到雲端', 'success');
-                updateLastSyncTime();
-            } catch (error) {
-                console.error('保存失敗:', error);
-                showImportStatus('保存失敗：' + error.message, 'error');
-            }
-        }
-
-        async function loadFromFirebase() {
-            try {
-                if (!window.firebaseDB) {
-                    showImportStatus('Firebase 未正確配置', 'error');
-                    return;
-                }
-
-                const { doc, getDoc } = window.firebaseModules;
-
-                // 從 Firebase 載入資料
-                const medicineDoc = await getDoc(doc(window.firebaseDB, 'tcm_data', 'medicine_data'));
-                const symptomDoc = await getDoc(doc(window.firebaseDB, 'tcm_data', 'symptom_data'));
-
-                if (medicineDoc.exists() && symptomDoc.exists()) {
-                    const medicineDataFromDB = medicineDoc.data().data;
-                    const symptomDataFromDB = symptomDoc.data().data;
-
-                    // 轉換 Array 回 Set
-                    medicineData = {};
-                    Object.keys(medicineDataFromDB).forEach(key => {
-                        medicineData[key] = new Set(medicineDataFromDB[key]);
-                    });
-
-                    symptomData = {};
-                    Object.keys(symptomDataFromDB).forEach(key => {
-                        symptomData[key] = new Set(symptomDataFromDB[key]);
-                    });
-
-                    updateStatistics();
-                    showImportStatus('資料已從雲端載入', 'success');
-                    updateLastSyncTime();
-                    resultsContainer.innerHTML = '<div class="text-gray-500 text-center py-12">資料已載入，請開始搜尋</div>';
-                } else {
-                    showImportStatus('雲端沒有找到資料', 'warning');
-                }
-            } catch (error) {
-                console.error('載入失敗:', error);
-                showImportStatus('載入失敗：' + error.message, 'error');
-            }
-        }
-
-        // 清除所有資料
-        function clearAllData() {
-            if (confirm('確定要清除所有資料嗎？此操作無法復原。')) {
-                medicineData = {};
-                symptomData = {};
-                updateStatistics();
-                resultsContainer.innerHTML = '<div class="text-gray-500 text-center py-12">資料已清除，請重新導入</div>';
-                showImportStatus('所有資料已清除', 'success');
-            }
-        }
-
-        // 事件監聽器
-        searchBtn.addEventListener('click', performSearch);
-        clearBtn.addEventListener('click', () => {
-            searchInput.value = '';
-            resultsContainer.innerHTML = '<div class="text-gray-500 text-center py-12">請輸入症狀或中藥名稱開始搜尋</div>';
-        });
-        
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                performSearch();
-            }
-        });
-        
-        importBtn.addEventListener('click', importDataFunction);
-        saveToFirebaseBtn.addEventListener('click', saveToFirebase);
-        loadFromFirebaseBtn.addEventListener('click', loadFromFirebase);
-        clearDataBtn.addEventListener('click', clearAllData);
-        testConnectionBtn.addEventListener('click', checkFirebaseConnection);
-
-        // 初始化
-        initSampleData();
-        
-        // 延遲檢查 Firebase 連接狀態
-        setTimeout(() => {
-            checkInitialStatus();
-        }, 1000);
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96542b5af3f28142',t:'MTc1MzUzNTc2NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'965494480644ddc7',t:'MTc1MzU0MDA2MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
