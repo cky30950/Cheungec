@@ -159,7 +159,7 @@
                         </div>
                         <textarea 
                             id="importData" 
-                            placeholder="支援多種格式，例如：&#10;當歸：補血調經，活血止痛&#10;黃芪,補氣固表、利尿托毒&#10;人參→大補元氣，復脈固脫..."
+                            placeholder="支援多種格式，例如：&#10;冒號格式：當歸：補血調經，活血止痛&#10;逗號格式：黃芪,補氣固表、利尿托毒&#10;箭頭格式：人參→大補元氣，復脈固脫&#10;標點符號：白芍：養血柔肝。緩中止痛！斂陰收汗？&#10;混合分隔：丹參：活血化瘀，涼血消癰；除煩安神"
                             class="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none text-sm"
                         ></textarea>
                     </div>
@@ -191,27 +191,7 @@
                         </div>
                     </div>
                     
-                    <!-- Quick Templates -->
-                    <div class="mt-4 pt-4 border-t border-gray-200">
-                        <p class="text-sm text-gray-600 mb-2">快速範本：</p>
-                        <div class="grid grid-cols-2 gap-2">
-                            <button id="sampleData1" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded border transition-colors">
-                                📚 基礎中藥
-                            </button>
-                            <button id="sampleData2" class="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-3 py-2 rounded border transition-colors">
-                                🌿 常用方劑
-                            </button>
-                            <button id="sampleData3" class="text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 px-3 py-2 rounded border transition-colors">
-                                💊 現代應用
-                            </button>
-                            <button id="sampleData4" class="text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 px-3 py-2 rounded border transition-colors">
-                                🔄 混合格式
-                            </button>
-                            <button id="sampleData5" class="text-xs bg-pink-50 hover:bg-pink-100 text-pink-700 px-3 py-2 rounded border transition-colors col-span-2">
-                                ✨ 標點符號範例
-                            </button>
-                        </div>
-                    </div>
+
                 </div>
 
                 <!-- Statistics -->
@@ -363,11 +343,6 @@
         
         // Smart import elements
         const formatHint = document.getElementById('formatHint');
-        const sampleData1 = document.getElementById('sampleData1');
-        const sampleData2 = document.getElementById('sampleData2');
-        const sampleData3 = document.getElementById('sampleData3');
-        const sampleData4 = document.getElementById('sampleData4');
-        const sampleData5 = document.getElementById('sampleData5');
         
         // Progress bar elements
         const progressContainer = document.getElementById('progressContainer');
@@ -391,15 +366,18 @@
 
         // Show toast notification
         function showToast(message, type = 'success') {
-            toastMessage.textContent = message;
+            toastMessage.innerHTML = message.replace(/\n/g, '<br>'); // 支援換行顯示
             toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform transition-transform duration-300 z-50 ${
-                type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-            } text-white`;
+                type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : type === 'info' ? 'bg-blue-500' : 'bg-blue-500'
+            } text-white max-w-sm`;
             toast.style.transform = 'translateX(0)';
+            
+            // 根據訊息長度調整顯示時間
+            const displayTime = message.length > 50 ? 5000 : 3000;
             
             setTimeout(() => {
                 toast.style.transform = 'translateX(100%)';
-            }, 3000);
+            }, displayTime);
         }
 
         // Initialize Firebase listeners
@@ -492,26 +470,55 @@
             herbsData = {};
             symptomsData = {};
 
+            // 確保 recordsData 存在且為物件
+            if (!recordsData || typeof recordsData !== 'object') {
+                console.warn('recordsData is not valid:', recordsData);
+                return;
+            }
+
             Object.values(recordsData).forEach(record => {
+                // 驗證記錄格式
+                if (!record || typeof record !== 'object') {
+                    return;
+                }
+
                 const herb = record.herb;
                 const symptom = record.symptom;
 
-                // Add to herbs data
-                if (!herbsData[herb]) {
-                    herbsData[herb] = [];
+                // 確保中藥名稱和症狀都存在且為字串
+                if (!herb || !symptom || typeof herb !== 'string' || typeof symptom !== 'string') {
+                    return;
                 }
-                if (!herbsData[herb].includes(symptom)) {
-                    herbsData[herb].push(symptom);
+
+                // 清理字串，移除多餘空白
+                const cleanHerb = herb.trim();
+                const cleanSymptom = symptom.trim();
+
+                if (!cleanHerb || !cleanSymptom) {
+                    return;
+                }
+
+                // Add to herbs data
+                if (!herbsData[cleanHerb]) {
+                    herbsData[cleanHerb] = [];
+                }
+                if (!herbsData[cleanHerb].includes(cleanSymptom)) {
+                    herbsData[cleanHerb].push(cleanSymptom);
                 }
 
                 // Add to symptoms data
-                if (!symptomsData[symptom]) {
-                    symptomsData[symptom] = [];
+                if (!symptomsData[cleanSymptom]) {
+                    symptomsData[cleanSymptom] = [];
                 }
-                if (!symptomsData[symptom].includes(herb)) {
-                    symptomsData[symptom].push(herb);
+                if (!symptomsData[cleanSymptom].includes(cleanHerb)) {
+                    symptomsData[cleanSymptom].push(cleanHerb);
                 }
             });
+
+            // 調試輸出
+            console.log('處理完成 - 中藥數量:', Object.keys(herbsData).length);
+            console.log('處理完成 - 症狀數量:', Object.keys(symptomsData).length);
+            console.log('症狀資料範例:', Object.keys(symptomsData).slice(0, 5));
         }
 
         // Smart data parsing functions
@@ -522,8 +529,6 @@
             const formats = {
                 colon: 0,
                 comma: 0,
-                tab: 0,
-                space: 0,
                 arrow: 0,
                 bracket: 0,
                 json: 0
@@ -532,10 +537,8 @@
             lines.forEach(line => {
                 if (line.includes('：') || line.includes(':')) formats.colon++;
                 if (line.includes(',')) formats.comma++;
-                if (line.includes('\t')) formats.tab++;
                 if (line.includes('→') || line.includes('->')) formats.arrow++;
                 if (line.includes('[') && line.includes(']')) formats.bracket++;
-                if (line.includes(' ') && !line.includes('：') && !line.includes(',') && !line.includes('\t')) formats.space++;
                 if (line.trim().startsWith('{') || line.trim().startsWith('[')) formats.json++;
             });
             
@@ -560,8 +563,6 @@
                         [herb, symptomsText] = trimmedLine.split(':');
                     } else if (trimmedLine.includes(',')) {
                         [herb, symptomsText] = trimmedLine.split(',');
-                    } else if (trimmedLine.includes('\t')) {
-                        [herb, symptomsText] = trimmedLine.split('\t');
                     } else if (trimmedLine.includes('→')) {
                         [herb, symptomsText] = trimmedLine.split('→');
                     } else if (trimmedLine.includes('->')) {
@@ -571,12 +572,6 @@
                         if (bracketMatch) {
                             herb = bracketMatch[1];
                             symptomsText = bracketMatch[2];
-                        }
-                    } else if (trimmedLine.includes(' ')) {
-                        const parts = trimmedLine.split(' ');
-                        if (parts.length >= 2) {
-                            herb = parts[0];
-                            symptomsText = parts.slice(1).join(' ');
                         }
                     } else if (trimmedLine.startsWith('{')) {
                         try {
@@ -594,12 +589,13 @@
                     }
                     
                     if (herb && symptomsText) {
-                        herb = herb.trim().replace(/[^\u4e00-\u9fa5a-zA-Z0-9、]/g, '');
+                        // 只移除特殊符號，保留所有括號
+                        herb = herb.trim().replace(/[^\u4e00-\u9fa5a-zA-Z0-9、（）()【】〔〕「」『』《》〈〉]/g, '');
                         symptomsText = symptomsText.trim();
                         
-                        // Split multiple symptoms by all common separators and punctuation
-                        const symptoms = symptomsText.split(/[，,、；;|\/\\。！？…：「」『』《》〈〉【】〔〕（）()＼/]/)
-                            .map(s => s.trim().replace(/^[，。、；：！？…\s「」『』《》〈〉【】〔〕（）()＼/]+|[，。、；：！？…\s「」『』《》〈〉【】〔〕（）()＼/]+$/g, ''))
+                        // Split multiple symptoms by separators but preserve brackets in content
+                        const symptoms = symptomsText.split(/[，,、；;|\/\\。！？…：]/)
+                            .map(s => s.trim().replace(/^[，。、；：！？…\s\/\\|]+|[，。、；：！？…\s\/\\|]+$/g, ''))
                             .filter(s => s.length > 0 && s !== '　'); // Filter out empty strings and full-width spaces
                         
                         // Create a result for each symptom
@@ -736,15 +732,40 @@
                 importData.value = '';
                 formatHint.textContent = '';
                 
-                let message = `✅ 成功導入 ${completed} 筆資料`;
-                if (failed > 0) {
-                    message += `，${failed} 筆失敗`;
-                }
-                if (skipCount > 0) {
-                    message += `，跳過 ${skipCount} 筆重複`;
+                // 構建詳細的完成訊息
+                let message = '';
+                let toastType = 'success';
+                
+                if (completed > 0) {
+                    message = `🎉 導入成功！新增 ${completed} 筆資料`;
+                    
+                    // 添加詳細統計
+                    const details = [];
+                    if (failed > 0) {
+                        details.push(`${failed} 筆失敗`);
+                        toastType = 'info'; // 部分成功用 info 顏色
+                    }
+                    if (skipCount > 0) {
+                        details.push(`${skipCount} 筆已存在`);
+                    }
+                    
+                    if (details.length > 0) {
+                        message += ` (${details.join('，')})`;
+                    }
+                    
+                    // 顯示資料庫統計
+                    const totalRecords = Object.keys(recordsData).length + completed;
+                    message += `\n📊 資料庫現有 ${totalRecords} 筆記錄`;
+                    
+                } else if (skipCount > 0) {
+                    message = `ℹ️ 所有 ${skipCount} 筆資料已存在，無需重複導入`;
+                    toastType = 'info';
+                } else {
+                    message = `❌ 導入失敗：${failed} 筆資料處理失敗`;
+                    toastType = 'error';
                 }
                 
-                showToast(message, completed > 0 ? 'success' : 'error');
+                showToast(message, toastType);
                 
             } catch (error) {
                 console.error('Import error:', error);
@@ -883,6 +904,14 @@
                     return 0;
                 }
                 
+                // 清理輸入字串
+                text = text.trim();
+                query = query.trim();
+                
+                if (!text || !query) {
+                    return 0;
+                }
+                
                 // Prevent infinite loops with very long strings
                 if (text.length > 100 || query.length > 100) {
                     // Fallback to simple comparison for very long strings
@@ -941,6 +970,8 @@
                         else if (combo.text.endsWith(combo.query)) score = 600;
                         // Contains query gets medium score
                         else if (combo.text.includes(combo.query)) score = 400;
+                        // 新增：查詢字串包含在文字中的情況（針對症狀搜尋）
+                        else if (combo.query.includes(combo.text)) score = 350;
                         else {
                             // Calculate character overlap score with bounds checking
                             let overlapScore = 0;
@@ -952,11 +983,20 @@
                                 }
                             }
                             
+                            // 新增：計算共同字符數量
+                            let commonChars = 0;
+                            for (let char of combo.query) {
+                                if (combo.text.includes(char)) {
+                                    commonChars++;
+                                }
+                            }
+                            
                             // Length difference penalty (shorter differences get higher scores)
                             const lengthDiff = Math.abs(combo.text.length - combo.query.length);
                             const lengthScore = Math.max(0, 100 - lengthDiff * 5);
                             
-                            score = overlapScore + lengthScore;
+                            // 綜合評分
+                            score = overlapScore + lengthScore + (commonChars * 5);
                         }
                         
                         maxScore = Math.max(maxScore, score);
@@ -1007,6 +1047,7 @@
                         // Ultra-safe herb search
                         try {
                             const herbKeys = Object.keys(safeHerbsData);
+                            console.log('搜尋中藥 - 總中藥數量:', herbKeys.length);
                             
                             for (let i = 0; i < herbKeys.length && i < 1000; i++) { // Limit iterations
                                 try {
@@ -1027,6 +1068,7 @@
                                     
                                     // Exact match (highest priority)
                                     if (herb === query || herbLower === queryLower) {
+                                        console.log('找到完全匹配中藥:', herb);
                                         exactMatches.push({
                                             type: '中藥',
                                             name: herb,
@@ -1038,15 +1080,19 @@
                                         continue;
                                     }
 
-                                    // Partial match (medium priority)
+                                    // Partial match (medium priority) - 增強匹配邏輯
                                     let hasPartialMatch = false;
                                     try {
-                                        hasPartialMatch = herb.includes(query) || herbLower.includes(queryLower);
+                                        hasPartialMatch = herb.includes(query) || 
+                                                        herbLower.includes(queryLower) ||
+                                                        query.includes(herb) ||
+                                                        queryLower.includes(herbLower);
                                     } catch (e) {
                                         hasPartialMatch = false;
                                     }
                                     
                                     if (hasPartialMatch) {
+                                        console.log('找到部分匹配中藥:', herb);
                                         partialMatches.push({
                                             type: '中藥',
                                             name: herb,
@@ -1058,11 +1104,12 @@
                                         continue;
                                     }
 
-                                    // Fuzzy match (lowest priority) - only if we don't have too many results
+                                    // Fuzzy match (lowest priority) - 降低門檻
                                     if (exactMatches.length + partialMatches.length < 20) {
                                         try {
                                             const similarity = calculateSimilarity(herb, query);
-                                            if (similarity && similarity >= 100) { // Higher threshold for fuzzy
+                                            if (similarity && similarity >= 50) { // 降低門檻從100到50
+                                                console.log('找到模糊匹配中藥:', herb, '相似度:', similarity);
                                                 fuzzyMatches.push({
                                                     type: '中藥',
                                                     name: herb,
@@ -1081,6 +1128,10 @@
                                     continue;
                                 }
                             }
+                            
+                            console.log('中藥搜尋結果 - 完全匹配:', exactMatches.filter(m => m.type === '中藥').length);
+                            console.log('中藥搜尋結果 - 部分匹配:', partialMatches.filter(m => m.type === '中藥').length);
+                            console.log('中藥搜尋結果 - 模糊匹配:', fuzzyMatches.filter(m => m.type === '中藥').length);
                         } catch (herbSearchError) {
                             console.warn('Herb search section failed:', herbSearchError);
                         }
@@ -1088,6 +1139,8 @@
                         // Ultra-safe symptom search
                         try {
                             const symptomKeys = Object.keys(safeSymptomsData);
+                            console.log('搜尋症狀 - 總症狀數量:', symptomKeys.length);
+                            console.log('搜尋關鍵字:', query);
                             
                             for (let i = 0; i < symptomKeys.length && i < 1000; i++) { // Limit iterations
                                 try {
@@ -1108,6 +1161,7 @@
                                     
                                     // Exact match (highest priority)
                                     if (symptom === query || symptomLower === queryLower) {
+                                        console.log('找到完全匹配症狀:', symptom);
                                         exactMatches.push({
                                             type: '症狀',
                                             name: symptom,
@@ -1119,15 +1173,19 @@
                                         continue;
                                     }
 
-                                    // Partial match (medium priority)
+                                    // Partial match (medium priority) - 增強匹配邏輯
                                     let hasPartialMatch = false;
                                     try {
-                                        hasPartialMatch = symptom.includes(query) || symptomLower.includes(queryLower);
+                                        hasPartialMatch = symptom.includes(query) || 
+                                                        symptomLower.includes(queryLower) ||
+                                                        query.includes(symptom) ||
+                                                        queryLower.includes(symptomLower);
                                     } catch (e) {
                                         hasPartialMatch = false;
                                     }
                                     
                                     if (hasPartialMatch) {
+                                        console.log('找到部分匹配症狀:', symptom);
                                         partialMatches.push({
                                             type: '症狀',
                                             name: symptom,
@@ -1139,11 +1197,12 @@
                                         continue;
                                     }
 
-                                    // Fuzzy match (lowest priority) - only if we don't have too many results
+                                    // Fuzzy match (lowest priority) - 降低門檻
                                     if (exactMatches.length + partialMatches.length < 20) {
                                         try {
                                             const similarity = calculateSimilarity(symptom, query);
-                                            if (similarity && similarity >= 100) { // Higher threshold for fuzzy
+                                            if (similarity && similarity >= 50) { // 降低門檻從100到50
+                                                console.log('找到模糊匹配症狀:', symptom, '相似度:', similarity);
                                                 fuzzyMatches.push({
                                                     type: '症狀',
                                                     name: symptom,
@@ -1162,6 +1221,10 @@
                                     continue;
                                 }
                             }
+                            
+                            console.log('症狀搜尋結果 - 完全匹配:', exactMatches.filter(m => m.type === '症狀').length);
+                            console.log('症狀搜尋結果 - 部分匹配:', partialMatches.filter(m => m.type === '症狀').length);
+                            console.log('症狀搜尋結果 - 模糊匹配:', fuzzyMatches.filter(m => m.type === '症狀').length);
                         } catch (symptomSearchError) {
                             console.warn('Symptom search section failed:', symptomSearchError);
                         }
@@ -1378,70 +1441,7 @@
             }
         }
 
-        // Sample data templates
-        const sampleTemplates = {
-            basic: `當歸：補血調經，活血止痛，潤腸通便
-黃芪：補氣固表，利尿托毒，排膿，斂瘡生肌
-人參：大補元氣，復脈固脫，補脾益肺，生津養血
-甘草：調和諸藥，補脾益氣，清熱解毒，祛痰止咳
-川芎：活血行氣，祛風止痛
-白芍：養血柔肝，緩中止痛，斂陰收汗
-熟地黃：滋陰補血，益精填髓
-茯苓：健脾利水，寧心安神`,
-            
-            formula: `四物湯：補血調經，養血活血
-六君子湯：健脾益氣，燥濕化痰
-逍遙散：疏肝解鬱，健脾和血
-補中益氣湯：補氣升陽，甘溫除熱
-桂枝湯：解肌發表，調和營衛
-麻黃湯：發汗解表，宣肺平喘
-小柴胡湯：和解少陽，疏肝和胃
-大承氣湯：攻下燥實，清熱瀉火`,
-            
-            modern: `板藍根：清熱解毒，涼血利咽
-金銀花：清熱解毒，疏散風熱
-連翹：清熱解毒，消腫散結
-蒲公英：清熱解毒，消腫散結，利尿通淋
-魚腥草：清熱解毒，消癰排膿，利尿通淋
-桔梗：宣肺祛痰，利咽排膿
-枇杷葉：清肺止咳，降逆止嘔
-川貝母：清熱化痰，潤肺止咳，散結消腫`,
-            
-            mixed: `丹參：活血化瘀，涼血消癰，除煩安神
-紅花,活血通經、散瘀止痛
-桃仁	破血行瘀；潤燥滑腸
-牛膝 活血通經/補肝腎、強筋骨
-三七→止血化瘀|定痛
-乳香[活血止痛；伸筋]
-沒藥[活血止痛，消腫生肌]
-{"herb":"血竭","symptom":"活血定痛，化瘀止血，生肌斂瘡"}`,
 
-            punctuation: `當歸：補血調經。活血止痛！潤腸通便？
-黃芪，補氣固表、利尿托毒；排膿…斂瘡生肌
-人參「大補元氣」「復脈固脫」「補脾益肺」
-甘草《調和諸藥》《補脾益氣》《清熱解毒》
-川芎〈活血行氣〉〈祛風止痛〉
-白芍【養血柔肝】【緩中止痛】【斂陰收汗】
-熟地黃（滋陰補血）（益精填髓）
-茯苓＼健脾利水／寧心安神
-丹參→活血化瘀|涼血消癰|除煩安神`
-        };
-
-        // Helper functions
-        function loadSampleData(type) {
-            const template = sampleTemplates[type];
-            if (template) {
-                importData.value = template;
-                const templateNames = {
-                    'basic': '基礎中藥',
-                    'formula': '常用方劑', 
-                    'modern': '現代應用',
-                    'mixed': '混合格式',
-                    'punctuation': '標點符號範例'
-                };
-                showToast(`已載入${templateNames[type]}範本`, 'success');
-            }
-        }
 
         // Event listeners
         searchBtn.addEventListener('click', searchFunction);
@@ -1473,12 +1473,7 @@
             }
         });
         
-        // Sample data buttons
-        sampleData1.addEventListener('click', () => loadSampleData('basic'));
-        sampleData2.addEventListener('click', () => loadSampleData('formula'));
-        sampleData3.addEventListener('click', () => loadSampleData('modern'));
-        sampleData4.addEventListener('click', () => loadSampleData('mixed'));
-        sampleData5.addEventListener('click', () => loadSampleData('punctuation'));
+
 
         // Auto-detect format on input change
         importData.addEventListener('input', () => {
@@ -1487,8 +1482,6 @@
                 const formatNames = {
                     colon: '冒號格式',
                     comma: '逗號格式',
-                    tab: 'Tab格式',
-                    space: '空格格式',
                     arrow: '箭頭格式',
                     bracket: '方括號格式',
                     json: 'JSON格式'
@@ -1512,5 +1505,5 @@
         // Initialize the application
         initializeFirebase();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9665384a60a9055c',t:'MTc1MzcxNDU1MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9665b7ef27e7dd9b',t:'MTc1MzcxOTc4MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
