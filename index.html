@@ -807,9 +807,9 @@
                 showProgress();
                 updateProgress(20, '🗑️ 正在清除資料庫...');
                 
-                // Clear the entire database root
-                const rootRef = window.firebaseDB.ref(window.firebaseDB.database);
-                await window.firebaseDB.set(rootRef, null);
+                // Clear only the tcm-records node instead of entire database
+                const recordsRef = window.firebaseDB.ref(window.firebaseDB.database, 'tcm-records');
+                await window.firebaseDB.set(recordsRef, null);
                 
                 updateProgress(80, '✅ 資料庫已清除');
                 await new Promise(resolve => setTimeout(resolve, 500));
@@ -820,9 +820,13 @@
                 symptomsData = {};
                 recordsData = {};
                 
-                // Clear search results
-                searchResults.classList.add('hidden');
+                // Clear search input
                 searchInput.value = '';
+                
+                // Hide modal if open
+                if (!searchModal.classList.contains('hidden')) {
+                    hideModal();
+                }
                 
                 showToast('💥 整個資料庫已清除', 'success');
                 
@@ -832,7 +836,21 @@
                 
             } catch (error) {
                 console.error('Database clear error:', error);
-                showToast('清除資料庫失敗，請檢查權限設定', 'error');
+                
+                let errorMessage = '清除資料庫失敗';
+                if (error.message) {
+                    if (error.message.includes('permission') || error.message.includes('PERMISSION')) {
+                        errorMessage = '權限不足，無法清除資料庫';
+                    } else if (error.message.includes('network') || error.message.includes('offline')) {
+                        errorMessage = '網路連線問題，請檢查網路後重試';
+                    } else if (error.message.includes('Firebase')) {
+                        errorMessage = 'Firebase 連線問題，請重新整理頁面';
+                    } else {
+                        errorMessage = `清除失敗: ${error.message}`;
+                    }
+                }
+                
+                showToast(errorMessage, 'error');
                 hideProgress();
             }
         }
@@ -1494,5 +1512,5 @@
         // Initialize the application
         initializeFirebase();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96651959622f7e88',t:'MTc1MzcxMzI4NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9665384a60a9055c',t:'MTc1MzcxNDU1MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
