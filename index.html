@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>中醫診症輔助工具 - 雲端版</title>
+    <title>中藥資料庫 - 雲端版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Firebase SDK -->
@@ -73,14 +73,14 @@
                         <span class="text-white font-bold text-lg">中</span>
                     </div>
                     <div>
-                        <h1 class="text-2xl font-bold text-gray-800">中醫診症輔助工具</h1>
+                        <h1 class="text-2xl font-bold text-gray-800">中藥資料庫</h1>
                         <p class="text-sm text-gray-600">雲端共享版 - 即時同步</p>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
                     <div id="connectionStatus" class="flex items-center space-x-2">
-                        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
-                        <span class="text-sm text-gray-600">已連線</span>
+                        <div class="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
+                        <span class="text-sm text-gray-600">連線中...</span>
                     </div>
                     <div class="text-sm text-gray-600">
                         專業版 v2.0
@@ -147,29 +147,72 @@
                 <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
                     <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
                         <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
                         </svg>
-                        資料導入 (雲端同步)
+                        智能資料導入 (雲端同步)
                     </h2>
                     
+                    <!-- Smart Input Area -->
                     <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
-                            格式：中藥名：症狀
-                        </label>
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-sm font-medium text-gray-700">
+                                🤖 自動識別格式
+                            </label>
+                            <div id="formatHint" class="text-xs text-gray-500"></div>
+                        </div>
                         <textarea 
                             id="importData" 
-                            placeholder="例如：&#10;當歸：補血調經&#10;黃芪：補氣固表&#10;人參：大補元氣"
+                            placeholder="✅ 支援所有標點符號分隔，自動智能識別：&#10;當歸：補血調經，活血止痛。潤腸通便！&#10;黃芪,補氣固表、利尿托毒；排膿&#10;人參	大補元氣？復脈固脫…生津養血&#10;甘草 調和諸藥|補脾益氣/清熱解毒&#10;川芎→活血行氣＼祛風止痛&#10;白芍[養血柔肝；緩中止痛]&#10;茯苓「健脾利水」「寧心安神」&#10;熟地黃《滋陰補血》《益精填髓》&#10;標點符號會自動清理，無需手動處理..."
                             class="w-full h-32 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors resize-none text-sm"
                         ></textarea>
                     </div>
                     
-                    <button id="importBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors mb-3">
-                        導入到雲端
-                    </button>
+                    <!-- Action Buttons -->
+                    <div class="space-y-2">
+                        <button id="importBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors">
+                            ⬆️ 智能導入到雲端
+                        </button>
+                        
+                        <!-- Progress Bar -->
+                        <div id="progressContainer" class="hidden bg-gray-100 rounded-lg p-4 border">
+                            <div class="flex items-center justify-between mb-2">
+                                <span id="progressText" class="text-sm text-gray-700">準備導入...</span>
+                                <span id="progressPercent" class="text-sm font-medium text-blue-600">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        
+                        <button id="clearAllBtn" class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-medium transition-colors text-sm">
+                            🗑️ 清空輸入資料
+                        </button>
+                        <button id="clearDatabaseBtn" class="w-full bg-red-700 hover:bg-red-800 text-white py-2 rounded-lg font-medium transition-colors text-sm mt-2">
+                            💥 清除資料庫
+                        </button>
+                    </div>
                     
-                    <button id="clearAllBtn" class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-medium transition-colors text-sm">
-                        清空所有資料
-                    </button>
+                    <!-- Quick Templates -->
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">快速範本：</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="sampleData1" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors">
+                                📚 基礎中藥
+                            </button>
+                            <button id="sampleData2" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors">
+                                🌿 常用方劑
+                            </button>
+                            <button id="sampleData3" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors">
+                                💊 現代應用
+                            </button>
+                            <button id="sampleData4" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors">
+                                🔄 混合格式
+                            </button>
+                            <button id="sampleData5" class="text-xs bg-purple-100 hover:bg-purple-200 px-2 py-1 rounded transition-colors col-span-2">
+                                ✨ 標點符號範例
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Statistics -->
@@ -191,14 +234,7 @@
                     </div>
                 </div>
 
-                <!-- Online Users (Demo) -->
-                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">線上狀態</h3>
-                    <div class="flex items-center space-x-2">
-                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <span class="text-sm text-gray-600">多人協作模式</span>
-                    </div>
-                </div>
+
             </div>
         </div>
 
@@ -260,6 +296,7 @@
         const importData = document.getElementById('importData');
         const importBtn = document.getElementById('importBtn');
         const clearAllBtn = document.getElementById('clearAllBtn');
+        const clearDatabaseBtn = document.getElementById('clearDatabaseBtn');
         const herbCount = document.getElementById('herbCount');
         const symptomCount = document.getElementById('symptomCount');
         const recordCount = document.getElementById('recordCount');
@@ -271,6 +308,20 @@
         const connectionStatus = document.getElementById('connectionStatus');
         const toast = document.getElementById('toast');
         const toastMessage = document.getElementById('toastMessage');
+        
+        // Smart import elements
+        const formatHint = document.getElementById('formatHint');
+        const sampleData1 = document.getElementById('sampleData1');
+        const sampleData2 = document.getElementById('sampleData2');
+        const sampleData3 = document.getElementById('sampleData3');
+        const sampleData4 = document.getElementById('sampleData4');
+        const sampleData5 = document.getElementById('sampleData5');
+        
+        // Progress bar elements
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const progressPercent = document.getElementById('progressPercent');
 
         // Wait for Firebase to be ready
         function waitForFirebase() {
@@ -321,7 +372,8 @@
                     }
                 });
 
-                updateConnectionStatus(true);
+                // Start connection monitoring
+                monitorConnection();
             } catch (error) {
                 console.error('Firebase initialization error:', error);
                 updateConnectionStatus(false);
@@ -346,6 +398,41 @@
                 statusDot.className = 'w-3 h-3 bg-red-500 rounded-full';
                 statusText.textContent = '離線';
             }
+        }
+
+        // Real-time connection monitoring
+        function monitorConnection() {
+            const connectedRef = window.firebaseDB.ref(window.firebaseDB.database, '.info/connected');
+            window.firebaseDB.onValue(connectedRef, (snapshot) => {
+                const connected = snapshot.val();
+                updateConnectionStatus(connected);
+                
+                if (connected) {
+                    console.log('Firebase connected');
+                } else {
+                    console.log('Firebase disconnected');
+                }
+            });
+        }
+
+        // Progress bar functions
+        function showProgress() {
+            progressContainer.classList.remove('hidden');
+            importBtn.disabled = true;
+            importBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        function hideProgress() {
+            progressContainer.classList.add('hidden');
+            importBtn.disabled = false;
+            importBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            updateProgress(0, '準備導入...');
+        }
+
+        function updateProgress(percent, text) {
+            progressBar.style.width = percent + '%';
+            progressPercent.textContent = Math.round(percent) + '%';
+            progressText.textContent = text;
         }
 
         // Process records data into herbs and symptoms
@@ -375,7 +462,110 @@
             });
         }
 
-        // Import data to Firebase
+        // Smart data parsing functions
+        function detectFormat(text) {
+            const lines = text.split('\n').filter(line => line.trim());
+            if (lines.length === 0) return 'unknown';
+            
+            const formats = {
+                colon: 0,
+                comma: 0,
+                tab: 0,
+                space: 0,
+                arrow: 0,
+                bracket: 0,
+                json: 0
+            };
+            
+            lines.forEach(line => {
+                if (line.includes('：') || line.includes(':')) formats.colon++;
+                if (line.includes(',')) formats.comma++;
+                if (line.includes('\t')) formats.tab++;
+                if (line.includes('→') || line.includes('->')) formats.arrow++;
+                if (line.includes('[') && line.includes(']')) formats.bracket++;
+                if (line.includes(' ') && !line.includes('：') && !line.includes(',') && !line.includes('\t')) formats.space++;
+                if (line.trim().startsWith('{') || line.trim().startsWith('[')) formats.json++;
+            });
+            
+            return Object.keys(formats).reduce((a, b) => formats[a] > formats[b] ? a : b);
+        }
+
+        function parseDataByFormat(text, format) {
+            const lines = text.split('\n').filter(line => line.trim());
+            const results = [];
+            
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) return;
+                
+                let herb = '', symptomsText = '';
+                
+                try {
+                    // Try different formats in order
+                    if (trimmedLine.includes('：')) {
+                        [herb, symptomsText] = trimmedLine.split('：');
+                    } else if (trimmedLine.includes(':')) {
+                        [herb, symptomsText] = trimmedLine.split(':');
+                    } else if (trimmedLine.includes(',')) {
+                        [herb, symptomsText] = trimmedLine.split(',');
+                    } else if (trimmedLine.includes('\t')) {
+                        [herb, symptomsText] = trimmedLine.split('\t');
+                    } else if (trimmedLine.includes('→')) {
+                        [herb, symptomsText] = trimmedLine.split('→');
+                    } else if (trimmedLine.includes('->')) {
+                        [herb, symptomsText] = trimmedLine.split('->');
+                    } else if (trimmedLine.includes('[') && trimmedLine.includes(']')) {
+                        const bracketMatch = trimmedLine.match(/^(.+?)\[(.+?)\]$/);
+                        if (bracketMatch) {
+                            herb = bracketMatch[1];
+                            symptomsText = bracketMatch[2];
+                        }
+                    } else if (trimmedLine.includes(' ')) {
+                        const parts = trimmedLine.split(' ');
+                        if (parts.length >= 2) {
+                            herb = parts[0];
+                            symptomsText = parts.slice(1).join(' ');
+                        }
+                    } else if (trimmedLine.startsWith('{')) {
+                        try {
+                            const jsonData = JSON.parse(trimmedLine);
+                            if (jsonData.herb && jsonData.symptom) {
+                                herb = jsonData.herb;
+                                symptomsText = jsonData.symptom;
+                            } else if (jsonData.name && jsonData.effect) {
+                                herb = jsonData.name;
+                                symptomsText = jsonData.effect;
+                            }
+                        } catch (e) {
+                            // Invalid JSON, skip
+                        }
+                    }
+                    
+                    if (herb && symptomsText) {
+                        herb = herb.trim().replace(/[^\u4e00-\u9fa5a-zA-Z0-9、]/g, '');
+                        symptomsText = symptomsText.trim();
+                        
+                        // Split multiple symptoms by all common separators and punctuation
+                        const symptoms = symptomsText.split(/[，,、；;|\/\\。！？…：「」『』《》〈〉【】〔〕（）()＼/]/)
+                            .map(s => s.trim().replace(/^[，。、；：！？…\s「」『』《》〈〉【】〔〕（）()＼/]+|[，。、；：！？…\s「」『』《》〈〉【】〔〕（）()＼/]+$/g, ''))
+                            .filter(s => s.length > 0 && s !== '　'); // Filter out empty strings and full-width spaces
+                        
+                        // Create a result for each symptom
+                        symptoms.forEach(symptom => {
+                            if (herb && symptom) {
+                                results.push({ herb, symptom, original: trimmedLine });
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.warn('Parse error for line:', trimmedLine, error);
+                }
+            });
+            
+            return results;
+        }
+
+        // Import data to Firebase with robust error handling
         async function importDataFunction() {
             const data = importData.value.trim();
             if (!data) {
@@ -383,49 +573,176 @@
                 return;
             }
 
-            if (!isFirebaseReady) {
-                showToast('正在連線中，請稍候...', 'info');
+            // Parse data with auto-detection
+            const detectedFormat = detectFormat(data);
+            const parsedData = parseDataByFormat(data, detectedFormat);
+            
+            if (parsedData.length === 0) {
+                showToast('沒有有效的資料可以導入', 'error');
                 return;
             }
 
-            const lines = data.split('\n');
-            let importCount = 0;
+            // Remove duplicates and prepare data
+            const seen = new Set();
+            const validData = [];
+            let skipCount = 0;
+
+            // Show progress bar
+            showProgress();
+            updateProgress(5, '📋 資料預處理中...');
+
+            // Pre-process all data
+            parsedData.forEach(item => {
+                const key = `${item.herb}_${item.symptom}`;
+                if (seen.has(key)) return;
+                seen.add(key);
+
+                const recordKey = `${item.herb}_${item.symptom}`.replace(/[.#$[\]]/g, '_');
+                
+                // Check for duplicates in existing data
+                if (recordsData[recordKey]) {
+                    skipCount++;
+                    return;
+                }
+
+                validData.push({
+                    key: recordKey,
+                    herb: item.herb,
+                    symptom: item.symptom,
+                    timestamp: Date.now()
+                });
+            });
+
+            const totalItems = validData.length;
+            
+            if (totalItems === 0) {
+                updateProgress(100, '沒有新資料需要導入');
+                await new Promise(resolve => setTimeout(resolve, 600));
+                hideProgress();
+                showToast(`所有 ${skipCount} 筆資料已存在，無需重複導入`, 'info');
+                return;
+            }
 
             try {
-                for (const line of lines) {
-                    const trimmedLine = line.trim();
-                    if (trimmedLine && trimmedLine.includes('：')) {
-                        const [herb, symptom] = trimmedLine.split('：');
-                        const herbName = herb.trim();
-                        const symptomName = symptom.trim();
+                updateProgress(15, `📤 準備導入 ${totalItems} 筆資料...`);
 
-                        if (herbName && symptomName) {
-                            // Create unique key for the record
-                            const recordKey = `${herbName}_${symptomName}`.replace(/[.#$[\]]/g, '_');
-                            const recordRef = window.firebaseDB.ref(window.firebaseDB.database, `tcm-records/${recordKey}`);
-                            
+                // Always use safe individual writes for maximum reliability
+                let completed = 0;
+                let failed = 0;
+                const batchSize = 10; // Conservative batch size
+                
+                // Process in small batches to avoid overwhelming Firebase
+                for (let i = 0; i < validData.length; i += batchSize) {
+                    const batch = validData.slice(i, i + batchSize);
+                    
+                    updateProgress(
+                        15 + (i / validData.length) * 70, 
+                        `📝 處理第 ${Math.floor(i/batchSize) + 1} 批 (${i + 1}-${Math.min(i + batchSize, validData.length)})`
+                    );
+
+                    // Process batch items with individual error handling
+                    const batchPromises = batch.map(async (item) => {
+                        try {
+                            // Check if Firebase is available
+                            if (!window.firebaseDB || !window.firebaseDB.database) {
+                                throw new Error('Firebase 未初始化');
+                            }
+
+                            const recordRef = window.firebaseDB.ref(window.firebaseDB.database, `tcm-records/${item.key}`);
                             await window.firebaseDB.set(recordRef, {
-                                herb: herbName,
-                                symptom: symptomName,
-                                timestamp: Date.now()
+                                herb: item.herb,
+                                symptom: item.symptom,
+                                timestamp: item.timestamp
                             });
-
-                            importCount++;
+                            
+                            completed++;
+                            return { success: true, item };
+                        } catch (error) {
+                            console.warn('Single item failed:', item, error);
+                            failed++;
+                            return { success: false, item, error };
                         }
+                    });
+
+                    // Wait for current batch to complete
+                    await Promise.all(batchPromises);
+                    
+                    // Small delay between batches to prevent rate limiting
+                    if (i + batchSize < validData.length) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
                     }
                 }
 
+                // Final progress
+                updateProgress(90, '✅ 導入完成，正在同步...');
+                await new Promise(resolve => setTimeout(resolve, 500));
+                updateProgress(100, '🎉 同步完成！');
+
+                // Wait briefly before hiding
+                await new Promise(resolve => setTimeout(resolve, 800));
+
                 importData.value = '';
-                showToast(`成功導入 ${importCount} 筆資料到雲端`, 'success');
+                formatHint.textContent = '';
+                
+                let message = `✅ 成功導入 ${completed} 筆資料`;
+                if (failed > 0) {
+                    message += `，${failed} 筆失敗`;
+                }
+                if (skipCount > 0) {
+                    message += `，跳過 ${skipCount} 筆重複`;
+                }
+                
+                showToast(message, completed > 0 ? 'success' : 'error');
+                
             } catch (error) {
                 console.error('Import error:', error);
-                showToast('導入失敗，請檢查網路連線', 'error');
+                updateProgress(100, '❌ 導入失敗');
+                
+                let errorMessage = '導入失敗';
+                if (error.message) {
+                    if (error.message.includes('permission') || error.message.includes('PERMISSION')) {
+                        errorMessage = '權限不足，請檢查 Firebase 設定';
+                    } else if (error.message.includes('network') || error.message.includes('offline')) {
+                        errorMessage = '網路連線問題，請檢查網路後重試';
+                    } else if (error.message.includes('Firebase')) {
+                        errorMessage = 'Firebase 連線問題，請重新整理頁面';
+                    } else {
+                        errorMessage = `導入失敗: ${error.message}`;
+                    }
+                }
+                
+                showToast(errorMessage, 'error');
+                
+                // Wait before hiding progress
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } finally {
+                hideProgress();
             }
         }
 
-        // Clear all data
-        async function clearAllData() {
-            if (!confirm('確定要清空所有雲端資料嗎？此操作無法復原！')) {
+
+
+
+
+        // Clear input data
+        function clearAllData() {
+            if (!confirm('確定要清空輸入欄的資料嗎？')) {
+                return;
+            }
+
+            importData.value = '';
+            formatHint.textContent = '';
+            showToast('輸入資料已清空', 'success');
+        }
+
+        // Clear entire database
+        async function clearDatabase() {
+            if (!confirm('⚠️ 警告：這將清除整個資料庫的所有內容！\n\n此操作無法復原，確定要繼續嗎？')) {
+                return;
+            }
+
+            // Double confirmation for safety
+            if (!confirm('🚨 最後確認：您即將刪除整個資料庫！\n\n請再次確認您真的要執行此操作？')) {
                 return;
             }
 
@@ -435,16 +752,119 @@
             }
 
             try {
-                const recordsRef = window.firebaseDB.ref(window.firebaseDB.database, 'tcm-records');
-                await window.firebaseDB.set(recordsRef, null);
-                showToast('所有資料已清空', 'success');
+                showProgress();
+                updateProgress(20, '🗑️ 正在清除資料庫...');
+                
+                // Clear the entire database root
+                const rootRef = window.firebaseDB.ref(window.firebaseDB.database);
+                await window.firebaseDB.set(rootRef, null);
+                
+                updateProgress(80, '✅ 資料庫已清除');
+                await new Promise(resolve => setTimeout(resolve, 500));
+                updateProgress(100, '🎉 清除完成');
+                
+                // Reset local data
+                herbsData = {};
+                symptomsData = {};
+                recordsData = {};
+                
+                // Clear search results
+                searchResults.classList.add('hidden');
+                searchInput.value = '';
+                
+                showToast('💥 整個資料庫已清除', 'success');
+                
+                setTimeout(() => {
+                    hideProgress();
+                }, 1000);
+                
             } catch (error) {
-                console.error('Clear error:', error);
-                showToast('清空失敗，請檢查網路連線', 'error');
+                console.error('Database clear error:', error);
+                showToast('清除資料庫失敗，請檢查權限設定', 'error');
+                hideProgress();
             }
         }
 
-        // Search function
+        // Traditional-Simplified Chinese conversion maps
+        const traditionalToSimplified = {
+            '當': '当', '歸': '归', '補': '补', '調': '调', '經': '经', '潤': '润', '腸': '肠', '黃': '黄', '氣': '气', '錶': '表', '膿': '脓', '瘡': '疮', '復': '复', '脈': '脉', '脫': '脱', '養': '养', '血': '血', '祛': '祛', '風': '风', '緩': '缓', '陰': '阴', '滋': '滋', '腎': '肾', '精': '精', '髓': '髓', '寧': '宁', '神': '神', '濕': '湿', '痰': '痰', '鬱': '郁', '營': '营', '衛': '卫', '發': '发', '汗': '汗', '宣': '宣', '肺': '肺', '喘': '喘', '攻': '攻', '燥': '燥', '實': '实', '瀉': '泻', '火': '火', '藍': '蓝', '涼': '凉', '咽': '咽', '銀': '银', '疏': '疏', '散': '散', '熱': '热', '腫': '肿', '結': '结', '癰': '痈', '淋': '淋', '腥': '腥', '草': '草', '排': '排', '葉': '叶', '嘔': '呕', '貝': '贝', '母': '母', '煩': '烦', '紅': '红', '花': '花', '瘀': '瘀', '桃': '桃', '仁': '仁', '膝': '膝', '強': '强', '筋': '筋', '骨': '骨', '傷': '伤', '沒': '没', '藥': '药', '竭': '竭', '斂': '敛', '機': '机', '體': '体', '療': '疗', '證': '证', '診': '诊', '斷': '断', '處': '处', '方': '方', '劑': '剂', '湯': '汤', '丸': '丸', '膏': '膏', '飲': '饮', '顆': '颗', '粒': '粒', '針': '针', '灸': '灸', '推': '推', '拿': '拿', '按': '按', '摩': '摩', '穴': '穴', '位': '位', '經': '经', '絡': '络', '臟': '脏', '腑': '腑', '陽': '阳', '虛': '虚', '實': '实', '寒': '寒', '溫': '温', '涼': '凉', '燥': '燥', '濕': '湿', '風': '风', '暑': '暑', '火': '火', '燥': '燥', '濕': '湿', '寒': '寒', '熱': '热', '虛': '虚', '實': '实', '陰': '阴', '陽': '阳', '氣': '气', '血': '血', '津': '津', '液': '液', '精': '精', '神': '神', '魂': '魂', '魄': '魄', '意': '意', '志': '志', '思': '思', '慮': '虑', '智': '智', '慧': '慧'
+        };
+
+        const simplifiedToTraditional = {};
+        Object.keys(traditionalToSimplified).forEach(trad => {
+            const simp = traditionalToSimplified[trad];
+            simplifiedToTraditional[simp] = trad;
+        });
+
+        // Convert text between Traditional and Simplified Chinese
+        function convertToSimplified(text) {
+            return text.split('').map(char => traditionalToSimplified[char] || char).join('');
+        }
+
+        function convertToTraditional(text) {
+            return text.split('').map(char => simplifiedToTraditional[char] || char).join('');
+        }
+
+        // Enhanced similarity calculation with Traditional/Simplified support
+        function calculateSimilarity(text, query) {
+            const textLower = text.toLowerCase();
+            const queryLower = query.toLowerCase();
+            
+            // Convert to both Traditional and Simplified for comparison
+            const textSimp = convertToSimplified(text);
+            const textTrad = convertToTraditional(text);
+            const querySimp = convertToSimplified(query);
+            const queryTrad = convertToTraditional(query);
+            
+            // Test all combinations
+            const testCombinations = [
+                { text: textLower, query: queryLower },
+                { text: textSimp.toLowerCase(), query: queryLower },
+                { text: textTrad.toLowerCase(), query: queryLower },
+                { text: textLower, query: querySimp.toLowerCase() },
+                { text: textLower, query: queryTrad.toLowerCase() },
+                { text: textSimp.toLowerCase(), query: querySimp.toLowerCase() },
+                { text: textTrad.toLowerCase(), query: queryTrad.toLowerCase() },
+                { text: textSimp.toLowerCase(), query: queryTrad.toLowerCase() },
+                { text: textTrad.toLowerCase(), query: querySimp.toLowerCase() }
+            ];
+            
+            let maxScore = 0;
+            
+            testCombinations.forEach(combo => {
+                let score = 0;
+                
+                // Exact match gets highest score
+                if (combo.text === combo.query) score = 1000;
+                // Starts with query gets high score
+                else if (combo.text.startsWith(combo.query)) score = 800;
+                // Ends with query gets medium-high score
+                else if (combo.text.endsWith(combo.query)) score = 600;
+                // Contains query gets medium score
+                else if (combo.text.includes(combo.query)) score = 400;
+                else {
+                    // Calculate character overlap score
+                    let overlapScore = 0;
+                    for (let i = 0; i < combo.query.length; i++) {
+                        if (combo.text.includes(combo.query[i])) {
+                            overlapScore += 10;
+                        }
+                    }
+                    
+                    // Length difference penalty (shorter differences get higher scores)
+                    const lengthDiff = Math.abs(combo.text.length - combo.query.length);
+                    const lengthScore = Math.max(0, 100 - lengthDiff * 5);
+                    
+                    score = overlapScore + lengthScore;
+                }
+                
+                maxScore = Math.max(maxScore, score);
+            });
+            
+            return maxScore;
+        }
+
+        // Enhanced search function with similarity ranking
         function searchFunction() {
             const query = searchInput.value.trim();
             if (!query) {
@@ -454,53 +874,58 @@
 
             let results = [];
 
-            // Search in herbs
-            if (herbsData[query]) {
-                results.push({
-                    type: '中藥',
-                    name: query,
-                    items: herbsData[query],
-                    label: '對應症狀'
-                });
-            }
-
-            // Search in symptoms
-            if (symptomsData[query]) {
-                results.push({
-                    type: '症狀',
-                    name: query,
-                    items: symptomsData[query],
-                    label: '對應中藥'
-                });
-            }
-
-            // Partial search
+            // Search in herbs with similarity scoring
             Object.keys(herbsData).forEach(herb => {
-                if (herb.includes(query) && herb !== query) {
+                const similarity = calculateSimilarity(herb, query);
+                if (similarity > 0) {
                     results.push({
                         type: '中藥',
                         name: herb,
                         items: herbsData[herb],
-                        label: '對應症狀'
+                        label: '對應症狀',
+                        similarity: similarity,
+                        matchType: herb === query ? 'exact' : herb.includes(query) ? 'partial' : 'fuzzy'
                     });
                 }
             });
 
+            // Search in symptoms with similarity scoring
             Object.keys(symptomsData).forEach(symptom => {
-                if (symptom.includes(query) && symptom !== query) {
+                const similarity = calculateSimilarity(symptom, query);
+                if (similarity > 0) {
                     results.push({
                         type: '症狀',
                         name: symptom,
                         items: symptomsData[symptom],
-                        label: '對應中藥'
+                        label: '對應中藥',
+                        similarity: similarity,
+                        matchType: symptom === query ? 'exact' : symptom.includes(query) ? 'partial' : 'fuzzy'
                     });
                 }
             });
 
+            // Sort results by similarity score (highest first)
+            results.sort((a, b) => {
+                // First sort by similarity score
+                if (b.similarity !== a.similarity) {
+                    return b.similarity - a.similarity;
+                }
+                // Then by match type (exact > partial > fuzzy)
+                const matchTypeOrder = { 'exact': 3, 'partial': 2, 'fuzzy': 1 };
+                if (matchTypeOrder[b.matchType] !== matchTypeOrder[a.matchType]) {
+                    return matchTypeOrder[b.matchType] - matchTypeOrder[a.matchType];
+                }
+                // Finally by name length (shorter first)
+                return a.name.length - b.name.length;
+            });
+
+            // Filter out very low similarity results (below threshold)
+            results = results.filter(result => result.similarity >= 50);
+
             displayResults(results, query);
         }
 
-        // Display search results
+        // Display search results with similarity indicators
         function displayResults(results, query) {
             if (results.length === 0) {
                 resultsContainer.innerHTML = `
@@ -510,20 +935,40 @@
                     </div>
                 `;
             } else {
-                resultsContainer.innerHTML = results.map(result => `
-                    <div class="search-result bg-gray-50 rounded-lg p-4 mb-4 border-l-4 ${result.type === '中藥' ? 'border-green-500' : 'border-blue-500'} fade-in">
-                        <div class="flex items-center mb-2">
-                            <span class="inline-block px-2 py-1 text-xs font-medium rounded ${result.type === '中藥' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">${result.type}</span>
-                            <h4 class="font-semibold text-gray-800 ml-2">${result.name}</h4>
+                resultsContainer.innerHTML = results.map((result, index) => {
+                    // Determine match quality indicator
+                    let matchIndicator = '';
+                    let matchColor = '';
+                    if (result.matchType === 'exact') {
+                        matchIndicator = '🎯 完全匹配';
+                        matchColor = 'text-green-600';
+                    } else if (result.matchType === 'partial') {
+                        matchIndicator = '🔍 部分匹配';
+                        matchColor = 'text-blue-600';
+                    } else {
+                        matchIndicator = '💡 相關匹配';
+                        matchColor = 'text-purple-600';
+                    }
+
+                    return `
+                        <div class="search-result bg-gray-50 rounded-lg p-4 mb-4 border-l-4 ${result.type === '中藥' ? 'border-green-500' : 'border-blue-500'} fade-in">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center">
+                                    <span class="inline-block px-2 py-1 text-xs font-medium rounded ${result.type === '中藥' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">${result.type}</span>
+                                    <h4 class="font-semibold text-gray-800 ml-2">${result.name}</h4>
+                                    ${index < 3 ? '<span class="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">推薦</span>' : ''}
+                                </div>
+                                <div class="text-xs ${matchColor} font-medium">${matchIndicator}</div>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">${result.label}：</p>
+                            <div class="flex flex-wrap gap-2">
+                                ${result.items.map(item => `
+                                    <span class="inline-block px-3 py-1 bg-white text-gray-700 rounded-full text-sm border border-gray-200 hover:bg-gray-100 cursor-pointer" onclick="searchInput.value='${item}'; searchFunction();">${item}</span>
+                                `).join('')}
+                            </div>
                         </div>
-                        <p class="text-sm text-gray-600 mb-2">${result.label}：</p>
-                        <div class="flex flex-wrap gap-2">
-                            ${result.items.map(item => `
-                                <span class="inline-block px-3 py-1 bg-white text-gray-700 rounded-full text-sm border border-gray-200 hover:bg-gray-100 cursor-pointer" onclick="searchInput.value='${item}'; searchFunction();">${item}</span>
-                            `).join('')}
-                        </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
             }
 
             searchResults.classList.remove('hidden');
@@ -562,6 +1007,71 @@
             }
         }
 
+        // Sample data templates
+        const sampleTemplates = {
+            basic: `當歸：補血調經，活血止痛，潤腸通便
+黃芪：補氣固表，利尿托毒，排膿，斂瘡生肌
+人參：大補元氣，復脈固脫，補脾益肺，生津養血
+甘草：調和諸藥，補脾益氣，清熱解毒，祛痰止咳
+川芎：活血行氣，祛風止痛
+白芍：養血柔肝，緩中止痛，斂陰收汗
+熟地黃：滋陰補血，益精填髓
+茯苓：健脾利水，寧心安神`,
+            
+            formula: `四物湯：補血調經，養血活血
+六君子湯：健脾益氣，燥濕化痰
+逍遙散：疏肝解鬱，健脾和血
+補中益氣湯：補氣升陽，甘溫除熱
+桂枝湯：解肌發表，調和營衛
+麻黃湯：發汗解表，宣肺平喘
+小柴胡湯：和解少陽，疏肝和胃
+大承氣湯：攻下燥實，清熱瀉火`,
+            
+            modern: `板藍根：清熱解毒，涼血利咽
+金銀花：清熱解毒，疏散風熱
+連翹：清熱解毒，消腫散結
+蒲公英：清熱解毒，消腫散結，利尿通淋
+魚腥草：清熱解毒，消癰排膿，利尿通淋
+桔梗：宣肺祛痰，利咽排膿
+枇杷葉：清肺止咳，降逆止嘔
+川貝母：清熱化痰，潤肺止咳，散結消腫`,
+            
+            mixed: `丹參：活血化瘀，涼血消癰，除煩安神
+紅花,活血通經、散瘀止痛
+桃仁	破血行瘀；潤燥滑腸
+牛膝 活血通經/補肝腎、強筋骨
+三七→止血化瘀|定痛
+乳香[活血止痛；伸筋]
+沒藥[活血止痛，消腫生肌]
+{"herb":"血竭","symptom":"活血定痛，化瘀止血，生肌斂瘡"}`,
+
+            punctuation: `當歸：補血調經。活血止痛！潤腸通便？
+黃芪，補氣固表、利尿托毒；排膿…斂瘡生肌
+人參「大補元氣」「復脈固脫」「補脾益肺」
+甘草《調和諸藥》《補脾益氣》《清熱解毒》
+川芎〈活血行氣〉〈祛風止痛〉
+白芍【養血柔肝】【緩中止痛】【斂陰收汗】
+熟地黃（滋陰補血）（益精填髓）
+茯苓＼健脾利水／寧心安神
+丹參→活血化瘀|涼血消癰|除煩安神`
+        };
+
+        // Helper functions
+        function loadSampleData(type) {
+            const template = sampleTemplates[type];
+            if (template) {
+                importData.value = template;
+                const templateNames = {
+                    'basic': '基礎中藥',
+                    'formula': '常用方劑', 
+                    'modern': '現代應用',
+                    'mixed': '混合格式',
+                    'punctuation': '標點符號範例'
+                };
+                showToast(`已載入${templateNames[type]}範本`, 'success');
+            }
+        }
+
         // Event listeners
         searchBtn.addEventListener('click', searchFunction);
         clearBtn.addEventListener('click', () => {
@@ -570,6 +1080,34 @@
         });
         importBtn.addEventListener('click', importDataFunction);
         clearAllBtn.addEventListener('click', clearAllData);
+        clearDatabaseBtn.addEventListener('click', clearDatabase);
+        
+        // Sample data buttons
+        sampleData1.addEventListener('click', () => loadSampleData('basic'));
+        sampleData2.addEventListener('click', () => loadSampleData('formula'));
+        sampleData3.addEventListener('click', () => loadSampleData('modern'));
+        sampleData4.addEventListener('click', () => loadSampleData('mixed'));
+        sampleData5.addEventListener('click', () => loadSampleData('punctuation'));
+
+        // Auto-detect format on input change
+        importData.addEventListener('input', () => {
+            if (importData.value.trim()) {
+                const detectedFormat = detectFormat(importData.value);
+                const formatNames = {
+                    colon: '冒號格式',
+                    comma: '逗號格式',
+                    tab: 'Tab格式',
+                    space: '空格格式',
+                    arrow: '箭頭格式',
+                    bracket: '方括號格式',
+                    json: 'JSON格式'
+                };
+                
+                formatHint.textContent = `識別：${formatNames[detectedFormat] || '未知格式'}`;
+            } else {
+                formatHint.textContent = '';
+            }
+        });
 
         // Enter key support
         searchInput.addEventListener('keypress', (e) => {
@@ -578,8 +1116,10 @@
             }
         });
 
+
+
         // Initialize the application
         initializeFirebase();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'966277c442db03d3',t:'MTc1MzY4NTY5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96647b88334ef7d9',t:'MTc1MzcwNjgyMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
