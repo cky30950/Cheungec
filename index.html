@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>中醫診症輔助工具</title>
+    <title>中醫診症輔助工具 - 雲端版</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <!-- Firebase SDK -->
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
-        import { getFirestore, collection, addDoc, getDocs, doc, setDoc, deleteDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, get, push, onValue, remove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
         
-        // Firebase configuration - 請替換為您從 Firebase Console 獲取的真實配置
+        // Firebase configuration
         const firebaseConfig = {
-            // 🔥 重要：請將以下配置替換為您的真實 Firebase 配置
-            // 從 Firebase Console > 專案設定 > 您的應用程式 中獲取
             apiKey: "AIzaSyBtUcrBYiE4B1O4xkvIqwxM52Hrh-i6pL8",
             authDomain: "cheungec-ea477.firebaseapp.com",
+            databaseURL: "https://cheungec-ea477-default-rtdb.firebaseio.com/",
             projectId: "cheungec-ea477",
             storageBucket: "cheungec-ea477.firebasestorage.app",
             messagingSenderId: "986510230799",
@@ -24,12 +24,20 @@
 
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        const database = getDatabase(app);
         
-        // Make Firebase available globally
-        window.firebaseDB = db;
-        window.firebaseUtils = { collection, addDoc, getDocs, doc, setDoc, deleteDoc, getDoc };
+        // Make Firebase functions globally available
+        window.firebaseDB = {
+            ref: ref,
+            set: set,
+            get: get,
+            push: push,
+            onValue: onValue,
+            remove: remove,
+            database: database
+        };
     </script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
         body {
@@ -46,6 +54,13 @@
             transform: translateY(-2px);
             transition: all 0.2s ease;
         }
+        .loading {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
@@ -54,229 +69,42 @@
         <div class="max-w-6xl mx-auto px-6 py-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                    <div class="w-10 h-10 bg-gradient-to-r from-green-600 to-green-700 rounded-lg flex items-center justify-center">
                         <span class="text-white font-bold text-lg">中</span>
                     </div>
-                    <h1 class="text-2xl font-bold text-gray-800">中醫診症輔助工具</h1>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">中醫診症輔助工具</h1>
+                        <p class="text-sm text-gray-600">雲端共享版 - 即時同步</p>
+                    </div>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <div id="firebaseStatus" class="flex items-center space-x-2">
-                        <div id="statusIndicator" class="w-3 h-3 bg-gray-400 rounded-full"></div>
-                        <span id="statusText" class="text-sm text-gray-600">檢查中...</span>
-                    </div>
-                    <div class="relative">
-                        <button id="backupMenuBtn" class="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                            </svg>
-                            <span>備份管理</span>
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                            </svg>
-                        </button>
-                        <div id="backupMenu" class="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50 hidden">
-                            <div class="p-4">
-                                <h4 class="font-semibold text-gray-800 mb-3">備份管理</h4>
-                                
-                                <!-- Auto Backup Toggle -->
-                                <div class="mb-4 p-3 bg-gray-50 rounded-lg">
-                                    <div class="flex items-center justify-between mb-2">
-                                        <span class="text-sm font-medium text-gray-700">自動備份</span>
-                                        <button id="autoBackupToggle" class="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 transition-colors focus:outline-none">
-                                            <span id="autoBackupSlider" class="inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform translate-x-1"></span>
-                                        </button>
-                                    </div>
-                                    <div class="text-xs text-gray-500">
-                                        狀態：<span id="autoBackupStatusText" class="text-red-600">關閉</span>
-                                    </div>
-                                    <div class="text-xs text-gray-500">
-                                        最後備份：<span id="lastBackupText" class="text-gray-400">從未備份</span>
-                                    </div>
-                                </div>
-                                
-                                <!-- Manual Actions -->
-                                <div class="space-y-2">
-                                    <button id="manualBackupBtn" class="w-full px-3 py-2 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-left">
-                                        💾 立即備份
-                                    </button>
-                                    <button id="loadFromCloudBtn" class="w-full px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-left">
-                                        📥 從雲端載入
-                                    </button>
-                                    <button id="testConnectionBtn" class="w-full px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-left">
-                                        🔗 測試連接
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                    <div id="connectionStatus" class="flex items-center space-x-2">
+                        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span class="text-sm text-gray-600">已連線</span>
                     </div>
                     <div class="text-sm text-gray-600">
-                        專業版 v1.0
+                        專業版 v2.0
                     </div>
                 </div>
             </div>
         </div>
     </header>
 
-    <!-- Firebase Setup Instructions -->
-    <div id="firebaseSetup" class="max-w-6xl mx-auto px-6 py-4">
-        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-r-lg">
-            <div class="flex items-start">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                    </svg>
-                </div>
-                <div class="ml-3">
-                    <h3 class="text-sm font-medium text-yellow-800">需要設置 Firebase 才能跨設備同步資料</h3>
-                    <div class="mt-2 text-sm text-yellow-700">
-                        <p>目前使用示範配置，資料只能在本設備使用。請按照以下步驟設置真實的 Firebase 配置：</p>
-                        <button id="showSetupGuide" class="mt-2 text-yellow-800 underline hover:text-yellow-900">
-                            📖 查看詳細設置步驟
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Setup Guide Modal -->
-    <div id="setupModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                <div class="p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">🔥 Firebase 設置步驟</h2>
-                        <button id="closeModal" class="text-gray-500 hover:text-gray-700">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </button>
-                    </div>
-                    
-                    <div class="space-y-6">
-                        <!-- Step 1 -->
-                        <div class="border-l-4 border-blue-500 pl-4">
-                            <h3 class="text-lg font-semibold text-blue-800 mb-2">步驟 1：創建 Firebase 專案</h3>
-                            <ol class="list-decimal list-inside space-y-2 text-gray-700">
-                                <li>前往 <a href="https://console.firebase.google.com" target="_blank" class="text-blue-600 underline">Firebase Console</a></li>
-                                <li>點擊「建立專案」</li>
-                                <li>輸入專案名稱（例如：tcm-helper）</li>
-                                <li>選擇是否啟用 Google Analytics（可選）</li>
-                                <li>點擊「建立專案」</li>
-                            </ol>
-                        </div>
-
-                        <!-- Step 2 -->
-                        <div class="border-l-4 border-green-500 pl-4">
-                            <h3 class="text-lg font-semibold text-green-800 mb-2">步驟 2：設置 Firestore 資料庫</h3>
-                            <ol class="list-decimal list-inside space-y-2 text-gray-700">
-                                <li>在 Firebase Console 中，點擊左側選單的「Firestore Database」</li>
-                                <li>點擊「建立資料庫」</li>
-                                <li>選擇「以測試模式啟動」（30天內可讀寫）</li>
-                                <li>選擇資料庫位置（建議選擇 asia-east1）</li>
-                                <li>點擊「完成」</li>
-                            </ol>
-                        </div>
-
-                        <!-- Step 3 -->
-                        <div class="border-l-4 border-purple-500 pl-4">
-                            <h3 class="text-lg font-semibold text-purple-800 mb-2">步驟 3：註冊網頁應用程式</h3>
-                            <ol class="list-decimal list-inside space-y-2 text-gray-700">
-                                <li>在專案總覽頁面，點擊「&lt;/&gt;」圖示（網頁）</li>
-                                <li>輸入應用程式暱稱（例如：中醫工具）</li>
-                                <li>不需要勾選「設定 Firebase Hosting」</li>
-                                <li>點擊「註冊應用程式」</li>
-                            </ol>
-                        </div>
-
-                        <!-- Step 4 -->
-                        <div class="border-l-4 border-red-500 pl-4">
-                            <h3 class="text-lg font-semibold text-red-800 mb-2">步驟 4：獲取配置資訊</h3>
-                            <ol class="list-decimal list-inside space-y-2 text-gray-700">
-                                <li>在「新增 Firebase SDK」頁面，複製 firebaseConfig 物件</li>
-                                <li>或者到「專案設定」→「您的應用程式」→「SDK 設定和設定」</li>
-                                <li>複製類似以下的配置：</li>
-                            </ol>
-                            <div class="mt-3 bg-gray-100 p-4 rounded-lg">
-                                <pre class="text-sm text-gray-800"><code>const firebaseConfig = {
-  apiKey: "AIzaSyC...",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abc123"
-};</code></pre>
-                            </div>
-                        </div>
-
-                        <!-- Step 5 -->
-                        <div class="border-l-4 border-yellow-500 pl-4">
-                            <h3 class="text-lg font-semibold text-yellow-800 mb-2">步驟 5：更新程式碼</h3>
-                            <ol class="list-decimal list-inside space-y-2 text-gray-700">
-                                <li>將獲取的配置資訊替換程式碼中的示範配置</li>
-                                <li>找到程式碼中的 firebaseConfig 部分</li>
-                                <li>將「您的-API-密鑰」等替換為真實值</li>
-                                <li>儲存並重新載入頁面</li>
-                            </ol>
-                        </div>
-
-                        <!-- Step 6 -->
-                        <div class="border-l-4 border-indigo-500 pl-4">
-                            <h3 class="text-lg font-semibold text-indigo-800 mb-2">步驟 6：設置安全規則（重要）</h3>
-                            <ol class="list-decimal list-inside space-y-2 text-gray-700">
-                                <li>在 Firestore Database 頁面，點擊「規則」標籤</li>
-                                <li>將規則更新為以下內容（測試用）：</li>
-                            </ol>
-                            <div class="mt-3 bg-gray-100 p-4 rounded-lg">
-                                <pre class="text-sm text-gray-800"><code>rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
-    }
-  }
-}</code></pre>
-                            </div>
-                            <p class="text-sm text-red-600 mt-2">⚠️ 這是測試規則，生產環境需要更嚴格的安全設置</p>
-                        </div>
-
-                        <!-- Verification -->
-                        <div class="bg-green-50 p-4 rounded-lg">
-                            <h3 class="text-lg font-semibold text-green-800 mb-2">✅ 驗證設置</h3>
-                            <p class="text-gray-700 mb-3">完成設置後，您應該看到：</p>
-                            <ul class="list-disc list-inside space-y-1 text-gray-700">
-                                <li>右上角狀態顯示「已連接」（綠色）</li>
-                                <li>可以成功執行手動備份</li>
-                                <li>在其他設備上載入相同資料</li>
-                            </ul>
-                        </div>
-
-                        <!-- Troubleshooting -->
-                        <div class="bg-red-50 p-4 rounded-lg">
-                            <h3 class="text-lg font-semibold text-red-800 mb-2">🔧 常見問題</h3>
-                            <ul class="list-disc list-inside space-y-1 text-gray-700">
-                                <li><strong>連接失敗：</strong>檢查配置是否正確複製</li>
-                                <li><strong>權限錯誤：</strong>確認 Firestore 規則已更新</li>
-                                <li><strong>找不到專案：</strong>確認 projectId 正確</li>
-                                <li><strong>網路錯誤：</strong>檢查網路連接和防火牆設置</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="max-w-6xl mx-auto px-6 py-8">
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="text-center py-8">
+            <div class="loading text-gray-600">正在載入雲端資料...</div>
+        </div>
+
         <!-- Main Content Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div id="mainContent" class="grid grid-cols-1 lg:grid-cols-3 gap-8 hidden">
             
             <!-- Left Panel - Search -->
             <div class="lg:col-span-2 space-y-6">
                 <!-- Search Section -->
-                <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
                     <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                        <svg class="w-6 h-6 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
                         智能搜尋
@@ -287,49 +115,28 @@ service cloud.firestore {
                             type="text" 
                             id="searchInput" 
                             placeholder="輸入症狀或中藥名稱進行搜尋..."
-                            class="w-full px-4 py-3 pl-12 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none transition-colors text-lg"
+                            class="w-full px-4 py-3 pl-12 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none transition-colors text-gray-700"
                         >
-                        <svg class="absolute left-4 top-4 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5 text-gray-400 absolute left-4 top-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
                     </div>
 
-                    <div class="flex space-x-3 mb-6">
-                        <button id="searchSymptom" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium">
-                            搜尋症狀
+                    <div class="flex space-x-3 mb-4">
+                        <button id="searchBtn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                            搜尋
                         </button>
-                        <button id="searchHerb" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium">
-                            搜尋中藥
-                        </button>
-                        <button id="clearSearch" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium">
+                        <button id="clearBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium transition-colors">
                             清除
                         </button>
                     </div>
                 </div>
 
                 <!-- Search Results -->
-                <div id="searchResults" class="bg-white rounded-xl shadow-lg p-6 hidden">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">搜尋結果</h3>
-                    <div id="resultsContainer"></div>
-                </div>
-
-                <!-- Statistics -->
-                <div class="bg-white rounded-xl shadow-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                        </svg>
-                        資料統計
-                    </h3>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-green-50 p-4 rounded-lg">
-                            <div class="text-2xl font-bold text-green-600" id="herbCount">0</div>
-                            <div class="text-sm text-gray-600">中藥種類</div>
-                        </div>
-                        <div class="bg-blue-50 p-4 rounded-lg">
-                            <div class="text-2xl font-bold text-blue-600" id="symptomCount">0</div>
-                            <div class="text-sm text-gray-600">症狀種類</div>
-                        </div>
+                <div id="searchResults" class="bg-white rounded-xl shadow-lg border border-gray-100 hidden">
+                    <div class="p-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">搜尋結果</h3>
+                        <div id="resultsContainer"></div>
                     </div>
                 </div>
             </div>
@@ -337,59 +144,100 @@ service cloud.firestore {
             <!-- Right Panel - Data Import -->
             <div class="space-y-6">
                 <!-- Data Import Section -->
-                <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
                     <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                        <svg class="w-6 h-6 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
                         </svg>
-                        資料導入
+                        資料導入 (雲端同步)
                     </h2>
                     
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            格式：中藥名：症狀1,症狀2
+                            格式：中藥名：症狀
                         </label>
                         <textarea 
                             id="importData" 
-                            rows="8" 
-                            placeholder="範例：&#10;當歸：補血,調經,潤腸&#10;黃芪：補氣,固表,利水&#10;人參：大補元氣,復脈固脫"
-                            class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-purple-500 focus:outline-none transition-colors resize-none"
+                            placeholder="例如：&#10;當歸：補血調經&#10;黃芪：補氣固表&#10;人參：大補元氣"
+                            class="w-full h-32 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors resize-none text-sm"
                         ></textarea>
                     </div>
                     
-                    <div class="flex space-x-3">
-                        <button id="importBtn" class="flex-1 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors font-medium">
-                            導入資料
-                        </button>
-                        <button id="clearData" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium">
-                            清空
-                        </button>
+                    <button id="importBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors mb-3">
+                        導入到雲端
+                    </button>
+                    
+                    <button id="clearAllBtn" class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-medium transition-colors text-sm">
+                        清空所有資料
+                    </button>
+                </div>
+
+                <!-- Statistics -->
+                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">即時統計</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">中藥總數：</span>
+                            <span id="herbCount" class="font-semibold text-green-600">載入中...</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">症狀總數：</span>
+                            <span id="symptomCount" class="font-semibold text-blue-600">載入中...</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">資料條目：</span>
+                            <span id="recordCount" class="font-semibold text-purple-600">載入中...</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Additional Tools -->
-                <div class="bg-white rounded-xl shadow-lg p-6">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">工具</h3>
-                    <div class="space-y-3">
-                        <button id="showAllHerbs" class="w-full px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors font-medium text-left">
-                            📋 查看所有中藥
-                        </button>
-                        <button id="showAllSymptoms" class="w-full px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium text-left">
-                            🔍 查看所有症狀
-                        </button>
-                        <button id="exportData" class="w-full px-4 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors font-medium text-left">
-                            💾 匯出資料
-                        </button>
+                <!-- Online Users (Demo) -->
+                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">線上狀態</h3>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span class="text-sm text-gray-600">多人協作模式</span>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Display -->
+        <div id="dataDisplay" class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8 hidden">
+            <!-- Herbs List -->
+            <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
+                        中藥資料庫
+                    </div>
+                    <div class="text-xs text-gray-500">即時同步</div>
+                </h3>
+                <div id="herbsList" class="max-h-64 overflow-y-auto space-y-2">
+                    <p class="text-gray-500 text-center py-8">載入中...</p>
+                </div>
+            </div>
+
+            <!-- Symptoms List -->
+            <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
+                        症狀資料庫
+                    </div>
+                    <div class="text-xs text-gray-500">即時同步</div>
+                </h3>
+                <div id="symptomsList" class="max-h-64 overflow-y-auto space-y-2">
+                    <p class="text-gray-500 text-center py-8">載入中...</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Toast Notification -->
+    <!-- Notification Toast -->
     <div id="toast" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50">
-        <div class="flex items-center">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex items-center space-x-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
             </svg>
             <span id="toastMessage">操作成功</span>
@@ -397,493 +245,341 @@ service cloud.firestore {
     </div>
 
     <script>
-        // Data storage
-        let herbData = {};
-        let symptomToHerbs = {};
-        
-        // Auto backup settings
-        let autoBackupEnabled = false;
-        let autoBackupInterval = null;
-        let lastBackupTime = null;
-        const BACKUP_INTERVAL = 30000; // 30 seconds for demo, change to 300000 (5 minutes) for production
+        // Global variables
+        let herbsData = {};
+        let symptomsData = {};
+        let recordsData = {};
+        let isFirebaseReady = false;
 
         // DOM elements
         const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const clearBtn = document.getElementById('clearBtn');
         const searchResults = document.getElementById('searchResults');
         const resultsContainer = document.getElementById('resultsContainer');
         const importData = document.getElementById('importData');
+        const importBtn = document.getElementById('importBtn');
+        const clearAllBtn = document.getElementById('clearAllBtn');
         const herbCount = document.getElementById('herbCount');
         const symptomCount = document.getElementById('symptomCount');
+        const recordCount = document.getElementById('recordCount');
+        const herbsList = document.getElementById('herbsList');
+        const symptomsList = document.getElementById('symptomsList');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const mainContent = document.getElementById('mainContent');
+        const dataDisplay = document.getElementById('dataDisplay');
+        const connectionStatus = document.getElementById('connectionStatus');
         const toast = document.getElementById('toast');
         const toastMessage = document.getElementById('toastMessage');
 
-        // Initialize with empty data
-        function initializeEmptyData() {
-            herbData = {};
-            symptomToHerbs = {};
-            updateStatistics();
-        }
-
-        // Process import data
-        function processImportData() {
-            const data = importData.value.trim();
-            if (!data) return;
-
-            const lines = data.split('\n');
-            herbData = {};
-            symptomToHerbs = {};
-
-            lines.forEach(line => {
-                const [herb, symptomsStr] = line.split('：');
-                if (herb && symptomsStr) {
-                    const symptoms = symptomsStr.split(',').map(s => s.trim());
-                    herbData[herb.trim()] = symptoms;
-
-                    // Build reverse index
-                    symptoms.forEach(symptom => {
-                        if (!symptomToHerbs[symptom]) {
-                            symptomToHerbs[symptom] = [];
-                        }
-                        if (!symptomToHerbs[symptom].includes(herb.trim())) {
-                            symptomToHerbs[symptom].push(herb.trim());
-                        }
-                    });
-                }
+        // Wait for Firebase to be ready
+        function waitForFirebase() {
+            return new Promise((resolve) => {
+                const checkFirebase = () => {
+                    if (window.firebaseDB) {
+                        resolve();
+                    } else {
+                        setTimeout(checkFirebase, 100);
+                    }
+                };
+                checkFirebase();
             });
-
-            updateStatistics();
-            showToast('資料導入成功！');
-            
-            // Trigger auto backup if enabled
-            if (autoBackupEnabled) {
-                setTimeout(() => saveToCloudSilent(), 2000);
-            }
-        }
-
-        // Update statistics
-        function updateStatistics() {
-            herbCount.textContent = Object.keys(herbData).length;
-            symptomCount.textContent = Object.keys(symptomToHerbs).length;
-        }
-
-        // Search functionality
-        function searchSymptoms(query) {
-            const results = [];
-            const lowerQuery = query.toLowerCase();
-
-            // Search in symptoms
-            Object.keys(symptomToHerbs).forEach(symptom => {
-                if (symptom.toLowerCase().includes(lowerQuery)) {
-                    results.push({
-                        type: 'symptom',
-                        name: symptom,
-                        herbs: symptomToHerbs[symptom]
-                    });
-                }
-            });
-
-            return results;
-        }
-
-        function searchHerbs(query) {
-            const results = [];
-            const lowerQuery = query.toLowerCase();
-
-            // Search in herbs
-            Object.keys(herbData).forEach(herb => {
-                if (herb.toLowerCase().includes(lowerQuery)) {
-                    results.push({
-                        type: 'herb',
-                        name: herb,
-                        symptoms: herbData[herb]
-                    });
-                }
-            });
-
-            return results;
-        }
-
-        // Display search results
-        function displayResults(results, searchType) {
-            if (results.length === 0) {
-                resultsContainer.innerHTML = '<div class="text-gray-500 text-center py-8">未找到相關結果</div>';
-                searchResults.classList.remove('hidden');
-                return;
-            }
-
-            let html = '';
-            results.forEach(result => {
-                if (result.type === 'symptom') {
-                    html += `
-                        <div class="search-result bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 rounded-r-lg">
-                            <h4 class="font-semibold text-blue-800 mb-2">症狀：${result.name}</h4>
-                            <div class="text-sm text-gray-700">
-                                <span class="font-medium">相關中藥：</span>
-                                <div class="flex flex-wrap gap-2 mt-2">
-                                    ${result.herbs.map(herb => `<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">${herb}</span>`).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    html += `
-                        <div class="search-result bg-green-50 border-l-4 border-green-500 p-4 mb-4 rounded-r-lg">
-                            <h4 class="font-semibold text-green-800 mb-2">中藥：${result.name}</h4>
-                            <div class="text-sm text-gray-700">
-                                <span class="font-medium">主治症狀：</span>
-                                <div class="flex flex-wrap gap-2 mt-2">
-                                    ${result.symptoms.map(symptom => `<span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">${symptom}</span>`).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
-            });
-
-            resultsContainer.innerHTML = html;
-            searchResults.classList.remove('hidden');
-            searchResults.scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // Show all data
-        function showAllHerbs() {
-            const results = Object.keys(herbData).map(herb => ({
-                type: 'herb',
-                name: herb,
-                symptoms: herbData[herb]
-            }));
-            displayResults(results, 'herb');
-        }
-
-        function showAllSymptoms() {
-            const results = Object.keys(symptomToHerbs).map(symptom => ({
-                type: 'symptom',
-                name: symptom,
-                herbs: symptomToHerbs[symptom]
-            }));
-            displayResults(results, 'symptom');
-        }
-
-        // Export data
-        function exportData() {
-            let exportText = '';
-            Object.keys(herbData).forEach(herb => {
-                exportText += `${herb}：${herbData[herb].join(',')}\n`;
-            });
-            
-            const blob = new Blob([exportText], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = '中醫資料.txt';
-            a.click();
-            URL.revokeObjectURL(url);
-            showToast('資料匯出成功！');
-        }
-
-        // Firebase connection test
-        async function testFirebaseConnection() {
-            const statusIndicator = document.getElementById('statusIndicator');
-            const statusText = document.getElementById('statusText');
-            
-            if (!window.firebaseDB) {
-                statusIndicator.className = 'w-3 h-3 bg-red-500 rounded-full';
-                statusText.textContent = '未配置';
-                statusText.className = 'text-sm text-red-600';
-                return false;
-            }
-
-            try {
-                const { doc, getDoc } = window.firebaseUtils;
-                
-                // Test connection by trying to read a document
-                const testDoc = doc(window.firebaseDB, 'test', 'connection');
-                await getDoc(testDoc);
-                
-                statusIndicator.className = 'w-3 h-3 bg-green-500 rounded-full animate-pulse';
-                statusText.textContent = '已連接';
-                statusText.className = 'text-sm text-green-600';
-                return true;
-            } catch (error) {
-                console.error('Firebase 連接測試失敗:', error);
-                statusIndicator.className = 'w-3 h-3 bg-red-500 rounded-full';
-                statusText.textContent = '連接失敗';
-                statusText.className = 'text-sm text-red-600';
-                return false;
-            }
-        }
-
-        // Auto backup functions
-        function updateBackupStatusDisplay() {
-            const statusText = document.getElementById('autoBackupStatusText');
-            const lastBackupText = document.getElementById('lastBackupText');
-            const toggle = document.getElementById('autoBackupToggle');
-            const slider = document.getElementById('autoBackupSlider');
-            
-            if (autoBackupEnabled) {
-                statusText.textContent = '開啟';
-                statusText.className = 'text-green-600';
-                toggle.className = 'relative inline-flex h-6 w-11 items-center rounded-full bg-green-500 transition-colors focus:outline-none';
-                slider.className = 'inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform translate-x-6';
-            } else {
-                statusText.textContent = '關閉';
-                statusText.className = 'text-red-600';
-                toggle.className = 'relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 transition-colors focus:outline-none';
-                slider.className = 'inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform translate-x-1';
-            }
-            
-            if (lastBackupTime) {
-                lastBackupText.textContent = lastBackupTime.toLocaleTimeString();
-                lastBackupText.className = 'text-blue-600';
-            } else {
-                lastBackupText.textContent = '從未備份';
-                lastBackupText.className = 'text-gray-400';
-            }
-        }
-
-        function startAutoBackup() {
-            if (autoBackupInterval) {
-                clearInterval(autoBackupInterval);
-            }
-            
-            autoBackupInterval = setInterval(async () => {
-                if (autoBackupEnabled && window.firebaseDB) {
-                    await saveToCloudSilent();
-                    updateBackupStatusDisplay();
-                }
-            }, BACKUP_INTERVAL);
-            
-            autoBackupEnabled = true;
-            updateBackupStatusDisplay();
-            showToast('自動備份已啟用（每30秒）');
-        }
-
-        function stopAutoBackup() {
-            if (autoBackupInterval) {
-                clearInterval(autoBackupInterval);
-                autoBackupInterval = null;
-            }
-            
-            autoBackupEnabled = false;
-            updateBackupStatusDisplay();
-            showToast('自動備份已停用');
-        }
-
-        function toggleAutoBackup() {
-            if (autoBackupEnabled) {
-                stopAutoBackup();
-            } else {
-                startAutoBackup();
-            }
-        }
-
-        // Firebase functions
-        async function saveToCloudSilent() {
-            if (!window.firebaseDB) return false;
-
-            try {
-                const { setDoc, doc } = window.firebaseUtils;
-                
-                await setDoc(doc(window.firebaseDB, 'tcm-data', 'herbs'), {
-                    data: herbData,
-                    lastUpdated: new Date().toISOString(),
-                    autoBackup: true
-                });
-
-                lastBackupTime = new Date();
-                console.log('自動備份完成:', lastBackupTime.toLocaleTimeString());
-                return true;
-            } catch (error) {
-                console.error('自動備份失敗:', error);
-                return false;
-            }
-        }
-
-        async function saveToCloud() {
-            if (!window.firebaseDB) {
-                showToast('Firebase 未正確配置', 'error');
-                return;
-            }
-
-            try {
-                const { setDoc, doc } = window.firebaseUtils;
-                
-                await setDoc(doc(window.firebaseDB, 'tcm-data', 'herbs'), {
-                    data: herbData,
-                    lastUpdated: new Date().toISOString(),
-                    autoBackup: false
-                });
-
-                lastBackupTime = new Date();
-                updateBackupStatusDisplay();
-                showToast('手動備份完成！');
-            } catch (error) {
-                console.error('手動備份失敗:', error);
-                showToast('備份失敗，請檢查網路連接', 'error');
-            }
-        }
-
-        async function loadFromCloud() {
-            if (!window.firebaseDB) {
-                showToast('Firebase 未正確配置', 'error');
-                return;
-            }
-
-            try {
-                const { doc, getDoc } = window.firebaseUtils;
-                
-                // Load herb data from Firestore
-                const docRef = doc(window.firebaseDB, 'tcm-data', 'herbs');
-                const docSnap = await getDoc(docRef);
-
-                if (docSnap.exists()) {
-                    const cloudData = docSnap.data();
-                    herbData = cloudData.data || {};
-                    
-                    // Rebuild symptom index
-                    symptomToHerbs = {};
-                    Object.keys(herbData).forEach(herb => {
-                        herbData[herb].forEach(symptom => {
-                            if (!symptomToHerbs[symptom]) {
-                                symptomToHerbs[symptom] = [];
-                            }
-                            if (!symptomToHerbs[symptom].includes(herb)) {
-                                symptomToHerbs[symptom].push(herb);
-                            }
-                        });
-                    });
-
-                    // Update import textarea
-                    let importText = '';
-                    Object.keys(herbData).forEach(herb => {
-                        importText += `${herb}：${herbData[herb].join(',')}\n`;
-                    });
-                    importData.value = importText;
-
-                    updateStatistics();
-                    showToast('雲端資料載入成功！');
-                } else {
-                    showToast('雲端沒有找到資料', 'warning');
-                }
-            } catch (error) {
-                console.error('從雲端載入失敗:', error);
-                showToast('載入失敗，請檢查網路連接', 'error');
-            }
         }
 
         // Show toast notification
         function showToast(message, type = 'success') {
             toastMessage.textContent = message;
-            
-            // Update toast color based on type
-            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50 ${
-                type === 'error' ? 'bg-red-500' : 
-                type === 'warning' ? 'bg-yellow-500' : 
-                'bg-green-500'
+            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform transition-transform duration-300 z-50 ${
+                type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'
             } text-white`;
+            toast.style.transform = 'translateX(0)';
             
-            toast.classList.remove('translate-x-full');
             setTimeout(() => {
-                toast.classList.add('translate-x-full');
+                toast.style.transform = 'translateX(100%)';
             }, 3000);
         }
 
-        // Setup guide modal functionality
-        document.getElementById('showSetupGuide').addEventListener('click', () => {
-            document.getElementById('setupModal').classList.remove('hidden');
-        });
+        // Initialize Firebase listeners
+        async function initializeFirebase() {
+            try {
+                await waitForFirebase();
+                
+                // Listen to records data
+                const recordsRef = window.firebaseDB.ref(window.firebaseDB.database, 'tcm-records');
+                window.firebaseDB.onValue(recordsRef, (snapshot) => {
+                    const data = snapshot.val();
+                    recordsData = data || {};
+                    processRecordsData();
+                    updateDisplay();
+                    
+                    if (!isFirebaseReady) {
+                        isFirebaseReady = true;
+                        loadingIndicator.classList.add('hidden');
+                        mainContent.classList.remove('hidden');
+                        dataDisplay.classList.remove('hidden');
+                        showToast('雲端資料載入完成', 'success');
+                    }
+                });
 
-        document.getElementById('closeModal').addEventListener('click', () => {
-            document.getElementById('setupModal').classList.add('hidden');
-        });
-
-        // Close modal when clicking outside
-        document.getElementById('setupModal').addEventListener('click', (e) => {
-            if (e.target.id === 'setupModal') {
-                document.getElementById('setupModal').classList.add('hidden');
+                updateConnectionStatus(true);
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                updateConnectionStatus(false);
+                showToast('連線失敗，使用離線模式', 'error');
+                
+                // Show content anyway for demo
+                loadingIndicator.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+                dataDisplay.classList.remove('hidden');
             }
-        });
+        }
+
+        // Update connection status
+        function updateConnectionStatus(connected) {
+            const statusDot = connectionStatus.querySelector('div');
+            const statusText = connectionStatus.querySelector('span');
+            
+            if (connected) {
+                statusDot.className = 'w-3 h-3 bg-green-500 rounded-full';
+                statusText.textContent = '已連線';
+            } else {
+                statusDot.className = 'w-3 h-3 bg-red-500 rounded-full';
+                statusText.textContent = '離線';
+            }
+        }
+
+        // Process records data into herbs and symptoms
+        function processRecordsData() {
+            herbsData = {};
+            symptomsData = {};
+
+            Object.values(recordsData).forEach(record => {
+                const herb = record.herb;
+                const symptom = record.symptom;
+
+                // Add to herbs data
+                if (!herbsData[herb]) {
+                    herbsData[herb] = [];
+                }
+                if (!herbsData[herb].includes(symptom)) {
+                    herbsData[herb].push(symptom);
+                }
+
+                // Add to symptoms data
+                if (!symptomsData[symptom]) {
+                    symptomsData[symptom] = [];
+                }
+                if (!symptomsData[symptom].includes(herb)) {
+                    symptomsData[symptom].push(herb);
+                }
+            });
+        }
+
+        // Import data to Firebase
+        async function importDataFunction() {
+            const data = importData.value.trim();
+            if (!data) {
+                showToast('請輸入要導入的資料', 'error');
+                return;
+            }
+
+            if (!isFirebaseReady) {
+                showToast('正在連線中，請稍候...', 'info');
+                return;
+            }
+
+            const lines = data.split('\n');
+            let importCount = 0;
+
+            try {
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine && trimmedLine.includes('：')) {
+                        const [herb, symptom] = trimmedLine.split('：');
+                        const herbName = herb.trim();
+                        const symptomName = symptom.trim();
+
+                        if (herbName && symptomName) {
+                            // Create unique key for the record
+                            const recordKey = `${herbName}_${symptomName}`.replace(/[.#$[\]]/g, '_');
+                            const recordRef = window.firebaseDB.ref(window.firebaseDB.database, `tcm-records/${recordKey}`);
+                            
+                            await window.firebaseDB.set(recordRef, {
+                                herb: herbName,
+                                symptom: symptomName,
+                                timestamp: Date.now()
+                            });
+
+                            importCount++;
+                        }
+                    }
+                }
+
+                importData.value = '';
+                showToast(`成功導入 ${importCount} 筆資料到雲端`, 'success');
+            } catch (error) {
+                console.error('Import error:', error);
+                showToast('導入失敗，請檢查網路連線', 'error');
+            }
+        }
+
+        // Clear all data
+        async function clearAllData() {
+            if (!confirm('確定要清空所有雲端資料嗎？此操作無法復原！')) {
+                return;
+            }
+
+            if (!isFirebaseReady) {
+                showToast('正在連線中，請稍候...', 'info');
+                return;
+            }
+
+            try {
+                const recordsRef = window.firebaseDB.ref(window.firebaseDB.database, 'tcm-records');
+                await window.firebaseDB.set(recordsRef, null);
+                showToast('所有資料已清空', 'success');
+            } catch (error) {
+                console.error('Clear error:', error);
+                showToast('清空失敗，請檢查網路連線', 'error');
+            }
+        }
+
+        // Search function
+        function searchFunction() {
+            const query = searchInput.value.trim();
+            if (!query) {
+                showToast('請輸入搜尋關鍵字', 'error');
+                return;
+            }
+
+            let results = [];
+
+            // Search in herbs
+            if (herbsData[query]) {
+                results.push({
+                    type: '中藥',
+                    name: query,
+                    items: herbsData[query],
+                    label: '對應症狀'
+                });
+            }
+
+            // Search in symptoms
+            if (symptomsData[query]) {
+                results.push({
+                    type: '症狀',
+                    name: query,
+                    items: symptomsData[query],
+                    label: '對應中藥'
+                });
+            }
+
+            // Partial search
+            Object.keys(herbsData).forEach(herb => {
+                if (herb.includes(query) && herb !== query) {
+                    results.push({
+                        type: '中藥',
+                        name: herb,
+                        items: herbsData[herb],
+                        label: '對應症狀'
+                    });
+                }
+            });
+
+            Object.keys(symptomsData).forEach(symptom => {
+                if (symptom.includes(query) && symptom !== query) {
+                    results.push({
+                        type: '症狀',
+                        name: symptom,
+                        items: symptomsData[symptom],
+                        label: '對應中藥'
+                    });
+                }
+            });
+
+            displayResults(results, query);
+        }
+
+        // Display search results
+        function displayResults(results, query) {
+            if (results.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="text-center py-8">
+                        <div class="text-gray-400 text-lg mb-2">😔</div>
+                        <p class="text-gray-500">未找到與「${query}」相關的資料</p>
+                    </div>
+                `;
+            } else {
+                resultsContainer.innerHTML = results.map(result => `
+                    <div class="search-result bg-gray-50 rounded-lg p-4 mb-4 border-l-4 ${result.type === '中藥' ? 'border-green-500' : 'border-blue-500'} fade-in">
+                        <div class="flex items-center mb-2">
+                            <span class="inline-block px-2 py-1 text-xs font-medium rounded ${result.type === '中藥' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">${result.type}</span>
+                            <h4 class="font-semibold text-gray-800 ml-2">${result.name}</h4>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-2">${result.label}：</p>
+                        <div class="flex flex-wrap gap-2">
+                            ${result.items.map(item => `
+                                <span class="inline-block px-3 py-1 bg-white text-gray-700 rounded-full text-sm border border-gray-200 hover:bg-gray-100 cursor-pointer" onclick="searchInput.value='${item}'; searchFunction();">${item}</span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            searchResults.classList.remove('hidden');
+            searchResults.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Update display
+        function updateDisplay() {
+            // Update counts
+            herbCount.textContent = Object.keys(herbsData).length;
+            symptomCount.textContent = Object.keys(symptomsData).length;
+            recordCount.textContent = Object.keys(recordsData).length;
+
+            // Update herbs list
+            if (Object.keys(herbsData).length === 0) {
+                herbsList.innerHTML = '<p class="text-gray-500 text-center py-8">暫無資料，請先導入中藥資料</p>';
+            } else {
+                herbsList.innerHTML = Object.keys(herbsData).sort().map(herb => `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors" onclick="searchInput.value='${herb}'; searchFunction();">
+                        <span class="font-medium text-gray-800">${herb}</span>
+                        <span class="text-xs text-gray-500">${herbsData[herb].length} 個症狀</span>
+                    </div>
+                `).join('');
+            }
+
+            // Update symptoms list
+            if (Object.keys(symptomsData).length === 0) {
+                symptomsList.innerHTML = '<p class="text-gray-500 text-center py-8">暫無資料，請先導入症狀資料</p>';
+            } else {
+                symptomsList.innerHTML = Object.keys(symptomsData).sort().map(symptom => `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors" onclick="searchInput.value='${symptom}'; searchFunction();">
+                        <span class="font-medium text-gray-800">${symptom}</span>
+                        <span class="text-xs text-gray-500">${symptomsData[symptom].length} 種中藥</span>
+                    </div>
+                `).join('');
+            }
+        }
 
         // Event listeners
-        document.getElementById('searchSymptom').addEventListener('click', () => {
-            const query = searchInput.value.trim();
-            if (query) {
-                const results = searchSymptoms(query);
-                displayResults(results, 'symptom');
-            }
-        });
-
-        document.getElementById('searchHerb').addEventListener('click', () => {
-            const query = searchInput.value.trim();
-            if (query) {
-                const results = searchHerbs(query);
-                displayResults(results, 'herb');
-            }
-        });
-
-        document.getElementById('clearSearch').addEventListener('click', () => {
+        searchBtn.addEventListener('click', searchFunction);
+        clearBtn.addEventListener('click', () => {
             searchInput.value = '';
             searchResults.classList.add('hidden');
         });
+        importBtn.addEventListener('click', importDataFunction);
+        clearAllBtn.addEventListener('click', clearAllData);
 
-        document.getElementById('importBtn').addEventListener('click', processImportData);
-
-        document.getElementById('clearData').addEventListener('click', () => {
-            if (confirm('確定要清空所有資料嗎？')) {
-                importData.value = '';
-                herbData = {};
-                symptomToHerbs = {};
-                updateStatistics();
-                searchResults.classList.add('hidden');
-                showToast('資料已清空');
-            }
-        });
-
-        document.getElementById('showAllHerbs').addEventListener('click', showAllHerbs);
-        document.getElementById('showAllSymptoms').addEventListener('click', showAllSymptoms);
-        document.getElementById('exportData').addEventListener('click', exportData);
-        
-        // Backup menu functionality
-        document.getElementById('backupMenuBtn').addEventListener('click', () => {
-            const menu = document.getElementById('backupMenu');
-            menu.classList.toggle('hidden');
-        });
-        
-        // Close menu when clicking outside
-        document.addEventListener('click', (e) => {
-            const menu = document.getElementById('backupMenu');
-            const btn = document.getElementById('backupMenuBtn');
-            if (!menu.contains(e.target) && !btn.contains(e.target)) {
-                menu.classList.add('hidden');
-            }
-        });
-        
-        document.getElementById('autoBackupToggle').addEventListener('click', toggleAutoBackup);
-        document.getElementById('manualBackupBtn').addEventListener('click', saveToCloud);
-        document.getElementById('loadFromCloudBtn').addEventListener('click', loadFromCloud);
-        document.getElementById('testConnectionBtn').addEventListener('click', testFirebaseConnection);
-
-        // Enter key search
+        // Enter key support
         searchInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                const query = searchInput.value.trim();
-                if (query) {
-                    const herbResults = searchHerbs(query);
-                    const symptomResults = searchSymptoms(query);
-                    const allResults = [...herbResults, ...symptomResults];
-                    displayResults(allResults, 'all');
-                }
+                searchFunction();
             }
         });
 
-        // Initialize with empty data
-        initializeEmptyData();
-        
-        // Initialize backup status display
-        updateBackupStatusDisplay();
-        
-        // Test Firebase connection on page load
-        setTimeout(testFirebaseConnection, 1000);
+        // Initialize the application
+        initializeFirebase();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96555481f7c5856a',t:'MTc1MzU0NzkzNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'966277c442db03d3',t:'MTc1MzY4NTY5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
