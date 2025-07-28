@@ -43,48 +43,51 @@
         body {
             font-family: 'Noto Sans TC', sans-serif;
         }
+        
         .fade-in {
-            animation: fadeIn 0.3s ease-in;
+            animation: fadeIn 0.5s ease-out;
         }
+        
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .search-result:hover {
-            transform: translateY(-2px);
-            transition: all 0.2s ease;
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
         }
-        .loading {
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
-<body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
+<body class="bg-gray-50 min-h-screen">
     <!-- Header -->
-    <header class="bg-white shadow-lg border-b-4 border-green-500">
+    <header class="bg-white shadow-sm border-b">
         <div class="max-w-6xl mx-auto px-6 py-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 bg-gradient-to-r from-green-600 to-green-700 rounded-lg flex items-center justify-center">
-                        <span class="text-white font-bold text-lg">中</span>
+                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold">中</span>
                     </div>
                     <div>
-                        <h1 class="text-2xl font-bold text-gray-800">中藥資料庫</h1>
-                        <p class="text-sm text-gray-600">雲端共享版 - 即時同步</p>
+                        <h1 class="text-xl font-bold text-gray-900">中藥資料庫</h1>
+                        <p class="text-sm text-gray-600">雲端版</p>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
                     <div id="connectionStatus" class="flex items-center space-x-2">
-                        <div class="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
-                        <span class="text-sm text-gray-600">連線中...</span>
+                        <div class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                        <span class="text-sm text-gray-600">連線中</span>
                     </div>
-                    <div class="text-sm text-gray-600">
-                        專業版 v2.0
-                    </div>
+                    <div class="text-sm text-gray-500">v2.0</div>
                 </div>
             </div>
         </div>
@@ -92,8 +95,11 @@
 
     <div class="max-w-6xl mx-auto px-6 py-8">
         <!-- Loading Indicator -->
-        <div id="loadingIndicator" class="text-center py-8">
-            <div class="loading text-gray-600">正在載入雲端資料...</div>
+        <div id="loadingIndicator" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
+            <div class="text-center">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-600">正在載入資料...</p>
+            </div>
         </div>
 
         <!-- Main Content Grid -->
@@ -102,29 +108,26 @@
             <!-- Left Panel - Search -->
             <div class="lg:col-span-2 space-y-6">
                 <!-- Search Section -->
-                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="bg-white rounded-lg shadow-sm border p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                         </svg>
-                        智能搜尋
+                        搜尋功能
                     </h2>
                     
-                    <div class="relative mb-4">
+                    <div class="mb-4">
                         <input 
                             type="text" 
                             id="searchInput" 
-                            placeholder="輸入症狀或中藥名稱進行搜尋..."
-                            class="w-full px-4 py-3 pl-12 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none transition-colors text-gray-700"
+                            placeholder="輸入中藥名稱或症狀..."
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                         >
-                        <svg class="w-5 h-5 text-gray-400 absolute left-4 top-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
                     </div>
 
-                    <div class="flex space-x-3 mb-4">
-                        <button id="searchBtn" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-                            搜尋
+                    <div class="flex space-x-3">
+                        <button id="searchBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                            🔍 搜尋
                         </button>
                         <button id="clearBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium transition-colors">
                             清除
@@ -132,51 +135,45 @@
                     </div>
                 </div>
 
-                <!-- Search Results -->
-                <div id="searchResults" class="bg-white rounded-xl shadow-lg border border-gray-100 hidden">
-                    <div class="p-6">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">搜尋結果</h3>
-                        <div id="resultsContainer"></div>
-                    </div>
-                </div>
+
             </div>
 
             <!-- Right Panel - Data Import -->
             <div class="space-y-6">
                 <!-- Data Import Section -->
-                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-                    <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                <div class="bg-white rounded-lg shadow-sm border p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
                         </svg>
-                        智能資料導入 (雲端同步)
+                        資料導入
                     </h2>
                     
                     <!-- Smart Input Area -->
                     <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            智能格式識別
+                        </label>
                         <div class="flex items-center justify-between mb-2">
-                            <label class="text-sm font-medium text-gray-700">
-                                🤖 自動識別格式
-                            </label>
-                            <div id="formatHint" class="text-xs text-gray-500"></div>
+                            <div id="formatHint" class="text-xs text-blue-600"></div>
                         </div>
                         <textarea 
                             id="importData" 
-                            placeholder="✅ 支援所有標點符號分隔，自動智能識別：&#10;當歸：補血調經，活血止痛。潤腸通便！&#10;黃芪,補氣固表、利尿托毒；排膿&#10;人參	大補元氣？復脈固脫…生津養血&#10;甘草 調和諸藥|補脾益氣/清熱解毒&#10;川芎→活血行氣＼祛風止痛&#10;白芍[養血柔肝；緩中止痛]&#10;茯苓「健脾利水」「寧心安神」&#10;熟地黃《滋陰補血》《益精填髓》&#10;標點符號會自動清理，無需手動處理..."
-                            class="w-full h-32 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none transition-colors resize-none text-sm"
+                            placeholder="支援多種格式，例如：&#10;當歸：補血調經，活血止痛&#10;黃芪,補氣固表、利尿托毒&#10;人參→大補元氣，復脈固脫..."
+                            class="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none text-sm"
                         ></textarea>
                     </div>
                     
                     <!-- Action Buttons -->
-                    <div class="space-y-2">
-                        <button id="importBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-medium transition-colors">
+                    <div class="space-y-3">
+                        <button id="importBtn" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium transition-colors">
                             ⬆️ 智能導入到雲端
                         </button>
                         
                         <!-- Progress Bar -->
-                        <div id="progressContainer" class="hidden bg-gray-100 rounded-lg p-4 border">
+                        <div id="progressContainer" class="hidden bg-gray-50 rounded-lg p-4">
                             <div class="flex items-center justify-between mb-2">
-                                <span id="progressText" class="text-sm text-gray-700">準備導入...</span>
+                                <span id="progressText" class="text-sm text-gray-600">準備導入...</span>
                                 <span id="progressPercent" class="text-sm font-medium text-blue-600">0%</span>
                             </div>
                             <div class="w-full bg-gray-200 rounded-full h-2">
@@ -184,31 +181,33 @@
                             </div>
                         </div>
                         
-                        <button id="clearAllBtn" class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg font-medium transition-colors text-sm">
-                            🗑️ 清空輸入資料
-                        </button>
-                        <button id="clearDatabaseBtn" class="w-full bg-red-700 hover:bg-red-800 text-white py-2 rounded-lg font-medium transition-colors text-sm mt-2">
-                            💥 清除資料庫
-                        </button>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="clearAllBtn" class="bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg font-medium transition-colors text-sm">
+                                🗑️ 清空輸入
+                            </button>
+                            <button id="clearDatabaseBtn" class="bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium transition-colors text-sm">
+                                💥 清空資料庫
+                            </button>
+                        </div>
                     </div>
                     
                     <!-- Quick Templates -->
                     <div class="mt-4 pt-4 border-t border-gray-200">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">快速範本：</label>
+                        <p class="text-sm text-gray-600 mb-2">快速範本：</p>
                         <div class="grid grid-cols-2 gap-2">
-                            <button id="sampleData1" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors">
+                            <button id="sampleData1" class="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-2 rounded border transition-colors">
                                 📚 基礎中藥
                             </button>
-                            <button id="sampleData2" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors">
+                            <button id="sampleData2" class="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-3 py-2 rounded border transition-colors">
                                 🌿 常用方劑
                             </button>
-                            <button id="sampleData3" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors">
+                            <button id="sampleData3" class="text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 px-3 py-2 rounded border transition-colors">
                                 💊 現代應用
                             </button>
-                            <button id="sampleData4" class="text-xs bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors">
+                            <button id="sampleData4" class="text-xs bg-orange-50 hover:bg-orange-100 text-orange-700 px-3 py-2 rounded border transition-colors">
                                 🔄 混合格式
                             </button>
-                            <button id="sampleData5" class="text-xs bg-purple-100 hover:bg-purple-200 px-2 py-1 rounded transition-colors col-span-2">
+                            <button id="sampleData5" class="text-xs bg-pink-50 hover:bg-pink-100 text-pink-700 px-3 py-2 rounded border transition-colors col-span-2">
                                 ✨ 標點符號範例
                             </button>
                         </div>
@@ -216,19 +215,24 @@
                 </div>
 
                 <!-- Statistics -->
-                <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">即時統計</h3>
+                <div class="bg-white rounded-lg shadow-sm border p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        統計資訊
+                    </h3>
                     <div class="space-y-3">
                         <div class="flex justify-between items-center">
-                            <span class="text-gray-600">中藥總數：</span>
-                            <span id="herbCount" class="font-semibold text-green-600">載入中...</span>
+                            <span class="text-gray-600">中藥數量</span>
+                            <span id="herbCount" class="font-semibold text-blue-600">載入中...</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span class="text-gray-600">症狀總數：</span>
-                            <span id="symptomCount" class="font-semibold text-blue-600">載入中...</span>
+                            <span class="text-gray-600">症狀數量</span>
+                            <span id="symptomCount" class="font-semibold text-green-600">載入中...</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span class="text-gray-600">資料條目：</span>
+                            <span class="text-gray-600">總記錄數</span>
                             <span id="recordCount" class="font-semibold text-purple-600">載入中...</span>
                         </div>
                     </div>
@@ -241,13 +245,10 @@
         <!-- Data Display -->
         <div id="dataDisplay" class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8 hidden">
             <!-- Herbs List -->
-            <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-between">
-                    <div class="flex items-center">
-                        <div class="w-4 h-4 bg-green-500 rounded-full mr-2"></div>
-                        中藥資料庫
-                    </div>
-                    <div class="text-xs text-gray-500">即時同步</div>
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <div class="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                    中藥列表
                 </h3>
                 <div id="herbsList" class="max-h-64 overflow-y-auto space-y-2">
                     <p class="text-gray-500 text-center py-8">載入中...</p>
@@ -255,17 +256,62 @@
             </div>
 
             <!-- Symptoms List -->
-            <div class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center justify-between">
-                    <div class="flex items-center">
-                        <div class="w-4 h-4 bg-blue-500 rounded-full mr-2"></div>
-                        症狀資料庫
-                    </div>
-                    <div class="text-xs text-gray-500">即時同步</div>
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                    症狀列表
                 </h3>
                 <div id="symptomsList" class="max-h-64 overflow-y-auto space-y-2">
                     <p class="text-gray-500 text-center py-8">載入中...</p>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Results Modal -->
+    <div id="searchModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">搜尋結果</h3>
+                        <p id="modalSearchQuery" class="text-sm text-gray-600"></p>
+                    </div>
+                </div>
+                <button id="closeModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Modal Content -->
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                <div id="modalResultsContainer">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+            
+            <!-- Modal Footer -->
+            <div class="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+                <div class="flex items-center space-x-4">
+                    <span id="modalResultCount" class="text-sm text-gray-600"></span>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span class="text-xs text-gray-500">中藥</span>
+                        <div class="w-3 h-3 bg-green-500 rounded-full ml-4"></div>
+                        <span class="text-xs text-gray-500">症狀</span>
+                    </div>
+                </div>
+                <button id="newSearchBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                    🔍 新搜尋
+                </button>
             </div>
         </div>
     </div>
@@ -291,8 +337,6 @@
         const searchInput = document.getElementById('searchInput');
         const searchBtn = document.getElementById('searchBtn');
         const clearBtn = document.getElementById('clearBtn');
-        const searchResults = document.getElementById('searchResults');
-        const resultsContainer = document.getElementById('resultsContainer');
         const importData = document.getElementById('importData');
         const importBtn = document.getElementById('importBtn');
         const clearAllBtn = document.getElementById('clearAllBtn');
@@ -308,6 +352,14 @@
         const connectionStatus = document.getElementById('connectionStatus');
         const toast = document.getElementById('toast');
         const toastMessage = document.getElementById('toastMessage');
+        
+        // Modal elements
+        const searchModal = document.getElementById('searchModal');
+        const modalResultsContainer = document.getElementById('modalResultsContainer');
+        const modalSearchQuery = document.getElementById('modalSearchQuery');
+        const modalResultCount = document.getElementById('modalResultCount');
+        const closeModal = document.getElementById('closeModal');
+        const newSearchBtn = document.getElementById('newSearchBtn');
         
         // Smart import elements
         const formatHint = document.getElementById('formatHint');
@@ -368,7 +420,7 @@
                         loadingIndicator.classList.add('hidden');
                         mainContent.classList.remove('hidden');
                         dataDisplay.classList.remove('hidden');
-                        showToast('雲端資料載入完成', 'success');
+                        showToast('資料載入完成', 'success');
                     }
                 });
 
@@ -392,10 +444,10 @@
             const statusText = connectionStatus.querySelector('span');
             
             if (connected) {
-                statusDot.className = 'w-3 h-3 bg-green-500 rounded-full';
+                statusDot.className = 'w-2 h-2 bg-green-400 rounded-full';
                 statusText.textContent = '已連線';
             } else {
-                statusDot.className = 'w-3 h-3 bg-red-500 rounded-full';
+                statusDot.className = 'w-2 h-2 bg-red-400 rounded-full animate-pulse';
                 statusText.textContent = '離線';
             }
         }
@@ -805,137 +857,438 @@
             return text.split('').map(char => simplifiedToTraditional[char] || char).join('');
         }
 
-        // Enhanced similarity calculation with Traditional/Simplified support
+        // Enhanced similarity calculation with Traditional/Simplified support and crash protection
         function calculateSimilarity(text, query) {
-            const textLower = text.toLowerCase();
-            const queryLower = query.toLowerCase();
-            
-            // Convert to both Traditional and Simplified for comparison
-            const textSimp = convertToSimplified(text);
-            const textTrad = convertToTraditional(text);
-            const querySimp = convertToSimplified(query);
-            const queryTrad = convertToTraditional(query);
-            
-            // Test all combinations
-            const testCombinations = [
-                { text: textLower, query: queryLower },
-                { text: textSimp.toLowerCase(), query: queryLower },
-                { text: textTrad.toLowerCase(), query: queryLower },
-                { text: textLower, query: querySimp.toLowerCase() },
-                { text: textLower, query: queryTrad.toLowerCase() },
-                { text: textSimp.toLowerCase(), query: querySimp.toLowerCase() },
-                { text: textTrad.toLowerCase(), query: queryTrad.toLowerCase() },
-                { text: textSimp.toLowerCase(), query: queryTrad.toLowerCase() },
-                { text: textTrad.toLowerCase(), query: querySimp.toLowerCase() }
-            ];
-            
-            let maxScore = 0;
-            
-            testCombinations.forEach(combo => {
-                let score = 0;
+            try {
+                // Input validation
+                if (!text || !query || typeof text !== 'string' || typeof query !== 'string') {
+                    return 0;
+                }
                 
-                // Exact match gets highest score
-                if (combo.text === combo.query) score = 1000;
-                // Starts with query gets high score
-                else if (combo.text.startsWith(combo.query)) score = 800;
-                // Ends with query gets medium-high score
-                else if (combo.text.endsWith(combo.query)) score = 600;
-                // Contains query gets medium score
-                else if (combo.text.includes(combo.query)) score = 400;
-                else {
-                    // Calculate character overlap score
-                    let overlapScore = 0;
-                    for (let i = 0; i < combo.query.length; i++) {
-                        if (combo.text.includes(combo.query[i])) {
-                            overlapScore += 10;
+                // Prevent infinite loops with very long strings
+                if (text.length > 100 || query.length > 100) {
+                    // Fallback to simple comparison for very long strings
+                    if (text === query) return 1000;
+                    if (text.includes(query)) return 400;
+                    return 0;
+                }
+                
+                const textLower = text.toLowerCase();
+                const queryLower = query.toLowerCase();
+                
+                // Convert to both Traditional and Simplified for comparison with error handling
+                let textSimp, textTrad, querySimp, queryTrad;
+                try {
+                    textSimp = convertToSimplified(text);
+                    textTrad = convertToTraditional(text);
+                    querySimp = convertToSimplified(query);
+                    queryTrad = convertToTraditional(query);
+                } catch (conversionError) {
+                    // Fallback to original strings if conversion fails
+                    textSimp = text;
+                    textTrad = text;
+                    querySimp = query;
+                    queryTrad = query;
+                }
+                
+                // Test all combinations with safety checks
+                const testCombinations = [
+                    { text: textLower, query: queryLower },
+                    { text: textSimp.toLowerCase(), query: queryLower },
+                    { text: textTrad.toLowerCase(), query: queryLower },
+                    { text: textLower, query: querySimp.toLowerCase() },
+                    { text: textLower, query: queryTrad.toLowerCase() },
+                    { text: textSimp.toLowerCase(), query: querySimp.toLowerCase() },
+                    { text: textTrad.toLowerCase(), query: queryTrad.toLowerCase() },
+                    { text: textSimp.toLowerCase(), query: queryTrad.toLowerCase() },
+                    { text: textTrad.toLowerCase(), query: querySimp.toLowerCase() }
+                ];
+                
+                let maxScore = 0;
+                
+                testCombinations.forEach(combo => {
+                    try {
+                        // Safety check for combo properties
+                        if (!combo.text || !combo.query || typeof combo.text !== 'string' || typeof combo.query !== 'string') {
+                            return;
+                        }
+                        
+                        let score = 0;
+                        
+                        // Exact match gets highest score
+                        if (combo.text === combo.query) score = 1000;
+                        // Starts with query gets high score
+                        else if (combo.text.startsWith(combo.query)) score = 800;
+                        // Ends with query gets medium-high score
+                        else if (combo.text.endsWith(combo.query)) score = 600;
+                        // Contains query gets medium score
+                        else if (combo.text.includes(combo.query)) score = 400;
+                        else {
+                            // Calculate character overlap score with bounds checking
+                            let overlapScore = 0;
+                            const maxIterations = Math.min(combo.query.length, 50); // Prevent excessive iterations
+                            
+                            for (let i = 0; i < maxIterations; i++) {
+                                if (combo.text.includes(combo.query[i])) {
+                                    overlapScore += 10;
+                                }
+                            }
+                            
+                            // Length difference penalty (shorter differences get higher scores)
+                            const lengthDiff = Math.abs(combo.text.length - combo.query.length);
+                            const lengthScore = Math.max(0, 100 - lengthDiff * 5);
+                            
+                            score = overlapScore + lengthScore;
+                        }
+                        
+                        maxScore = Math.max(maxScore, score);
+                    } catch (comboError) {
+                        console.warn('Combo calculation error:', comboError);
+                    }
+                });
+                
+                return maxScore;
+            } catch (error) {
+                console.warn('Similarity calculation error:', error);
+                return 0; // Return 0 instead of crashing
+            }
+        }
+
+        // Ultra-safe search function with comprehensive crash protection
+        function searchFunction() {
+            try {
+                const query = searchInput.value ? searchInput.value.trim() : '';
+                if (!query) {
+                    showToast('請輸入搜尋關鍵字', 'error');
+                    return;
+                }
+
+                // Show loading state with safety check
+                if (searchBtn) {
+                    searchBtn.disabled = true;
+                    searchBtn.innerHTML = '🔍 搜尋中...';
+                }
+
+                // Use setTimeout to prevent UI blocking and add extra error handling
+                setTimeout(() => {
+                    let results = [];
+                    
+                    try {
+                        // Initialize safe data structures
+                        const safeHerbsData = herbsData && typeof herbsData === 'object' ? herbsData : {};
+                        const safeSymptomsData = symptomsData && typeof symptomsData === 'object' ? symptomsData : {};
+                        
+                        // Safe query processing
+                        const queryLower = query.toLowerCase();
+                        
+                        // Initialize result arrays
+                        let exactMatches = [];
+                        let partialMatches = [];
+                        let fuzzyMatches = [];
+
+                        // Ultra-safe herb search
+                        try {
+                            const herbKeys = Object.keys(safeHerbsData);
+                            
+                            for (let i = 0; i < herbKeys.length && i < 1000; i++) { // Limit iterations
+                                try {
+                                    const herb = herbKeys[i];
+                                    
+                                    // Multiple safety checks
+                                    if (!herb || typeof herb !== 'string' || herb.length === 0) continue;
+                                    if (!safeHerbsData[herb] || !Array.isArray(safeHerbsData[herb])) continue;
+                                    if (safeHerbsData[herb].length === 0) continue;
+                                    
+                                    // Safe string operations
+                                    let herbLower = '';
+                                    try {
+                                        herbLower = herb.toLowerCase();
+                                    } catch (e) {
+                                        continue;
+                                    }
+                                    
+                                    // Exact match (highest priority)
+                                    if (herb === query || herbLower === queryLower) {
+                                        exactMatches.push({
+                                            type: '中藥',
+                                            name: herb,
+                                            items: safeHerbsData[herb].slice(0, 50), // Limit items
+                                            label: '對應症狀',
+                                            similarity: 1000,
+                                            matchType: 'exact'
+                                        });
+                                        continue;
+                                    }
+
+                                    // Partial match (medium priority)
+                                    let hasPartialMatch = false;
+                                    try {
+                                        hasPartialMatch = herb.includes(query) || herbLower.includes(queryLower);
+                                    } catch (e) {
+                                        hasPartialMatch = false;
+                                    }
+                                    
+                                    if (hasPartialMatch) {
+                                        partialMatches.push({
+                                            type: '中藥',
+                                            name: herb,
+                                            items: safeHerbsData[herb].slice(0, 50),
+                                            label: '對應症狀',
+                                            similarity: 800,
+                                            matchType: 'partial'
+                                        });
+                                        continue;
+                                    }
+
+                                    // Fuzzy match (lowest priority) - only if we don't have too many results
+                                    if (exactMatches.length + partialMatches.length < 20) {
+                                        try {
+                                            const similarity = calculateSimilarity(herb, query);
+                                            if (similarity && similarity >= 100) { // Higher threshold for fuzzy
+                                                fuzzyMatches.push({
+                                                    type: '中藥',
+                                                    name: herb,
+                                                    items: safeHerbsData[herb].slice(0, 50),
+                                                    label: '對應症狀',
+                                                    similarity: similarity,
+                                                    matchType: 'fuzzy'
+                                                });
+                                            }
+                                        } catch (simError) {
+                                            // Silently skip fuzzy matching if it fails
+                                        }
+                                    }
+                                } catch (herbItemError) {
+                                    // Skip this herb and continue
+                                    continue;
+                                }
+                            }
+                        } catch (herbSearchError) {
+                            console.warn('Herb search section failed:', herbSearchError);
+                        }
+
+                        // Ultra-safe symptom search
+                        try {
+                            const symptomKeys = Object.keys(safeSymptomsData);
+                            
+                            for (let i = 0; i < symptomKeys.length && i < 1000; i++) { // Limit iterations
+                                try {
+                                    const symptom = symptomKeys[i];
+                                    
+                                    // Multiple safety checks
+                                    if (!symptom || typeof symptom !== 'string' || symptom.length === 0) continue;
+                                    if (!safeSymptomsData[symptom] || !Array.isArray(safeSymptomsData[symptom])) continue;
+                                    if (safeSymptomsData[symptom].length === 0) continue;
+                                    
+                                    // Safe string operations
+                                    let symptomLower = '';
+                                    try {
+                                        symptomLower = symptom.toLowerCase();
+                                    } catch (e) {
+                                        continue;
+                                    }
+                                    
+                                    // Exact match (highest priority)
+                                    if (symptom === query || symptomLower === queryLower) {
+                                        exactMatches.push({
+                                            type: '症狀',
+                                            name: symptom,
+                                            items: safeSymptomsData[symptom].slice(0, 50),
+                                            label: '對應中藥',
+                                            similarity: 1000,
+                                            matchType: 'exact'
+                                        });
+                                        continue;
+                                    }
+
+                                    // Partial match (medium priority)
+                                    let hasPartialMatch = false;
+                                    try {
+                                        hasPartialMatch = symptom.includes(query) || symptomLower.includes(queryLower);
+                                    } catch (e) {
+                                        hasPartialMatch = false;
+                                    }
+                                    
+                                    if (hasPartialMatch) {
+                                        partialMatches.push({
+                                            type: '症狀',
+                                            name: symptom,
+                                            items: safeSymptomsData[symptom].slice(0, 50),
+                                            label: '對應中藥',
+                                            similarity: 800,
+                                            matchType: 'partial'
+                                        });
+                                        continue;
+                                    }
+
+                                    // Fuzzy match (lowest priority) - only if we don't have too many results
+                                    if (exactMatches.length + partialMatches.length < 20) {
+                                        try {
+                                            const similarity = calculateSimilarity(symptom, query);
+                                            if (similarity && similarity >= 100) { // Higher threshold for fuzzy
+                                                fuzzyMatches.push({
+                                                    type: '症狀',
+                                                    name: symptom,
+                                                    items: safeSymptomsData[symptom].slice(0, 50),
+                                                    label: '對應中藥',
+                                                    similarity: similarity,
+                                                    matchType: 'fuzzy'
+                                                });
+                                            }
+                                        } catch (simError) {
+                                            // Silently skip fuzzy matching if it fails
+                                        }
+                                    }
+                                } catch (symptomItemError) {
+                                    // Skip this symptom and continue
+                                    continue;
+                                }
+                            }
+                        } catch (symptomSearchError) {
+                            console.warn('Symptom search section failed:', symptomSearchError);
+                        }
+
+                        // Safe sorting with error handling
+                        try {
+                            exactMatches = exactMatches.sort((a, b) => {
+                                try {
+                                    return (a.name ? a.name.length : 999) - (b.name ? b.name.length : 999);
+                                } catch (e) {
+                                    return 0;
+                                }
+                            });
+                        } catch (e) {
+                            exactMatches = exactMatches || [];
+                        }
+
+                        try {
+                            partialMatches = partialMatches.sort((a, b) => {
+                                try {
+                                    const simA = a.similarity || 0;
+                                    const simB = b.similarity || 0;
+                                    const lenA = a.name ? a.name.length : 999;
+                                    const lenB = b.name ? b.name.length : 999;
+                                    return simB - simA || lenA - lenB;
+                                } catch (e) {
+                                    return 0;
+                                }
+                            });
+                        } catch (e) {
+                            partialMatches = partialMatches || [];
+                        }
+
+                        try {
+                            fuzzyMatches = fuzzyMatches.sort((a, b) => {
+                                try {
+                                    const simA = a.similarity || 0;
+                                    const simB = b.similarity || 0;
+                                    const lenA = a.name ? a.name.length : 999;
+                                    const lenB = b.name ? b.name.length : 999;
+                                    return simB - simA || lenA - lenB;
+                                } catch (e) {
+                                    return 0;
+                                }
+                            });
+                        } catch (e) {
+                            fuzzyMatches = fuzzyMatches || [];
+                        }
+
+                        // Safely combine results
+                        results = [];
+                        try {
+                            results = [...(exactMatches || []), ...(partialMatches || []), ...(fuzzyMatches || [])];
+                            // Limit total results to prevent UI overload
+                            results = results.slice(0, 100);
+                        } catch (combineError) {
+                            console.warn('Result combination error:', combineError);
+                            results = [];
+                        }
+
+                    } catch (searchError) {
+                        console.error('Search processing error:', searchError);
+                        results = [];
+                    }
+
+                    // Always try to display results, even if empty
+                    try {
+                        displayResults(results, query);
+                    } catch (displayError) {
+                        console.error('Display results error:', displayError);
+                        // Fallback: show basic error message
+                        try {
+                            showToast('搜尋結果顯示失敗', 'error');
+                        } catch (toastError) {
+                            // Even toast failed, just log
+                            console.error('Toast also failed:', toastError);
                         }
                     }
-                    
-                    // Length difference penalty (shorter differences get higher scores)
-                    const lengthDiff = Math.abs(combo.text.length - combo.query.length);
-                    const lengthScore = Math.max(0, 100 - lengthDiff * 5);
-                    
-                    score = overlapScore + lengthScore;
-                }
+
+                    // Always restore button state
+                    try {
+                        if (searchBtn) {
+                            searchBtn.disabled = false;
+                            searchBtn.innerHTML = '🔍 搜尋';
+                        }
+                    } catch (buttonError) {
+                        console.error('Button restore error:', buttonError);
+                    }
+
+                }, 50); // Slightly longer delay for stability
+
+            } catch (outerError) {
+                console.error('Search function outer error:', outerError);
                 
-                maxScore = Math.max(maxScore, score);
-            });
-            
-            return maxScore;
-        }
-
-        // Enhanced search function with similarity ranking
-        function searchFunction() {
-            const query = searchInput.value.trim();
-            if (!query) {
-                showToast('請輸入搜尋關鍵字', 'error');
-                return;
+                // Emergency fallback
+                try {
+                    if (searchBtn) {
+                        searchBtn.disabled = false;
+                        searchBtn.innerHTML = '🔍 搜尋';
+                    }
+                    showToast('搜尋功能暫時無法使用', 'error');
+                } catch (emergencyError) {
+                    console.error('Emergency fallback failed:', emergencyError);
+                }
             }
-
-            let results = [];
-
-            // Search in herbs with similarity scoring
-            Object.keys(herbsData).forEach(herb => {
-                const similarity = calculateSimilarity(herb, query);
-                if (similarity > 0) {
-                    results.push({
-                        type: '中藥',
-                        name: herb,
-                        items: herbsData[herb],
-                        label: '對應症狀',
-                        similarity: similarity,
-                        matchType: herb === query ? 'exact' : herb.includes(query) ? 'partial' : 'fuzzy'
-                    });
-                }
-            });
-
-            // Search in symptoms with similarity scoring
-            Object.keys(symptomsData).forEach(symptom => {
-                const similarity = calculateSimilarity(symptom, query);
-                if (similarity > 0) {
-                    results.push({
-                        type: '症狀',
-                        name: symptom,
-                        items: symptomsData[symptom],
-                        label: '對應中藥',
-                        similarity: similarity,
-                        matchType: symptom === query ? 'exact' : symptom.includes(query) ? 'partial' : 'fuzzy'
-                    });
-                }
-            });
-
-            // Sort results by similarity score (highest first)
-            results.sort((a, b) => {
-                // First sort by similarity score
-                if (b.similarity !== a.similarity) {
-                    return b.similarity - a.similarity;
-                }
-                // Then by match type (exact > partial > fuzzy)
-                const matchTypeOrder = { 'exact': 3, 'partial': 2, 'fuzzy': 1 };
-                if (matchTypeOrder[b.matchType] !== matchTypeOrder[a.matchType]) {
-                    return matchTypeOrder[b.matchType] - matchTypeOrder[a.matchType];
-                }
-                // Finally by name length (shorter first)
-                return a.name.length - b.name.length;
-            });
-
-            // Filter out very low similarity results (below threshold)
-            results = results.filter(result => result.similarity >= 50);
-
-            displayResults(results, query);
         }
 
-        // Display search results with similarity indicators
+        // Modal control functions
+        function showModal() {
+            searchModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            // Scroll modal content to top
+            const modalContent = searchModal.querySelector('.overflow-y-auto');
+            if (modalContent) {
+                modalContent.scrollTop = 0;
+            }
+        }
+
+        function hideModal() {
+            searchModal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Display search results in modal
         function displayResults(results, query) {
+            // Update modal header
+            modalSearchQuery.textContent = `搜尋關鍵字：「${query}」`;
+            modalResultCount.textContent = `找到 ${results.length} 個結果`;
+
             if (results.length === 0) {
-                resultsContainer.innerHTML = `
-                    <div class="text-center py-8">
-                        <div class="text-gray-400 text-lg mb-2">😔</div>
-                        <p class="text-gray-500">未找到與「${query}」相關的資料</p>
+                modalResultsContainer.innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="text-gray-400 text-4xl mb-4">🔍</div>
+                        <h4 class="text-lg font-medium text-gray-900 mb-2">未找到相關資料</h4>
+                        <p class="text-gray-500">未找到與「${query}」相關的中藥或症狀資料</p>
+                        <div class="mt-6">
+                            <button onclick="hideModal(); searchInput.focus();" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                重新搜尋
+                            </button>
+                        </div>
                     </div>
                 `;
             } else {
-                resultsContainer.innerHTML = results.map((result, index) => {
+                modalResultsContainer.innerHTML = results.map((result, index) => {
                     // Determine match quality indicator
                     let matchIndicator = '';
                     let matchColor = '';
@@ -951,19 +1304,19 @@
                     }
 
                     return `
-                        <div class="search-result bg-gray-50 rounded-lg p-4 mb-4 border-l-4 ${result.type === '中藥' ? 'border-green-500' : 'border-blue-500'} fade-in">
-                            <div class="flex items-center justify-between mb-2">
+                        <div class="border border-gray-200 rounded-lg p-5 mb-4 border-l-4 ${result.type === '中藥' ? 'border-l-blue-500' : 'border-l-green-500'} fade-in hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-4">
                                 <div class="flex items-center">
-                                    <span class="inline-block px-2 py-1 text-xs font-medium rounded ${result.type === '中藥' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">${result.type}</span>
-                                    <h4 class="font-semibold text-gray-800 ml-2">${result.name}</h4>
+                                    <span class="inline-block px-3 py-1 text-sm font-medium rounded ${result.type === '中藥' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}">${result.type}</span>
+                                    <h4 class="font-semibold text-gray-900 ml-3 text-lg">${result.name}</h4>
                                     ${index < 3 ? '<span class="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">推薦</span>' : ''}
                                 </div>
-                                <div class="text-xs ${matchColor} font-medium">${matchIndicator}</div>
+                                <div class="text-sm ${matchColor} font-medium">${matchIndicator}</div>
                             </div>
-                            <p class="text-sm text-gray-600 mb-2">${result.label}：</p>
-                            <div class="flex flex-wrap gap-2">
+                            <p class="text-sm text-gray-600 mb-4 font-medium">${result.label}：</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                                 ${result.items.map(item => `
-                                    <span class="inline-block px-3 py-1 bg-white text-gray-700 rounded-full text-sm border border-gray-200 hover:bg-gray-100 cursor-pointer" onclick="searchInput.value='${item}'; searchFunction();">${item}</span>
+                                    <span class="inline-block px-4 py-2 bg-gray-50 text-gray-700 rounded-lg text-sm hover:bg-blue-50 hover:text-blue-700 cursor-pointer transition-colors border border-gray-200 hover:border-blue-300" onclick="hideModal(); searchInput.value='${item}'; searchFunction();">${item}</span>
                                 `).join('')}
                             </div>
                         </div>
@@ -971,8 +1324,8 @@
                 }).join('');
             }
 
-            searchResults.classList.remove('hidden');
-            searchResults.scrollIntoView({ behavior: 'smooth' });
+            // Show modal
+            showModal();
         }
 
         // Update display
@@ -984,24 +1337,24 @@
 
             // Update herbs list
             if (Object.keys(herbsData).length === 0) {
-                herbsList.innerHTML = '<p class="text-gray-500 text-center py-8">暫無資料，請先導入中藥資料</p>';
+                herbsList.innerHTML = '<p class="text-gray-500 text-center py-8">暫無資料</p>';
             } else {
                 herbsList.innerHTML = Object.keys(herbsData).sort().map(herb => `
                     <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors" onclick="searchInput.value='${herb}'; searchFunction();">
-                        <span class="font-medium text-gray-800">${herb}</span>
-                        <span class="text-xs text-gray-500">${herbsData[herb].length} 個症狀</span>
+                        <span class="font-medium text-gray-900">${herb}</span>
+                        <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">${herbsData[herb].length}</span>
                     </div>
                 `).join('');
             }
 
             // Update symptoms list
             if (Object.keys(symptomsData).length === 0) {
-                symptomsList.innerHTML = '<p class="text-gray-500 text-center py-8">暫無資料，請先導入症狀資料</p>';
+                symptomsList.innerHTML = '<p class="text-gray-500 text-center py-8">暫無資料</p>';
             } else {
                 symptomsList.innerHTML = Object.keys(symptomsData).sort().map(symptom => `
                     <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors" onclick="searchInput.value='${symptom}'; searchFunction();">
-                        <span class="font-medium text-gray-800">${symptom}</span>
-                        <span class="text-xs text-gray-500">${symptomsData[symptom].length} 種中藥</span>
+                        <span class="font-medium text-gray-900">${symptom}</span>
+                        <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">${symptomsData[symptom].length}</span>
                     </div>
                 `).join('');
             }
@@ -1076,11 +1429,31 @@
         searchBtn.addEventListener('click', searchFunction);
         clearBtn.addEventListener('click', () => {
             searchInput.value = '';
-            searchResults.classList.add('hidden');
         });
         importBtn.addEventListener('click', importDataFunction);
         clearAllBtn.addEventListener('click', clearAllData);
         clearDatabaseBtn.addEventListener('click', clearDatabase);
+        
+        // Modal event listeners
+        closeModal.addEventListener('click', hideModal);
+        newSearchBtn.addEventListener('click', () => {
+            hideModal();
+            searchInput.focus();
+        });
+        
+        // Close modal when clicking outside
+        searchModal.addEventListener('click', (e) => {
+            if (e.target === searchModal) {
+                hideModal();
+            }
+        });
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !searchModal.classList.contains('hidden')) {
+                hideModal();
+            }
+        });
         
         // Sample data buttons
         sampleData1.addEventListener('click', () => loadSampleData('basic'));
@@ -1103,7 +1476,7 @@
                     json: 'JSON格式'
                 };
                 
-                formatHint.textContent = `識別：${formatNames[detectedFormat] || '未知格式'}`;
+                formatHint.textContent = `自動識別：${formatNames[detectedFormat] || '未知格式'}`;
             } else {
                 formatHint.textContent = '';
             }
@@ -1121,5 +1494,5 @@
         // Initialize the application
         initializeFirebase();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96647b88334ef7d9',t:'MTc1MzcwNjgyMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96651959622f7e88',t:'MTc1MzcxMzI4NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
