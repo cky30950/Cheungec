@@ -181,13 +181,18 @@
                             </div>
                         </div>
                         
+                        <button id="clearAllBtn" class="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg font-medium transition-colors">
+                            🗑️ 清空輸入
+                        </button>
+                        
                         <div class="grid grid-cols-2 gap-2">
-                            <button id="clearAllBtn" class="bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg font-medium transition-colors text-sm">
-                                🗑️ 清空輸入
+                            <button id="editModeBtn" class="bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition-colors text-sm">
+                                ✏️ 編輯模式
                             </button>
                             <button id="clearDatabaseBtn" class="bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium transition-colors text-sm">
                                 💥 清空資料庫
                             </button>
+                        </div>
                         </div>
                     </div>
                     
@@ -296,8 +301,149 @@
         </div>
     </div>
 
+    <!-- Edit Modal -->
+    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-hidden">
+            <!-- Edit Modal Header -->
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">編輯資料</h3>
+                        <p class="text-sm text-gray-600">修改中藥和症狀資料</p>
+                    </div>
+                </div>
+                <button id="closeEditModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Edit Modal Content -->
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+                <!-- Search and Filter -->
+                <div class="mb-6">
+                    <div class="flex space-x-4 mb-4">
+                        <input 
+                            type="text" 
+                            id="editSearchInput" 
+                            placeholder="搜尋要編輯的項目..."
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                        >
+                        <select id="editTypeFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none">
+                            <option value="all">全部</option>
+                            <option value="herb">中藥</option>
+                            <option value="symptom">症狀</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Edit Items List -->
+                <div id="editItemsList" class="space-y-3">
+                    <!-- Items will be populated here -->
+                </div>
+            </div>
+            
+            <!-- Edit Modal Footer -->
+            <div class="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+                <div class="flex items-center space-x-4">
+                    <span id="editItemCount" class="text-sm text-gray-600">載入中...</span>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span class="text-xs text-gray-500">中藥</span>
+                        <div class="w-3 h-3 bg-green-500 rounded-full ml-4"></div>
+                        <span class="text-xs text-gray-500">症狀</span>
+                    </div>
+                </div>
+                <button id="closeEditModalBtn" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                    關閉
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Item Detail Modal -->
+    <div id="editDetailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+            <!-- Detail Modal Header -->
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <div class="flex items-center space-x-3">
+                    <div id="editDetailIcon" class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold">編</span>
+                    </div>
+                    <div>
+                        <h3 id="editDetailTitle" class="text-lg font-semibold text-gray-900">編輯項目</h3>
+                        <p id="editDetailSubtitle" class="text-sm text-gray-600">修改名稱和關聯項目</p>
+                    </div>
+                </div>
+                <button id="closeEditDetailModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Detail Modal Content -->
+            <div class="p-6 overflow-y-auto max-h-[calc(80vh-180px)]">
+                <!-- Name Edit -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">名稱</label>
+                    <input 
+                        type="text" 
+                        id="editItemName" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                        placeholder="輸入新名稱..."
+                    >
+                </div>
+                
+                <!-- Related Items Edit -->
+                <div class="mb-6">
+                    <label id="editRelatedLabel" class="block text-sm font-medium text-gray-700 mb-2">關聯項目</label>
+                    <div class="space-y-2 mb-4">
+                        <div id="editRelatedItems" class="space-y-2">
+                            <!-- Related items will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Add New Related Item -->
+                    <div class="flex space-x-2">
+                        <input 
+                            type="text" 
+                            id="newRelatedItem" 
+                            placeholder="新增關聯項目..."
+                            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm"
+                        >
+                        <button id="addRelatedItemBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            新增
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Detail Modal Footer -->
+            <div class="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+                <button id="deleteItemBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                    🗑️ 刪除項目
+                </button>
+                <div class="flex space-x-3">
+                    <button id="cancelEditBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        取消
+                    </button>
+                    <button id="saveEditBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        💾 儲存變更
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Notification Toast -->
-    <div id="toast" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-50">
+    <div id="toast" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-[10001]">
         <div class="flex items-center space-x-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -321,6 +467,7 @@
         const importBtn = document.getElementById('importBtn');
         const clearAllBtn = document.getElementById('clearAllBtn');
         const clearDatabaseBtn = document.getElementById('clearDatabaseBtn');
+        const editModeBtn = document.getElementById('editModeBtn');
         const herbCount = document.getElementById('herbCount');
         const symptomCount = document.getElementById('symptomCount');
         const recordCount = document.getElementById('recordCount');
@@ -349,6 +496,35 @@
         const progressBar = document.getElementById('progressBar');
         const progressText = document.getElementById('progressText');
         const progressPercent = document.getElementById('progressPercent');
+        
+        // Edit modal elements
+        const editModal = document.getElementById('editModal');
+        const editSearchInput = document.getElementById('editSearchInput');
+        const editTypeFilter = document.getElementById('editTypeFilter');
+        const editItemsList = document.getElementById('editItemsList');
+        const editItemCount = document.getElementById('editItemCount');
+        const closeEditModal = document.getElementById('closeEditModal');
+        const closeEditModalBtn = document.getElementById('closeEditModalBtn');
+        
+        // Edit detail modal elements
+        const editDetailModal = document.getElementById('editDetailModal');
+        const editDetailIcon = document.getElementById('editDetailIcon');
+        const editDetailTitle = document.getElementById('editDetailTitle');
+        const editDetailSubtitle = document.getElementById('editDetailSubtitle');
+        const editItemName = document.getElementById('editItemName');
+        const editRelatedLabel = document.getElementById('editRelatedLabel');
+        const editRelatedItems = document.getElementById('editRelatedItems');
+        const newRelatedItem = document.getElementById('newRelatedItem');
+        const addRelatedItemBtn = document.getElementById('addRelatedItemBtn');
+        const deleteItemBtn = document.getElementById('deleteItemBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const saveEditBtn = document.getElementById('saveEditBtn');
+        const closeEditDetailModal = document.getElementById('closeEditDetailModal');
+        
+        // Edit state variables
+        let currentEditItem = null;
+        let currentEditType = null;
+        let editItemsData = [];
 
         // Wait for Firebase to be ready
         function waitForFirebase() {
@@ -1393,6 +1569,358 @@
             showModal();
         }
 
+        // Edit mode functions
+        function showEditModal() {
+            // Show loading state
+            editModeBtn.disabled = true;
+            editModeBtn.innerHTML = '⏳ 載入中...';
+            
+            // Show modal first with loading state
+            editModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            // Show loading in modal content
+            editItemsList.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="loading-spinner mx-auto mb-4"></div>
+                    <p class="text-gray-600">正在載入編輯資料...</p>
+                </div>
+            `;
+            editItemCount.textContent = '載入中...';
+            
+            // Prepare data with delay to show loading
+            setTimeout(() => {
+                prepareEditData();
+                
+                // Reset button state
+                editModeBtn.disabled = false;
+                editModeBtn.innerHTML = '✏️ 編輯模式';
+                
+                // Focus on search input
+                setTimeout(() => {
+                    editSearchInput.focus();
+                }, 100);
+            }, 500);
+        }
+
+        function hideEditModal() {
+            editModal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            
+            // Reset search
+            editSearchInput.value = '';
+            editTypeFilter.value = 'all';
+        }
+
+        function showEditDetailModal() {
+            editDetailModal.classList.remove('hidden');
+        }
+
+        function hideEditDetailModal() {
+            editDetailModal.classList.add('hidden');
+            currentEditItem = null;
+            currentEditType = null;
+            
+            // Clear form
+            editItemName.value = '';
+            editRelatedItems.innerHTML = '';
+            newRelatedItem.value = '';
+        }
+
+        function prepareEditData() {
+            editItemsData = [];
+            
+            // Add herbs
+            Object.keys(herbsData).forEach(herb => {
+                editItemsData.push({
+                    type: 'herb',
+                    name: herb,
+                    relatedItems: herbsData[herb] || [],
+                    count: (herbsData[herb] || []).length
+                });
+            });
+            
+            // Add symptoms
+            Object.keys(symptomsData).forEach(symptom => {
+                editItemsData.push({
+                    type: 'symptom',
+                    name: symptom,
+                    relatedItems: symptomsData[symptom] || [],
+                    count: (symptomsData[symptom] || []).length
+                });
+            });
+            
+            // Sort by name
+            editItemsData.sort((a, b) => a.name.localeCompare(b.name));
+            
+            displayEditItems();
+        }
+
+        function displayEditItems() {
+            const searchTerm = editSearchInput.value.toLowerCase();
+            const typeFilter = editTypeFilter.value;
+            
+            let filteredItems = editItemsData.filter(item => {
+                const matchesSearch = !searchTerm || item.name.toLowerCase().includes(searchTerm);
+                const matchesType = typeFilter === 'all' || item.type === typeFilter;
+                return matchesSearch && matchesType;
+            });
+            
+            editItemCount.textContent = `顯示 ${filteredItems.length} 個項目`;
+            
+            if (filteredItems.length === 0) {
+                editItemsList.innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="text-gray-400 text-4xl mb-4">📝</div>
+                        <h4 class="text-lg font-medium text-gray-900 mb-2">沒有找到項目</h4>
+                        <p class="text-gray-500">請調整搜尋條件或篩選器</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            editItemsList.innerHTML = filteredItems.map(item => `
+                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer" onclick="openEditDetail('${item.name}', '${item.type}')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <span class="inline-block px-3 py-1 text-sm font-medium rounded ${item.type === 'herb' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}">
+                                ${item.type === 'herb' ? '中藥' : '症狀'}
+                            </span>
+                            <span class="font-medium text-gray-900">${item.name}</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-gray-500">${item.count} 個關聯</span>
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-sm text-gray-600">
+                        ${item.relatedItems.slice(0, 3).join('、')}${item.relatedItems.length > 3 ? '...' : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openEditDetail(itemName, itemType) {
+            currentEditItem = itemName;
+            currentEditType = itemType;
+            
+            // Set up modal appearance
+            if (itemType === 'herb') {
+                editDetailIcon.className = 'w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center';
+                editDetailIcon.innerHTML = '<span class="text-white font-bold">藥</span>';
+                editDetailTitle.textContent = `編輯中藥：${itemName}`;
+                editDetailSubtitle.textContent = '修改中藥名稱和對應症狀';
+                editRelatedLabel.textContent = '對應症狀';
+            } else {
+                editDetailIcon.className = 'w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center';
+                editDetailIcon.innerHTML = '<span class="text-white font-bold">症</span>';
+                editDetailTitle.textContent = `編輯症狀：${itemName}`;
+                editDetailSubtitle.textContent = '修改症狀名稱和對應中藥';
+                editRelatedLabel.textContent = '對應中藥';
+            }
+            
+            // Fill form
+            editItemName.value = itemName;
+            
+            const relatedItems = itemType === 'herb' ? (herbsData[itemName] || []) : (symptomsData[itemName] || []);
+            displayRelatedItems(relatedItems);
+            
+            showEditDetailModal();
+        }
+
+        function displayRelatedItems(items) {
+            editRelatedItems.innerHTML = items.map((item, index) => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span class="text-gray-900">${item}</span>
+                    <button onclick="removeRelatedItem(${index})" class="text-red-600 hover:text-red-800 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function removeRelatedItem(index) {
+            const relatedItems = currentEditType === 'herb' ? (herbsData[currentEditItem] || []) : (symptomsData[currentEditItem] || []);
+            relatedItems.splice(index, 1);
+            displayRelatedItems(relatedItems);
+        }
+
+        function addNewRelatedItem() {
+            const newItem = newRelatedItem.value.trim();
+            if (!newItem) {
+                showToast('請輸入關聯項目名稱', 'error');
+                return;
+            }
+            
+            const relatedItems = currentEditType === 'herb' ? (herbsData[currentEditItem] || []) : (symptomsData[currentEditItem] || []);
+            
+            if (relatedItems.includes(newItem)) {
+                showToast('該項目已存在', 'error');
+                return;
+            }
+            
+            relatedItems.push(newItem);
+            displayRelatedItems(relatedItems);
+            newRelatedItem.value = '';
+            
+            showToast('已新增關聯項目', 'success');
+        }
+
+        async function saveEditChanges() {
+            const newName = editItemName.value.trim();
+            const oldName = currentEditItem;
+            
+            if (!newName) {
+                showToast('請輸入項目名稱', 'error');
+                return;
+            }
+            
+            if (!isFirebaseReady) {
+                showToast('資料庫未連線，無法儲存', 'error');
+                return;
+            }
+            
+            try {
+                saveEditBtn.disabled = true;
+                saveEditBtn.innerHTML = '💾 儲存中...';
+                
+                const relatedItems = currentEditType === 'herb' ? (herbsData[currentEditItem] || []) : (symptomsData[currentEditItem] || []);
+                
+                // If name changed, need to update all related records
+                if (newName !== oldName) {
+                    // Find all records that need to be updated
+                    const recordsToUpdate = [];
+                    const recordsToDelete = [];
+                    
+                    Object.entries(recordsData).forEach(([key, record]) => {
+                        if (currentEditType === 'herb' && record.herb === oldName) {
+                            recordsToDelete.push(key);
+                            recordsToUpdate.push({
+                                key: `${newName}_${record.symptom}`.replace(/[.#$[\]]/g, '_'),
+                                herb: newName,
+                                symptom: record.symptom,
+                                timestamp: Date.now()
+                            });
+                        } else if (currentEditType === 'symptom' && record.symptom === oldName) {
+                            recordsToDelete.push(key);
+                            recordsToUpdate.push({
+                                key: `${record.herb}_${newName}`.replace(/[.#$[\]]/g, '_'),
+                                herb: record.herb,
+                                symptom: newName,
+                                timestamp: Date.now()
+                            });
+                        }
+                    });
+                    
+                    // Delete old records
+                    for (const key of recordsToDelete) {
+                        const recordRef = window.firebaseDB.ref(window.firebaseDB.database, `tcm-records/${key}`);
+                        await window.firebaseDB.remove(recordRef);
+                    }
+                    
+                    // Add updated records
+                    for (const record of recordsToUpdate) {
+                        const recordRef = window.firebaseDB.ref(window.firebaseDB.database, `tcm-records/${record.key}`);
+                        await window.firebaseDB.set(recordRef, {
+                            herb: record.herb,
+                            symptom: record.symptom,
+                            timestamp: record.timestamp
+                        });
+                    }
+                }
+                
+                // Update related items
+                const currentRelatedItems = currentEditType === 'herb' ? (herbsData[oldName] || []) : (symptomsData[oldName] || []);
+                const newRelatedItems = relatedItems;
+                
+                // Find items to add and remove
+                const itemsToAdd = newRelatedItems.filter(item => !currentRelatedItems.includes(item));
+                const itemsToRemove = currentRelatedItems.filter(item => !newRelatedItems.includes(item));
+                
+                // Remove old relationships
+                for (const item of itemsToRemove) {
+                    const key = currentEditType === 'herb' 
+                        ? `${newName}_${item}`.replace(/[.#$[\]]/g, '_')
+                        : `${item}_${newName}`.replace(/[.#$[\]]/g, '_');
+                    
+                    const recordRef = window.firebaseDB.ref(window.firebaseDB.database, `tcm-records/${key}`);
+                    await window.firebaseDB.remove(recordRef);
+                }
+                
+                // Add new relationships
+                for (const item of itemsToAdd) {
+                    const key = currentEditType === 'herb' 
+                        ? `${newName}_${item}`.replace(/[.#$[\]]/g, '_')
+                        : `${item}_${newName}`.replace(/[.#$[\]]/g, '_');
+                    
+                    const recordRef = window.firebaseDB.ref(window.firebaseDB.database, `tcm-records/${key}`);
+                    await window.firebaseDB.set(recordRef, {
+                        herb: currentEditType === 'herb' ? newName : item,
+                        symptom: currentEditType === 'herb' ? item : newName,
+                        timestamp: Date.now()
+                    });
+                }
+                
+                showToast('✅ 變更已儲存', 'success');
+                hideEditDetailModal();
+                prepareEditData(); // Refresh edit data
+                
+            } catch (error) {
+                console.error('Save edit error:', error);
+                showToast('儲存失敗：' + error.message, 'error');
+            } finally {
+                saveEditBtn.disabled = false;
+                saveEditBtn.innerHTML = '💾 儲存變更';
+            }
+        }
+
+        async function deleteCurrentItem() {
+            if (!confirm(`確定要刪除「${currentEditItem}」嗎？\n\n這將刪除所有相關的記錄，此操作無法復原。`)) {
+                return;
+            }
+            
+            if (!isFirebaseReady) {
+                showToast('資料庫未連線，無法刪除', 'error');
+                return;
+            }
+            
+            try {
+                deleteItemBtn.disabled = true;
+                deleteItemBtn.innerHTML = '🗑️ 刪除中...';
+                
+                // Find all records to delete
+                const recordsToDelete = [];
+                
+                Object.entries(recordsData).forEach(([key, record]) => {
+                    if ((currentEditType === 'herb' && record.herb === currentEditItem) ||
+                        (currentEditType === 'symptom' && record.symptom === currentEditItem)) {
+                        recordsToDelete.push(key);
+                    }
+                });
+                
+                // Delete all related records
+                for (const key of recordsToDelete) {
+                    const recordRef = window.firebaseDB.ref(window.firebaseDB.database, `tcm-records/${key}`);
+                    await window.firebaseDB.remove(recordRef);
+                }
+                
+                showToast(`🗑️ 已刪除「${currentEditItem}」及其 ${recordsToDelete.length} 個相關記錄`, 'success');
+                hideEditDetailModal();
+                prepareEditData(); // Refresh edit data
+                
+            } catch (error) {
+                console.error('Delete item error:', error);
+                showToast('刪除失敗：' + error.message, 'error');
+            } finally {
+                deleteItemBtn.disabled = false;
+                deleteItemBtn.innerHTML = '🗑️ 刪除項目';
+            }
+        }
+
         // Update display
         function updateDisplay() {
             // Update counts
@@ -1435,6 +1963,7 @@
         importBtn.addEventListener('click', importDataFunction);
         clearAllBtn.addEventListener('click', clearAllData);
         clearDatabaseBtn.addEventListener('click', clearDatabase);
+        editModeBtn.addEventListener('click', showEditModal);
         
         // Modal event listeners
         closeModal.addEventListener('click', hideModal);
@@ -1450,10 +1979,49 @@
             }
         });
         
+        // Edit modal event listeners
+        closeEditModal.addEventListener('click', hideEditModal);
+        closeEditModalBtn.addEventListener('click', hideEditModal);
+        editSearchInput.addEventListener('input', displayEditItems);
+        editTypeFilter.addEventListener('change', displayEditItems);
+        
+        // Edit detail modal event listeners
+        closeEditDetailModal.addEventListener('click', hideEditDetailModal);
+        cancelEditBtn.addEventListener('click', hideEditDetailModal);
+        saveEditBtn.addEventListener('click', saveEditChanges);
+        deleteItemBtn.addEventListener('click', deleteCurrentItem);
+        addRelatedItemBtn.addEventListener('click', addNewRelatedItem);
+        
+        // Close modals when clicking outside
+        editModal.addEventListener('click', (e) => {
+            if (e.target === editModal) {
+                hideEditModal();
+            }
+        });
+        
+        editDetailModal.addEventListener('click', (e) => {
+            if (e.target === editDetailModal) {
+                hideEditDetailModal();
+            }
+        });
+        
+        // Enter key support for new related item
+        newRelatedItem.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addNewRelatedItem();
+            }
+        });
+        
         // Close modal with Escape key
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !searchModal.classList.contains('hidden')) {
-                hideModal();
+            if (e.key === 'Escape') {
+                if (!editDetailModal.classList.contains('hidden')) {
+                    hideEditDetailModal();
+                } else if (!editModal.classList.contains('hidden')) {
+                    hideEditModal();
+                } else if (!searchModal.classList.contains('hidden')) {
+                    hideModal();
+                }
             }
         });
         
@@ -1489,5 +2057,5 @@
         // Initialize the application
         initializeFirebase();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9665e91dc3ca8579',t:'MTc1MzcyMTc5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9666265523e40467',t:'MTc1MzcyNDMwMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
