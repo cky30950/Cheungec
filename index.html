@@ -917,6 +917,7 @@
                     // Fallback to simple comparison for very long strings
                     if (text === query) return 1000;
                     if (text.includes(query)) return 400;
+                    if (query.includes(text)) return 350;
                     return 0;
                 }
                 
@@ -966,11 +967,15 @@
                         if (combo.text === combo.query) score = 1000;
                         // Starts with query gets high score
                         else if (combo.text.startsWith(combo.query)) score = 800;
+                        // Query starts with text (for short symptoms)
+                        else if (combo.query.startsWith(combo.text)) score = 750;
                         // Ends with query gets medium-high score
                         else if (combo.text.endsWith(combo.query)) score = 600;
+                        // Query ends with text
+                        else if (combo.query.endsWith(combo.text)) score = 550;
                         // Contains query gets medium score
                         else if (combo.text.includes(combo.query)) score = 400;
-                        // 新增：查詢字串包含在文字中的情況（針對症狀搜尋）
+                        // Query contains text (重要：針對症狀搜尋)
                         else if (combo.query.includes(combo.text)) score = 350;
                         else {
                             // Calculate character overlap score with bounds checking
@@ -979,24 +984,34 @@
                             
                             for (let i = 0; i < maxIterations; i++) {
                                 if (combo.text.includes(combo.query[i])) {
-                                    overlapScore += 10;
+                                    overlapScore += 15; // 提高字符匹配分數
                                 }
                             }
                             
-                            // 新增：計算共同字符數量
+                            // 計算共同字符數量和位置
                             let commonChars = 0;
-                            for (let char of combo.query) {
+                            let positionBonus = 0;
+                            
+                            for (let i = 0; i < combo.query.length; i++) {
+                                const char = combo.query[i];
                                 if (combo.text.includes(char)) {
                                     commonChars++;
+                                    // 如果字符在相同位置，給予額外分數
+                                    if (i < combo.text.length && combo.text[i] === char) {
+                                        positionBonus += 20;
+                                    }
                                 }
                             }
+                            
+                            // 計算字符覆蓋率
+                            const coverageScore = (commonChars / Math.max(combo.query.length, combo.text.length)) * 100;
                             
                             // Length difference penalty (shorter differences get higher scores)
                             const lengthDiff = Math.abs(combo.text.length - combo.query.length);
-                            const lengthScore = Math.max(0, 100 - lengthDiff * 5);
+                            const lengthScore = Math.max(0, 50 - lengthDiff * 2); // 降低長度懲罰
                             
                             // 綜合評分
-                            score = overlapScore + lengthScore + (commonChars * 5);
+                            score = overlapScore + lengthScore + (commonChars * 8) + positionBonus + coverageScore;
                         }
                         
                         maxScore = Math.max(maxScore, score);
@@ -1012,7 +1027,7 @@
             }
         }
 
-        // Ultra-safe search function with comprehensive crash protection
+        // 全新的搜尋函數 - 專門解決症狀搜尋問題
         function searchFunction() {
             try {
                 const query = searchInput.value ? searchInput.value.trim() : '';
@@ -1021,305 +1036,274 @@
                     return;
                 }
 
-                // Show loading state with safety check
+                // Show loading state
                 if (searchBtn) {
                     searchBtn.disabled = true;
                     searchBtn.innerHTML = '🔍 搜尋中...';
                 }
 
-                // Use setTimeout to prevent UI blocking and add extra error handling
                 setTimeout(() => {
                     let results = [];
                     
                     try {
-                        // Initialize safe data structures
-                        const safeHerbsData = herbsData && typeof herbsData === 'object' ? herbsData : {};
-                        const safeSymptomsData = symptomsData && typeof symptomsData === 'object' ? symptomsData : {};
+                        console.log('=== 開始搜尋 ===');
+                        console.log('搜尋關鍵字:', query);
+                        console.log('中藥資料數量:', Object.keys(herbsData).length);
+                        console.log('症狀資料數量:', Object.keys(symptomsData).length);
+                        console.log('記錄資料數量:', Object.keys(recordsData).length);
                         
-                        // Safe query processing
-                        const queryLower = query.toLowerCase();
+                        // 檢查資料結構
+                        console.log('症狀資料結構檢查:');
+                        const symptomKeys = Object.keys(symptomsData);
+                        console.log('前10個症狀:', symptomKeys.slice(0, 10));
                         
-                        // Initialize result arrays
-                        let exactMatches = [];
-                        let partialMatches = [];
-                        let fuzzyMatches = [];
-
-                        // Ultra-safe herb search
-                        try {
-                            const herbKeys = Object.keys(safeHerbsData);
-                            console.log('搜尋中藥 - 總中藥數量:', herbKeys.length);
+                        // 檢查是否有包含查詢字串的症狀
+                        const containingSymptoms = symptomKeys.filter(symptom => 
+                            symptom && symptom.includes && symptom.includes(query)
+                        );
+                        console.log('包含查詢字串的症狀:', containingSymptoms);
+                        
+                        // 檢查是否有被查詢字串包含的症狀
+                        const containedSymptoms = symptomKeys.filter(symptom => 
+                            symptom && query.includes && query.includes(symptom)
+                        );
+                        console.log('被查詢字串包含的症狀:', containedSymptoms);
+                        
+                        // 全面搜尋 - 不分優先級，直接找所有匹配
+                        const allMatches = [];
+                        
+                        // 1. 搜尋中藥
+                        console.log('--- 搜尋中藥 ---');
+                        Object.keys(herbsData).forEach(herb => {
+                            if (!herb || !herbsData[herb]) return;
                             
-                            for (let i = 0; i < herbKeys.length && i < 1000; i++) { // Limit iterations
-                                try {
-                                    const herb = herbKeys[i];
-                                    
-                                    // Multiple safety checks
-                                    if (!herb || typeof herb !== 'string' || herb.length === 0) continue;
-                                    if (!safeHerbsData[herb] || !Array.isArray(safeHerbsData[herb])) continue;
-                                    if (safeHerbsData[herb].length === 0) continue;
-                                    
-                                    // Safe string operations
-                                    let herbLower = '';
-                                    try {
-                                        herbLower = herb.toLowerCase();
-                                    } catch (e) {
-                                        continue;
-                                    }
-                                    
-                                    // Exact match (highest priority)
-                                    if (herb === query || herbLower === queryLower) {
-                                        console.log('找到完全匹配中藥:', herb);
-                                        exactMatches.push({
-                                            type: '中藥',
-                                            name: herb,
-                                            items: safeHerbsData[herb].slice(0, 50), // Limit items
-                                            label: '對應症狀',
-                                            similarity: 1000,
-                                            matchType: 'exact'
-                                        });
-                                        continue;
-                                    }
-
-                                    // Partial match (medium priority) - 增強匹配邏輯
-                                    let hasPartialMatch = false;
-                                    try {
-                                        hasPartialMatch = herb.includes(query) || 
-                                                        herbLower.includes(queryLower) ||
-                                                        query.includes(herb) ||
-                                                        queryLower.includes(herbLower);
-                                    } catch (e) {
-                                        hasPartialMatch = false;
-                                    }
-                                    
-                                    if (hasPartialMatch) {
-                                        console.log('找到部分匹配中藥:', herb);
-                                        partialMatches.push({
-                                            type: '中藥',
-                                            name: herb,
-                                            items: safeHerbsData[herb].slice(0, 50),
-                                            label: '對應症狀',
-                                            similarity: 800,
-                                            matchType: 'partial'
-                                        });
-                                        continue;
-                                    }
-
-                                    // Fuzzy match (lowest priority) - 降低門檻
-                                    if (exactMatches.length + partialMatches.length < 20) {
-                                        try {
-                                            const similarity = calculateSimilarity(herb, query);
-                                            if (similarity && similarity >= 50) { // 降低門檻從100到50
-                                                console.log('找到模糊匹配中藥:', herb, '相似度:', similarity);
-                                                fuzzyMatches.push({
-                                                    type: '中藥',
-                                                    name: herb,
-                                                    items: safeHerbsData[herb].slice(0, 50),
-                                                    label: '對應症狀',
-                                                    similarity: similarity,
-                                                    matchType: 'fuzzy'
-                                                });
-                                            }
-                                        } catch (simError) {
-                                            // Silently skip fuzzy matching if it fails
-                                        }
-                                    }
-                                } catch (herbItemError) {
-                                    // Skip this herb and continue
-                                    continue;
+                            let matchScore = 0;
+                            let matchType = '';
+                            
+                            // 完全匹配
+                            if (herb === query) {
+                                matchScore = 1000;
+                                matchType = 'exact';
+                            }
+                            // 包含匹配
+                            else if (herb.includes(query)) {
+                                matchScore = 800;
+                                matchType = 'partial';
+                            }
+                            // 被包含匹配
+                            else if (query.includes(herb)) {
+                                matchScore = 750;
+                                matchType = 'partial';
+                            }
+                            // 模糊匹配
+                            else {
+                                const similarity = calculateSimilarity(herb, query);
+                                if (similarity >= 100) {
+                                    matchScore = similarity;
+                                    matchType = 'fuzzy';
                                 }
                             }
                             
-                            console.log('中藥搜尋結果 - 完全匹配:', exactMatches.filter(m => m.type === '中藥').length);
-                            console.log('中藥搜尋結果 - 部分匹配:', partialMatches.filter(m => m.type === '中藥').length);
-                            console.log('中藥搜尋結果 - 模糊匹配:', fuzzyMatches.filter(m => m.type === '中藥').length);
-                        } catch (herbSearchError) {
-                            console.warn('Herb search section failed:', herbSearchError);
-                        }
-
-                        // Ultra-safe symptom search
-                        try {
-                            const symptomKeys = Object.keys(safeSymptomsData);
-                            console.log('搜尋症狀 - 總症狀數量:', symptomKeys.length);
-                            console.log('搜尋關鍵字:', query);
+                            if (matchScore > 0) {
+                                console.log('找到中藥匹配:', herb, '分數:', matchScore);
+                                allMatches.push({
+                                    type: '中藥',
+                                    name: herb,
+                                    items: herbsData[herb].slice(0, 50),
+                                    label: '對應症狀',
+                                    similarity: matchScore,
+                                    matchType: matchType
+                                });
+                            }
+                        });
+                        
+                        // 2. 搜尋症狀 - 使用更寬鬆的匹配策略
+                        console.log('--- 搜尋症狀 ---');
+                        Object.keys(symptomsData).forEach(symptom => {
+                            if (!symptom || !symptomsData[symptom]) return;
                             
-                            for (let i = 0; i < symptomKeys.length && i < 1000; i++) { // Limit iterations
-                                try {
-                                    const symptom = symptomKeys[i];
-                                    
-                                    // Multiple safety checks
-                                    if (!symptom || typeof symptom !== 'string' || symptom.length === 0) continue;
-                                    if (!safeSymptomsData[symptom] || !Array.isArray(safeSymptomsData[symptom])) continue;
-                                    if (safeSymptomsData[symptom].length === 0) continue;
-                                    
-                                    // Safe string operations
-                                    let symptomLower = '';
-                                    try {
-                                        symptomLower = symptom.toLowerCase();
-                                    } catch (e) {
-                                        continue;
+                            let matchScore = 0;
+                            let matchType = '';
+                            
+                            // 完全匹配
+                            if (symptom === query) {
+                                matchScore = 1000;
+                                matchType = 'exact';
+                                console.log('完全匹配症狀:', symptom);
+                            }
+                            // 症狀包含查詢
+                            else if (symptom.includes(query)) {
+                                matchScore = 800;
+                                matchType = 'partial';
+                                console.log('症狀包含查詢:', symptom, '包含', query);
+                            }
+                            // 查詢包含症狀
+                            else if (query.includes(symptom)) {
+                                matchScore = 750;
+                                matchType = 'partial';
+                                console.log('查詢包含症狀:', query, '包含', symptom);
+                            }
+                            // 單字匹配 - 新增邏輯
+                            else {
+                                let hasCharMatch = false;
+                                
+                                // 檢查每個查詢字符是否在症狀中
+                                for (let char of query) {
+                                    if (symptom.includes(char)) {
+                                        hasCharMatch = true;
+                                        break;
                                     }
-                                    
-                                    // Exact match (highest priority)
-                                    if (symptom === query || symptomLower === queryLower) {
-                                        console.log('找到完全匹配症狀:', symptom);
-                                        exactMatches.push({
-                                            type: '症狀',
-                                            name: symptom,
-                                            items: safeSymptomsData[symptom].slice(0, 50),
-                                            label: '對應中藥',
-                                            similarity: 1000,
-                                            matchType: 'exact'
-                                        });
-                                        continue;
-                                    }
-
-                                    // Partial match (medium priority) - 增強匹配邏輯
-                                    let hasPartialMatch = false;
-                                    try {
-                                        hasPartialMatch = symptom.includes(query) || 
-                                                        symptomLower.includes(queryLower) ||
-                                                        query.includes(symptom) ||
-                                                        queryLower.includes(symptomLower);
-                                    } catch (e) {
-                                        hasPartialMatch = false;
-                                    }
-                                    
-                                    if (hasPartialMatch) {
-                                        console.log('找到部分匹配症狀:', symptom);
-                                        partialMatches.push({
-                                            type: '症狀',
-                                            name: symptom,
-                                            items: safeSymptomsData[symptom].slice(0, 50),
-                                            label: '對應中藥',
-                                            similarity: 800,
-                                            matchType: 'partial'
-                                        });
-                                        continue;
-                                    }
-
-                                    // Fuzzy match (lowest priority) - 降低門檻
-                                    if (exactMatches.length + partialMatches.length < 20) {
-                                        try {
-                                            const similarity = calculateSimilarity(symptom, query);
-                                            if (similarity && similarity >= 50) { // 降低門檻從100到50
-                                                console.log('找到模糊匹配症狀:', symptom, '相似度:', similarity);
-                                                fuzzyMatches.push({
-                                                    type: '症狀',
-                                                    name: symptom,
-                                                    items: safeSymptomsData[symptom].slice(0, 50),
-                                                    label: '對應中藥',
-                                                    similarity: similarity,
-                                                    matchType: 'fuzzy'
-                                                });
-                                            }
-                                        } catch (simError) {
-                                            // Silently skip fuzzy matching if it fails
+                                }
+                                
+                                // 檢查每個症狀字符是否在查詢中
+                                if (!hasCharMatch) {
+                                    for (let char of symptom) {
+                                        if (query.includes(char)) {
+                                            hasCharMatch = true;
+                                            break;
                                         }
                                     }
-                                } catch (symptomItemError) {
-                                    // Skip this symptom and continue
-                                    continue;
+                                }
+                                
+                                if (hasCharMatch) {
+                                    // 計算字符重疊度
+                                    let overlapCount = 0;
+                                    for (let char of query) {
+                                        if (symptom.includes(char)) {
+                                            overlapCount++;
+                                        }
+                                    }
+                                    
+                                    const overlapRatio = overlapCount / query.length;
+                                    if (overlapRatio >= 0.3) { // 30%重疊即認為匹配
+                                        matchScore = 300 + (overlapRatio * 200);
+                                        matchType = 'fuzzy';
+                                        console.log('字符重疊匹配:', symptom, '重疊率:', overlapRatio);
+                                    }
+                                }
+                                
+                                // 如果還是沒匹配，嘗試相似度計算
+                                if (matchScore === 0) {
+                                    const similarity = calculateSimilarity(symptom, query);
+                                    if (similarity >= 50) { // 降低門檻
+                                        matchScore = similarity;
+                                        matchType = 'fuzzy';
+                                        console.log('相似度匹配:', symptom, '相似度:', similarity);
+                                    }
                                 }
                             }
                             
-                            console.log('症狀搜尋結果 - 完全匹配:', exactMatches.filter(m => m.type === '症狀').length);
-                            console.log('症狀搜尋結果 - 部分匹配:', partialMatches.filter(m => m.type === '症狀').length);
-                            console.log('症狀搜尋結果 - 模糊匹配:', fuzzyMatches.filter(m => m.type === '症狀').length);
-                        } catch (symptomSearchError) {
-                            console.warn('Symptom search section failed:', symptomSearchError);
-                        }
-
-                        // Safe sorting with error handling
-                        try {
-                            exactMatches = exactMatches.sort((a, b) => {
-                                try {
-                                    return (a.name ? a.name.length : 999) - (b.name ? b.name.length : 999);
-                                } catch (e) {
-                                    return 0;
+                            if (matchScore > 0) {
+                                allMatches.push({
+                                    type: '症狀',
+                                    name: symptom,
+                                    items: symptomsData[symptom].slice(0, 50),
+                                    label: '對應中藥',
+                                    similarity: matchScore,
+                                    matchType: matchType
+                                });
+                            }
+                        });
+                        
+                        // 3. 如果症狀搜尋結果太少，嘗試從記錄中直接搜尋
+                        const symptomMatches = allMatches.filter(m => m.type === '症狀');
+                        console.log('症狀匹配數量:', symptomMatches.length);
+                        
+                        if (symptomMatches.length < 3) {
+                            console.log('--- 從記錄中搜尋症狀 ---');
+                            const foundSymptoms = new Set();
+                            
+                            Object.values(recordsData).forEach(record => {
+                                if (!record || !record.symptom) return;
+                                
+                                const symptom = record.symptom;
+                                if (foundSymptoms.has(symptom)) return;
+                                
+                                // 更寬鬆的匹配
+                                let shouldMatch = false;
+                                
+                                if (symptom.includes(query) || query.includes(symptom)) {
+                                    shouldMatch = true;
+                                } else {
+                                    // 檢查單字匹配
+                                    for (let char of query) {
+                                        if (symptom.includes(char)) {
+                                            shouldMatch = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                if (shouldMatch) {
+                                    foundSymptoms.add(symptom);
+                                    console.log('從記錄中找到症狀:', symptom);
+                                    
+                                    // 找到對應的中藥
+                                    const relatedHerbs = Object.values(recordsData)
+                                        .filter(r => r.symptom === symptom)
+                                        .map(r => r.herb)
+                                        .filter((herb, index, arr) => arr.indexOf(herb) === index);
+                                    
+                                    if (relatedHerbs.length > 0) {
+                                        allMatches.push({
+                                            type: '症狀',
+                                            name: symptom,
+                                            items: relatedHerbs.slice(0, 50),
+                                            label: '對應中藥',
+                                            similarity: 600,
+                                            matchType: 'partial'
+                                        });
+                                    }
                                 }
                             });
-                        } catch (e) {
-                            exactMatches = exactMatches || [];
                         }
-
-                        try {
-                            partialMatches = partialMatches.sort((a, b) => {
-                                try {
-                                    const simA = a.similarity || 0;
-                                    const simB = b.similarity || 0;
-                                    const lenA = a.name ? a.name.length : 999;
-                                    const lenB = b.name ? b.name.length : 999;
-                                    return simB - simA || lenA - lenB;
-                                } catch (e) {
-                                    return 0;
-                                }
-                            });
-                        } catch (e) {
-                            partialMatches = partialMatches || [];
-                        }
-
-                        try {
-                            fuzzyMatches = fuzzyMatches.sort((a, b) => {
-                                try {
-                                    const simA = a.similarity || 0;
-                                    const simB = b.similarity || 0;
-                                    const lenA = a.name ? a.name.length : 999;
-                                    const lenB = b.name ? b.name.length : 999;
-                                    return simB - simA || lenA - lenB;
-                                } catch (e) {
-                                    return 0;
-                                }
-                            });
-                        } catch (e) {
-                            fuzzyMatches = fuzzyMatches || [];
-                        }
-
-                        // Safely combine results
-                        results = [];
-                        try {
-                            results = [...(exactMatches || []), ...(partialMatches || []), ...(fuzzyMatches || [])];
-                            // Limit total results to prevent UI overload
-                            results = results.slice(0, 100);
-                        } catch (combineError) {
-                            console.warn('Result combination error:', combineError);
-                            results = [];
-                        }
-
+                        
+                        // 排序結果
+                        results = allMatches.sort((a, b) => {
+                            // 先按類型排序（中藥優先）
+                            if (a.type !== b.type) {
+                                return a.type === '中藥' ? -1 : 1;
+                            }
+                            // 再按相似度排序
+                            return (b.similarity || 0) - (a.similarity || 0);
+                        });
+                        
+                        // 限制結果數量
+                        results = results.slice(0, 100);
+                        
+                        console.log('=== 搜尋完成 ===');
+                        console.log('總結果數量:', results.length);
+                        console.log('中藥結果:', results.filter(r => r.type === '中藥').length);
+                        console.log('症狀結果:', results.filter(r => r.type === '症狀').length);
+                        
                     } catch (searchError) {
-                        console.error('Search processing error:', searchError);
+                        console.error('搜尋處理錯誤:', searchError);
                         results = [];
                     }
 
-                    // Always try to display results, even if empty
+                    // 顯示結果
                     try {
                         displayResults(results, query);
                     } catch (displayError) {
-                        console.error('Display results error:', displayError);
-                        // Fallback: show basic error message
-                        try {
-                            showToast('搜尋結果顯示失敗', 'error');
-                        } catch (toastError) {
-                            // Even toast failed, just log
-                            console.error('Toast also failed:', toastError);
-                        }
+                        console.error('顯示結果錯誤:', displayError);
+                        showToast('搜尋結果顯示失敗', 'error');
                     }
 
-                    // Always restore button state
+                    // 恢復按鈕狀態
                     try {
                         if (searchBtn) {
                             searchBtn.disabled = false;
                             searchBtn.innerHTML = '🔍 搜尋';
                         }
                     } catch (buttonError) {
-                        console.error('Button restore error:', buttonError);
+                        console.error('按鈕恢復錯誤:', buttonError);
                     }
 
-                }, 50); // Slightly longer delay for stability
+                }, 100);
 
             } catch (outerError) {
-                console.error('Search function outer error:', outerError);
+                console.error('搜尋函數外層錯誤:', outerError);
                 
-                // Emergency fallback
                 try {
                     if (searchBtn) {
                         searchBtn.disabled = false;
@@ -1327,7 +1311,7 @@
                     }
                     showToast('搜尋功能暫時無法使用', 'error');
                 } catch (emergencyError) {
-                    console.error('Emergency fallback failed:', emergencyError);
+                    console.error('緊急恢復失敗:', emergencyError);
                 }
             }
         }
@@ -1505,5 +1489,5 @@
         // Initialize the application
         initializeFirebase();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9665b7ef27e7dd9b',t:'MTc1MzcxOTc4MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9665e91dc3ca8579',t:'MTc1MzcyMTc5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
