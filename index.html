@@ -1546,14 +1546,32 @@
                             });
                         }
                         
-                        // 排序結果
+                        // 排序結果 - 優先級：匹配類型 > 相似度 > 類型
                         results = allMatches.sort((a, b) => {
-                            // 先按類型排序（中藥優先）
+                            // 1. 首先按匹配類型排序（完全匹配 > 部分匹配 > 模糊匹配）
+                            const matchTypeOrder = { 'exact': 3, 'partial': 2, 'fuzzy': 1 };
+                            const aMatchOrder = matchTypeOrder[a.matchType] || 0;
+                            const bMatchOrder = matchTypeOrder[b.matchType] || 0;
+                            
+                            if (aMatchOrder !== bMatchOrder) {
+                                return bMatchOrder - aMatchOrder; // 高分在前
+                            }
+                            
+                            // 2. 相同匹配類型時，按相似度排序
+                            const aSimilarity = a.similarity || 0;
+                            const bSimilarity = b.similarity || 0;
+                            
+                            if (aSimilarity !== bSimilarity) {
+                                return bSimilarity - aSimilarity; // 高分在前
+                            }
+                            
+                            // 3. 相似度相同時，中藥優先
                             if (a.type !== b.type) {
                                 return a.type === '中藥' ? -1 : 1;
                             }
-                            // 再按相似度排序
-                            return (b.similarity || 0) - (a.similarity || 0);
+                            
+                            // 4. 最後按名稱長度排序（短的在前，通常更精確）
+                            return a.name.length - b.name.length;
                         });
                         
                         // 限制結果數量
@@ -2170,5 +2188,5 @@
         // Initialize the application
         initializeFirebase();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9668e965e6215de0',t:'MTc1Mzc1MzI2My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9668f058b3605de0',t:'MTc1Mzc1MzU0OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
