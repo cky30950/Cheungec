@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>中醫診所管理系統</title>
+    <title>中醫診所管理系統 v2.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase v9 SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -17,130 +19,1683 @@
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .card-hover { transition: all 0.2s ease; }
         .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .glass-effect { backdrop-filter: blur(10px); background: rgba(255, 255, 255, 0.9); }
     </style>
 </head>
 <body class="bg-gray-50">
     <!-- Firebase Configuration -->
     <script>
-        // Firebase configuration
+        // Firebase configuration - 修復版本
         const firebaseConfig = {
-            apiKey: "AIzaSyBtUcrBYiE4B1O4xkvIqwxM52Hrh-i6pL8",
-            authDomain: "cheungec-ea477.firebaseapp.com",
-            databaseURL: "https://cheungec-ea477-default-rtdb.asia-southeast1.firebasedatabase.app/",
-            projectId: "cheungec-ea477",
-            storageBucket: "cheungec-ea477.firebasestorage.app",
-            messagingSenderId: "986510230799",
-            appId: "1:986510230799:web:f603e67b605e71294f2a7a"
+            apiKey: "AIzaSyBx6RQt7wA2DDnxkQiIfh8ubzpzKYfXWGg",
+            authDomain: "clinic-bb064.firebaseapp.com",
+            databaseURL: "https://clinic-bb064-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "clinic-bb064",
+            storageBucket: "clinic-bb064.firebasestorage.app",
+            messagingSenderId: "387800418575",
+            appId: "1:387800418575:web:4dc6baafbedf640ac1567a",
+            measurementId: "G-1KW4XQX10N"
         };
         
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-        const auth = firebase.auth();
+        // Initialize Firebase - 混合數據庫架構
+        let database;        // Realtime Database (即時功能)
+        let firestore;       // Firestore (主要數據) - asia-east2
+        let auth;           // Authentication
+        let isFirebaseConnected = false;
+        let isFirestoreConnected = false;
         
-        // Demo data structure
-        let currentUser = null;
-        let userRole = 'admin'; // Default for demo
+        const CLINIC_ID = 'main-clinic'; // 診所ID
+        const VERSION = '2.0'; // 系統版本
         
-        // Initialize demo data
-        function initializeDemoData() {
-            const demoData = {
-                users: {
-                    admin1: { name: '系統管理員', role: 'admin', email: 'admin@clinic.com' },
-                    doctor1: { name: '王醫師', role: 'doctor', email: 'doctor@clinic.com' },
-                    assistant1: { name: '李助理', role: 'assistant', email: 'assistant@clinic.com' }
+        // Initialize Firebase with hybrid setup
+        function initializeFirebase() {
+            console.log('🚀 初始化中醫診所管理系統 v' + VERSION);
+            console.log('📊 Firestore: 病人資料、預約、處方、診療記錄');
+            console.log('⚡ Realtime DB: 排號系統、即時通知、在線狀態');
+            console.log('🔧 配置檢查:', firebaseConfig);
+            
+            try {
+                if (typeof firebase === 'undefined') {
+                    throw new Error('Firebase SDK未載入');
+                }
+                
+                // Initialize Firebase app
+                const app = firebase.initializeApp(firebaseConfig);
+                console.log('✅ Firebase App 初始化成功');
+                
+                // Initialize services with error handling
+                try {
+                    database = firebase.database();
+                    console.log('✅ Realtime Database 服務初始化');
+                } catch (dbError) {
+                    console.error('❌ Realtime Database 初始化失敗:', dbError);
+                }
+                
+                try {
+                    firestore = firebase.firestore();
+                    console.log('✅ Firestore 服務初始化');
+                    
+                    // Configure Firestore
+                    firestore.settings({
+                        ignoreUndefinedProperties: true,
+                        cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
+                    });
+                    console.log('✅ Firestore 設定完成');
+                } catch (fsError) {
+                    console.error('❌ Firestore 初始化失敗:', fsError);
+                }
+                
+                try {
+                    auth = firebase.auth();
+                    console.log('✅ Authentication 服務初始化');
+                } catch (authError) {
+                    console.error('❌ Authentication 初始化失敗:', authError);
+                }
+                
+                // Test connections with detailed logging
+                testConnections();
+                
+            } catch (error) {
+                console.error('❌ Firebase初始化失敗:', error);
+                console.error('錯誤詳情:', error.message);
+                console.error('錯誤堆疊:', error.stack);
+                updateConnectionStatus(false, false);
+                
+                // Show error to user
+                setTimeout(() => {
+                    alert('Firebase初始化失敗：' + error.message + '\n\n請檢查網路連接或重新載入頁面');
+                }, 1000);
+            }
+        }
+        
+        // Test both database connections
+        function testConnections() {
+            let realtimeConnected = false;
+            let firestoreConnected = false;
+            
+            console.log('🔍 開始測試數據庫連接...');
+            
+            // Test Realtime Database
+            if (database) {
+                console.log('⚡ 測試 Realtime Database 連接...');
+                
+                database.ref('.info/connected').on('value', (snapshot) => {
+                    realtimeConnected = snapshot.val() === true;
+                    console.log('⚡ Realtime Database 狀態:', realtimeConnected ? '✅ 已連接' : '❌ 未連接');
+                    updateConnectionStatus(realtimeConnected, firestoreConnected);
+                    
+                    if (realtimeConnected) {
+                        console.log('⚡ 初始化 Realtime Database 數據...');
+                        initializeRealtimeData();
+                    }
+                }, (error) => {
+                    console.error('⚡ Realtime Database 連接錯誤:', error);
+                    updateConnectionStatus(false, firestoreConnected);
+                });
+                
+                // Additional test - try to write a test value
+                database.ref('connection_test').set({
+                    timestamp: firebase.database.ServerValue.TIMESTAMP,
+                    status: 'testing'
+                }).then(() => {
+                    console.log('⚡ Realtime Database 寫入測試成功');
+                }).catch((error) => {
+                    console.error('⚡ Realtime Database 寫入測試失敗:', error);
+                });
+            } else {
+                console.error('⚡ Realtime Database 服務未初始化');
+                updateConnectionStatus(false, firestoreConnected);
+            }
+            
+            // Test Firestore
+            if (firestore) {
+                console.log('📊 測試 Firestore 連接...');
+                
+                // Enable network first
+                firestore.enableNetwork().then(() => {
+                    console.log('📊 Firestore 網路已啟用');
+                    
+                    // Try to read from a test collection
+                    return firestore.collection('connection_test').limit(1).get();
+                }).then((querySnapshot) => {
+                    firestoreConnected = true;
+                    console.log('📊 Firestore 狀態: ✅ 已連接');
+                    console.log('📊 Firestore 查詢結果:', querySnapshot.size, '個文檔');
+                    updateConnectionStatus(realtimeConnected, firestoreConnected);
+                    
+                    console.log('📊 初始化 Firestore 數據...');
+                    initializeFirestoreData();
+                }).catch((error) => {
+                    console.error('📊 Firestore 連接失敗:', error);
+                    console.error('📊 錯誤代碼:', error.code);
+                    console.error('📊 錯誤訊息:', error.message);
+                    
+                    firestoreConnected = false;
+                    updateConnectionStatus(realtimeConnected, firestoreConnected);
+                    
+                    // Try alternative connection test
+                    console.log('📊 嘗試替代連接測試...');
+                    firestore.collection('connection_test').doc('test').set({
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        status: 'testing'
+                    }).then(() => {
+                        console.log('📊 Firestore 寫入測試成功');
+                        firestoreConnected = true;
+                        updateConnectionStatus(realtimeConnected, firestoreConnected);
+                        initializeFirestoreData();
+                    }).catch((writeError) => {
+                        console.error('📊 Firestore 寫入測試也失敗:', writeError);
+                    });
+                });
+            } else {
+                console.error('📊 Firestore 服務未初始化');
+                updateConnectionStatus(realtimeConnected, false);
+            }
+            
+            // Set a timeout to show connection status after 10 seconds
+            setTimeout(() => {
+                console.log('🔍 連接測試完成');
+                console.log('⚡ Realtime Database:', realtimeConnected ? '✅' : '❌');
+                console.log('📊 Firestore:', firestoreConnected ? '✅' : '❌');
+                
+                if (!realtimeConnected && !firestoreConnected) {
+                    console.error('❌ 所有數據庫連接失敗');
+                    alert('數據庫連接失敗\n\n可能原因：\n1. 網路連接問題\n2. Firebase 配置錯誤\n3. 防火牆阻擋\n\n請檢查瀏覽器控制台獲取詳細錯誤信息');
+                }
+            }, 10000);
+        }
+        
+        // Update connection status display
+        function updateConnectionStatus(realtime, firestore) {
+            const indicator = document.getElementById('firebaseIndicator');
+            const statusText = document.getElementById('firebaseStatusText');
+            const versionText = document.getElementById('versionText');
+            
+            if (versionText) {
+                versionText.textContent = `v${VERSION}`;
+            }
+            
+            if (!indicator || !statusText) {
+                console.log('🔍 狀態顯示元素尚未載入');
+                return;
+            }
+            
+            if (realtime && firestore) {
+                indicator.className = 'w-3 h-3 bg-green-500 rounded-full animate-pulse';
+                statusText.textContent = '混合DB已連接';
+                statusText.className = 'text-sm text-green-600 font-medium';
+                isFirebaseConnected = true;
+                isFirestoreConnected = true;
+                console.log('✅ 狀態更新: 所有數據庫已連接');
+            } else if (realtime || firestore) {
+                indicator.className = 'w-3 h-3 bg-yellow-500 rounded-full animate-pulse';
+                statusText.textContent = `${realtime ? 'Realtime' : 'Firestore'} 已連接`;
+                statusText.className = 'text-sm text-yellow-600 font-medium';
+                isFirebaseConnected = realtime;
+                isFirestoreConnected = firestore;
+                console.log('⚠️ 狀態更新: 部分數據庫已連接');
+            } else {
+                indicator.className = 'w-3 h-3 bg-red-500 rounded-full animate-pulse';
+                statusText.textContent = '連接失敗';
+                statusText.className = 'text-sm text-red-600 font-medium';
+                isFirebaseConnected = false;
+                isFirestoreConnected = false;
+                console.log('❌ 狀態更新: 數據庫連接失敗');
+            }
+        }
+        
+        // Initialize Realtime Database data (即時功能)
+        function initializeRealtimeData() {
+            console.log('⚡ 初始化Realtime Database數據...');
+            
+            const realtimeData = {
+                queue: {
+                    currentNumber: 1,
+                    maxNumber: 1,
+                    lastUpdated: firebase.database.ServerValue.TIMESTAMP,
+                    status: 'active'
                 },
-                patients: {
-                    p001: { name: '陳小明', phone: '0912345678', birthDate: '1980-05-15', address: '台北市信義區', registrationDate: '2024-01-15' },
-                    p002: { name: '林美華', phone: '0923456789', birthDate: '1975-08-22', address: '台北市大安區', registrationDate: '2024-01-16' }
+                notifications: {
+                    system: {
+                        message: '系統正常運行 v' + VERSION,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        type: 'info'
+                    }
                 },
-                appointments: {
-                    a001: { patientId: 'p001', doctorId: 'doctor1', date: '2024-01-20', time: '09:00', status: '已預約' },
-                    a002: { patientId: 'p002', doctorId: 'doctor1', date: '2024-01-20', time: '10:00', status: '已完成' }
+                realtime: {
+                    activeUsers: 0,
+                    lastActivity: firebase.database.ServerValue.TIMESTAMP,
+                    systemStatus: 'online'
                 },
-                prescriptions: {
-                    pr001: { patientId: 'p001', doctorId: 'doctor1', date: '2024-01-20', medicines: '當歸、川芎、白芍', dosage: '每日三次，飯後服用' }
+                stats: {
+                    todayPatients: 0,
+                    todayAppointments: 0,
+                    lastUpdated: firebase.database.ServerValue.TIMESTAMP
                 }
             };
             
-            // Store in localStorage for demo
-            localStorage.setItem('clinicData', JSON.stringify(demoData));
+            // 檢查是否已有數據
+            database.ref('queue').once('value').then((snapshot) => {
+                if (!snapshot.exists()) {
+                    return database.ref().update(realtimeData);
+                }
+            }).then(() => {
+                console.log('⚡ Realtime Database數據初始化完成');
+                setupRealtimeListeners();
+            }).catch((error) => {
+                console.error('⚡ Realtime Database初始化失敗:', error);
+            });
         }
         
-        // Get data from Firebase or localStorage fallback
-        function getDemoData() {
-            const data = localStorage.getItem('clinicData');
-            return data ? JSON.parse(data) : {};
-        }
-        
-        // Save data to Firebase and localStorage
-        function saveDemoData(data) {
-            localStorage.setItem('clinicData', JSON.stringify(data));
+        // Initialize Firestore data (主要數據 - asia-east2)
+        function initializeFirestoreData() {
+            console.log('📊 初始化Firestore數據 (asia-east2)...');
             
-            // Save to Firebase Realtime Database
-            try {
-                database.ref('clinicData').set(data).then(() => {
-                    console.log('數據已同步到Firebase');
-                }).catch((error) => {
-                    console.error('Firebase同步失敗:', error);
+            const clinicRef = firestore.collection('clinics').doc(CLINIC_ID);
+            
+            // 檢查診所文檔是否存在
+            clinicRef.get().then((doc) => {
+                if (!doc.exists) {
+                    console.log('📊 創建新的診所數據結構 (asia-east2)...');
+                    return createInitialFirestoreData();
+                } else {
+                    console.log('📊 Firestore數據已存在 (asia-east2)');
+                }
+            }).catch((error) => {
+                console.error('📊 Firestore初始化檢查失敗:', error);
+            });
+        }
+        
+        // Create initial Firestore data structure
+        function createInitialFirestoreData() {
+            const batch = firestore.batch();
+            const clinicRef = firestore.collection('clinics').doc(CLINIC_ID);
+            
+            // 診所基本資訊
+            batch.set(clinicRef, {
+                name: '仁心中醫診所',
+                address: '台北市信義區信義路五段7號',
+                phone: '02-2345-6789',
+                version: VERSION,
+                region: 'asia-east2',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            // 創建用戶
+            const users = [
+                { 
+                    id: 'admin', 
+                    name: '系統管理員', 
+                    role: 'admin', 
+                    username: 'admin', 
+                    email: 'admin@clinic.com',
+                    permissions: ['all']
+                },
+                { 
+                    id: 'doctor', 
+                    name: '王醫師', 
+                    role: 'doctor', 
+                    username: 'doctor', 
+                    email: 'doctor@clinic.com',
+                    permissions: ['consultation', 'prescription', 'patient_view']
+                },
+                { 
+                    id: 'assistant', 
+                    name: '李助理', 
+                    role: 'assistant', 
+                    username: 'assistant', 
+                    email: 'assistant@clinic.com',
+                    permissions: ['patient_register', 'appointment', 'queue']
+                }
+            ];
+            
+            users.forEach(user => {
+                const userRef = clinicRef.collection('users').doc(user.id);
+                batch.set(userRef, {
+                    ...user,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastLogin: null,
+                    isActive: true
                 });
-            } catch (error) {
-                console.error('Firebase連接錯誤:', error);
+            });
+            
+            // 創建示例病人
+            const patients = [
+                { 
+                    id: 'p001', 
+                    name: '陳小明', 
+                    phone: '0912345678', 
+                    birthDate: '1980-05-15', 
+                    address: '台北市信義區信義路100號',
+                    gender: 'male',
+                    idNumber: 'A123456789',
+                    emergencyContact: '陳太太 0987654321'
+                },
+                { 
+                    id: 'p002', 
+                    name: '林美華', 
+                    phone: '0923456789', 
+                    birthDate: '1975-08-22', 
+                    address: '台北市大安區敦化南路200號',
+                    gender: 'female',
+                    idNumber: 'B987654321',
+                    emergencyContact: '林先生 0976543210'
+                },
+                { 
+                    id: 'p003', 
+                    name: '張志強', 
+                    phone: '0934567890', 
+                    birthDate: '1990-12-10', 
+                    address: '台北市中山區中山北路300號',
+                    gender: 'male',
+                    idNumber: 'C456789123',
+                    emergencyContact: '張媽媽 0965432109'
+                }
+            ];
+            
+            patients.forEach(patient => {
+                const patientRef = clinicRef.collection('patients').doc(patient.id);
+                batch.set(patientRef, {
+                    ...patient,
+                    registrationDate: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    visitCount: 0,
+                    lastVisit: null
+                });
+            });
+            
+            // 創建示例預約
+            const today = new Date().toISOString().split('T')[0];
+            const appointments = [
+                {
+                    id: 'a001',
+                    patientId: 'p001',
+                    patientName: '陳小明',
+                    doctorId: 'doctor',
+                    doctorName: '王醫師',
+                    date: today,
+                    time: '09:00',
+                    status: '已預約',
+                    type: 'consultation',
+                    queueNumber: '001',
+                    symptoms: '頭痛、失眠',
+                    notes: '初診'
+                },
+                {
+                    id: 'a002',
+                    patientId: 'p002',
+                    patientName: '林美華',
+                    doctorId: 'doctor',
+                    doctorName: '王醫師',
+                    date: today,
+                    time: '10:00',
+                    status: '已完成',
+                    type: 'acupuncture',
+                    queueNumber: '002',
+                    symptoms: '腰痛',
+                    notes: '複診'
+                },
+                {
+                    id: 'a003',
+                    patientId: 'p003',
+                    patientName: '張志強',
+                    doctorId: 'doctor',
+                    doctorName: '王醫師',
+                    date: today,
+                    time: '11:00',
+                    status: '已預約',
+                    type: 'massage',
+                    queueNumber: '003',
+                    symptoms: '肩頸僵硬',
+                    notes: '推拿治療'
+                }
+            ];
+            
+            appointments.forEach(appointment => {
+                const appointmentRef = clinicRef.collection('appointments').doc(appointment.id);
+                batch.set(appointmentRef, {
+                    ...appointment,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+            
+            // 創建示例處方
+            const prescriptions = [
+                {
+                    id: 'pr001',
+                    patientId: 'p001',
+                    patientName: '陳小明',
+                    doctorId: 'doctor',
+                    doctorName: '王醫師',
+                    date: today,
+                    medicines: [
+                        { name: '甘麥大棗湯', dosage: '一日三次，飯後服用', days: 7 },
+                        { name: '安神定志丸', dosage: '一日兩次，睡前服用', days: 7 }
+                    ],
+                    instructions: '避免熬夜，保持心情愉快',
+                    totalAmount: 850
+                }
+            ];
+            
+            prescriptions.forEach(prescription => {
+                const prescriptionRef = clinicRef.collection('prescriptions').doc(prescription.id);
+                batch.set(prescriptionRef, {
+                    ...prescription,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            });
+            
+            // 執行批次寫入
+            return batch.commit().then(() => {
+                console.log('📊 Firestore初始數據創建完成 (asia-east2)');
+            });
+        }
+        
+        // Setup real-time listeners
+        function setupRealtimeListeners() {
+            // 監聽排號系統變化
+            database.ref('queue').on('value', (snapshot) => {
+                const queueData = snapshot.val();
+                if (queueData) {
+                    updateQueueDisplay(queueData);
+                }
+            });
+            
+            // 監聽通知
+            database.ref('notifications').on('child_added', (snapshot) => {
+                const notification = snapshot.val();
+                if (notification && notification.timestamp > Date.now() - 5000) {
+                    showNotification(notification);
+                }
+            });
+            
+            // 監聽系統狀態
+            database.ref('realtime/systemStatus').on('value', (snapshot) => {
+                const status = snapshot.val();
+                console.log('⚡ 系統狀態:', status);
+            });
+        }
+        
+        // Update queue display
+        function updateQueueDisplay(queueData) {
+            const currentNumberEl = document.getElementById('currentNumber');
+            const dashboardCurrentNumberEl = document.getElementById('dashboardCurrentNumber');
+            
+            if (currentNumberEl && queueData.currentNumber) {
+                currentNumberEl.textContent = String(queueData.currentNumber).padStart(3, '0');
+            }
+            
+            if (dashboardCurrentNumberEl && queueData.currentNumber) {
+                dashboardCurrentNumberEl.textContent = String(queueData.currentNumber).padStart(3, '0');
             }
         }
         
-        // Load data from Firebase
-        function loadFromFirebase() {
-            try {
-                database.ref('clinicData').once('value').then((snapshot) => {
-                    const firebaseData = snapshot.val();
-                    if (firebaseData) {
-                        localStorage.setItem('clinicData', JSON.stringify(firebaseData));
-                        console.log('已從Firebase載入數據');
-                        // Refresh current view if needed
-                        if (document.getElementById('mainApp').style.display !== 'none') {
-                            showDashboard();
+        // Show notification
+        function showNotification(notification) {
+            console.log('📢 通知:', notification.message);
+            
+            // 創建通知元素
+            const notificationEl = document.createElement('div');
+            notificationEl.className = 'fixed top-20 right-4 z-50 bg-blue-600 text-white p-4 rounded-lg shadow-lg max-w-sm';
+            notificationEl.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-bell"></i>
+                    <span class="text-sm">${notification.message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notificationEl);
+            
+            // 3秒後自動移除
+            setTimeout(() => {
+                if (notificationEl.parentNode) {
+                    notificationEl.parentNode.removeChild(notificationEl);
+                }
+            }, 3000);
+        }
+        
+        // Firestore 數據操作函數
+        
+        // 獲取病人列表
+        function getPatients(callback) {
+            if (!isFirestoreConnected) {
+                alert('Firestore未連接，無法獲取病人資料');
+                return;
+            }
+            
+            firestore.collection('clinics').doc(CLINIC_ID).collection('patients')
+                .orderBy('createdAt', 'desc')
+                .get()
+                .then((querySnapshot) => {
+                    const patients = {};
+                    querySnapshot.forEach((doc) => {
+                        patients[doc.id] = { id: doc.id, ...doc.data() };
+                    });
+                    callback(patients);
+                })
+                .catch((error) => {
+                    console.error('獲取病人資料失敗:', error);
+                    alert('獲取病人資料失敗');
+                });
+        }
+        
+        // 添加病人
+        function addPatient(patientData, callback) {
+            if (!isFirestoreConnected) {
+                alert('Firestore未連接，無法添加病人');
+                return;
+            }
+            
+            const patientRef = firestore.collection('clinics').doc(CLINIC_ID).collection('patients').doc();
+            
+            patientRef.set({
+                ...patientData,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                registrationDate: firebase.firestore.FieldValue.serverTimestamp(),
+                visitCount: 0,
+                lastVisit: null
+            }).then(() => {
+                console.log('✅ 病人資料已添加到Firestore (asia-east2)');
+                
+                // 更新即時統計
+                if (isFirebaseConnected) {
+                    database.ref('stats/todayPatients').transaction((current) => {
+                        return (current || 0) + 1;
+                    });
+                }
+                
+                callback(true, patientRef.id);
+            }).catch((error) => {
+                console.error('❌ 添加病人失敗:', error);
+                callback(false);
+            });
+        }
+        
+        // 獲取預約列表
+        function getAppointments(callback) {
+            if (!isFirestoreConnected) {
+                alert('Firestore未連接，無法獲取預約資料');
+                return;
+            }
+            
+            firestore.collection('clinics').doc(CLINIC_ID).collection('appointments')
+                .orderBy('date', 'desc')
+                .orderBy('time', 'asc')
+                .get()
+                .then((querySnapshot) => {
+                    const appointments = {};
+                    querySnapshot.forEach((doc) => {
+                        appointments[doc.id] = { id: doc.id, ...doc.data() };
+                    });
+                    callback(appointments);
+                })
+                .catch((error) => {
+                    console.error('獲取預約資料失敗:', error);
+                    alert('獲取預約資料失敗');
+                });
+        }
+        
+        // 獲取處方列表
+        function getPrescriptions(callback) {
+            if (!isFirestoreConnected) {
+                alert('Firestore未連接，無法獲取處方資料');
+                return;
+            }
+            
+            firestore.collection('clinics').doc(CLINIC_ID).collection('prescriptions')
+                .orderBy('date', 'desc')
+                .get()
+                .then((querySnapshot) => {
+                    const prescriptions = {};
+                    querySnapshot.forEach((doc) => {
+                        prescriptions[doc.id] = { id: doc.id, ...doc.data() };
+                    });
+                    callback(prescriptions);
+                })
+                .catch((error) => {
+                    console.error('獲取處方資料失敗:', error);
+                    alert('獲取處方資料失敗');
+                });
+        }
+        
+        // Realtime Database 操作函數
+        
+        // 更新排號
+        function updateQueue(newCurrentNumber, callback) {
+            if (!isFirebaseConnected) {
+                alert('Realtime Database未連接，無法更新排號');
+                return;
+            }
+            
+            database.ref('queue').update({
+                currentNumber: newCurrentNumber,
+                lastUpdated: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                console.log('⚡ 排號已更新');
+                if (callback) callback(true);
+            }).catch((error) => {
+                console.error('⚡ 更新排號失敗:', error);
+                if (callback) callback(false);
+            });
+        }
+        
+        // 添加新號碼
+        function addToQueue(patientData, callback) {
+            if (!isFirebaseConnected) {
+                alert('Realtime Database未連接，無法取號');
+                return;
+            }
+            
+            database.ref('queue').transaction((currentQueue) => {
+                if (currentQueue) {
+                    const newNumber = (currentQueue.maxNumber || 0) + 1;
+                    return {
+                        ...currentQueue,
+                        maxNumber: newNumber,
+                        lastUpdated: firebase.database.ServerValue.TIMESTAMP
+                    };
+                } else {
+                    return {
+                        currentNumber: 1,
+                        maxNumber: 1,
+                        lastUpdated: firebase.database.ServerValue.TIMESTAMP
+                    };
+                }
+            }).then((result) => {
+                if (result.committed) {
+                    const newNumber = result.snapshot.val().maxNumber;
+                    console.log('⚡ 新號碼:', newNumber);
+                    
+                    // 同時在Firestore創建預約記錄
+                    const appointmentData = {
+                        ...patientData,
+                        queueNumber: String(newNumber).padStart(3, '0'),
+                        status: '已預約',
+                        date: new Date().toISOString().split('T')[0],
+                        time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    
+                    firestore.collection('clinics').doc(CLINIC_ID).collection('appointments').add(appointmentData)
+                        .then(() => {
+                            console.log('📊 預約記錄已同步到Firestore (asia-east2)');
+                            
+                            // 更新即時統計
+                            database.ref('stats/todayAppointments').transaction((current) => {
+                                return (current || 0) + 1;
+                            });
+                            
+                            if (callback) callback(true, newNumber);
+                        });
+                } else {
+                    if (callback) callback(false);
+                }
+            }).catch((error) => {
+                console.error('⚡ 取號失敗:', error);
+                if (callback) callback(false);
+            });
+        }
+        
+        // 用戶認證
+        function authenticateUser(username, password, role) {
+            const loginBtn = document.querySelector('button[type="submit"]');
+            const originalText = loginBtn.innerHTML;
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>登入中...';
+            loginBtn.disabled = true;
+            
+            if (!isFirestoreConnected) {
+                loginBtn.innerHTML = originalText;
+                loginBtn.disabled = false;
+                alert('Firestore未連接，請檢查網路連接後重新載入頁面');
+                return;
+            }
+            
+            // 從Firestore驗證用戶
+            firestore.collection('clinics').doc(CLINIC_ID).collection('users')
+                .where('username', '==', username)
+                .where('role', '==', role)
+                .get()
+                .then((querySnapshot) => {
+                    if (!querySnapshot.empty) {
+                        const userDoc = querySnapshot.docs[0];
+                        const userData = userDoc.data();
+                        
+                        // 登入成功
+                        currentUser = { 
+                            id: userDoc.id,
+                            ...userData
+                        };
+                        userRole = role;
+                        
+                        // 更新最後登入時間
+                        userDoc.ref.update({
+                            lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        
+                        // 更新在線狀態
+                        if (isFirebaseConnected) {
+                            database.ref('realtime/activeUsers').transaction((current) => {
+                                return (current || 0) + 1;
+                            });
                         }
+                        
+                        console.log('✅ 登入成功:', currentUser);
+                        showMainApp();
+                    } else {
+                        throw new Error(`找不到用戶名為 "${username}" 且身份為 "${getRoleName(role)}" 的用戶`);
                     }
-                }).catch((error) => {
-                    console.error('從Firebase載入數據失敗:', error);
+                })
+                .catch((error) => {
+                    console.error('❌ 登入失敗:', error);
+                    loginBtn.innerHTML = originalText;
+                    loginBtn.disabled = false;
+                    alert(error.message || '登入失敗，請檢查用戶名和身份選擇');
                 });
-            } catch (error) {
-                console.error('Firebase連接錯誤:', error);
+        }
+        
+        // Helper function to get role display name
+        function getRoleName(role) {
+            const roleNames = {
+                'admin': '系統管理員',
+                'doctor': '醫師',
+                'assistant': '診所助理'
+            };
+            return roleNames[role] || role;
+        }
+        
+        // Demo data structure
+        let currentUser = null;
+        let userRole = 'admin';
+        
+        // Initialize Firebase when page loads
+        initializeFirebase();
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📱 中醫診所管理系統 v' + VERSION + ' 載入完成');
+            
+            // Start time updates
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+            
+            // Initialize connection status display
+            updateConnectionStatus(false, false);
+            
+            // Set up login form handler
+            const loginForm = document.getElementById('loginForm');
+            if (loginForm) {
+                loginForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const username = document.getElementById('loginUsername').value.trim();
+                    const password = document.getElementById('loginPassword').value.trim();
+                    const role = document.getElementById('userRole').value;
+                    
+                    if (!username || !password || !role) {
+                        alert('請填寫完整資訊');
+                        return;
+                    }
+                    
+                    authenticateUser(username, password, role);
+                });
+            }
+            
+            // Set up logout handler
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', logout);
+            }
+            
+            // Set up sidebar toggle
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', toggleSidebar);
+            }
+        });
+        
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            const dateTimeEl = document.getElementById('currentDateTime');
+            if (dateTimeEl) {
+                dateTimeEl.textContent = now.toLocaleDateString('zh-TW', options);
             }
         }
         
-        // Real-time listener for Firebase changes
-        function setupFirebaseListener() {
-            try {
-                database.ref('clinicData').on('value', (snapshot) => {
-                    const firebaseData = snapshot.val();
-                    if (firebaseData) {
-                        localStorage.setItem('clinicData', JSON.stringify(firebaseData));
-                        console.log('Firebase數據已更新');
+        function showMainApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            
+            const roleNames = {
+                'admin': '系統管理員',
+                'doctor': '醫師',
+                'assistant': '診所助理'
+            };
+            
+            document.getElementById('currentUserName').textContent = currentUser.name || roleNames[userRole];
+            document.getElementById('currentUserRole').textContent = roleNames[userRole];
+            
+            setupNavigation();
+            showDashboard();
+        }
+        
+        function logout() {
+            // 更新在線狀態
+            if (isFirebaseConnected) {
+                database.ref('realtime/activeUsers').transaction((current) => {
+                    return Math.max(0, (current || 1) - 1);
+                });
+            }
+            
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('loginForm').reset();
+            currentUser = null;
+        }
+        
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        }
+        
+        function setupNavigation() {
+            const navigationMenu = document.getElementById('navigationMenu');
+            let menuItems = [];
+            
+            menuItems.push(
+                { icon: 'fas fa-tachometer-alt', text: '儀表板', action: 'showDashboard' }
+            );
+            
+            if (userRole === 'admin') {
+                menuItems.push(
+                    { icon: 'fas fa-users-cog', text: '用戶管理', action: 'showUserManagement' },
+                    { icon: 'fas fa-cog', text: '系統設置', action: 'showSystemSettings' },
+                    { icon: 'fas fa-chart-bar', text: '統計報表', action: 'showReports' }
+                );
+            }
+            
+            if (userRole === 'doctor' || userRole === 'admin') {
+                menuItems.push(
+                    { icon: 'fas fa-stethoscope', text: '診症管理', action: 'showConsultation' },
+                    { icon: 'fas fa-prescription-bottle-alt', text: '處方管理', action: 'showPrescriptions' }
+                );
+            }
+            
+            if (userRole === 'assistant' || userRole === 'admin') {
+                menuItems.push(
+                    { icon: 'fas fa-user-plus', text: '病人登記', action: 'showPatientRegistration' },
+                    { icon: 'fas fa-calendar-alt', text: '預約管理', action: 'showAppointments' },
+                    { icon: 'fas fa-list-ol', text: '排號系統', action: 'showQueueSystem' }
+                );
+            }
+            
+            menuItems.push(
+                { icon: 'fas fa-users', text: '病人資料', action: 'showPatients' }
+            );
+            
+            navigationMenu.innerHTML = menuItems.map(item => `
+                <li>
+                    <button onclick="${item.action}()" class="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition duration-200">
+                        <i class="${item.icon}"></i>
+                        <span>${item.text}</span>
+                    </button>
+                </li>
+            `).join('');
+        }
+        
+        function showDashboard() {
+            // 使用混合數據庫獲取儀表板數據
+            Promise.all([
+                new Promise(resolve => getPatients(resolve)),
+                new Promise(resolve => getAppointments(resolve)),
+                new Promise(resolve => {
+                    if (isFirebaseConnected) {
+                        database.ref('queue').once('value').then(snapshot => {
+                            resolve(snapshot.val() || { currentNumber: 1, maxNumber: 1 });
+                        });
+                    } else {
+                        resolve({ currentNumber: 1, maxNumber: 1 });
+                    }
+                }),
+                new Promise(resolve => {
+                    if (isFirebaseConnected) {
+                        database.ref('stats').once('value').then(snapshot => {
+                            resolve(snapshot.val() || { todayPatients: 0, todayAppointments: 0 });
+                        });
+                    } else {
+                        resolve({ todayPatients: 0, todayAppointments: 0 });
+                    }
+                })
+            ]).then(([patients, appointments, queueData, stats]) => {
+                const patientCount = Object.keys(patients || {}).length;
+                const appointmentCount = Object.keys(appointments || {}).length;
+                const waitingCount = Math.max(0, queueData.maxNumber - queueData.currentNumber + 1);
+                
+                // 過濾今日預約
+                const today = new Date().toISOString().split('T')[0];
+                const todayAppointments = Object.entries(appointments || {}).filter(([id, apt]) => apt.date === today);
+                
+                document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-3xl font-bold text-gray-800">儀表板</h2>
+                        <div class="text-sm text-gray-500">
+                            <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">v${VERSION}</span>
+                            <span class="ml-2">us-central1 + asia-east2</span>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-blue-100">總病人數</p>
+                                    <p class="text-3xl font-bold">${patientCount}</p>
+                                    <p class="text-xs text-blue-200">📊 Firestore</p>
+                                </div>
+                                <div class="bg-white bg-opacity-20 p-3 rounded-full">
+                                    <i class="fas fa-users text-2xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-green-100">今日預約</p>
+                                    <p class="text-3xl font-bold">${todayAppointments.length}</p>
+                                    <p class="text-xs text-green-200">📊 Firestore</p>
+                                </div>
+                                <div class="bg-white bg-opacity-20 p-3 rounded-full">
+                                    <i class="fas fa-calendar-check text-2xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-purple-100">當前號碼</p>
+                                    <p class="text-3xl font-bold">${String(queueData.currentNumber).padStart(3, '0')}</p>
+                                    <p class="text-xs text-purple-200">⚡ Realtime</p>
+                                </div>
+                                <div class="bg-white bg-opacity-20 p-3 rounded-full">
+                                    <i class="fas fa-list-ol text-2xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gradient-to-r from-orange-500 to-orange-600 text-white p-6 rounded-xl shadow-lg card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-orange-100">等候人數</p>
+                                    <p class="text-3xl font-bold">${waitingCount}</p>
+                                    <p class="text-xs text-orange-200">⚡ Realtime</p>
+                                </div>
+                                <div class="bg-white bg-opacity-20 p-3 rounded-full">
+                                    <i class="fas fa-clock text-2xl"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-white p-6 rounded-xl shadow-lg">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                                <i class="fas fa-calendar-alt mr-2 text-blue-600"></i>
+                                今日預約 
+                                <span class="text-sm text-gray-500 ml-2">(Firestore)</span>
+                            </h3>
+                            <div class="space-y-3 max-h-64 overflow-y-auto">
+                                ${todayAppointments.slice(0, 8).map(([id, appointment]) => `
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                                <i class="fas fa-user text-blue-600"></i>
+                                            </div>
+                                            <div>
+                                                <p class="font-medium text-gray-800">${appointment.patientName || '未知病人'}</p>
+                                                <p class="text-sm text-gray-600">${appointment.time} | ${appointment.queueNumber || '-'}</p>
+                                            </div>
+                                        </div>
+                                        <span class="px-3 py-1 text-xs rounded-full ${appointment.status === '已完成' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">${appointment.status}</span>
+                                    </div>
+                                `).join('')}
+                                ${todayAppointments.length === 0 ? '<p class="text-gray-500 text-center py-4">今日暫無預約</p>' : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-xl shadow-lg">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                                <i class="fas fa-list-ol mr-2 text-purple-600"></i>
+                                即時排號 
+                                <span class="text-sm text-gray-500 ml-2">(Realtime DB)</span>
+                            </h3>
+                            <div class="text-center py-8">
+                                <div class="text-5xl font-bold text-purple-600 mb-4 pulse" id="dashboardCurrentNumber">${String(queueData.currentNumber).padStart(3, '0')}</div>
+                                <p class="text-gray-600 mb-6">當前號碼</p>
+                                <div class="grid grid-cols-2 gap-4 text-center">
+                                    <div class="bg-green-50 p-4 rounded-lg">
+                                        <p class="text-2xl font-bold text-green-600">${queueData.maxNumber}</p>
+                                        <p class="text-sm text-gray-600">最大號碼</p>
+                                    </div>
+                                    <div class="bg-orange-50 p-4 rounded-lg">
+                                        <p class="text-2xl font-bold text-orange-600">${waitingCount}</p>
+                                        <p class="text-sm text-gray-600">等候人數</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-lg">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                            <i class="fas fa-chart-line mr-2 text-green-600"></i>
+                            系統狀態
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="text-center p-4 bg-blue-50 rounded-lg">
+                                <div class="text-2xl font-bold text-blue-600">${isFirestoreConnected ? '正常' : '異常'}</div>
+                                <p class="text-sm text-gray-600">Firestore (asia-east2)</p>
+                            </div>
+                            <div class="text-center p-4 bg-green-50 rounded-lg">
+                                <div class="text-2xl font-bold text-green-600">${isFirebaseConnected ? '正常' : '異常'}</div>
+                                <p class="text-sm text-gray-600">Realtime Database</p>
+                            </div>
+                            <div class="text-center p-4 bg-purple-50 rounded-lg">
+                                <div class="text-2xl font-bold text-purple-600">v${VERSION}</div>
+                                <p class="text-sm text-gray-600">系統版本</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).catch(error => {
+                console.error('載入儀表板數據失敗:', error);
+                document.getElementById('contentArea').innerHTML = `
+                    <div class="text-center py-12">
+                        <i class="fas fa-exclamation-triangle text-yellow-500 text-4xl mb-4"></i>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">載入數據失敗</h3>
+                        <p class="text-gray-600">請檢查網路連接或重新載入頁面</p>
+                        <button onclick="showDashboard()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                            重新載入
+                        </button>
+                    </div>
+                `;
+            });
+        }
+        
+        function showPatientRegistration() {
+            document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-user-plus mr-3 text-blue-600"></i>
+                        病人登記 
+                        <span class="text-sm text-gray-500 ml-2">(存儲至 Firestore asia-east2)</span>
+                    </h2>
+                    
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <form id="patientForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-user mr-1"></i>姓名 *
+                                </label>
+                                <input type="text" id="patientName" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-phone mr-1"></i>電話 *
+                                </label>
+                                <input type="tel" id="patientPhone" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-id-card mr-1"></i>身份證號
+                                </label>
+                                <input type="text" id="patientIdNumber" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="A123456789">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-calendar mr-1"></i>出生日期
+                                </label>
+                                <input type="date" id="patientBirthDate" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-venus-mars mr-1"></i>性別
+                                </label>
+                                <select id="patientGender" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="">請選擇</option>
+                                    <option value="male">男</option>
+                                    <option value="female">女</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-phone-alt mr-1"></i>緊急聯絡人
+                                </label>
+                                <input type="text" id="patientEmergencyContact" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="姓名 電話">
+                            </div>
+                            
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-map-marker-alt mr-1"></i>地址
+                                </label>
+                                <input type="text" id="patientAddress" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fas fa-notes-medical mr-1"></i>病史
+                                </label>
+                                <textarea id="patientHistory" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請輸入相關病史..."></textarea>
+                            </div>
+                            
+                            <div class="md:col-span-2 flex space-x-4">
+                                <button type="submit" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center">
+                                    <i class="fas fa-save mr-2"></i>儲存病人資料
+                                </button>
+                                <button type="button" onclick="showPatients()" class="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition duration-200 flex items-center">
+                                    <i class="fas fa-times mr-2"></i>取消
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('patientForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const patientData = {
+                    name: document.getElementById('patientName').value,
+                    phone: document.getElementById('patientPhone').value,
+                    idNumber: document.getElementById('patientIdNumber').value,
+                    birthDate: document.getElementById('patientBirthDate').value,
+                    gender: document.getElementById('patientGender').value,
+                    emergencyContact: document.getElementById('patientEmergencyContact').value,
+                    address: document.getElementById('patientAddress').value,
+                    history: document.getElementById('patientHistory').value
+                };
+                
+                addPatient(patientData, (success, patientId) => {
+                    if (success) {
+                        alert('病人資料已成功儲存到 Firestore (asia-east2)！');
+                        showPatients();
+                    } else {
+                        alert('儲存失敗，請檢查網路連接');
                     }
                 });
-            } catch (error) {
-                console.error('Firebase監聽器設置失敗:', error);
+            });
+        }
+        
+        function showPatients() {
+            getPatients((patients) => {
+                document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 flex items-center">
+                            <i class="fas fa-users mr-3 text-blue-600"></i>
+                            病人資料 
+                            <span class="text-sm text-gray-500 ml-2">(來自 Firestore asia-east2)</span>
+                        </h2>
+                        <button onclick="showPatientRegistration()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center">
+                            <i class="fas fa-plus mr-2"></i>新增病人
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">姓名</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">電話</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">身份證號</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">出生日期</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">性別</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">就診次數</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    ${Object.entries(patients || {}).map(([id, patient]) => `
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 text-sm font-medium text-gray-900">${patient.name}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${patient.phone}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${patient.idNumber || '-'}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${patient.birthDate || '-'}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${patient.gender === 'male' ? '男' : patient.gender === 'female' ? '女' : '-'}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${patient.visitCount || 0}</td>
+                                            <td class="px-6 py-4 text-sm">
+                                                <button onclick="editPatient('${id}')" class="text-blue-600 hover:text-blue-800 mr-3" title="編輯">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button onclick="viewPatientHistory('${id}')" class="text-green-600 hover:text-green-800" title="病史">
+                                                    <i class="fas fa-history"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        ${Object.keys(patients || {}).length === 0 ? 
+                            '<div class="text-center py-8 text-gray-500">暫無病人資料</div>' : ''
+                        }
+                    </div>
+                </div>
+                `;
+            });
+        }
+        
+        function showQueueSystem() {
+            if (userRole !== 'assistant' && userRole !== 'admin') {
+                alert('您沒有權限訪問此功能');
+                return;
+            }
+            
+            // 獲取即時排號數據
+            if (isFirebaseConnected) {
+                database.ref('queue').once('value').then((snapshot) => {
+                    const queueData = snapshot.val() || { currentNumber: 1, maxNumber: 1 };
+                    
+                    document.getElementById('contentArea').innerHTML = `
+                        <div class="fade-in">
+                            <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                                <i class="fas fa-list-ol mr-3 text-purple-600"></i>
+                                排號系統 
+                                <span class="text-sm text-gray-500 ml-2">(Realtime Database + Firestore)</span>
+                            </h2>
+                            
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div class="bg-white rounded-xl shadow-lg p-6">
+                                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                                        <i class="fas fa-tv mr-2 text-purple-600"></i>
+                                        當前號碼 
+                                        <span class="text-sm text-gray-500 ml-2">(⚡ 即時更新)</span>
+                                    </h3>
+                                    <div class="text-center py-8">
+                                        <div class="text-6xl font-bold text-purple-600 mb-4 pulse" id="currentNumber">${String(queueData.currentNumber).padStart(3, '0')}</div>
+                                        <p class="text-gray-600 mb-6">請 ${String(queueData.currentNumber).padStart(3, '0')} 號病人到診間</p>
+                                        <div class="space-x-4">
+                                            <button onclick="nextNumber()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center mx-auto mb-2">
+                                                <i class="fas fa-forward mr-2"></i>下一號
+                                            </button>
+                                            <button onclick="callNumber()" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition duration-200 flex items-center mx-auto">
+                                                <i class="fas fa-volume-up mr-2"></i>呼叫
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-white rounded-xl shadow-lg p-6">
+                                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                                        <i class="fas fa-ticket-alt mr-2 text-blue-600"></i>
+                                        取號 
+                                        <span class="text-sm text-gray-500 ml-2">(同步至兩個DB)</span>
+                                    </h3>
+                                    <form id="queueForm" class="space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                                <i class="fas fa-user mr-1"></i>病人姓名
+                                            </label>
+                                            <input type="text" id="queuePatientName" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                                        </div>
+                                        
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                                <i class="fas fa-phone mr-1"></i>聯絡電話
+                                            </label>
+                                            <input type="tel" id="queuePatientPhone" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                                        </div>
+                                        
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                                <i class="fas fa-stethoscope mr-1"></i>診療類型
+                                            </label>
+                                            <select id="queueType" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                                <option value="consultation">一般診症</option>
+                                                <option value="acupuncture">針灸治療</option>
+                                                <option value="massage">推拿按摩</option>
+                                                <option value="followup">複診</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                                <i class="fas fa-notes-medical mr-1"></i>症狀描述
+                                            </label>
+                                            <textarea id="queueSymptoms" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請簡述症狀..."></textarea>
+                                        </div>
+                                        
+                                        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center justify-center">
+                                            <i class="fas fa-ticket-alt mr-2"></i>取號
+                                        </button>
+                                    </form>
+                                    
+                                    <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                                        <h4 class="font-medium text-gray-800 mb-3 flex items-center">
+                                            <i class="fas fa-chart-bar mr-2"></i>排號狀態
+                                        </h4>
+                                        <div class="grid grid-cols-2 gap-4 text-center">
+                                            <div class="bg-blue-100 p-3 rounded-lg">
+                                                <p class="text-2xl font-bold text-blue-600">${queueData.currentNumber}</p>
+                                                <p class="text-sm text-gray-600">當前號碼</p>
+                                            </div>
+                                            <div class="bg-green-100 p-3 rounded-lg">
+                                                <p class="text-2xl font-bold text-green-600">${queueData.maxNumber}</p>
+                                                <p class="text-sm text-gray-600">最大號碼</p>
+                                            </div>
+                                        </div>
+                                        <div class="mt-4 text-center bg-orange-100 p-3 rounded-lg">
+                                            <p class="text-2xl font-bold text-orange-600">${Math.max(0, queueData.maxNumber - queueData.currentNumber + 1)}</p>
+                                            <p class="text-sm text-gray-600">等候人數</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.getElementById('queueForm').addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        
+                        const patientData = {
+                            patientName: document.getElementById('queuePatientName').value,
+                            patientPhone: document.getElementById('queuePatientPhone').value,
+                            type: document.getElementById('queueType').value,
+                            symptoms: document.getElementById('queueSymptoms').value,
+                            doctorId: 'doctor',
+                            doctorName: '王醫師'
+                        };
+                        
+                        addToQueue(patientData, (success, newNumber) => {
+                            if (success) {
+                                alert(`取號成功！您的號碼是：${String(newNumber).padStart(3, '0')}\n\n數據已同步至：\n⚡ Realtime Database (排號)\n📊 Firestore (預約記錄)`);
+                                this.reset();
+                                showQueueSystem(); // Refresh the view
+                            } else {
+                                alert('取號失敗，請檢查網路連接');
+                            }
+                        });
+                    });
+                });
+            } else {
+                document.getElementById('contentArea').innerHTML = `
+                    <div class="text-center py-12">
+                        <i class="fas fa-exclamation-triangle text-yellow-500 text-4xl mb-4"></i>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Realtime Database 未連接</h3>
+                        <p class="text-gray-600">排號系統需要即時數據庫支持</p>
+                        <button onclick="location.reload()" class="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                            重新載入頁面
+                        </button>
+                    </div>
+                `;
             }
         }
+        
+        // 更新排號函數
+        function nextNumber() {
+            if (!isFirebaseConnected) {
+                alert('Realtime Database未連接，無法更新排號');
+                return;
+            }
+            
+            database.ref('queue').transaction((currentQueue) => {
+                if (currentQueue && currentQueue.currentNumber < currentQueue.maxNumber) {
+                    return {
+                        ...currentQueue,
+                        currentNumber: currentQueue.currentNumber + 1,
+                        lastUpdated: firebase.database.ServerValue.TIMESTAMP
+                    };
+                }
+                return currentQueue;
+            }).then((result) => {
+                if (result.committed) {
+                    const newNumber = result.snapshot.val().currentNumber;
+                    console.log('⚡ 號碼已更新至:', newNumber);
+                    
+                    // 發送通知
+                    database.ref('notifications').push({
+                        message: `請 ${String(newNumber).padStart(3, '0')} 號病人到診間`,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        type: 'queue_update'
+                    });
+                } else {
+                    alert('已經是最後一號了');
+                }
+            }).catch((error) => {
+                console.error('⚡ 更新排號失敗:', error);
+                alert('更新失敗，請檢查網路連接');
+            });
+        }
+        
+        function callNumber() {
+            if (isFirebaseConnected) {
+                database.ref('queue/currentNumber').once('value').then((snapshot) => {
+                    const currentNumber = snapshot.val();
+                    
+                    // 發送呼叫通知
+                    database.ref('notifications').push({
+                        message: `正在呼叫 ${String(currentNumber).padStart(3, '0')} 號病人到診間`,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP,
+                        type: 'call_patient'
+                    });
+                    
+                    alert(`正在呼叫 ${String(currentNumber).padStart(3, '0')} 號病人到診間`);
+                });
+            } else {
+                alert('Realtime Database未連接，無法呼叫');
+            }
+        }
+        
+        function showAppointments() { 
+            getAppointments((appointments) => {
+                document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 flex items-center">
+                            <i class="fas fa-calendar-alt mr-3 text-green-600"></i>
+                            預約管理 
+                            <span class="text-sm text-gray-500 ml-2">(來自 Firestore asia-east2)</span>
+                        </h2>
+                        <button onclick="showNewAppointment()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center">
+                            <i class="fas fa-plus mr-2"></i>新增預約
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">病人姓名</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">日期時間</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">醫師</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">類型</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">號碼</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">症狀</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">狀態</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    ${Object.entries(appointments || {}).map(([id, appointment]) => `
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 text-sm font-medium text-gray-900">${appointment.patientName || '未知病人'}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${appointment.date} ${appointment.time}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${appointment.doctorName || '王醫師'}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">
+                                                ${appointment.type === 'consultation' ? '一般診症' : 
+                                                  appointment.type === 'acupuncture' ? '針灸治療' : 
+                                                  appointment.type === 'massage' ? '推拿按摩' : 
+                                                  appointment.type === 'followup' ? '複診' : appointment.type}
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-gray-600 font-mono">${appointment.queueNumber || '-'}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${appointment.symptoms || '-'}</td>
+                                            <td class="px-6 py-4 text-sm">
+                                                <span class="px-3 py-1 text-xs rounded-full ${
+                                                    appointment.status === '已完成' ? 'bg-green-100 text-green-800' : 
+                                                    appointment.status === '進行中' ? 'bg-blue-100 text-blue-800' :
+                                                    'bg-yellow-100 text-yellow-800'
+                                                }">${appointment.status}</span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm">
+                                                <button onclick="editAppointment('${id}')" class="text-blue-600 hover:text-blue-800 mr-2" title="編輯">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button onclick="completeAppointment('${id}')" class="text-green-600 hover:text-green-800" title="完成">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        ${Object.keys(appointments || {}).length === 0 ? 
+                            '<div class="text-center py-8 text-gray-500">暫無預約記錄</div>' : ''
+                        }
+                    </div>
+                </div>
+                `;
+            });
+        }
+        
+        function showPrescriptions() {
+            getPrescriptions((prescriptions) => {
+                document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800 flex items-center">
+                            <i class="fas fa-prescription-bottle-alt mr-3 text-green-600"></i>
+                            處方管理 
+                            <span class="text-sm text-gray-500 ml-2">(來自 Firestore asia-east2)</span>
+                        </h2>
+                        <button onclick="showNewPrescription()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center">
+                            <i class="fas fa-plus mr-2"></i>新增處方
+                        </button>
+                    </div>
+                    
+                    <div class="grid gap-6">
+                        ${Object.entries(prescriptions || {}).map(([id, prescription]) => `
+                            <div class="bg-white rounded-xl shadow-lg p-6">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h3 class="text-lg font-semibold text-gray-800">${prescription.patientName}</h3>
+                                        <p class="text-sm text-gray-600">醫師：${prescription.doctorName} | 日期：${prescription.date}</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-lg font-bold text-green-600">$${prescription.totalAmount}</p>
+                                        <p class="text-sm text-gray-500">總金額</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <h4 class="font-medium text-gray-800 mb-2">處方藥物：</h4>
+                                    <div class="space-y-2">
+                                        ${prescription.medicines.map(medicine => `
+                                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                                <div>
+                                                    <p class="font-medium text-gray-800">${medicine.name}</p>
+                                                    <p class="text-sm text-gray-600">${medicine.dosage}</p>
+                                                </div>
+                                                <span class="text-sm text-gray-500">${medicine.days}天</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                                
+                                ${prescription.instructions ? `
+                                    <div class="mb-4">
+                                        <h4 class="font-medium text-gray-800 mb-2">用藥指示：</h4>
+                                        <p class="text-gray-600 bg-blue-50 p-3 rounded-lg">${prescription.instructions}</p>
+                                    </div>
+                                ` : ''}
+                                
+                                <div class="flex space-x-2">
+                                    <button onclick="editPrescription('${id}')" class="text-blue-600 hover:text-blue-800 px-3 py-1 rounded border border-blue-200 hover:bg-blue-50">
+                                        <i class="fas fa-edit mr-1"></i>編輯
+                                    </button>
+                                    <button onclick="printPrescription('${id}')" class="text-green-600 hover:text-green-800 px-3 py-1 rounded border border-green-200 hover:bg-green-50">
+                                        <i class="fas fa-print mr-1"></i>列印
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                        
+                        ${Object.keys(prescriptions || {}).length === 0 ? 
+                            '<div class="text-center py-12 text-gray-500">暫無處方記錄</div>' : ''
+                        }
+                    </div>
+                </div>
+                `;
+            });
+        }
+        
+        // 其他功能保持不變...
+        function showConsultation() { alert('診症管理功能開發中...'); }
+        function showUserManagement() { alert('用戶管理功能開發中...'); }
+        function showSystemSettings() { alert('系統設置功能開發中...'); }
+        function showReports() { alert('統計報表功能開發中...'); }
+        function showNewAppointment() { alert('新增預約功能開發中...'); }
+        function showNewPrescription() { alert('新增處方功能開發中...'); }
+        function editPatient(id) { alert(`編輯病人 ${id} 功能開發中...`); }
+        function viewPatientHistory(id) { alert(`查看病人 ${id} 病史功能開發中...`); }
+        function editAppointment(id) { alert(`編輯預約 ${id} 功能開發中...`); }
+        function completeAppointment(id) { alert(`完成預約 ${id} 功能開發中...`); }
+        function editPrescription(id) { alert(`編輯處方 ${id} 功能開發中...`); }
+        function printPrescription(id) { alert(`列印處方 ${id} 功能開發中...`); }
     </script>
 
-    <!-- Login Screen -->
-    <div id="loginScreen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
-            <div class="text-center mb-8">
-                <div class="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-clinic-medical text-white text-2xl"></i>
+    <!-- Connection Status -->
+    <div id="firebaseStatus" class="fixed top-4 right-4 z-50 glass-effect rounded-lg shadow-lg p-3 border">
+        <div class="flex items-center space-x-2">
+            <div id="firebaseIndicator" class="w-3 h-3 bg-gray-400 rounded-full"></div>
+            <div>
+                <span id="firebaseStatusText" class="text-sm text-gray-600">連接中...</span>
+                <div class="text-xs text-gray-500">
+                    <span id="versionText">v2.0</span> | us-central1 + 預設區域
                 </div>
-                <h1 class="text-2xl font-bold text-gray-800">中醫診所管理系統</h1>
-                <p class="text-gray-600 mt-2">請登入您的帳戶</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 via-purple-600 to-blue-800">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+            <div class="text-center mb-8">
+                <div class="bg-blue-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-clinic-medical text-white text-3xl"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">中醫診所管理系統</h1>
+                <p class="text-gray-600">混合數據庫架構 v2.0</p>
+                <div class="mt-3 text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
+                    <p>📊 Firestore (asia-east2): 病人、預約、處方</p>
+                    <p>⚡ Realtime DB: 排號、通知、統計</p>
+                </div>
             </div>
             
             <form id="loginForm" class="space-y-6">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">帳號</label>
-                    <input type="email" id="loginEmail" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請輸入電子郵件">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">用戶名</label>
+                    <input type="text" id="loginUsername" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請輸入用戶名">
                 </div>
                 
                 <div>
@@ -162,12 +1717,14 @@
                 </button>
             </form>
             
-            <div class="mt-6 p-4 bg-gray-50 rounded-lg">
-                <p class="text-sm text-gray-600 mb-2">測試帳號：</p>
-                <p class="text-xs text-gray-500">管理員: admin@clinic.com</p>
-                <p class="text-xs text-gray-500">醫師: doctor@clinic.com</p>
-                <p class="text-xs text-gray-500">助理: assistant@clinic.com</p>
-                <p class="text-xs text-gray-500">密碼: 任意輸入</p>
+            <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+                <p class="text-sm text-gray-700 mb-2 font-medium">測試帳號：</p>
+                <div class="text-xs text-gray-600 space-y-1">
+                    <p><strong>管理員:</strong> admin (完整權限)</p>
+                    <p><strong>醫師:</strong> doctor (診症、處方)</p>
+                    <p><strong>助理:</strong> assistant (登記、預約、排號)</p>
+                    <p class="mt-2 text-orange-600 font-medium">密碼: 任意輸入</p>
+                </div>
             </div>
         </div>
     </div>
@@ -182,8 +1739,8 @@
                         <i class="fas fa-bars text-xl"></i>
                     </button>
                     <div class="flex items-center space-x-3">
-                        <div class="bg-blue-600 w-10 h-10 rounded-full flex items-center justify-center">
-                            <i class="fas fa-clinic-medical text-white"></i>
+                        <div class="bg-gradient-to-r from-blue-500 to-purple-600 w-12 h-12 rounded-full flex items-center justify-center">
+                            <i class="fas fa-clinic-medical text-white text-lg"></i>
                         </div>
                         <div>
                             <h1 class="text-xl font-bold text-gray-800">中醫診所管理系統</h1>
@@ -197,7 +1754,7 @@
                         <p class="text-sm font-medium text-gray-800" id="currentUserName">系統管理員</p>
                         <p class="text-xs text-gray-600" id="currentUserRole">管理員</p>
                     </div>
-                    <button id="logoutBtn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200">
+                    <button id="logoutBtn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200 flex items-center">
                         <i class="fas fa-sign-out-alt mr-2"></i>登出
                     </button>
                 </div>
@@ -215,986 +1772,12 @@
             </aside>
 
             <!-- Main Content -->
-            <main class="flex-1 p-6">
+            <main class="flex-1 p-6 bg-gray-50">
                 <div id="contentArea" class="fade-in">
                     <!-- Content will be loaded here -->
                 </div>
             </main>
         </div>
     </div>
-
-    <script>
-        // Initialize application
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeDemoData();
-            loadFromFirebase(); // Load data from Firebase on startup
-            setupFirebaseListener(); // Setup real-time listener
-            updateDateTime();
-            setInterval(updateDateTime, 1000);
-            
-            // Login form handler
-            document.getElementById('loginForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                const email = document.getElementById('loginEmail').value;
-                const password = document.getElementById('loginPassword').value;
-                const role = document.getElementById('userRole').value;
-                
-                if (email && password) {
-                    userRole = role;
-                    currentUser = { email, role };
-                    showMainApp();
-                } else {
-                    alert('請輸入完整的登入資訊');
-                }
-            });
-            
-            // Logout handler
-            document.getElementById('logoutBtn').addEventListener('click', logout);
-            
-            // Sidebar toggle
-            document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
-        });
-        
-        function updateDateTime() {
-            const now = new Date();
-            const options = { 
-                year: 'numeric', 
-                month: '2-digit', 
-                day: '2-digit', 
-                hour: '2-digit', 
-                minute: '2-digit',
-                second: '2-digit'
-            };
-            document.getElementById('currentDateTime').textContent = now.toLocaleDateString('zh-TW', options);
-        }
-        
-        function showMainApp() {
-            document.getElementById('loginScreen').classList.add('hidden');
-            document.getElementById('mainApp').classList.remove('hidden');
-            
-            // Update user info
-            const roleNames = {
-                'admin': '系統管理員',
-                'doctor': '醫師',
-                'assistant': '診所助理'
-            };
-            
-            document.getElementById('currentUserName').textContent = roleNames[userRole];
-            document.getElementById('currentUserRole').textContent = roleNames[userRole];
-            
-            setupNavigation();
-            showDashboard();
-        }
-        
-        function logout() {
-            document.getElementById('mainApp').classList.add('hidden');
-            document.getElementById('loginScreen').classList.remove('hidden');
-            document.getElementById('loginForm').reset();
-            currentUser = null;
-        }
-        
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            sidebar.classList.toggle('-translate-x-full');
-        }
-        
-        function setupNavigation() {
-            const navigationMenu = document.getElementById('navigationMenu');
-            let menuItems = [];
-            
-            // Common menu items
-            menuItems.push(
-                { icon: 'fas fa-tachometer-alt', text: '儀表板', action: 'showDashboard' }
-            );
-            
-            // Role-specific menu items
-            if (userRole === 'admin') {
-                menuItems.push(
-                    { icon: 'fas fa-users-cog', text: '用戶管理', action: 'showUserManagement' },
-                    { icon: 'fas fa-cog', text: '系統設置', action: 'showSystemSettings' },
-                    { icon: 'fas fa-chart-bar', text: '統計報表', action: 'showReports' }
-                );
-            }
-            
-            if (userRole === 'doctor' || userRole === 'admin') {
-                menuItems.push(
-                    { icon: 'fas fa-stethoscope', text: '診症管理', action: 'showConsultation' },
-                    { icon: 'fas fa-prescription-bottle-alt', text: '處方管理', action: 'showPrescriptions' },
-                    { icon: 'fas fa-file-medical', text: '病假單', action: 'showSickLeave' }
-                );
-            }
-            
-            if (userRole === 'assistant' || userRole === 'admin') {
-                menuItems.push(
-                    { icon: 'fas fa-user-plus', text: '病人登記', action: 'showPatientRegistration' },
-                    { icon: 'fas fa-calendar-alt', text: '預約管理', action: 'showAppointments' },
-                    { icon: 'fas fa-list-ol', text: '排號系統', action: 'showQueueSystem' },
-                    { icon: 'fas fa-receipt', text: '收據管理', action: 'showReceipts' }
-                );
-            }
-            
-            menuItems.push(
-                { icon: 'fas fa-users', text: '病人資料', action: 'showPatients' }
-            );
-            
-            navigationMenu.innerHTML = menuItems.map(item => `
-                <li>
-                    <button onclick="${item.action}()" class="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition duration-200">
-                        <i class="${item.icon}"></i>
-                        <span>${item.text}</span>
-                    </button>
-                </li>
-            `).join('');
-        }
-        
-        function showDashboard() {
-            const data = getDemoData();
-            const patientCount = Object.keys(data.patients || {}).length;
-            const appointmentCount = Object.keys(data.appointments || {}).length;
-            const prescriptionCount = Object.keys(data.prescriptions || {}).length;
-            
-            document.getElementById('contentArea').innerHTML = `
-                <div class="fade-in">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6">儀表板</h2>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div class="bg-white p-6 rounded-xl shadow-sm card-hover">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm text-gray-600">總病人數</p>
-                                    <p class="text-2xl font-bold text-blue-600">${patientCount}</p>
-                                </div>
-                                <div class="bg-blue-100 p-3 rounded-full">
-                                    <i class="fas fa-users text-blue-600"></i>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white p-6 rounded-xl shadow-sm card-hover">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm text-gray-600">今日預約</p>
-                                    <p class="text-2xl font-bold text-green-600">${appointmentCount}</p>
-                                </div>
-                                <div class="bg-green-100 p-3 rounded-full">
-                                    <i class="fas fa-calendar-check text-green-600"></i>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white p-6 rounded-xl shadow-sm card-hover">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm text-gray-600">處方數量</p>
-                                    <p class="text-2xl font-bold text-purple-600">${prescriptionCount}</p>
-                                </div>
-                                <div class="bg-purple-100 p-3 rounded-full">
-                                    <i class="fas fa-prescription-bottle-alt text-purple-600"></i>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white p-6 rounded-xl shadow-sm card-hover">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm text-gray-600">系統狀態</p>
-                                    <p class="text-2xl font-bold text-green-600">正常</p>
-                                </div>
-                                <div class="bg-green-100 p-3 rounded-full">
-                                    <i class="fas fa-heartbeat text-green-600"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="bg-white p-6 rounded-xl shadow-sm">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">今日預約</h3>
-                            <div class="space-y-3">
-                                ${Object.entries(data.appointments || {}).map(([id, appointment]) => `
-                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                        <div>
-                                            <p class="font-medium">${data.patients[appointment.patientId]?.name || '未知病人'}</p>
-                                            <p class="text-sm text-gray-600">${appointment.time}</p>
-                                        </div>
-                                        <span class="px-3 py-1 text-xs rounded-full ${appointment.status === '已完成' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">${appointment.status}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white p-6 rounded-xl shadow-sm">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">快速操作</h3>
-                            <div class="grid grid-cols-2 gap-3">
-                                <button onclick="showPatientRegistration()" class="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg text-center transition duration-200">
-                                    <i class="fas fa-user-plus text-blue-600 text-xl mb-2"></i>
-                                    <p class="text-sm font-medium text-blue-600">新增病人</p>
-                                </button>
-                                <button onclick="showAppointments()" class="p-4 bg-green-50 hover:bg-green-100 rounded-lg text-center transition duration-200">
-                                    <i class="fas fa-calendar-plus text-green-600 text-xl mb-2"></i>
-                                    <p class="text-sm font-medium text-green-600">新增預約</p>
-                                </button>
-                                <button onclick="showConsultation()" class="p-4 bg-purple-50 hover:bg-purple-100 rounded-lg text-center transition duration-200">
-                                    <i class="fas fa-stethoscope text-purple-600 text-xl mb-2"></i>
-                                    <p class="text-sm font-medium text-purple-600">開始診症</p>
-                                </button>
-                                <button onclick="showQueueSystem()" class="p-4 bg-orange-50 hover:bg-orange-100 rounded-lg text-center transition duration-200">
-                                    <i class="fas fa-list-ol text-orange-600 text-xl mb-2"></i>
-                                    <p class="text-sm font-medium text-orange-600">排號系統</p>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        function showPatientRegistration() {
-            document.getElementById('contentArea').innerHTML = `
-                <div class="fade-in">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6">病人登記</h2>
-                    
-                    <div class="bg-white rounded-xl shadow-sm p-6">
-                        <form id="patientForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">姓名 *</label>
-                                <input type="text" id="patientName" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">電話 *</label>
-                                <input type="tel" id="patientPhone" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">出生日期</label>
-                                <input type="date" id="patientBirthDate" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">性別</label>
-                                <select id="patientGender" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                    <option value="">請選擇</option>
-                                    <option value="male">男</option>
-                                    <option value="female">女</option>
-                                </select>
-                            </div>
-                            
-                            <div class="md:col-span-2">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">地址</label>
-                                <input type="text" id="patientAddress" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            </div>
-                            
-                            <div class="md:col-span-2">
-                                <label class="block text-sm font-medium text-gray-700 mb-2">病史</label>
-                                <textarea id="patientHistory" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請輸入相關病史..."></textarea>
-                            </div>
-                            
-                            <div class="md:col-span-2 flex space-x-4">
-                                <button type="submit" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-200">
-                                    <i class="fas fa-save mr-2"></i>儲存病人資料
-                                </button>
-                                <button type="button" onclick="showPatients()" class="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition duration-200">
-                                    <i class="fas fa-times mr-2"></i>取消
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            `;
-            
-            document.getElementById('patientForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const patientData = {
-                    name: document.getElementById('patientName').value,
-                    phone: document.getElementById('patientPhone').value,
-                    birthDate: document.getElementById('patientBirthDate').value,
-                    gender: document.getElementById('patientGender').value,
-                    address: document.getElementById('patientAddress').value,
-                    history: document.getElementById('patientHistory').value,
-                    registrationDate: new Date().toISOString().split('T')[0]
-                };
-                
-                const data = getDemoData();
-                const patientId = 'p' + String(Date.now()).slice(-6);
-                data.patients = data.patients || {};
-                data.patients[patientId] = patientData;
-                saveDemoData(data);
-                
-                alert('病人資料已成功儲存！');
-                showPatients();
-            });
-        }
-        
-        function showPatients() {
-            const data = getDemoData();
-            const patients = data.patients || {};
-            
-            document.getElementById('contentArea').innerHTML = `
-                <div class="fade-in">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">病人資料</h2>
-                        <button onclick="showPatientRegistration()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
-                            <i class="fas fa-plus mr-2"></i>新增病人
-                        </button>
-                    </div>
-                    
-                    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                        <div class="overflow-x-auto">
-                            <table class="w-full">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">姓名</th>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">電話</th>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">出生日期</th>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">地址</th>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">登記日期</th>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200">
-                                    ${Object.entries(patients).map(([id, patient]) => `
-                                        <tr class="hover:bg-gray-50">
-                                            <td class="px-6 py-4 text-sm font-medium text-gray-900">${patient.name}</td>
-                                            <td class="px-6 py-4 text-sm text-gray-600">${patient.phone}</td>
-                                            <td class="px-6 py-4 text-sm text-gray-600">${patient.birthDate || '-'}</td>
-                                            <td class="px-6 py-4 text-sm text-gray-600">${patient.address || '-'}</td>
-                                            <td class="px-6 py-4 text-sm text-gray-600">${patient.registrationDate}</td>
-                                            <td class="px-6 py-4 text-sm">
-                                                <button onclick="editPatient('${id}')" class="text-blue-600 hover:text-blue-800 mr-3">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button onclick="viewPatientHistory('${id}')" class="text-green-600 hover:text-green-800">
-                                                    <i class="fas fa-history"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        function showAppointments() {
-            const data = getDemoData();
-            const appointments = data.appointments || {};
-            const patients = data.patients || {};
-            
-            document.getElementById('contentArea').innerHTML = `
-                <div class="fade-in">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">預約管理</h2>
-                        <button onclick="showNewAppointment()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
-                            <i class="fas fa-plus mr-2"></i>新增預約
-                        </button>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-2">
-                            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                                <div class="p-6 border-b border-gray-200">
-                                    <h3 class="text-lg font-semibold text-gray-800">預約列表</h3>
-                                </div>
-                                <div class="divide-y divide-gray-200">
-                                    ${Object.entries(appointments).map(([id, appointment]) => `
-                                        <div class="p-6 hover:bg-gray-50">
-                                            <div class="flex items-center justify-between">
-                                                <div class="flex-1">
-                                                    <h4 class="font-medium text-gray-900">${patients[appointment.patientId]?.name || '未知病人'}</h4>
-                                                    <p class="text-sm text-gray-600">${appointment.date} ${appointment.time}</p>
-                                                    <p class="text-sm text-gray-500">醫師：${appointment.doctorId === 'doctor1' ? '王醫師' : '未指定'}</p>
-                                                </div>
-                                                <div class="flex items-center space-x-3">
-                                                    <span class="px-3 py-1 text-xs rounded-full ${appointment.status === '已完成' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">${appointment.status}</span>
-                                                    <button onclick="editAppointment('${id}')" class="text-blue-600 hover:text-blue-800">
-                                                        <i class="fas fa-edit"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <div class="bg-white rounded-xl shadow-sm p-6">
-                                <h3 class="text-lg font-semibold text-gray-800 mb-4">今日統計</h3>
-                                <div class="space-y-4">
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">總預約數</span>
-                                        <span class="font-semibold">${Object.keys(appointments).length}</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">已完成</span>
-                                        <span class="font-semibold text-green-600">${Object.values(appointments).filter(a => a.status === '已完成').length}</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">待診</span>
-                                        <span class="font-semibold text-blue-600">${Object.values(appointments).filter(a => a.status === '已預約').length}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        function showConsultation() {
-            if (userRole !== 'doctor' && userRole !== 'admin') {
-                alert('您沒有權限訪問此功能');
-                return;
-            }
-            
-            const data = getDemoData();
-            const appointments = data.appointments || {};
-            const patients = data.patients || {};
-            
-            document.getElementById('contentArea').innerHTML = `
-                <div class="fade-in">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6">診症管理</h2>
-                    
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="bg-white rounded-xl shadow-sm p-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">待診病人</h3>
-                            <div class="space-y-3">
-                                ${Object.entries(appointments).filter(([id, appointment]) => appointment.status === '已預約').map(([id, appointment]) => `
-                                    <div class="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer" onclick="startConsultation('${id}')">
-                                        <div class="flex items-center justify-between">
-                                            <div>
-                                                <h4 class="font-medium text-gray-900">${patients[appointment.patientId]?.name || '未知病人'}</h4>
-                                                <p class="text-sm text-gray-600">${appointment.time}</p>
-                                            </div>
-                                            <i class="fas fa-chevron-right text-gray-400"></i>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white rounded-xl shadow-sm p-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">診症記錄</h3>
-                            <form id="consultationForm" class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">病人</label>
-                                    <select id="consultationPatient" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                        <option value="">請選擇病人</option>
-                                        ${Object.entries(patients).map(([id, patient]) => `
-                                            <option value="${id}">${patient.name}</option>
-                                        `).join('')}
-                                    </select>
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">主訴</label>
-                                    <textarea id="chiefComplaint" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="病人主要症狀..."></textarea>
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">診斷</label>
-                                    <textarea id="diagnosis" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="中醫診斷..."></textarea>
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">治療方案</label>
-                                    <textarea id="treatment" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="針灸、推拿、中藥等治療方案..."></textarea>
-                                </div>
-                                
-                                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-200">
-                                    <i class="fas fa-save mr-2"></i>儲存診症記錄
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            document.getElementById('consultationForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const consultationData = {
-                    patientId: document.getElementById('consultationPatient').value,
-                    doctorId: 'doctor1',
-                    date: new Date().toISOString().split('T')[0],
-                    chiefComplaint: document.getElementById('chiefComplaint').value,
-                    diagnosis: document.getElementById('diagnosis').value,
-                    treatment: document.getElementById('treatment').value
-                };
-                
-                const data = getDemoData();
-                const consultationId = 'c' + String(Date.now()).slice(-6);
-                data.consultations = data.consultations || {};
-                data.consultations[consultationId] = consultationData;
-                saveDemoData(data);
-                
-                alert('診症記錄已儲存！');
-                this.reset();
-            });
-        }
-        
-        function showPrescriptions() {
-            if (userRole !== 'doctor' && userRole !== 'admin') {
-                alert('您沒有權限訪問此功能');
-                return;
-            }
-            
-            const data = getDemoData();
-            const prescriptions = data.prescriptions || {};
-            const patients = data.patients || {};
-            
-            document.getElementById('contentArea').innerHTML = `
-                <div class="fade-in">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">處方管理</h2>
-                        <button onclick="showNewPrescription()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
-                            <i class="fas fa-plus mr-2"></i>新增處方
-                        </button>
-                    </div>
-                    
-                    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                        <div class="overflow-x-auto">
-                            <table class="w-full">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">病人姓名</th>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">處方日期</th>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">藥材</th>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">用法用量</th>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200">
-                                    ${Object.entries(prescriptions).map(([id, prescription]) => `
-                                        <tr class="hover:bg-gray-50">
-                                            <td class="px-6 py-4 text-sm font-medium text-gray-900">${patients[prescription.patientId]?.name || '未知病人'}</td>
-                                            <td class="px-6 py-4 text-sm text-gray-600">${prescription.date}</td>
-                                            <td class="px-6 py-4 text-sm text-gray-600">${prescription.medicines}</td>
-                                            <td class="px-6 py-4 text-sm text-gray-600">${prescription.dosage}</td>
-                                            <td class="px-6 py-4 text-sm">
-                                                <button onclick="printPrescription('${id}')" class="text-blue-600 hover:text-blue-800 mr-3">
-                                                    <i class="fas fa-print"></i>
-                                                </button>
-                                                <button onclick="editPrescription('${id}')" class="text-green-600 hover:text-green-800">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        function showQueueSystem() {
-            if (userRole !== 'assistant' && userRole !== 'admin') {
-                alert('您沒有權限訪問此功能');
-                return;
-            }
-            
-            document.getElementById('contentArea').innerHTML = `
-                <div class="fade-in">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6">排號系統</h2>
-                    
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="bg-white rounded-xl shadow-sm p-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">當前號碼</h3>
-                            <div class="text-center py-8">
-                                <div class="text-6xl font-bold text-blue-600 mb-4" id="currentNumber">001</div>
-                                <p class="text-gray-600 mb-6">請 001 號病人到診間</p>
-                                <div class="space-x-4">
-                                    <button onclick="nextNumber()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-200">
-                                        <i class="fas fa-forward mr-2"></i>下一號
-                                    </button>
-                                    <button onclick="callNumber()" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition duration-200">
-                                        <i class="fas fa-volume-up mr-2"></i>呼叫
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white rounded-xl shadow-sm p-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">取號</h3>
-                            <form id="queueForm" class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">病人姓名</label>
-                                    <input type="text" id="queuePatientName" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">聯絡電話</label>
-                                    <input type="tel" id="queuePatientPhone" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">診療類型</label>
-                                    <select id="queueType" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                        <option value="consultation">一般診症</option>
-                                        <option value="acupuncture">針灸治療</option>
-                                        <option value="massage">推拿按摩</option>
-                                        <option value="followup">複診</option>
-                                    </select>
-                                </div>
-                                
-                                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-200">
-                                    <i class="fas fa-ticket-alt mr-2"></i>取號
-                                </button>
-                            </form>
-                            
-                            <div class="mt-6 p-4 bg-gray-50 rounded-lg">
-                                <h4 class="font-medium text-gray-800 mb-2">等候人數</h4>
-                                <div class="grid grid-cols-2 gap-4 text-center">
-                                    <div>
-                                        <p class="text-2xl font-bold text-blue-600">5</p>
-                                        <p class="text-sm text-gray-600">一般診症</p>
-                                    </div>
-                                    <div>
-                                        <p class="text-2xl font-bold text-green-600">2</p>
-                                        <p class="text-sm text-gray-600">針灸治療</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            document.getElementById('queueForm').addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const queueData = {
-                    patientName: document.getElementById('queuePatientName').value,
-                    patientPhone: document.getElementById('queuePatientPhone').value,
-                    type: document.getElementById('queueType').value,
-                    number: String(Math.floor(Math.random() * 100) + 1).padStart(3, '0'),
-                    timestamp: new Date().toISOString()
-                };
-                
-                alert(`取號成功！您的號碼是：${queueData.number}`);
-                this.reset();
-            });
-        }
-        
-        function showReceipts() {
-            if (userRole !== 'assistant' && userRole !== 'admin') {
-                alert('您沒有權限訪問此功能');
-                return;
-            }
-            
-            document.getElementById('contentArea').innerHTML = `
-                <div class="fade-in">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">收據管理</h2>
-                        <button onclick="showNewReceipt()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
-                            <i class="fas fa-plus mr-2"></i>開立收據
-                        </button>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-2">
-                            <div class="bg-white rounded-xl shadow-sm p-6">
-                                <h3 class="text-lg font-semibold text-gray-800 mb-4">收據列表</h3>
-                                <div class="space-y-4">
-                                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                                        <div>
-                                            <h4 class="font-medium text-gray-900">陳小明</h4>
-                                            <p class="text-sm text-gray-600">2024-01-20 | 收據編號: R001</p>
-                                            <p class="text-sm text-gray-500">一般診症 + 中藥</p>
-                                        </div>
-                                        <div class="text-right">
-                                            <p class="text-lg font-bold text-green-600">NT$ 800</p>
-                                            <div class="space-x-2 mt-2">
-                                                <button onclick="printReceipt('R001')" class="text-blue-600 hover:text-blue-800">
-                                                    <i class="fas fa-print"></i>
-                                                </button>
-                                                <button onclick="editReceipt('R001')" class="text-green-600 hover:text-green-800">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                                        <div>
-                                            <h4 class="font-medium text-gray-900">林美華</h4>
-                                            <p class="text-sm text-gray-600">2024-01-20 | 收據編號: R002</p>
-                                            <p class="text-sm text-gray-500">針灸治療</p>
-                                        </div>
-                                        <div class="text-right">
-                                            <p class="text-lg font-bold text-green-600">NT$ 600</p>
-                                            <div class="space-x-2 mt-2">
-                                                <button onclick="printReceipt('R002')" class="text-blue-600 hover:text-blue-800">
-                                                    <i class="fas fa-print"></i>
-                                                </button>
-                                                <button onclick="editReceipt('R002')" class="text-green-600 hover:text-green-800">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <div class="bg-white rounded-xl shadow-sm p-6">
-                                <h3 class="text-lg font-semibold text-gray-800 mb-4">今日營收</h3>
-                                <div class="space-y-4">
-                                    <div class="text-center py-4">
-                                        <p class="text-3xl font-bold text-green-600">NT$ 1,400</p>
-                                        <p class="text-sm text-gray-600">今日總收入</p>
-                                    </div>
-                                    
-                                    <div class="space-y-2">
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-600">診症費</span>
-                                            <span class="font-semibold">NT$ 800</span>
-                                        </div>
-                                        <div class="flex justify-between">
-                                            <span class="text-gray-600">針灸費</span>
-                                            <span class="font-semibold">NT$ 600</span>
-                                        </div>
-                                        <div class="flex justify-between border-t pt-2">
-                                            <span class="text-gray-600">總計</span>
-                                            <span class="font-bold text-green-600">NT$ 1,400</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        function showUserManagement() {
-            if (userRole !== 'admin') {
-                alert('您沒有權限訪問此功能');
-                return;
-            }
-            
-            document.getElementById('contentArea').innerHTML = `
-                <div class="fade-in">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">用戶管理</h2>
-                        <button onclick="showNewUser()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
-                            <i class="fas fa-plus mr-2"></i>新增用戶
-                        </button>
-                    </div>
-                    
-                    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                        <div class="overflow-x-auto">
-                            <table class="w-full">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">姓名</th>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">電子郵件</th>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">角色</th>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">狀態</th>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">最後登入</th>
-                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">操作</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200">
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-6 py-4 text-sm font-medium text-gray-900">系統管理員</td>
-                                        <td class="px-6 py-4 text-sm text-gray-600">admin@clinic.com</td>
-                                        <td class="px-6 py-4 text-sm">
-                                            <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">管理員</span>
-                                        </td>
-                                        <td class="px-6 py-4 text-sm">
-                                            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">啟用</span>
-                                        </td>
-                                        <td class="px-6 py-4 text-sm text-gray-600">2024-01-20 09:00</td>
-                                        <td class="px-6 py-4 text-sm">
-                                            <button class="text-blue-600 hover:text-blue-800 mr-3">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button class="text-red-600 hover:text-red-800">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-6 py-4 text-sm font-medium text-gray-900">王醫師</td>
-                                        <td class="px-6 py-4 text-sm text-gray-600">doctor@clinic.com</td>
-                                        <td class="px-6 py-4 text-sm">
-                                            <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">醫師</span>
-                                        </td>
-                                        <td class="px-6 py-4 text-sm">
-                                            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">啟用</span>
-                                        </td>
-                                        <td class="px-6 py-4 text-sm text-gray-600">2024-01-20 08:30</td>
-                                        <td class="px-6 py-4 text-sm">
-                                            <button class="text-blue-600 hover:text-blue-800 mr-3">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button class="text-red-600 hover:text-red-800">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-6 py-4 text-sm font-medium text-gray-900">李助理</td>
-                                        <td class="px-6 py-4 text-sm text-gray-600">assistant@clinic.com</td>
-                                        <td class="px-6 py-4 text-sm">
-                                            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">助理</span>
-                                        </td>
-                                        <td class="px-6 py-4 text-sm">
-                                            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">啟用</span>
-                                        </td>
-                                        <td class="px-6 py-4 text-sm text-gray-600">2024-01-20 08:45</td>
-                                        <td class="px-6 py-4 text-sm">
-                                            <button class="text-blue-600 hover:text-blue-800 mr-3">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button class="text-red-600 hover:text-red-800">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        function showSystemSettings() {
-            if (userRole !== 'admin') {
-                alert('您沒有權限訪問此功能');
-                return;
-            }
-            
-            document.getElementById('contentArea').innerHTML = `
-                <div class="fade-in">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6">系統設置</h2>
-                    
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div class="bg-white rounded-xl shadow-sm p-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">診所基本資訊</h3>
-                            <form class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">診所名稱</label>
-                                    <input type="text" value="仁心中醫診所" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">診所地址</label>
-                                    <input type="text" value="台北市信義區信義路五段7號" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">聯絡電話</label>
-                                    <input type="tel" value="02-2345-6789" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">營業時間</label>
-                                    <textarea rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">週一至週五：09:00-12:00, 14:00-18:00
-週六：09:00-12:00
-週日：休診</textarea>
-                                </div>
-                                
-                                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-200">
-                                    <i class="fas fa-save mr-2"></i>儲存設置
-                                </button>
-                            </form>
-                        </div>
-                        
-                        <div class="bg-white rounded-xl shadow-sm p-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">系統參數</h3>
-                            <div class="space-y-4">
-                                <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                                    <div>
-                                        <h4 class="font-medium text-gray-900">自動備份</h4>
-                                        <p class="text-sm text-gray-600">每日自動備份資料庫</p>
-                                    </div>
-                                    <label class="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" checked class="sr-only peer">
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                    </label>
-                                </div>
-                                
-                                <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                                    <div>
-                                        <h4 class="font-medium text-gray-900">SMS通知</h4>
-                                        <p class="text-sm text-gray-600">預約提醒簡訊</p>
-                                    </div>
-                                    <label class="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" checked class="sr-only peer">
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                    </label>
-                                </div>
-                                
-                                <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                                    <div>
-                                        <h4 class="font-medium text-gray-900">線上預約</h4>
-                                        <p class="text-sm text-gray-600">開放網路預約功能</p>
-                                    </div>
-                                    <label class="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" class="sr-only peer">
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <div class="mt-6 p-4 bg-green-50 rounded-lg">
-                                <h4 class="font-medium text-green-800 mb-2">Firebase 連接狀態</h4>
-                                <div class="flex items-center space-x-2">
-                                    <div class="w-3 h-3 bg-green-500 rounded-full"></div>
-                                    <span class="text-sm text-green-700">已連接到 cheungec-ea477</span>
-                                </div>
-                                <p class="text-xs text-green-600 mt-2">實時數據庫已啟用，所有數據將同步到雲端</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        // Utility functions
-        function nextNumber() {
-            const currentNumberEl = document.getElementById('currentNumber');
-            let current = parseInt(currentNumberEl.textContent);
-            current = current >= 999 ? 1 : current + 1;
-            currentNumberEl.textContent = String(current).padStart(3, '0');
-        }
-        
-        function callNumber() {
-            const currentNumber = document.getElementById('currentNumber').textContent;
-            alert(`正在呼叫 ${currentNumber} 號病人到診間`);
-        }
-        
-        function printReceipt(receiptId) {
-            alert(`正在列印收據 ${receiptId}`);
-        }
-        
-        function printPrescription(prescriptionId) {
-            alert(`正在列印處方 ${prescriptionId}`);
-        }
-        
-        // Placeholder functions for other features
-        function showNewAppointment() { alert('新增預約功能開發中...'); }
-        function showNewPrescription() { alert('新增處方功能開發中...'); }
-        function showNewReceipt() { alert('開立收據功能開發中...'); }
-        function showNewUser() { alert('新增用戶功能開發中...'); }
-        function showSickLeave() { alert('病假單功能開發中...'); }
-        function showReports() { alert('統計報表功能開發中...'); }
-        function editPatient(id) { alert(`編輯病人 ${id} 功能開發中...`); }
-        function viewPatientHistory(id) { alert(`查看病人 ${id} 病史功能開發中...`); }
-        function editAppointment(id) { alert(`編輯預約 ${id} 功能開發中...`); }
-        function startConsultation(id) { alert(`開始診症 ${id} 功能開發中...`); }
-        function editPrescription(id) { alert(`編輯處方 ${id} 功能開發中...`); }
-        function editReceipt(id) { alert(`編輯收據 ${id} 功能開發中...`); }
-    </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9669fc9cb3ca8b92',t:'MTc1Mzc2NDUzNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'966bcb40d51c0ebb',t:'MTc1Mzc4MzQ4NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
