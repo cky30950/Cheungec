@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中醫診所管理系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        .sidebar-transition { transition: transform 0.3s ease-in-out; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .card-hover { transition: all 0.2s ease; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Firebase Configuration -->
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBtUcrBYiE4B1O4xkvIqwxM52Hrh-i6pL8",
+            authDomain: "cheungec-ea477.firebaseapp.com",
+            databaseURL: "https://cheungec-ea477-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            projectId: "cheungec-ea477",
+            storageBucket: "cheungec-ea477.firebasestorage.app",
+            messagingSenderId: "986510230799",
+            appId: "1:986510230799:web:f603e67b605e71294f2a7a"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const auth = firebase.auth();
+        
+        // Demo data structure
+        let currentUser = null;
+        let userRole = 'admin'; // Default for demo
+        
+        // Initialize demo data
+        function initializeDemoData() {
+            const demoData = {
+                users: {
+                    admin1: { name: '系統管理員', role: 'admin', email: 'admin@clinic.com' },
+                    doctor1: { name: '王醫師', role: 'doctor', email: 'doctor@clinic.com' },
+                    assistant1: { name: '李助理', role: 'assistant', email: 'assistant@clinic.com' }
+                },
+                patients: {
+                    p001: { name: '陳小明', phone: '0912345678', birthDate: '1980-05-15', address: '台北市信義區', registrationDate: '2024-01-15' },
+                    p002: { name: '林美華', phone: '0923456789', birthDate: '1975-08-22', address: '台北市大安區', registrationDate: '2024-01-16' }
+                },
+                appointments: {
+                    a001: { patientId: 'p001', doctorId: 'doctor1', date: '2024-01-20', time: '09:00', status: '已預約' },
+                    a002: { patientId: 'p002', doctorId: 'doctor1', date: '2024-01-20', time: '10:00', status: '已完成' }
+                },
+                prescriptions: {
+                    pr001: { patientId: 'p001', doctorId: 'doctor1', date: '2024-01-20', medicines: '當歸、川芎、白芍', dosage: '每日三次，飯後服用' }
+                }
+            };
+            
+            // Store in localStorage for demo
+            localStorage.setItem('clinicData', JSON.stringify(demoData));
+        }
+        
+        // Get data from Firebase or localStorage fallback
+        function getDemoData() {
+            const data = localStorage.getItem('clinicData');
+            return data ? JSON.parse(data) : {};
+        }
+        
+        // Save data to Firebase and localStorage
+        function saveDemoData(data) {
+            localStorage.setItem('clinicData', JSON.stringify(data));
+            
+            // Save to Firebase Realtime Database
+            try {
+                database.ref('clinicData').set(data).then(() => {
+                    console.log('數據已同步到Firebase');
+                }).catch((error) => {
+                    console.error('Firebase同步失敗:', error);
+                });
+            } catch (error) {
+                console.error('Firebase連接錯誤:', error);
+            }
+        }
+        
+        // Load data from Firebase
+        function loadFromFirebase() {
+            try {
+                database.ref('clinicData').once('value').then((snapshot) => {
+                    const firebaseData = snapshot.val();
+                    if (firebaseData) {
+                        localStorage.setItem('clinicData', JSON.stringify(firebaseData));
+                        console.log('已從Firebase載入數據');
+                        // Refresh current view if needed
+                        if (document.getElementById('mainApp').style.display !== 'none') {
+                            showDashboard();
+                        }
+                    }
+                }).catch((error) => {
+                    console.error('從Firebase載入數據失敗:', error);
+                });
+            } catch (error) {
+                console.error('Firebase連接錯誤:', error);
+            }
+        }
+        
+        // Real-time listener for Firebase changes
+        function setupFirebaseListener() {
+            try {
+                database.ref('clinicData').on('value', (snapshot) => {
+                    const firebaseData = snapshot.val();
+                    if (firebaseData) {
+                        localStorage.setItem('clinicData', JSON.stringify(firebaseData));
+                        console.log('Firebase數據已更新');
+                    }
+                });
+            } catch (error) {
+                console.error('Firebase監聽器設置失敗:', error);
+            }
+        }
+    </script>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+            <div class="text-center mb-8">
+                <div class="bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-clinic-medical text-white text-2xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800">中醫診所管理系統</h1>
+                <p class="text-gray-600 mt-2">請登入您的帳戶</p>
+            </div>
+            
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">帳號</label>
+                    <input type="email" id="loginEmail" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請輸入電子郵件">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">密碼</label>
+                    <input type="password" id="loginPassword" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請輸入密碼">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">身份</label>
+                    <select id="userRole" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="admin">系統管理員</option>
+                        <option value="doctor">醫師</option>
+                        <option value="assistant">診所助理</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-200 font-medium">
+                    登入系統
+                </button>
+            </form>
+            
+            <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                <p class="text-sm text-gray-600 mb-2">測試帳號：</p>
+                <p class="text-xs text-gray-500">管理員: admin@clinic.com</p>
+                <p class="text-xs text-gray-500">醫師: doctor@clinic.com</p>
+                <p class="text-xs text-gray-500">助理: assistant@clinic.com</p>
+                <p class="text-xs text-gray-500">密碼: 任意輸入</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="mainApp" class="hidden">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="flex items-center justify-between px-6 py-4">
+                <div class="flex items-center space-x-4">
+                    <button id="sidebarToggle" class="lg:hidden text-gray-600 hover:text-gray-800">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <div class="flex items-center space-x-3">
+                        <div class="bg-blue-600 w-10 h-10 rounded-full flex items-center justify-center">
+                            <i class="fas fa-clinic-medical text-white"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold text-gray-800">中醫診所管理系統</h1>
+                            <p class="text-sm text-gray-600" id="currentDateTime"></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="text-right">
+                        <p class="text-sm font-medium text-gray-800" id="currentUserName">系統管理員</p>
+                        <p class="text-xs text-gray-600" id="currentUserRole">管理員</p>
+                    </div>
+                    <button id="logoutBtn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition duration-200">
+                        <i class="fas fa-sign-out-alt mr-2"></i>登出
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex">
+            <!-- Sidebar -->
+            <aside id="sidebar" class="bg-white w-64 min-h-screen shadow-lg sidebar-transition">
+                <nav class="p-4">
+                    <ul class="space-y-2" id="navigationMenu">
+                        <!-- Navigation items will be populated by JavaScript -->
+                    </ul>
+                </nav>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1 p-6">
+                <div id="contentArea" class="fade-in">
+                    <!-- Content will be loaded here -->
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDemoData();
+            loadFromFirebase(); // Load data from Firebase on startup
+            setupFirebaseListener(); // Setup real-time listener
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+            
+            // Login form handler
+            document.getElementById('loginForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+                const role = document.getElementById('userRole').value;
+                
+                if (email && password) {
+                    userRole = role;
+                    currentUser = { email, role };
+                    showMainApp();
+                } else {
+                    alert('請輸入完整的登入資訊');
+                }
+            });
+            
+            // Logout handler
+            document.getElementById('logoutBtn').addEventListener('click', logout);
+            
+            // Sidebar toggle
+            document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
+        });
+        
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            document.getElementById('currentDateTime').textContent = now.toLocaleDateString('zh-TW', options);
+        }
+        
+        function showMainApp() {
+            document.getElementById('loginScreen').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            
+            // Update user info
+            const roleNames = {
+                'admin': '系統管理員',
+                'doctor': '醫師',
+                'assistant': '診所助理'
+            };
+            
+            document.getElementById('currentUserName').textContent = roleNames[userRole];
+            document.getElementById('currentUserRole').textContent = roleNames[userRole];
+            
+            setupNavigation();
+            showDashboard();
+        }
+        
+        function logout() {
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('loginForm').reset();
+            currentUser = null;
+        }
+        
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        }
+        
+        function setupNavigation() {
+            const navigationMenu = document.getElementById('navigationMenu');
+            let menuItems = [];
+            
+            // Common menu items
+            menuItems.push(
+                { icon: 'fas fa-tachometer-alt', text: '儀表板', action: 'showDashboard' }
+            );
+            
+            // Role-specific menu items
+            if (userRole === 'admin') {
+                menuItems.push(
+                    { icon: 'fas fa-users-cog', text: '用戶管理', action: 'showUserManagement' },
+                    { icon: 'fas fa-cog', text: '系統設置', action: 'showSystemSettings' },
+                    { icon: 'fas fa-chart-bar', text: '統計報表', action: 'showReports' }
+                );
+            }
+            
+            if (userRole === 'doctor' || userRole === 'admin') {
+                menuItems.push(
+                    { icon: 'fas fa-stethoscope', text: '診症管理', action: 'showConsultation' },
+                    { icon: 'fas fa-prescription-bottle-alt', text: '處方管理', action: 'showPrescriptions' },
+                    { icon: 'fas fa-file-medical', text: '病假單', action: 'showSickLeave' }
+                );
+            }
+            
+            if (userRole === 'assistant' || userRole === 'admin') {
+                menuItems.push(
+                    { icon: 'fas fa-user-plus', text: '病人登記', action: 'showPatientRegistration' },
+                    { icon: 'fas fa-calendar-alt', text: '預約管理', action: 'showAppointments' },
+                    { icon: 'fas fa-list-ol', text: '排號系統', action: 'showQueueSystem' },
+                    { icon: 'fas fa-receipt', text: '收據管理', action: 'showReceipts' }
+                );
+            }
+            
+            menuItems.push(
+                { icon: 'fas fa-users', text: '病人資料', action: 'showPatients' }
+            );
+            
+            navigationMenu.innerHTML = menuItems.map(item => `
+                <li>
+                    <button onclick="${item.action}()" class="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition duration-200">
+                        <i class="${item.icon}"></i>
+                        <span>${item.text}</span>
+                    </button>
+                </li>
+            `).join('');
+        }
+        
+        function showDashboard() {
+            const data = getDemoData();
+            const patientCount = Object.keys(data.patients || {}).length;
+            const appointmentCount = Object.keys(data.appointments || {}).length;
+            const prescriptionCount = Object.keys(data.prescriptions || {}).length;
+            
+            document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">儀表板</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white p-6 rounded-xl shadow-sm card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600">總病人數</p>
+                                    <p class="text-2xl font-bold text-blue-600">${patientCount}</p>
+                                </div>
+                                <div class="bg-blue-100 p-3 rounded-full">
+                                    <i class="fas fa-users text-blue-600"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-xl shadow-sm card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600">今日預約</p>
+                                    <p class="text-2xl font-bold text-green-600">${appointmentCount}</p>
+                                </div>
+                                <div class="bg-green-100 p-3 rounded-full">
+                                    <i class="fas fa-calendar-check text-green-600"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-xl shadow-sm card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600">處方數量</p>
+                                    <p class="text-2xl font-bold text-purple-600">${prescriptionCount}</p>
+                                </div>
+                                <div class="bg-purple-100 p-3 rounded-full">
+                                    <i class="fas fa-prescription-bottle-alt text-purple-600"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-xl shadow-sm card-hover">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600">系統狀態</p>
+                                    <p class="text-2xl font-bold text-green-600">正常</p>
+                                </div>
+                                <div class="bg-green-100 p-3 rounded-full">
+                                    <i class="fas fa-heartbeat text-green-600"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white p-6 rounded-xl shadow-sm">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">今日預約</h3>
+                            <div class="space-y-3">
+                                ${Object.entries(data.appointments || {}).map(([id, appointment]) => `
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                        <div>
+                                            <p class="font-medium">${data.patients[appointment.patientId]?.name || '未知病人'}</p>
+                                            <p class="text-sm text-gray-600">${appointment.time}</p>
+                                        </div>
+                                        <span class="px-3 py-1 text-xs rounded-full ${appointment.status === '已完成' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">${appointment.status}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-xl shadow-sm">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">快速操作</h3>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button onclick="showPatientRegistration()" class="p-4 bg-blue-50 hover:bg-blue-100 rounded-lg text-center transition duration-200">
+                                    <i class="fas fa-user-plus text-blue-600 text-xl mb-2"></i>
+                                    <p class="text-sm font-medium text-blue-600">新增病人</p>
+                                </button>
+                                <button onclick="showAppointments()" class="p-4 bg-green-50 hover:bg-green-100 rounded-lg text-center transition duration-200">
+                                    <i class="fas fa-calendar-plus text-green-600 text-xl mb-2"></i>
+                                    <p class="text-sm font-medium text-green-600">新增預約</p>
+                                </button>
+                                <button onclick="showConsultation()" class="p-4 bg-purple-50 hover:bg-purple-100 rounded-lg text-center transition duration-200">
+                                    <i class="fas fa-stethoscope text-purple-600 text-xl mb-2"></i>
+                                    <p class="text-sm font-medium text-purple-600">開始診症</p>
+                                </button>
+                                <button onclick="showQueueSystem()" class="p-4 bg-orange-50 hover:bg-orange-100 rounded-lg text-center transition duration-200">
+                                    <i class="fas fa-list-ol text-orange-600 text-xl mb-2"></i>
+                                    <p class="text-sm font-medium text-orange-600">排號系統</p>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function showPatientRegistration() {
+            document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">病人登記</h2>
+                    
+                    <div class="bg-white rounded-xl shadow-sm p-6">
+                        <form id="patientForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">姓名 *</label>
+                                <input type="text" id="patientName" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">電話 *</label>
+                                <input type="tel" id="patientPhone" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">出生日期</label>
+                                <input type="date" id="patientBirthDate" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">性別</label>
+                                <select id="patientGender" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="">請選擇</option>
+                                    <option value="male">男</option>
+                                    <option value="female">女</option>
+                                </select>
+                            </div>
+                            
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">地址</label>
+                                <input type="text" id="patientAddress" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">病史</label>
+                                <textarea id="patientHistory" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請輸入相關病史..."></textarea>
+                            </div>
+                            
+                            <div class="md:col-span-2 flex space-x-4">
+                                <button type="submit" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-200">
+                                    <i class="fas fa-save mr-2"></i>儲存病人資料
+                                </button>
+                                <button type="button" onclick="showPatients()" class="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition duration-200">
+                                    <i class="fas fa-times mr-2"></i>取消
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('patientForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const patientData = {
+                    name: document.getElementById('patientName').value,
+                    phone: document.getElementById('patientPhone').value,
+                    birthDate: document.getElementById('patientBirthDate').value,
+                    gender: document.getElementById('patientGender').value,
+                    address: document.getElementById('patientAddress').value,
+                    history: document.getElementById('patientHistory').value,
+                    registrationDate: new Date().toISOString().split('T')[0]
+                };
+                
+                const data = getDemoData();
+                const patientId = 'p' + String(Date.now()).slice(-6);
+                data.patients = data.patients || {};
+                data.patients[patientId] = patientData;
+                saveDemoData(data);
+                
+                alert('病人資料已成功儲存！');
+                showPatients();
+            });
+        }
+        
+        function showPatients() {
+            const data = getDemoData();
+            const patients = data.patients || {};
+            
+            document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">病人資料</h2>
+                        <button onclick="showPatientRegistration()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
+                            <i class="fas fa-plus mr-2"></i>新增病人
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">姓名</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">電話</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">出生日期</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">地址</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">登記日期</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    ${Object.entries(patients).map(([id, patient]) => `
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 text-sm font-medium text-gray-900">${patient.name}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${patient.phone}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${patient.birthDate || '-'}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${patient.address || '-'}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${patient.registrationDate}</td>
+                                            <td class="px-6 py-4 text-sm">
+                                                <button onclick="editPatient('${id}')" class="text-blue-600 hover:text-blue-800 mr-3">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button onclick="viewPatientHistory('${id}')" class="text-green-600 hover:text-green-800">
+                                                    <i class="fas fa-history"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function showAppointments() {
+            const data = getDemoData();
+            const appointments = data.appointments || {};
+            const patients = data.patients || {};
+            
+            document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">預約管理</h2>
+                        <button onclick="showNewAppointment()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
+                            <i class="fas fa-plus mr-2"></i>新增預約
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2">
+                            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                                <div class="p-6 border-b border-gray-200">
+                                    <h3 class="text-lg font-semibold text-gray-800">預約列表</h3>
+                                </div>
+                                <div class="divide-y divide-gray-200">
+                                    ${Object.entries(appointments).map(([id, appointment]) => `
+                                        <div class="p-6 hover:bg-gray-50">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex-1">
+                                                    <h4 class="font-medium text-gray-900">${patients[appointment.patientId]?.name || '未知病人'}</h4>
+                                                    <p class="text-sm text-gray-600">${appointment.date} ${appointment.time}</p>
+                                                    <p class="text-sm text-gray-500">醫師：${appointment.doctorId === 'doctor1' ? '王醫師' : '未指定'}</p>
+                                                </div>
+                                                <div class="flex items-center space-x-3">
+                                                    <span class="px-3 py-1 text-xs rounded-full ${appointment.status === '已完成' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">${appointment.status}</span>
+                                                    <button onclick="editAppointment('${id}')" class="text-blue-600 hover:text-blue-800">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="bg-white rounded-xl shadow-sm p-6">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">今日統計</h3>
+                                <div class="space-y-4">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">總預約數</span>
+                                        <span class="font-semibold">${Object.keys(appointments).length}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">已完成</span>
+                                        <span class="font-semibold text-green-600">${Object.values(appointments).filter(a => a.status === '已完成').length}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">待診</span>
+                                        <span class="font-semibold text-blue-600">${Object.values(appointments).filter(a => a.status === '已預約').length}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function showConsultation() {
+            if (userRole !== 'doctor' && userRole !== 'admin') {
+                alert('您沒有權限訪問此功能');
+                return;
+            }
+            
+            const data = getDemoData();
+            const appointments = data.appointments || {};
+            const patients = data.patients || {};
+            
+            document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">診症管理</h2>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl shadow-sm p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">待診病人</h3>
+                            <div class="space-y-3">
+                                ${Object.entries(appointments).filter(([id, appointment]) => appointment.status === '已預約').map(([id, appointment]) => `
+                                    <div class="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer" onclick="startConsultation('${id}')">
+                                        <div class="flex items-center justify-between">
+                                            <div>
+                                                <h4 class="font-medium text-gray-900">${patients[appointment.patientId]?.name || '未知病人'}</h4>
+                                                <p class="text-sm text-gray-600">${appointment.time}</p>
+                                            </div>
+                                            <i class="fas fa-chevron-right text-gray-400"></i>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-xl shadow-sm p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">診症記錄</h3>
+                            <form id="consultationForm" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">病人</label>
+                                    <select id="consultationPatient" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <option value="">請選擇病人</option>
+                                        ${Object.entries(patients).map(([id, patient]) => `
+                                            <option value="${id}">${patient.name}</option>
+                                        `).join('')}
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">主訴</label>
+                                    <textarea id="chiefComplaint" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="病人主要症狀..."></textarea>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">診斷</label>
+                                    <textarea id="diagnosis" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="中醫診斷..."></textarea>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">治療方案</label>
+                                    <textarea id="treatment" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="針灸、推拿、中藥等治療方案..."></textarea>
+                                </div>
+                                
+                                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-200">
+                                    <i class="fas fa-save mr-2"></i>儲存診症記錄
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('consultationForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const consultationData = {
+                    patientId: document.getElementById('consultationPatient').value,
+                    doctorId: 'doctor1',
+                    date: new Date().toISOString().split('T')[0],
+                    chiefComplaint: document.getElementById('chiefComplaint').value,
+                    diagnosis: document.getElementById('diagnosis').value,
+                    treatment: document.getElementById('treatment').value
+                };
+                
+                const data = getDemoData();
+                const consultationId = 'c' + String(Date.now()).slice(-6);
+                data.consultations = data.consultations || {};
+                data.consultations[consultationId] = consultationData;
+                saveDemoData(data);
+                
+                alert('診症記錄已儲存！');
+                this.reset();
+            });
+        }
+        
+        function showPrescriptions() {
+            if (userRole !== 'doctor' && userRole !== 'admin') {
+                alert('您沒有權限訪問此功能');
+                return;
+            }
+            
+            const data = getDemoData();
+            const prescriptions = data.prescriptions || {};
+            const patients = data.patients || {};
+            
+            document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">處方管理</h2>
+                        <button onclick="showNewPrescription()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
+                            <i class="fas fa-plus mr-2"></i>新增處方
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">病人姓名</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">處方日期</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">藥材</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">用法用量</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    ${Object.entries(prescriptions).map(([id, prescription]) => `
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 text-sm font-medium text-gray-900">${patients[prescription.patientId]?.name || '未知病人'}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${prescription.date}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${prescription.medicines}</td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">${prescription.dosage}</td>
+                                            <td class="px-6 py-4 text-sm">
+                                                <button onclick="printPrescription('${id}')" class="text-blue-600 hover:text-blue-800 mr-3">
+                                                    <i class="fas fa-print"></i>
+                                                </button>
+                                                <button onclick="editPrescription('${id}')" class="text-green-600 hover:text-green-800">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function showQueueSystem() {
+            if (userRole !== 'assistant' && userRole !== 'admin') {
+                alert('您沒有權限訪問此功能');
+                return;
+            }
+            
+            document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">排號系統</h2>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl shadow-sm p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">當前號碼</h3>
+                            <div class="text-center py-8">
+                                <div class="text-6xl font-bold text-blue-600 mb-4" id="currentNumber">001</div>
+                                <p class="text-gray-600 mb-6">請 001 號病人到診間</p>
+                                <div class="space-x-4">
+                                    <button onclick="nextNumber()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-200">
+                                        <i class="fas fa-forward mr-2"></i>下一號
+                                    </button>
+                                    <button onclick="callNumber()" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition duration-200">
+                                        <i class="fas fa-volume-up mr-2"></i>呼叫
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-xl shadow-sm p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">取號</h3>
+                            <form id="queueForm" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">病人姓名</label>
+                                    <input type="text" id="queuePatientName" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">聯絡電話</label>
+                                    <input type="tel" id="queuePatientPhone" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">診療類型</label>
+                                    <select id="queueType" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <option value="consultation">一般診症</option>
+                                        <option value="acupuncture">針灸治療</option>
+                                        <option value="massage">推拿按摩</option>
+                                        <option value="followup">複診</option>
+                                    </select>
+                                </div>
+                                
+                                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-200">
+                                    <i class="fas fa-ticket-alt mr-2"></i>取號
+                                </button>
+                            </form>
+                            
+                            <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                                <h4 class="font-medium text-gray-800 mb-2">等候人數</h4>
+                                <div class="grid grid-cols-2 gap-4 text-center">
+                                    <div>
+                                        <p class="text-2xl font-bold text-blue-600">5</p>
+                                        <p class="text-sm text-gray-600">一般診症</p>
+                                    </div>
+                                    <div>
+                                        <p class="text-2xl font-bold text-green-600">2</p>
+                                        <p class="text-sm text-gray-600">針灸治療</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('queueForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const queueData = {
+                    patientName: document.getElementById('queuePatientName').value,
+                    patientPhone: document.getElementById('queuePatientPhone').value,
+                    type: document.getElementById('queueType').value,
+                    number: String(Math.floor(Math.random() * 100) + 1).padStart(3, '0'),
+                    timestamp: new Date().toISOString()
+                };
+                
+                alert(`取號成功！您的號碼是：${queueData.number}`);
+                this.reset();
+            });
+        }
+        
+        function showReceipts() {
+            if (userRole !== 'assistant' && userRole !== 'admin') {
+                alert('您沒有權限訪問此功能');
+                return;
+            }
+            
+            document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">收據管理</h2>
+                        <button onclick="showNewReceipt()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
+                            <i class="fas fa-plus mr-2"></i>開立收據
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2">
+                            <div class="bg-white rounded-xl shadow-sm p-6">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">收據列表</h3>
+                                <div class="space-y-4">
+                                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                        <div>
+                                            <h4 class="font-medium text-gray-900">陳小明</h4>
+                                            <p class="text-sm text-gray-600">2024-01-20 | 收據編號: R001</p>
+                                            <p class="text-sm text-gray-500">一般診症 + 中藥</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-lg font-bold text-green-600">NT$ 800</p>
+                                            <div class="space-x-2 mt-2">
+                                                <button onclick="printReceipt('R001')" class="text-blue-600 hover:text-blue-800">
+                                                    <i class="fas fa-print"></i>
+                                                </button>
+                                                <button onclick="editReceipt('R001')" class="text-green-600 hover:text-green-800">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                        <div>
+                                            <h4 class="font-medium text-gray-900">林美華</h4>
+                                            <p class="text-sm text-gray-600">2024-01-20 | 收據編號: R002</p>
+                                            <p class="text-sm text-gray-500">針灸治療</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-lg font-bold text-green-600">NT$ 600</p>
+                                            <div class="space-x-2 mt-2">
+                                                <button onclick="printReceipt('R002')" class="text-blue-600 hover:text-blue-800">
+                                                    <i class="fas fa-print"></i>
+                                                </button>
+                                                <button onclick="editReceipt('R002')" class="text-green-600 hover:text-green-800">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="bg-white rounded-xl shadow-sm p-6">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-4">今日營收</h3>
+                                <div class="space-y-4">
+                                    <div class="text-center py-4">
+                                        <p class="text-3xl font-bold text-green-600">NT$ 1,400</p>
+                                        <p class="text-sm text-gray-600">今日總收入</p>
+                                    </div>
+                                    
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">診症費</span>
+                                            <span class="font-semibold">NT$ 800</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">針灸費</span>
+                                            <span class="font-semibold">NT$ 600</span>
+                                        </div>
+                                        <div class="flex justify-between border-t pt-2">
+                                            <span class="text-gray-600">總計</span>
+                                            <span class="font-bold text-green-600">NT$ 1,400</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function showUserManagement() {
+            if (userRole !== 'admin') {
+                alert('您沒有權限訪問此功能');
+                return;
+            }
+            
+            document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">用戶管理</h2>
+                        <button onclick="showNewUser()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200">
+                            <i class="fas fa-plus mr-2"></i>新增用戶
+                        </button>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">姓名</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">電子郵件</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">角色</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">狀態</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">最後登入</th>
+                                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-500">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 text-sm font-medium text-gray-900">系統管理員</td>
+                                        <td class="px-6 py-4 text-sm text-gray-600">admin@clinic.com</td>
+                                        <td class="px-6 py-4 text-sm">
+                                            <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">管理員</span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm">
+                                            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">啟用</span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-gray-600">2024-01-20 09:00</td>
+                                        <td class="px-6 py-4 text-sm">
+                                            <button class="text-blue-600 hover:text-blue-800 mr-3">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="text-red-600 hover:text-red-800">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 text-sm font-medium text-gray-900">王醫師</td>
+                                        <td class="px-6 py-4 text-sm text-gray-600">doctor@clinic.com</td>
+                                        <td class="px-6 py-4 text-sm">
+                                            <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">醫師</span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm">
+                                            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">啟用</span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-gray-600">2024-01-20 08:30</td>
+                                        <td class="px-6 py-4 text-sm">
+                                            <button class="text-blue-600 hover:text-blue-800 mr-3">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="text-red-600 hover:text-red-800">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 text-sm font-medium text-gray-900">李助理</td>
+                                        <td class="px-6 py-4 text-sm text-gray-600">assistant@clinic.com</td>
+                                        <td class="px-6 py-4 text-sm">
+                                            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">助理</span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm">
+                                            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">啟用</span>
+                                        </td>
+                                        <td class="px-6 py-4 text-sm text-gray-600">2024-01-20 08:45</td>
+                                        <td class="px-6 py-4 text-sm">
+                                            <button class="text-blue-600 hover:text-blue-800 mr-3">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="text-red-600 hover:text-red-800">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function showSystemSettings() {
+            if (userRole !== 'admin') {
+                alert('您沒有權限訪問此功能');
+                return;
+            }
+            
+            document.getElementById('contentArea').innerHTML = `
+                <div class="fade-in">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">系統設置</h2>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-xl shadow-sm p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">診所基本資訊</h3>
+                            <form class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">診所名稱</label>
+                                    <input type="text" value="仁心中醫診所" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">診所地址</label>
+                                    <input type="text" value="台北市信義區信義路五段7號" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">聯絡電話</label>
+                                    <input type="tel" value="02-2345-6789" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">營業時間</label>
+                                    <textarea rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">週一至週五：09:00-12:00, 14:00-18:00
+週六：09:00-12:00
+週日：休診</textarea>
+                                </div>
+                                
+                                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition duration-200">
+                                    <i class="fas fa-save mr-2"></i>儲存設置
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <div class="bg-white rounded-xl shadow-sm p-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-4">系統參數</h3>
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                    <div>
+                                        <h4 class="font-medium text-gray-900">自動備份</h4>
+                                        <p class="text-sm text-gray-600">每日自動備份資料庫</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" checked class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                    </label>
+                                </div>
+                                
+                                <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                    <div>
+                                        <h4 class="font-medium text-gray-900">SMS通知</h4>
+                                        <p class="text-sm text-gray-600">預約提醒簡訊</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" checked class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                    </label>
+                                </div>
+                                
+                                <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                                    <div>
+                                        <h4 class="font-medium text-gray-900">線上預約</h4>
+                                        <p class="text-sm text-gray-600">開放網路預約功能</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-6 p-4 bg-green-50 rounded-lg">
+                                <h4 class="font-medium text-green-800 mb-2">Firebase 連接狀態</h4>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                                    <span class="text-sm text-green-700">已連接到 cheungec-ea477</span>
+                                </div>
+                                <p class="text-xs text-green-600 mt-2">實時數據庫已啟用，所有數據將同步到雲端</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Utility functions
+        function nextNumber() {
+            const currentNumberEl = document.getElementById('currentNumber');
+            let current = parseInt(currentNumberEl.textContent);
+            current = current >= 999 ? 1 : current + 1;
+            currentNumberEl.textContent = String(current).padStart(3, '0');
+        }
+        
+        function callNumber() {
+            const currentNumber = document.getElementById('currentNumber').textContent;
+            alert(`正在呼叫 ${currentNumber} 號病人到診間`);
+        }
+        
+        function printReceipt(receiptId) {
+            alert(`正在列印收據 ${receiptId}`);
+        }
+        
+        function printPrescription(prescriptionId) {
+            alert(`正在列印處方 ${prescriptionId}`);
+        }
+        
+        // Placeholder functions for other features
+        function showNewAppointment() { alert('新增預約功能開發中...'); }
+        function showNewPrescription() { alert('新增處方功能開發中...'); }
+        function showNewReceipt() { alert('開立收據功能開發中...'); }
+        function showNewUser() { alert('新增用戶功能開發中...'); }
+        function showSickLeave() { alert('病假單功能開發中...'); }
+        function showReports() { alert('統計報表功能開發中...'); }
+        function editPatient(id) { alert(`編輯病人 ${id} 功能開發中...`); }
+        function viewPatientHistory(id) { alert(`查看病人 ${id} 病史功能開發中...`); }
+        function editAppointment(id) { alert(`編輯預約 ${id} 功能開發中...`); }
+        function startConsultation(id) { alert(`開始診症 ${id} 功能開發中...`); }
+        function editPrescription(id) { alert(`編輯處方 ${id} 功能開發中...`); }
+        function editReceipt(id) { alert(`編輯收據 ${id} 功能開發中...`); }
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9669fc9cb3ca8b92',t:'MTc1Mzc2NDUzNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
