@@ -193,6 +193,10 @@
                                 💥 清空資料庫
                             </button>
                         </div>
+                        
+                        <button id="exportDataBtn" class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-medium transition-colors">
+                            📤 導出資料 (TXT)
+                        </button>
                         </div>
                     </div>
                     
@@ -468,6 +472,7 @@
         const clearAllBtn = document.getElementById('clearAllBtn');
         const clearDatabaseBtn = document.getElementById('clearDatabaseBtn');
         const editModeBtn = document.getElementById('editModeBtn');
+        const exportDataBtn = document.getElementById('exportDataBtn');
         const herbCount = document.getElementById('herbCount');
         const symptomCount = document.getElementById('symptomCount');
         const recordCount = document.getElementById('recordCount');
@@ -982,6 +987,113 @@
             importData.value = '';
             formatHint.textContent = '';
             showToast('輸入資料已清空', 'success');
+        }
+
+        // Export data to TXT file
+        function exportDataToTxt() {
+            if (!isFirebaseReady) {
+                showToast('正在連線中，請稍候...', 'info');
+                return;
+            }
+
+            if (Object.keys(recordsData).length === 0) {
+                showToast('沒有資料可以導出', 'error');
+                return;
+            }
+
+            try {
+                exportDataBtn.disabled = true;
+                exportDataBtn.innerHTML = '📤 導出中...';
+
+                // Prepare export data
+                let exportContent = '';
+                
+                // Add header with timestamp
+                const now = new Date();
+                const timestamp = now.toLocaleString('zh-TW', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                
+                exportContent += `中藥資料庫導出檔案\n`;
+                exportContent += `導出時間：${timestamp}\n`;
+                exportContent += `總記錄數：${Object.keys(recordsData).length}\n`;
+                exportContent += `中藥數量：${Object.keys(herbsData).length}\n`;
+                exportContent += `症狀數量：${Object.keys(symptomsData).length}\n`;
+                exportContent += `${'='.repeat(50)}\n\n`;
+
+                // Export by herbs (grouped format)
+                exportContent += `【按中藥分類】\n`;
+                exportContent += `${'='.repeat(30)}\n\n`;
+                
+                const sortedHerbs = Object.keys(herbsData).sort();
+                sortedHerbs.forEach((herb, index) => {
+                    const symptoms = herbsData[herb].sort();
+                    exportContent += `${index + 1}. ${herb}：${symptoms.join('、')}\n`;
+                });
+
+                exportContent += `\n${'='.repeat(50)}\n\n`;
+
+                // Export by symptoms (grouped format)
+                exportContent += `【按症狀分類】\n`;
+                exportContent += `${'='.repeat(30)}\n\n`;
+                
+                const sortedSymptoms = Object.keys(symptomsData).sort();
+                sortedSymptoms.forEach((symptom, index) => {
+                    const herbs = symptomsData[symptom].sort();
+                    exportContent += `${index + 1}. ${symptom}：${herbs.join('、')}\n`;
+                });
+
+                exportContent += `\n${'='.repeat(50)}\n\n`;
+
+                // Export raw records (for re-import)
+                exportContent += `【原始記錄格式】\n`;
+                exportContent += `${'='.repeat(30)}\n`;
+                exportContent += `（此格式可直接用於重新導入）\n\n`;
+                
+                const sortedRecords = Object.values(recordsData).sort((a, b) => {
+                    if (a.herb !== b.herb) {
+                        return a.herb.localeCompare(b.herb);
+                    }
+                    return a.symptom.localeCompare(b.symptom);
+                });
+                
+                sortedRecords.forEach(record => {
+                    exportContent += `${record.herb}：${record.symptom}\n`;
+                });
+
+                // Create and download file
+                const blob = new Blob([exportContent], { type: 'text/plain;charset=utf-8' });
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                
+                // Generate filename with timestamp
+                const filename = `中藥資料庫_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.txt`;
+                
+                link.href = url;
+                link.download = filename;
+                link.style.display = 'none';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Clean up
+                window.URL.revokeObjectURL(url);
+                
+                showToast(`📤 資料已導出至 ${filename}\n包含 ${Object.keys(recordsData).length} 筆記錄`, 'success');
+                
+            } catch (error) {
+                console.error('Export error:', error);
+                showToast('導出失敗：' + error.message, 'error');
+            } finally {
+                exportDataBtn.disabled = false;
+                exportDataBtn.innerHTML = '📤 導出資料 (TXT)';
+            }
         }
 
         // Clear entire database
@@ -1964,6 +2076,7 @@
         clearAllBtn.addEventListener('click', clearAllData);
         clearDatabaseBtn.addEventListener('click', clearDatabase);
         editModeBtn.addEventListener('click', showEditModal);
+        exportDataBtn.addEventListener('click', exportDataToTxt);
         
         // Modal event listeners
         closeModal.addEventListener('click', hideModal);
@@ -2057,5 +2170,5 @@
         // Initialize the application
         initializeFirebase();
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9666265523e40467',t:'MTc1MzcyNDMwMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9668e965e6215de0',t:'MTc1Mzc1MzI2My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
