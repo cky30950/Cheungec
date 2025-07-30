@@ -591,6 +591,31 @@
         </div>
     </div>
 
+    <!-- 收據視窗 -->
+    <div id="receiptModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden fade-in">
+            <div class="bg-green-600 text-white p-6 rounded-t-2xl">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold">🧾 診療收據</h3>
+                    <button onclick="closeModal('receiptModal')" class="text-white hover:text-green-200 text-2xl">×</button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div id="receiptContent" class="space-y-4">
+                    <!-- 收據內容會動態載入 -->
+                </div>
+                <div class="flex space-x-4 mt-6">
+                    <button onclick="printReceiptContent()" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium">
+                        🖨️ 列印收據
+                    </button>
+                    <button onclick="closeModal('receiptModal')" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
+                        關閉
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 病歷記錄視窗 -->
     <div id="patientHistoryModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden fade-in">
@@ -1103,7 +1128,8 @@
                                 appointment.status === '診症中' ?
                                 `<button onclick="showConsultationRecord(${appointment.id})" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm mr-2">填寫診症記錄</button>` :
                                 appointment.status === '已完成' ?
-                                `<button onclick="viewPatientHistory(${appointment.patientId})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm">查看病歷</button>` :
+                                `<button onclick="printReceipt(${appointment.id})" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm mr-2">印收據</button>
+                                <button onclick="viewPatientHistory(${appointment.patientId})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm">查看病歷</button>` :
                                 '<span class="text-gray-500 text-sm">處理中</span>'
                             }
                             ${appointment.status !== '已完成' ? 
@@ -1513,9 +1539,158 @@
             }
         }
 
+        // 印收據功能
+        function printReceipt(appointmentId) {
+            const appointment = appointments.find(apt => apt.id === appointmentId);
+            if (!appointment || appointment.status !== '已完成') {
+                showNotification('只有已完成診症的病人才能印收據', 'error');
+                return;
+            }
+            
+            const patient = patients.find(p => p.id === appointment.patientId);
+            const consultation = consultations.find(c => c.appointmentId === appointmentId);
+            
+            if (!patient || !consultation) {
+                showNotification('找不到相關診症記錄', 'error');
+                return;
+            }
+            
+            // 生成收據內容
+            const receiptContent = `
+                <div class="text-center border-b border-gray-200 pb-4 mb-4">
+                    <h4 class="text-lg font-bold text-gray-800">仁心中醫診所</h4>
+                    <p class="text-sm text-gray-600">地址：台北市信義區仁愛路四段123號</p>
+                    <p class="text-sm text-gray-600">電話：(02) 2345-6789</p>
+                </div>
+                
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">收據編號：</span>
+                        <span class="font-mono">R${appointment.id.toString().padStart(6, '0')}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">日期：</span>
+                        <span>${consultation.date}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">時間：</span>
+                        <span>${consultation.time}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">病人編號：</span>
+                        <span class="font-mono text-blue-600">${patient.patientNumber}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">病人姓名：</span>
+                        <span class="font-medium">${patient.name}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">診療醫師：</span>
+                        <span>${consultation.doctor}</span>
+                    </div>
+                </div>
+                
+                <div class="border-t border-gray-200 pt-4 mt-4">
+                    <h5 class="font-medium text-gray-800 mb-3">診療項目</h5>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span>中醫診察費</span>
+                            <span>NT$ 300</span>
+                        </div>
+                        ${consultation.prescription ? `
+                        <div class="flex justify-between">
+                            <span>中藥處方費</span>
+                            <span>NT$ 450</span>
+                        </div>
+                        ` : ''}
+                        <div class="border-t border-gray-200 pt-2 mt-2 flex justify-between font-medium">
+                            <span>總計金額：</span>
+                            <span class="text-green-600">NT$ ${consultation.prescription ? '750' : '300'}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="border-t border-gray-200 pt-4 mt-4 text-xs text-gray-500">
+                    <p class="mb-2">診斷：${consultation.diagnosis || '未記錄'}</p>
+                    ${consultation.instructions ? `<p class="mb-2">醫囑：${consultation.instructions}</p>` : ''}
+                    <p class="text-center mt-4">感謝您的信任，祝您身體健康！</p>
+                </div>
+            `;
+            
+            document.getElementById('receiptContent').innerHTML = receiptContent;
+            showModal('receiptModal');
+        }
+        
+        // 列印收據內容
+        function printReceiptContent() {
+            const receiptContent = document.getElementById('receiptContent').innerHTML;
+            
+            // 創建新視窗進行列印
+            const printWindow = window.open('', '_blank', 'width=400,height=600');
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>診療收據</title>
+                    <style>
+                        body { 
+                            font-family: 'Microsoft JhengHei', sans-serif; 
+                            margin: 20px; 
+                            font-size: 14px;
+                            line-height: 1.5;
+                        }
+                        .text-center { text-align: center; }
+                        .font-bold { font-weight: bold; }
+                        .font-medium { font-weight: 500; }
+                        .font-mono { font-family: monospace; }
+                        .text-lg { font-size: 18px; }
+                        .text-sm { font-size: 12px; }
+                        .text-xs { font-size: 11px; }
+                        .text-gray-600 { color: #666; }
+                        .text-gray-500 { color: #888; }
+                        .text-gray-800 { color: #333; }
+                        .text-blue-600 { color: #2563eb; }
+                        .text-green-600 { color: #16a34a; }
+                        .border-b { border-bottom: 1px solid #ddd; }
+                        .border-t { border-top: 1px solid #ddd; }
+                        .pb-4 { padding-bottom: 16px; }
+                        .pt-4 { padding-top: 16px; }
+                        .mb-2 { margin-bottom: 8px; }
+                        .mb-3 { margin-bottom: 12px; }
+                        .mb-4 { margin-bottom: 16px; }
+                        .mt-2 { margin-top: 8px; }
+                        .mt-4 { margin-top: 16px; }
+                        .space-y-2 > * + * { margin-top: 8px; }
+                        .space-y-3 > * + * { margin-top: 12px; }
+                        .flex { display: flex; }
+                        .justify-between { justify-content: space-between; }
+                        @media print {
+                            body { margin: 0; }
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${receiptContent}
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            printWindow.focus();
+            
+            // 等待內容載入後列印
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 250);
+            
+            showNotification('收據已送至印表機');
+            closeModal('receiptModal');
+        }
+
         // 點擊視窗外區域關閉視窗
         document.addEventListener('click', function(event) {
-            const modals = ['patientDetailModal', 'confirmDeleteModal', 'featureModal', 'patientHistoryModal'];
+            const modals = ['patientDetailModal', 'confirmDeleteModal', 'featureModal', 'patientHistoryModal', 'receiptModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target === modal) {
@@ -1531,5 +1706,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'967491e603f8ddbe',t:'MTc1Mzg3NTUwOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96749f9147a31fcd',t:'MTc1Mzg3NjA2OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
