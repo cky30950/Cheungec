@@ -271,7 +271,6 @@
                                     <th class="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">病人編號</th>
                                     <th class="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">病人姓名</th>
                                     <th class="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">年齡</th>
-                                    <th class="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">電話</th>
                                     <th class="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">狀態</th>
                                     <th class="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">操作</th>
                                 </tr>
@@ -338,7 +337,7 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">脈象</label>
                                 <input type="text" id="pulse" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：滑脈、弦脈">
@@ -346,10 +345,6 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">舌象</label>
                                 <input type="text" id="tongue" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：舌紅苔黃">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">體溫 (°C)</label>
-                                <input type="number" id="temperature" step="0.1" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                             </div>
                         </div>
 
@@ -596,6 +591,26 @@
         </div>
     </div>
 
+    <!-- 病歷記錄視窗 -->
+    <div id="patientHistoryModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden fade-in">
+            <div class="bg-indigo-600 text-white p-6 rounded-t-2xl">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="text-xl font-bold">📋 病歷記錄</h3>
+                        <p id="historyPatientInfo" class="text-indigo-100 text-sm mt-1"></p>
+                    </div>
+                    <button onclick="closeModal('patientHistoryModal')" class="text-white hover:text-indigo-200 text-2xl">×</button>
+                </div>
+            </div>
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                <div id="patientHistoryContent">
+                    <!-- 病歷內容會動態載入 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // 系統數據
         let currentUser = null;
@@ -751,7 +766,8 @@
                     <td class="border border-gray-200 px-4 py-3">${patient.phone}</td>
                     <td class="border border-gray-200 px-4 py-3">
                         <button onclick="viewPatient(${patient.id})" class="text-blue-600 hover:text-blue-800 mr-2">查看</button>
-                        ${currentUser === 'admin' ? `<button onclick="editPatient(${patient.id})" class="text-green-600 hover:text-green-800 mr-2">編輯</button>` : ''}
+                        <button onclick="viewPatientHistory(${patient.id})" class="text-indigo-600 hover:text-indigo-800 mr-2">病歷</button>
+                        ${currentUser === 'admin' || currentUser === 'assistant' ? `<button onclick="editPatient(${patient.id})" class="text-green-600 hover:text-green-800 mr-2">編輯</button>` : ''}
                         ${currentUser === 'admin' ? `<button onclick="deletePatient(${patient.id})" class="text-red-600 hover:text-red-800">刪除</button>` : ''}
                     </td>
                 </tr>
@@ -924,6 +940,7 @@
             document.getElementById('selectedPatientId').value = '';
             document.getElementById('selectedPatientInfo').classList.add('hidden');
             document.getElementById('searchResults').classList.add('hidden');
+            document.getElementById('appointmentSymptoms').value = ''; // 清空症狀描述欄位
             
             // 設定預設時間為現在
             const now = new Date();
@@ -1029,12 +1046,12 @@
                 patientNumber: patient.patientNumber,
                 appointmentTime: document.getElementById('appointmentTime').value,
                 symptoms: document.getElementById('appointmentSymptoms').value,
-                status: '已到達',
+                status: '已掛號',
                 createdAt: new Date().toISOString()
             };
             
             appointments.push(appointment);
-            patientStatus[patientId] = '已到達';
+            patientStatus[patientId] = '已掛號';
             
             showNotification(`掛號成功！病人：${patient.patientNumber} - ${patient.name}`);
             showConsultationSystem();
@@ -1051,7 +1068,7 @@
             if (todayAppointments.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="border border-gray-200 px-4 py-8 text-center text-gray-500">
+                        <td colspan="6" class="border border-gray-200 px-4 py-8 text-center text-gray-500">
                             今日暫無掛號病人
                         </td>
                     </tr>
@@ -1073,22 +1090,24 @@
                         </td>
                         <td class="border border-gray-200 px-4 py-3">${appointment.patientName}</td>
                         <td class="border border-gray-200 px-4 py-3">${calculateAge(patient.birthDate)}</td>
-                        <td class="border border-gray-200 px-4 py-3">${patient.phone}</td>
                         <td class="border border-gray-200 px-4 py-3">
                             <span class="px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
                                 ${appointment.status}
                             </span>
                         </td>
                         <td class="border border-gray-200 px-4 py-3">
-                            ${appointment.status === '已到達' ? 
-                                `<button onclick="changeToWaiting(${appointment.id})" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm">轉為等待診症</button>` :
-                                currentUser === 'assistant' ? 
-                                '<span class="text-gray-500 text-sm">僅醫師可診症</span>' :
+                            ${appointment.status === '已掛號' ? 
+                                `<button onclick="changeToWaiting(${appointment.id})" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm mr-2">轉為等待診症</button>` :
                                 appointment.status === '等待診症' ? 
-                                `<button onclick="startConsultation(${appointment.id})" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">開始診症</button>` :
+                                `<button onclick="startConsultation(${appointment.id})" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm mr-2">開始診症</button>` :
                                 appointment.status === '診症中' ?
-                                `<button onclick="showConsultationRecord(${appointment.id})" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">填寫診症記錄</button>` :
-                                '<span class="text-gray-500 text-sm">已完成</span>'
+                                `<button onclick="showConsultationRecord(${appointment.id})" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm mr-2">填寫診症記錄</button>` :
+                                appointment.status === '已完成' ?
+                                `<button onclick="viewPatientHistory(${appointment.patientId})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm">查看病歷</button>` :
+                                '<span class="text-gray-500 text-sm">處理中</span>'
+                            }
+                            ${appointment.status !== '已完成' ? 
+                                `<button onclick="viewPatientHistory(${appointment.patientId})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm ml-2">查看病歷</button>` : ''
                             }
                         </td>
                     </tr>
@@ -1099,7 +1118,7 @@
         // 獲取狀態顏色
         function getStatusColor(status) {
             switch(status) {
-                case '已到達': return 'bg-purple-100 text-purple-800';
+                case '已掛號': return 'bg-gray-100 text-gray-800';
                 case '等待診症': return 'bg-yellow-100 text-yellow-800';
                 case '診症中': return 'bg-blue-100 text-blue-800';
                 case '已完成': return 'bg-green-100 text-green-800';
@@ -1153,16 +1172,24 @@
                 document.getElementById('currentPatientAddress').textContent = patient.address || '未填寫';
                 document.getElementById('currentPatientIdNumber').textContent = patient.idNumber;
                 
-
-                
                 // 設定隱藏欄位
                 document.getElementById('currentAppointmentId').value = appointmentId;
                 document.getElementById('currentPatientId').value = patient.id;
                 
-                // 如果有掛號時的症狀描述，預填到主訴
-                if (appointment.symptoms) {
-                    document.getElementById('chiefComplaint').value = appointment.symptoms;
-                }
+                // 獲取該病人最近的診症記錄
+                const patientConsultations = consultations.filter(c => c.patientId === patient.id);
+                const lastConsultation = patientConsultations.length > 0 ? 
+                    patientConsultations[patientConsultations.length - 1] : null;
+                
+                // 預填上一次的病歷資料，如果沒有則使用空值
+                // 主訴欄位會預填掛號時的症狀描述，如果沒有則使用上次的主訴
+                document.getElementById('chiefComplaint').value = appointment.symptoms || (lastConsultation ? lastConsultation.chiefComplaint : '');
+                document.getElementById('presentIllness').value = lastConsultation ? lastConsultation.presentIllness : '';
+                document.getElementById('pulse').value = lastConsultation ? lastConsultation.pulse : '';
+                document.getElementById('tongue').value = lastConsultation ? lastConsultation.tongue : '';
+                document.getElementById('diagnosis').value = lastConsultation ? lastConsultation.diagnosis : '';
+                document.getElementById('prescription').value = lastConsultation ? lastConsultation.prescription : '';
+                document.getElementById('instructions').value = lastConsultation ? lastConsultation.instructions : '';
                 
                 // 顯示病人詳細資料表單
                 document.getElementById('consultationForm').classList.remove('hidden');
@@ -1179,17 +1206,19 @@
             const appointmentId = parseInt(document.getElementById('currentAppointmentId').value);
             const patientId = parseInt(document.getElementById('currentPatientId').value);
             
+            // 記錄完成診症的時間
+            const completionTime = new Date();
+            
             const consultation = {
                 id: consultations.length + 1,
                 appointmentId: appointmentId,
                 patientId: patientId,
-                date: new Date().toLocaleDateString('zh-TW'),
-                time: new Date().toLocaleTimeString('zh-TW'),
+                date: completionTime.toLocaleDateString('zh-TW'),
+                time: completionTime.toLocaleTimeString('zh-TW'),
                 chiefComplaint: document.getElementById('chiefComplaint').value,
                 presentIllness: document.getElementById('presentIllness').value,
                 pulse: document.getElementById('pulse').value,
                 tongue: document.getElementById('tongue').value,
-                temperature: document.getElementById('temperature').value,
                 diagnosis: document.getElementById('diagnosis').value,
                 prescription: document.getElementById('prescription').value,
                 instructions: document.getElementById('instructions').value,
@@ -1198,10 +1227,11 @@
             
             consultations.push(consultation);
             
-            // 自動將掛號狀態更新為已完成
+            // 自動將掛號狀態更新為已完成，並儲存診症記錄ID
             const appointment = appointments.find(apt => apt.id === appointmentId);
             if (appointment) {
                 appointment.status = '已完成';
+                appointment.consultationId = consultation.id; // 關聯診症記錄
                 patientStatus[patientId] = '已完成';
             }
             
@@ -1229,7 +1259,7 @@
         // 清除病人詳細資料表單
         function clearConsultationForm() {
             document.getElementById('consultationForm').classList.add('hidden');
-            const inputs = ['chiefComplaint', 'presentIllness', 'pulse', 'tongue', 'temperature', 'diagnosis', 'prescription', 'instructions'];
+            const inputs = ['chiefComplaint', 'presentIllness', 'pulse', 'tongue', 'diagnosis', 'prescription', 'instructions'];
             inputs.forEach(id => document.getElementById(id).value = '');
             document.getElementById('currentAppointmentId').value = '';
             document.getElementById('currentPatientId').value = '';
@@ -1334,9 +1364,158 @@
             showModal('featureModal');
         }
 
+
+
+        // 病歷分頁變數
+        let currentHistoryPatientId = null;
+        let currentHistoryPage = 0;
+        let historyConsultations = [];
+
+        // 查看病人病歷記錄
+        function viewPatientHistory(patientId) {
+            const patient = patients.find(p => p.id === patientId);
+            if (!patient) return;
+            
+            // 獲取該病人的所有診症記錄
+            historyConsultations = consultations.filter(c => c.patientId === patientId);
+            
+            // 設定全域變數
+            currentHistoryPatientId = patientId;
+            
+            // 設定病人資訊
+            document.getElementById('historyPatientInfo').textContent = 
+                `${patient.patientNumber} - ${patient.name} (${patient.gender}, ${calculateAge(patient.birthDate)}歲)`;
+            
+            if (historyConsultations.length === 0) {
+                document.getElementById('patientHistoryContent').innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span class="text-4xl text-gray-400">📋</span>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-600 mb-2">暫無病歷記錄</h3>
+                        <p class="text-gray-500">此病人尚未有診症記錄</p>
+                    </div>
+                `;
+            } else {
+                // 按日期排序（最舊的在前，最新的在後）
+                historyConsultations.sort((a, b) => {
+                    const dateA = new Date(a.date + ' ' + a.time);
+                    const dateB = new Date(b.date + ' ' + b.time);
+                    return dateA - dateB;
+                });
+                
+                // 設定為最後一頁（最新記錄）
+                currentHistoryPage = historyConsultations.length - 1;
+                
+                displayHistoryPage();
+            }
+            
+            showModal('patientHistoryModal');
+        }
+
+        // 顯示病歷頁面
+        function displayHistoryPage() {
+            if (historyConsultations.length === 0) return;
+            
+            const consultation = historyConsultations[currentHistoryPage];
+            const totalPages = historyConsultations.length;
+            // 診症次數：第1次是最舊的，最後一次是最新的
+            const consultationNumber = currentHistoryPage + 1;
+            const currentPageDisplay = `第 ${consultationNumber} 次診症 (第 ${currentHistoryPage + 1} 頁 / 共 ${totalPages} 頁)`;
+            
+            document.getElementById('patientHistoryContent').innerHTML = `
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h4 class="text-lg font-semibold text-gray-800">診症記錄</h4>
+                        <div class="flex items-center space-x-4">
+                            <span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
+                                ${currentPageDisplay}
+                            </span>
+                            <div class="flex space-x-2">
+                                <button onclick="previousHistoryPage()" 
+                                        ${currentHistoryPage === 0 ? 'disabled' : ''} 
+                                        class="px-3 py-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded text-sm">
+                                    ← 較舊記錄
+                                </button>
+                                <button onclick="nextHistoryPage()" 
+                                        ${currentHistoryPage === totalPages - 1 ? 'disabled' : ''} 
+                                        class="px-3 py-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded text-sm">
+                                    較新記錄 →
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-lg p-6 border-l-4 border-indigo-500">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h5 class="text-lg font-semibold text-gray-800">第 ${consultationNumber} 次診症</h5>
+                                <p class="text-sm text-gray-600">${consultation.date} ${consultation.time}</p>
+                                <p class="text-sm text-indigo-600 font-medium">${consultation.doctor}</p>
+                            </div>
+                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">已完成</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div class="bg-white rounded-lg p-4">
+                                <h6 class="font-medium text-gray-700 mb-2">🗣️ 主訴</h6>
+                                <p class="text-gray-600">${consultation.chiefComplaint || '未記錄'}</p>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg p-4">
+                                <h6 class="font-medium text-gray-700 mb-2">📝 現病史</h6>
+                                <p class="text-gray-600">${consultation.presentIllness || '未記錄'}</p>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg p-4">
+                                <h6 class="font-medium text-gray-700 mb-2">🫀 脈象</h6>
+                                <p class="text-gray-600">${consultation.pulse || '未記錄'}</p>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg p-4">
+                                <h6 class="font-medium text-gray-700 mb-2">👅 舌象</h6>
+                                <p class="text-gray-600">${consultation.tongue || '未記錄'}</p>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg p-4 md:col-span-2">
+                                <h6 class="font-medium text-gray-700 mb-2">🎯 中醫診斷</h6>
+                                <p class="text-gray-600">${consultation.diagnosis || '未記錄'}</p>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg p-4 md:col-span-2">
+                                <h6 class="font-medium text-gray-700 mb-2">💊 處方</h6>
+                                <p class="text-gray-600 whitespace-pre-line">${consultation.prescription || '未記錄'}</p>
+                            </div>
+                            
+                            <div class="bg-white rounded-lg p-4 md:col-span-2">
+                                <h6 class="font-medium text-gray-700 mb-2">📋 醫囑</h6>
+                                <p class="text-gray-600 whitespace-pre-line">${consultation.instructions || '未記錄'}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 上一頁病歷（較舊記錄）
+        function previousHistoryPage() {
+            if (currentHistoryPage > 0) {
+                currentHistoryPage--;
+                displayHistoryPage();
+            }
+        }
+
+        // 下一頁病歷（較新記錄）
+        function nextHistoryPage() {
+            if (currentHistoryPage < historyConsultations.length - 1) {
+                currentHistoryPage++;
+                displayHistoryPage();
+            }
+        }
+
         // 點擊視窗外區域關閉視窗
         document.addEventListener('click', function(event) {
-            const modals = ['patientDetailModal', 'confirmDeleteModal', 'featureModal'];
+            const modals = ['patientDetailModal', 'confirmDeleteModal', 'featureModal', 'patientHistoryModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target === modal) {
@@ -1352,5 +1531,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96734fd1249f8512',t:'MTc1Mzg2MjMxNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'967491e603f8ddbe',t:'MTc1Mzg3NTUwOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
