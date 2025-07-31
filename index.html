@@ -383,7 +383,7 @@
                 <!-- 搜索功能 -->
                 <div class="mb-6">
                     <div class="relative">
-                        <input type="text" id="herbalSearchInput" placeholder="搜索中藥名稱、功效、方劑名稱..." 
+                        <input type="text" id="herbalSearchInput" placeholder="搜索中藥名稱、方劑名稱..." 
                                onkeyup="searchHerbalItems()" 
                                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -395,8 +395,21 @@
                 </div>
                 
                 <!-- 中藥及方劑列表 -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="herbalItemsList">
-                    <!-- 中藥及方劑卡片會動態載入 -->
+                <div class="bg-white rounded-lg border border-gray-200">
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">類型</th>
+                                    <th class="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">名稱</th>
+                                    <th class="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="herbalItemsList">
+                                <!-- 中藥及方劑列表會動態載入 -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -406,43 +419,35 @@
             <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6">新增中藥</h2>
                 <form onsubmit="addHerb(event)" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">中藥名稱 *</label>
-                            <input type="text" id="herbName" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">拼音</label>
-                            <input type="text" id="herbPinyin" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="如：gān cǎo">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">性味 *</label>
-                            <input type="text" id="herbNature" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="如：甘，平">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">歸經 *</label>
-                            <input type="text" id="herbMeridian" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="如：心、肺、脾、胃經">
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">功效 *</label>
-                            <textarea id="herbEffects" rows="2" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="主要功效與作用"></textarea>
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">主治</label>
-                            <textarea id="herbIndications" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="主要治療疾病"></textarea>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">用法用量</label>
-                            <input type="text" id="herbDosage" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="如：3-9g">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">注意事項</label>
-                            <input type="text" id="herbPrecautions" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="禁忌或注意事項">
-                        </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">中藥名稱 *</label>
+                        <input type="text" id="herbName" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                     </div>
                     <div class="flex space-x-4 pt-4">
                         <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium">
                             儲存中藥
+                        </button>
+                        <button type="button" onclick="showHerbalLibrary()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
+                            取消
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 編輯中藥表單 -->
+        <div id="editHerbForm" class="hidden max-w-2xl mx-auto px-4 py-6">
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">編輯中藥</h2>
+                <form onsubmit="updateHerb(event)" class="space-y-4">
+                    <input type="hidden" id="editHerbId">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">中藥名稱 *</label>
+                        <input type="text" id="editHerbName" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div class="flex space-x-4 pt-4">
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
+                            更新中藥
                         </button>
                         <button type="button" onclick="showHerbalLibrary()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
                             取消
@@ -468,19 +473,46 @@
                         </div>
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium text-gray-700 mb-2">組成 *</label>
-                            <textarea id="formulaComposition" rows="3" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="藥物組成及劑量，如：甘草6g，桂枝9g，芍藥9g..."></textarea>
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">功效 *</label>
-                            <textarea id="formulaEffects" rows="2" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="方劑主要功效"></textarea>
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">主治 *</label>
-                            <textarea id="formulaIndications" rows="2" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="主要治療疾病或證候"></textarea>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">用法</label>
-                            <input type="text" id="formulaUsage" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：水煎服，日二服">
+                            
+                            <!-- 中藥搜尋和添加 -->
+                            <div class="mb-4 p-4 bg-gray-50 rounded-lg">
+                                <div class="flex items-center space-x-2 mb-3">
+                                    <div class="relative flex-1">
+                                        <input type="text" id="herbSearchInput" placeholder="搜尋中藥名稱..." 
+                                               oninput="searchHerbsForFormula()" 
+                                               onfocus="showHerbSearchResults()"
+                                               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                            </svg>
+                                        </div>
+                                        
+                                        <!-- 搜尋結果下拉選單 -->
+                                        <div id="herbSearchResults" class="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto z-10 hidden">
+                                            <div id="herbSearchResultsList" class="py-1">
+                                                <!-- 搜尋結果會動態載入 -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input type="number" id="herbDosageInput" placeholder="劑量(g)" min="0.1" step="0.1" 
+                                           class="w-24 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <button type="button" onclick="addHerbToFormula()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium">
+                                        添加
+                                    </button>
+                                </div>
+                                
+                                <!-- 已選中藥顯示 -->
+                                <div id="selectedHerbsDisplay" class="space-y-2">
+                                    <!-- 已選中藥會動態顯示 -->
+                                </div>
+                            </div>
+                            
+                            <!-- 最終組成文字 -->
+                            <textarea id="formulaComposition" rows="3" required readonly 
+                                      class="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                      placeholder="請使用上方搜尋功能添加中藥..."></textarea>
+                            <p class="text-xs text-gray-500 mt-1">💡 使用上方搜尋功能添加中藥，系統會自動生成組成文字</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">注意事項</label>
@@ -490,6 +522,81 @@
                     <div class="flex space-x-4 pt-4">
                         <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
                             儲存方劑
+                        </button>
+                        <button type="button" onclick="showHerbalLibrary()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
+                            取消
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 編輯方劑表單 -->
+        <div id="editFormulaForm" class="hidden max-w-4xl mx-auto px-4 py-6">
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">編輯方劑</h2>
+                <form onsubmit="updateFormula(event)" class="space-y-4">
+                    <input type="hidden" id="editFormulaId">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">方劑名稱 *</label>
+                            <input type="text" id="editFormulaName" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">出處</label>
+                            <input type="text" id="editFormulaSource" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent" placeholder="如：《傷寒論》">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">組成 *</label>
+                            
+                            <!-- 中藥搜尋和添加 -->
+                            <div class="mb-4 p-4 bg-gray-50 rounded-lg">
+                                <div class="flex items-center space-x-2 mb-3">
+                                    <div class="relative flex-1">
+                                        <input type="text" id="editHerbSearchInput" placeholder="搜尋中藥名稱..." 
+                                               oninput="searchHerbsForEditFormula()" 
+                                               onfocus="showEditHerbSearchResults()"
+                                               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                            </svg>
+                                        </div>
+                                        
+                                        <!-- 搜尋結果下拉選單 -->
+                                        <div id="editHerbSearchResults" class="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto z-10 hidden">
+                                            <div id="editHerbSearchResultsList" class="py-1">
+                                                <!-- 搜尋結果會動態載入 -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input type="number" id="editHerbDosageInput" placeholder="劑量(g)" min="0.1" step="0.1" 
+                                           class="w-24 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                    <button type="button" onclick="addHerbToEditFormula()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium">
+                                        添加
+                                    </button>
+                                </div>
+                                
+                                <!-- 已選中藥顯示 -->
+                                <div id="editSelectedHerbsDisplay" class="space-y-2">
+                                    <!-- 已選中藥會動態顯示 -->
+                                </div>
+                            </div>
+                            
+                            <!-- 最終組成文字 -->
+                            <textarea id="editFormulaComposition" rows="3" required readonly 
+                                      class="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 focus:ring-2 focus:ring-orange-500 focus:border-transparent" 
+                                      placeholder="請使用上方搜尋功能添加中藥..."></textarea>
+                            <p class="text-xs text-gray-500 mt-1">💡 使用上方搜尋功能添加中藥，系統會自動生成組成文字</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">注意事項</label>
+                            <input type="text" id="editFormulaPrecautions" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent" placeholder="禁忌或注意事項">
+                        </div>
+                    </div>
+                    <div class="flex space-x-4 pt-4">
+                        <button type="submit" class="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-lg font-medium">
+                            更新方劑
                         </button>
                         <button type="button" onclick="showHerbalLibrary()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
                             取消
@@ -950,6 +1057,117 @@
         </div>
     </div>
 
+    <!-- 編輯中藥視窗 -->
+    <div id="editHerbModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full fade-in">
+            <div class="bg-green-600 text-white p-6 rounded-t-2xl">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold">🌿 編輯中藥</h3>
+                    <button onclick="closeModal('editHerbModal')" class="text-white hover:text-green-200 text-2xl">×</button>
+                </div>
+            </div>
+            <div class="p-6">
+                <form onsubmit="updateHerbModal(event)" class="space-y-4">
+                    <input type="hidden" id="modalEditHerbId">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">中藥名稱 *</label>
+                        <input type="text" id="modalEditHerbName" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    </div>
+                    <div class="flex space-x-4 pt-4">
+                        <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium">
+                            更新中藥
+                        </button>
+                        <button type="button" onclick="closeModal('editHerbModal')" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
+                            取消
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 編輯方劑視窗 -->
+    <div id="editFormulaModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto fade-in">
+            <div class="bg-blue-600 text-white p-6 rounded-t-2xl">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold">📜 編輯方劑</h3>
+                    <button onclick="closeModal('editFormulaModal')" class="text-white hover:text-blue-200 text-2xl">×</button>
+                </div>
+            </div>
+            <div class="p-6">
+                <form onsubmit="updateFormulaModal(event)" class="space-y-4">
+                    <input type="hidden" id="modalEditFormulaId">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">方劑名稱 *</label>
+                            <input type="text" id="modalEditFormulaName" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">出處</label>
+                            <input type="text" id="modalEditFormulaSource" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：《傷寒論》">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">組成 *</label>
+                            
+                            <!-- 中藥搜尋和添加 -->
+                            <div class="mb-4 p-4 bg-gray-50 rounded-lg">
+                                <div class="flex items-center space-x-2 mb-3">
+                                    <div class="relative flex-1">
+                                        <input type="text" id="modalEditHerbSearchInput" placeholder="搜尋中藥名稱..." 
+                                               oninput="searchHerbsForModalEditFormula()" 
+                                               onfocus="showModalEditHerbSearchResults()"
+                                               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                            </svg>
+                                        </div>
+                                        
+                                        <!-- 搜尋結果下拉選單 -->
+                                        <div id="modalEditHerbSearchResults" class="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto z-10 hidden">
+                                            <div id="modalEditHerbSearchResultsList" class="py-1">
+                                                <!-- 搜尋結果會動態載入 -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <input type="number" id="modalEditHerbDosageInput" placeholder="劑量(g)" min="0.1" step="0.1" 
+                                           class="w-24 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <button type="button" onclick="addHerbToModalEditFormula()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium">
+                                        添加
+                                    </button>
+                                </div>
+                                
+                                <!-- 已選中藥顯示 -->
+                                <div id="modalEditSelectedHerbsDisplay" class="space-y-2">
+                                    <!-- 已選中藥會動態顯示 -->
+                                </div>
+                            </div>
+                            
+                            <!-- 最終組成文字 -->
+                            <textarea id="modalEditFormulaComposition" rows="3" required readonly 
+                                      class="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                      placeholder="請使用上方搜尋功能添加中藥..."></textarea>
+                            <p class="text-xs text-gray-500 mt-1">💡 使用上方搜尋功能添加中藥，系統會自動生成組成文字</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">注意事項</label>
+                            <input type="text" id="modalEditFormulaPrecautions" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="禁忌或注意事項">
+                        </div>
+                    </div>
+                    <div class="flex space-x-4 pt-4">
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
+                            更新方劑
+                        </button>
+                        <button type="button" onclick="closeModal('editFormulaModal')" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
+                            取消
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- 功能說明視窗 -->
     <div id="featureModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full fade-in">
@@ -992,36 +1210,15 @@
         let herbs = [
             {
                 id: 1,
-                name: '甘草',
-                pinyin: 'gān cǎo',
-                nature: '甘，平',
-                meridian: '心、肺、脾、胃經',
-                effects: '補脾益氣，清熱解毒，祛痰止咳，緩急止痛，調和諸藥',
-                indications: '脾胃虛弱，倦怠乏力，心悸氣短，咳嗽痰多，脘腹、四肢攣急疼痛，癰腫瘡毒',
-                dosage: '2-10g',
-                precautions: '不宜與京大戟、芫花、甘遂、海藻同用'
+                name: '甘草'
             },
             {
                 id: 2,
-                name: '人參',
-                pinyin: 'rén shēn',
-                nature: '甘、微苦，微溫',
-                meridian: '脾、肺、心、腎經',
-                effects: '大補元氣，復脈固脫，補脾益肺，生津養血，安神益智',
-                indications: '體虛欲脫，肢冷脈微，脾虛食少，肺虛喘咳，津傷口渴，內熱消渴，氣血虧虛，久病虛羸，驚悸失眠，陽痿宮冷',
-                dosage: '3-9g',
-                precautions: '不宜與藜蘆同用；實證、熱證忌服'
+                name: '人參'
             },
             {
                 id: 3,
-                name: '當歸',
-                pinyin: 'dāng guī',
-                nature: '甘、辛，溫',
-                meridian: '肝、心、脾經',
-                effects: '補血活血，調經止痛，潤腸通便',
-                indications: '血虛萎黃，眩暈心悸，月經不調，經閉痛經，虛寒腹痛，風濕痹痛，跌撲損傷，癰疽瘡瘍，腸燥便秘',
-                dosage: '6-12g',
-                precautions: '濕盛中滿及大便溏泄者慎服'
+                name: '當歸'
             }
         ];
         let nextHerbId = 4;
@@ -1033,9 +1230,6 @@
                 name: '四君子湯',
                 source: '《太平惠民和劑局方》',
                 composition: '人參9g，白朮9g，茯苓9g，甘草6g',
-                effects: '益氣健脾',
-                indications: '脾胃氣虛證。面色萎白，語聲低微，氣短乏力，食少便溏，舌淡苔白，脈虛弱',
-                usage: '水煎服',
                 precautions: '陰虛火旺或實熱證忌用'
             },
             {
@@ -1043,9 +1237,6 @@
                 name: '四物湯',
                 source: '《太平惠民和劑局方》',
                 composition: '當歸10g，川芎8g，白芍12g，熟地黃12g',
-                effects: '補血調血',
-                indications: '營血虛滯證。心悸失眠，頭暈目眩，面色無華，婦人月經不調，量少或經閉不行，臍腹作痛，舌淡，脈細弦或細澀',
-                usage: '水煎服',
                 precautions: '陰虛有熱、血崩氣脫者忌用'
             },
             {
@@ -1053,15 +1244,17 @@
                 name: '逍遙散',
                 source: '《太平惠民和劑局方》',
                 composition: '柴胡8g，當歸10g，白芍12g，白朮10g，茯苓12g，甘草6g，薄荷3g，生薑3片',
-                effects: '疏肝解鬱，健脾和營',
-                indications: '肝鬱脾虛證。兩脅作痛，頭痛目眩，口燥咽乾，神疲食少，月經不調，乳房脹痛，脈弦而虛',
-                usage: '水煎服',
                 precautions: '陰虛火旺者慎用'
             }
         ];
         let nextFormulaId = 4;
 
         let currentFilter = 'all';
+        
+        // 方劑組成管理
+        let selectedHerbsForFormula = []; // 儲存選中的中藥和劑量
+        let selectedHerbsForEditFormula = []; // 編輯方劑時儲存選中的中藥和劑量
+        let selectedHerbsForModalEditFormula = []; // 視窗編輯方劑時儲存選中的中藥和劑量
         
         // 病歷記錄
         let medicalRecords = [];
@@ -1176,7 +1369,7 @@
 
         // 隱藏所有頁面
         function hideAllPages() {
-            const pages = ['welcomeMessage', 'patientManagement', 'addPatientForm', 'editPatientForm', 'consultationSystem', 'appointmentForm', 'medicalRecordForm', 'herbalLibrary', 'addHerbForm', 'addFormulaForm', 'patientMedicalRecords', 'systemManagement', 'statisticsPage'];
+            const pages = ['welcomeMessage', 'patientManagement', 'addPatientForm', 'editPatientForm', 'consultationSystem', 'appointmentForm', 'medicalRecordForm', 'herbalLibrary', 'addHerbForm', 'editHerbForm', 'addFormulaForm', 'editFormulaForm', 'patientMedicalRecords', 'systemManagement', 'statisticsPage'];
             pages.forEach(page => {
                 document.getElementById(page).classList.add('hidden');
             });
@@ -2310,7 +2503,7 @@
 
         // 載入中藥及方劑列表
         function loadHerbalItems(filteredItems = null) {
-            const container = document.getElementById('herbalItemsList');
+            const tbody = document.getElementById('herbalItemsList');
             
             let itemsToShow = [];
             
@@ -2330,21 +2523,47 @@
             }
             
             if (itemsToShow.length === 0) {
-                container.innerHTML = `
-                    <div class="col-span-full text-center py-12">
-                        <div class="text-gray-400 text-6xl mb-4">🔍</div>
-                        <p class="text-gray-500 text-lg">沒有找到符合條件的項目</p>
-                    </div>
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="border border-gray-200 px-4 py-8 text-center text-gray-500">
+                            沒有找到符合條件的項目
+                        </td>
+                    </tr>
                 `;
                 return;
             }
             
-            container.innerHTML = itemsToShow.map(item => {
-                if (item.type === 'herb') {
-                    return createHerbCard(item);
-                } else {
-                    return createFormulaCard(item);
-                }
+            tbody.innerHTML = itemsToShow.map(item => {
+                const typeDisplay = item.type === 'herb' ? '🌿 中藥' : '📜 方劑';
+                const typeColor = item.type === 'herb' ? 'text-green-600' : 'text-blue-600';
+                
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="border border-gray-200 px-4 py-3">
+                            <span class="${typeColor} font-medium">${typeDisplay}</span>
+                        </td>
+                        <td class="border border-gray-200 px-4 py-3">
+                            <span class="font-medium text-gray-800">${item.name}</span>
+                            ${item.source ? `<div class="text-sm text-gray-500">${item.source}</div>` : ''}
+                        </td>
+                        <td class="border border-gray-200 px-4 py-3">
+                            <div class="flex space-x-2">
+                                <button onclick="${item.type === 'herb' ? `viewHerbDetail(${item.id})` : `viewFormulaDetail(${item.id})`}" 
+                                        class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                    查看
+                                </button>
+                                <button onclick="${item.type === 'herb' ? `editHerb(${item.id})` : `editFormula(${item.id})`}" 
+                                        class="text-green-600 hover:text-green-800 text-sm font-medium">
+                                    編輯
+                                </button>
+                                <button onclick="${item.type === 'herb' ? `deleteHerb(${item.id})` : `deleteFormula(${item.id})`}" 
+                                        class="text-red-600 hover:text-red-800 text-sm font-medium">
+                                    刪除
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
             }).join('');
         }
 
@@ -2467,17 +2686,10 @@
             
             const filteredItems = allItems.filter(item => {
                 if (item.type === 'herb') {
-                    return item.name.toLowerCase().includes(searchTerm) ||
-                           (item.pinyin && item.pinyin.toLowerCase().includes(searchTerm)) ||
-                           item.effects.toLowerCase().includes(searchTerm) ||
-                           item.nature.toLowerCase().includes(searchTerm) ||
-                           item.meridian.toLowerCase().includes(searchTerm) ||
-                           (item.indications && item.indications.toLowerCase().includes(searchTerm));
+                    return item.name.toLowerCase().includes(searchTerm);
                 } else {
                     return item.name.toLowerCase().includes(searchTerm) ||
-                           item.effects.toLowerCase().includes(searchTerm) ||
-                           item.composition.toLowerCase().includes(searchTerm) ||
-                           item.indications.toLowerCase().includes(searchTerm) ||
+                           (item.composition && item.composition.toLowerCase().includes(searchTerm)) ||
                            (item.source && item.source.toLowerCase().includes(searchTerm));
                 }
             });
@@ -2492,13 +2704,6 @@
             
             // 清空表單
             document.getElementById('herbName').value = '';
-            document.getElementById('herbPinyin').value = '';
-            document.getElementById('herbNature').value = '';
-            document.getElementById('herbMeridian').value = '';
-            document.getElementById('herbEffects').value = '';
-            document.getElementById('herbIndications').value = '';
-            document.getElementById('herbDosage').value = '';
-            document.getElementById('herbPrecautions').value = '';
         }
 
         // 顯示新增方劑表單
@@ -2510,10 +2715,332 @@
             document.getElementById('formulaName').value = '';
             document.getElementById('formulaSource').value = '';
             document.getElementById('formulaComposition').value = '';
-            document.getElementById('formulaEffects').value = '';
-            document.getElementById('formulaIndications').value = '';
-            document.getElementById('formulaUsage').value = '';
             document.getElementById('formulaPrecautions').value = '';
+            document.getElementById('herbSearchInput').value = '';
+            document.getElementById('herbDosageInput').value = '';
+            
+            // 重置選中的中藥
+            selectedHerbsForFormula = [];
+            updateSelectedHerbsDisplay();
+            updateFormulaCompositionText();
+        }
+
+        // 搜尋中藥功能（用於方劑組成）
+        function searchHerbsForFormula() {
+            const searchTerm = document.getElementById('herbSearchInput').value.toLowerCase().trim();
+            const searchResults = document.getElementById('herbSearchResults');
+            const searchResultsList = document.getElementById('herbSearchResultsList');
+            
+            if (searchTerm === '') {
+                searchResults.classList.add('hidden');
+                return;
+            }
+            
+            const filteredHerbs = herbs.filter(herb => 
+                herb.name.toLowerCase().includes(searchTerm)
+            );
+            
+            if (filteredHerbs.length === 0) {
+                searchResultsList.innerHTML = '<div class="px-4 py-3 text-gray-500 text-sm">沒有找到符合條件的中藥</div>';
+            } else {
+                searchResultsList.innerHTML = filteredHerbs.map(herb => `
+                    <div class="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0" 
+                         onclick="selectHerbForFormula('${herb.name}')">
+                        <div class="font-medium text-gray-900">${herb.name}</div>
+                    </div>
+                `).join('');
+            }
+            
+            searchResults.classList.remove('hidden');
+        }
+
+        // 顯示中藥搜尋結果
+        function showHerbSearchResults() {
+            const searchTerm = document.getElementById('herbSearchInput').value.trim();
+            if (searchTerm !== '') {
+                searchHerbsForFormula();
+            }
+        }
+
+        // 選擇中藥（用於方劑組成）
+        function selectHerbForFormula(herbName) {
+            document.getElementById('herbSearchInput').value = herbName;
+            document.getElementById('herbSearchResults').classList.add('hidden');
+            document.getElementById('herbDosageInput').focus();
+        }
+
+        // 添加中藥到方劑組成
+        function addHerbToFormula() {
+            const herbName = document.getElementById('herbSearchInput').value.trim();
+            const dosage = parseFloat(document.getElementById('herbDosageInput').value);
+            
+            if (!herbName) {
+                showNotification('請選擇中藥', 'error');
+                return;
+            }
+            
+            if (!dosage || dosage <= 0) {
+                showNotification('請輸入有效的劑量', 'error');
+                return;
+            }
+            
+            // 檢查中藥是否存在
+            const herbExists = herbs.some(herb => herb.name === herbName);
+            if (!herbExists) {
+                showNotification('請從搜尋結果中選擇中藥', 'error');
+                return;
+            }
+            
+            // 檢查是否已經添加過
+            const existingIndex = selectedHerbsForFormula.findIndex(item => item.name === herbName);
+            if (existingIndex >= 0) {
+                // 更新劑量
+                selectedHerbsForFormula[existingIndex].dosage = dosage;
+                showNotification(`已更新 ${herbName} 的劑量為 ${dosage}g`, 'info');
+            } else {
+                // 添加新中藥
+                selectedHerbsForFormula.push({
+                    name: herbName,
+                    dosage: dosage
+                });
+                showNotification(`已添加 ${herbName} ${dosage}g`);
+            }
+            
+            // 清空輸入框
+            document.getElementById('herbSearchInput').value = '';
+            document.getElementById('herbDosageInput').value = '';
+            document.getElementById('herbSearchResults').classList.add('hidden');
+            
+            // 更新顯示
+            updateSelectedHerbsDisplay();
+            updateFormulaCompositionText();
+        }
+
+        // 更新已選中藥顯示
+        function updateSelectedHerbsDisplay() {
+            const container = document.getElementById('selectedHerbsDisplay');
+            
+            if (selectedHerbsForFormula.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">尚未添加任何中藥</p>';
+                return;
+            }
+            
+            container.innerHTML = selectedHerbsForFormula.map((herb, index) => `
+                <div class="flex items-center justify-between bg-white rounded-lg p-3 border border-gray-200">
+                    <div class="flex items-center space-x-3">
+                        <span class="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-bold">
+                            ${index + 1}
+                        </span>
+                        <span class="font-medium text-gray-800">${herb.name}</span>
+                        <span class="text-blue-600 font-mono">${herb.dosage}g</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="editHerbInFormula(${index})" class="text-blue-600 hover:text-blue-800 text-sm">
+                            編輯
+                        </button>
+                        <button onclick="removeHerbFromFormula(${index})" class="text-red-600 hover:text-red-800 text-sm">
+                            移除
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 更新方劑組成文字
+        function updateFormulaCompositionText() {
+            const compositionText = selectedHerbsForFormula
+                .map(herb => `${herb.name} ${herb.dosage}g`)
+                .join('，');
+            
+            document.getElementById('formulaComposition').value = compositionText;
+        }
+
+        // 編輯方劑中的中藥
+        function editHerbInFormula(index) {
+            const herb = selectedHerbsForFormula[index];
+            const newDosage = prompt(`請輸入 ${herb.name} 的新劑量 (g):`, herb.dosage);
+            
+            if (newDosage !== null) {
+                const dosage = parseFloat(newDosage);
+                if (dosage && dosage > 0) {
+                    selectedHerbsForFormula[index].dosage = dosage;
+                    updateSelectedHerbsDisplay();
+                    updateFormulaCompositionText();
+                    showNotification(`已更新 ${herb.name} 的劑量為 ${dosage}g`, 'info');
+                } else {
+                    showNotification('請輸入有效的劑量', 'error');
+                }
+            }
+        }
+
+        // 從方劑中移除中藥
+        function removeHerbFromFormula(index) {
+            const herb = selectedHerbsForFormula[index];
+            if (confirm(`確定要移除 ${herb.name} 嗎？`)) {
+                selectedHerbsForFormula.splice(index, 1);
+                updateSelectedHerbsDisplay();
+                updateFormulaCompositionText();
+                showNotification(`已移除 ${herb.name}`, 'info');
+            }
+        }
+
+        // 編輯方劑的搜尋中藥功能
+        function searchHerbsForEditFormula() {
+            const searchTerm = document.getElementById('editHerbSearchInput').value.toLowerCase().trim();
+            const searchResults = document.getElementById('editHerbSearchResults');
+            const searchResultsList = document.getElementById('editHerbSearchResultsList');
+            
+            if (searchTerm === '') {
+                searchResults.classList.add('hidden');
+                return;
+            }
+            
+            const filteredHerbs = herbs.filter(herb => 
+                herb.name.toLowerCase().includes(searchTerm)
+            );
+            
+            if (filteredHerbs.length === 0) {
+                searchResultsList.innerHTML = '<div class="px-4 py-3 text-gray-500 text-sm">沒有找到符合條件的中藥</div>';
+            } else {
+                searchResultsList.innerHTML = filteredHerbs.map(herb => `
+                    <div class="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0" 
+                         onclick="selectHerbForEditFormula('${herb.name}')">
+                        <div class="font-medium text-gray-900">${herb.name}</div>
+                    </div>
+                `).join('');
+            }
+            
+            searchResults.classList.remove('hidden');
+        }
+
+        // 顯示編輯方劑的中藥搜尋結果
+        function showEditHerbSearchResults() {
+            const searchTerm = document.getElementById('editHerbSearchInput').value.trim();
+            if (searchTerm !== '') {
+                searchHerbsForEditFormula();
+            }
+        }
+
+        // 選擇中藥（編輯方劑用）
+        function selectHerbForEditFormula(herbName) {
+            document.getElementById('editHerbSearchInput').value = herbName;
+            document.getElementById('editHerbSearchResults').classList.add('hidden');
+            document.getElementById('editHerbDosageInput').focus();
+        }
+
+        // 添加中藥到編輯方劑組成
+        function addHerbToEditFormula() {
+            const herbName = document.getElementById('editHerbSearchInput').value.trim();
+            const dosage = parseFloat(document.getElementById('editHerbDosageInput').value);
+            
+            if (!herbName) {
+                showNotification('請選擇中藥', 'error');
+                return;
+            }
+            
+            if (!dosage || dosage <= 0) {
+                showNotification('請輸入有效的劑量', 'error');
+                return;
+            }
+            
+            // 檢查中藥是否存在
+            const herbExists = herbs.some(herb => herb.name === herbName);
+            if (!herbExists) {
+                showNotification('請從搜尋結果中選擇中藥', 'error');
+                return;
+            }
+            
+            // 檢查是否已經添加過
+            const existingIndex = selectedHerbsForEditFormula.findIndex(item => item.name === herbName);
+            if (existingIndex >= 0) {
+                // 更新劑量
+                selectedHerbsForEditFormula[existingIndex].dosage = dosage;
+                showNotification(`已更新 ${herbName} 的劑量為 ${dosage}g`, 'info');
+            } else {
+                // 添加新中藥
+                selectedHerbsForEditFormula.push({
+                    name: herbName,
+                    dosage: dosage
+                });
+                showNotification(`已添加 ${herbName} ${dosage}g`);
+            }
+            
+            // 清空輸入框
+            document.getElementById('editHerbSearchInput').value = '';
+            document.getElementById('editHerbDosageInput').value = '';
+            document.getElementById('editHerbSearchResults').classList.add('hidden');
+            
+            // 更新顯示
+            updateEditSelectedHerbsDisplay();
+            updateEditFormulaCompositionText();
+        }
+
+        // 更新編輯方劑的已選中藥顯示
+        function updateEditSelectedHerbsDisplay() {
+            const container = document.getElementById('editSelectedHerbsDisplay');
+            
+            if (selectedHerbsForEditFormula.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">尚未添加任何中藥</p>';
+                return;
+            }
+            
+            container.innerHTML = selectedHerbsForEditFormula.map((herb, index) => `
+                <div class="flex items-center justify-between bg-white rounded-lg p-3 border border-gray-200">
+                    <div class="flex items-center space-x-3">
+                        <span class="w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-bold">
+                            ${index + 1}
+                        </span>
+                        <span class="font-medium text-gray-800">${herb.name}</span>
+                        <span class="text-blue-600 font-mono">${herb.dosage}g</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="editHerbInEditFormula(${index})" class="text-blue-600 hover:text-blue-800 text-sm">
+                            編輯
+                        </button>
+                        <button onclick="removeHerbFromEditFormula(${index})" class="text-red-600 hover:text-red-800 text-sm">
+                            移除
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 更新編輯方劑的組成文字
+        function updateEditFormulaCompositionText() {
+            const compositionText = selectedHerbsForEditFormula
+                .map(herb => `${herb.name} ${herb.dosage}g`)
+                .join('，');
+            
+            document.getElementById('editFormulaComposition').value = compositionText;
+        }
+
+        // 編輯編輯方劑中的中藥
+        function editHerbInEditFormula(index) {
+            const herb = selectedHerbsForEditFormula[index];
+            const newDosage = prompt(`請輸入 ${herb.name} 的新劑量 (g):`, herb.dosage);
+            
+            if (newDosage !== null) {
+                const dosage = parseFloat(newDosage);
+                if (dosage && dosage > 0) {
+                    selectedHerbsForEditFormula[index].dosage = dosage;
+                    updateEditSelectedHerbsDisplay();
+                    updateEditFormulaCompositionText();
+                    showNotification(`已更新 ${herb.name} 的劑量為 ${dosage}g`, 'info');
+                } else {
+                    showNotification('請輸入有效的劑量', 'error');
+                }
+            }
+        }
+
+        // 從編輯方劑中移除中藥
+        function removeHerbFromEditFormula(index) {
+            const herb = selectedHerbsForEditFormula[index];
+            if (confirm(`確定要移除 ${herb.name} 嗎？`)) {
+                selectedHerbsForEditFormula.splice(index, 1);
+                updateEditSelectedHerbsDisplay();
+                updateEditFormulaCompositionText();
+                showNotification(`已移除 ${herb.name}`, 'info');
+            }
         }
 
         // 新增中藥
@@ -2522,14 +3049,7 @@
             
             const newHerb = {
                 id: nextHerbId++,
-                name: document.getElementById('herbName').value,
-                pinyin: document.getElementById('herbPinyin').value,
-                nature: document.getElementById('herbNature').value,
-                meridian: document.getElementById('herbMeridian').value,
-                effects: document.getElementById('herbEffects').value,
-                indications: document.getElementById('herbIndications').value,
-                dosage: document.getElementById('herbDosage').value,
-                precautions: document.getElementById('herbPrecautions').value
+                name: document.getElementById('herbName').value
             };
             
             herbs.push(newHerb);
@@ -2537,24 +3057,155 @@
             showHerbalLibrary();
         }
 
+        // 編輯中藥（使用視窗）
+        function editHerb(id) {
+            const herb = herbs.find(h => h.id === id);
+            if (herb) {
+                // 填入現有資料
+                document.getElementById('modalEditHerbId').value = herb.id;
+                document.getElementById('modalEditHerbName').value = herb.name;
+                
+                showModal('editHerbModal');
+            }
+        }
+
+        // 更新中藥（視窗版本）
+        function updateHerbModal(event) {
+            event.preventDefault();
+            
+            const herbId = parseInt(document.getElementById('modalEditHerbId').value);
+            const herbIndex = herbs.findIndex(h => h.id === herbId);
+            
+            if (herbIndex !== -1) {
+                const oldName = herbs[herbIndex].name;
+                herbs[herbIndex].name = document.getElementById('modalEditHerbName').value;
+                
+                closeModal('editHerbModal');
+                loadHerbalItems();
+                showNotification(`中藥 "${oldName}" 已更新為 "${herbs[herbIndex].name}"`);
+            }
+        }
+
+        // 更新中藥（原版本保留）
+        function updateHerb(event) {
+            event.preventDefault();
+            
+            const herbId = parseInt(document.getElementById('editHerbId').value);
+            const herbIndex = herbs.findIndex(h => h.id === herbId);
+            
+            if (herbIndex !== -1) {
+                const oldName = herbs[herbIndex].name;
+                herbs[herbIndex].name = document.getElementById('editHerbName').value;
+                
+                showNotification(`中藥 "${oldName}" 已更新為 "${herbs[herbIndex].name}"`);
+                showHerbalLibrary();
+            }
+        }
+
         // 新增方劑
         function addFormula(event) {
             event.preventDefault();
+            
+            // 驗證是否有添加中藥
+            if (selectedHerbsForFormula.length === 0) {
+                showNotification('請至少添加一味中藥', 'error');
+                return;
+            }
             
             const newFormula = {
                 id: nextFormulaId++,
                 name: document.getElementById('formulaName').value,
                 source: document.getElementById('formulaSource').value,
                 composition: document.getElementById('formulaComposition').value,
-                effects: document.getElementById('formulaEffects').value,
-                indications: document.getElementById('formulaIndications').value,
-                usage: document.getElementById('formulaUsage').value,
-                precautions: document.getElementById('formulaPrecautions').value
+                precautions: document.getElementById('formulaPrecautions').value,
+                herbs: [...selectedHerbsForFormula] // 儲存中藥組成詳細資訊
             };
             
             formulas.push(newFormula);
-            showNotification(`方劑 "${newFormula.name}" 新增成功！`);
+            showNotification(`方劑 "${newFormula.name}" 新增成功！包含 ${selectedHerbsForFormula.length} 味中藥`);
             showHerbalLibrary();
+        }
+
+        // 編輯方劑（使用視窗）
+        function editFormula(id) {
+            const formula = formulas.find(f => f.id === id);
+            if (formula) {
+                // 填入現有資料
+                document.getElementById('modalEditFormulaId').value = formula.id;
+                document.getElementById('modalEditFormulaName').value = formula.name;
+                document.getElementById('modalEditFormulaSource').value = formula.source || '';
+                document.getElementById('modalEditFormulaPrecautions').value = formula.precautions || '';
+                
+                // 重置編輯用的選中中藥列表
+                selectedHerbsForModalEditFormula = formula.herbs ? [...formula.herbs] : [];
+                updateModalEditSelectedHerbsDisplay();
+                updateModalEditFormulaCompositionText();
+                
+                // 清空搜尋欄位
+                document.getElementById('modalEditHerbSearchInput').value = '';
+                document.getElementById('modalEditHerbDosageInput').value = '';
+                
+                showModal('editFormulaModal');
+            }
+        }
+
+        // 更新方劑（視窗版本）
+        function updateFormulaModal(event) {
+            event.preventDefault();
+            
+            // 驗證是否有添加中藥
+            if (selectedHerbsForModalEditFormula.length === 0) {
+                showNotification('請至少添加一味中藥', 'error');
+                return;
+            }
+            
+            const formulaId = parseInt(document.getElementById('modalEditFormulaId').value);
+            const formulaIndex = formulas.findIndex(f => f.id === formulaId);
+            
+            if (formulaIndex !== -1) {
+                const oldName = formulas[formulaIndex].name;
+                formulas[formulaIndex] = {
+                    id: formulaId,
+                    name: document.getElementById('modalEditFormulaName').value,
+                    source: document.getElementById('modalEditFormulaSource').value,
+                    composition: document.getElementById('modalEditFormulaComposition').value,
+                    precautions: document.getElementById('modalEditFormulaPrecautions').value,
+                    herbs: [...selectedHerbsForModalEditFormula]
+                };
+                
+                closeModal('editFormulaModal');
+                loadHerbalItems();
+                showNotification(`方劑 "${oldName}" 已更新為 "${formulas[formulaIndex].name}"`);
+            }
+        }
+
+        // 更新方劑（原版本保留）
+        function updateFormula(event) {
+            event.preventDefault();
+            
+            // 驗證是否有添加中藥
+            if (selectedHerbsForEditFormula.length === 0) {
+                showNotification('請至少添加一味中藥', 'error');
+                return;
+            }
+            
+            const formulaId = parseInt(document.getElementById('editFormulaId').value);
+            const formulaIndex = formulas.findIndex(f => f.id === formulaId);
+            
+            if (formulaIndex !== -1) {
+                const oldName = formulas[formulaIndex].name;
+                formulas[formulaIndex] = {
+                    id: formulaId,
+                    name: document.getElementById('editFormulaName').value,
+                    source: document.getElementById('editFormulaSource').value,
+                    composition: document.getElementById('editFormulaComposition').value,
+                    precautions: document.getElementById('editFormulaPrecautions').value,
+                    herbs: [...selectedHerbsForEditFormula]
+                };
+                
+                showNotification(`方劑 "${oldName}" 已更新為 "${formulas[formulaIndex].name}"`);
+                showHerbalLibrary();
+            }
         }
 
         // 查看中藥詳情
@@ -2565,45 +3216,10 @@
                     <div class="space-y-4">
                         <div class="text-center border-b border-gray-200 pb-4">
                             <h4 class="text-2xl font-bold text-amber-800">${herb.name}</h4>
-                            ${herb.pinyin ? `<p class="text-amber-600 mt-1">${herb.pinyin}</p>` : ''}
                         </div>
                         
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="bg-amber-50 rounded-lg p-4">
-                                <h5 class="font-semibold text-amber-800 mb-2">性味</h5>
-                                <p class="text-gray-700">${herb.nature}</p>
-                            </div>
-                            <div class="bg-amber-50 rounded-lg p-4">
-                                <h5 class="font-semibold text-amber-800 mb-2">歸經</h5>
-                                <p class="text-gray-700">${herb.meridian}</p>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-green-50 rounded-lg p-4">
-                            <h5 class="font-semibold text-green-800 mb-2">功效</h5>
-                            <p class="text-gray-700">${herb.effects}</p>
-                        </div>
-                        
-                        ${herb.indications ? `
-                        <div class="bg-blue-50 rounded-lg p-4">
-                            <h5 class="font-semibold text-blue-800 mb-2">主治</h5>
-                            <p class="text-gray-700">${herb.indications}</p>
-                        </div>
-                        ` : ''}
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            ${herb.dosage ? `
-                            <div class="bg-purple-50 rounded-lg p-4">
-                                <h5 class="font-semibold text-purple-800 mb-2">用法用量</h5>
-                                <p class="text-gray-700">${herb.dosage}</p>
-                            </div>
-                            ` : ''}
-                            ${herb.precautions ? `
-                            <div class="bg-red-50 rounded-lg p-4">
-                                <h5 class="font-semibold text-red-800 mb-2">注意事項</h5>
-                                <p class="text-gray-700">${herb.precautions}</p>
-                            </div>
-                            ` : ''}
+                        <div class="bg-amber-50 rounded-lg p-4 text-center">
+                            <p class="text-gray-700">中藥名稱：${herb.name}</p>
                         </div>
                     </div>
                 `;
@@ -2628,30 +3244,12 @@
                             <p class="text-gray-700">${formula.composition}</p>
                         </div>
                         
-                        <div class="bg-green-50 rounded-lg p-4">
-                            <h5 class="font-semibold text-green-800 mb-2">功效</h5>
-                            <p class="text-gray-700">${formula.effects}</p>
+                        ${formula.precautions ? `
+                        <div class="bg-red-50 rounded-lg p-4">
+                            <h5 class="font-semibold text-red-800 mb-2">注意事項</h5>
+                            <p class="text-gray-700">${formula.precautions}</p>
                         </div>
-                        
-                        <div class="bg-amber-50 rounded-lg p-4">
-                            <h5 class="font-semibold text-amber-800 mb-2">主治</h5>
-                            <p class="text-gray-700">${formula.indications}</p>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            ${formula.usage ? `
-                            <div class="bg-purple-50 rounded-lg p-4">
-                                <h5 class="font-semibold text-purple-800 mb-2">用法</h5>
-                                <p class="text-gray-700">${formula.usage}</p>
-                            </div>
-                            ` : ''}
-                            ${formula.precautions ? `
-                            <div class="bg-red-50 rounded-lg p-4">
-                                <h5 class="font-semibold text-red-800 mb-2">注意事項</h5>
-                                <p class="text-gray-700">${formula.precautions}</p>
-                            </div>
-                            ` : ''}
-                        </div>
+                        ` : ''}
                     </div>
                 `;
                 document.getElementById('formulaDetailContent').innerHTML = content;
@@ -2662,20 +3260,30 @@
         // 刪除中藥
         function deleteHerb(id) {
             const herb = herbs.find(h => h.id === id);
-            if (herb && confirm(`確定要刪除中藥 "${herb.name}" 嗎？`)) {
-                herbs = herbs.filter(h => h.id !== id);
-                loadHerbalItems();
-                showNotification(`中藥 "${herb.name}" 已刪除`);
+            if (herb) {
+                // 設定確認刪除按鈕的事件
+                document.getElementById('confirmDeleteBtn').onclick = function() {
+                    herbs = herbs.filter(h => h.id !== id);
+                    loadHerbalItems();
+                    closeModal('confirmDeleteModal');
+                    showNotification(`中藥 "${herb.name}" 已刪除`);
+                };
+                showModal('confirmDeleteModal');
             }
         }
 
         // 刪除方劑
         function deleteFormula(id) {
             const formula = formulas.find(f => f.id === id);
-            if (formula && confirm(`確定要刪除方劑 "${formula.name}" 嗎？`)) {
-                formulas = formulas.filter(f => f.id !== id);
-                loadHerbalItems();
-                showNotification(`方劑 "${formula.name}" 已刪除`);
+            if (formula) {
+                // 設定確認刪除按鈕的事件
+                document.getElementById('confirmDeleteBtn').onclick = function() {
+                    formulas = formulas.filter(f => f.id !== id);
+                    loadHerbalItems();
+                    closeModal('confirmDeleteModal');
+                    showNotification(`方劑 "${formula.name}" 已刪除`);
+                };
+                showModal('confirmDeleteModal');
             }
         }
 
@@ -3620,7 +4228,178 @@
             }
         }
 
+        // 視窗編輯方劑的搜尋中藥功能
+        function searchHerbsForModalEditFormula() {
+            const searchTerm = document.getElementById('modalEditHerbSearchInput').value.toLowerCase().trim();
+            const searchResults = document.getElementById('modalEditHerbSearchResults');
+            const searchResultsList = document.getElementById('modalEditHerbSearchResultsList');
+            
+            if (searchTerm === '') {
+                searchResults.classList.add('hidden');
+                return;
+            }
+            
+            const filteredHerbs = herbs.filter(herb => 
+                herb.name.toLowerCase().includes(searchTerm)
+            );
+            
+            if (filteredHerbs.length === 0) {
+                searchResultsList.innerHTML = '<div class="px-4 py-3 text-gray-500 text-sm">沒有找到符合條件的中藥</div>';
+            } else {
+                searchResultsList.innerHTML = filteredHerbs.map(herb => `
+                    <div class="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0" 
+                         onclick="selectHerbForModalEditFormula('${herb.name}')">
+                        <div class="font-medium text-gray-900">${herb.name}</div>
+                    </div>
+                `).join('');
+            }
+            
+            searchResults.classList.remove('hidden');
+        }
+
+        // 顯示視窗編輯方劑的中藥搜尋結果
+        function showModalEditHerbSearchResults() {
+            const searchTerm = document.getElementById('modalEditHerbSearchInput').value.trim();
+            if (searchTerm !== '') {
+                searchHerbsForModalEditFormula();
+            }
+        }
+
+        // 選擇中藥（視窗編輯方劑用）
+        function selectHerbForModalEditFormula(herbName) {
+            document.getElementById('modalEditHerbSearchInput').value = herbName;
+            document.getElementById('modalEditHerbSearchResults').classList.add('hidden');
+            document.getElementById('modalEditHerbDosageInput').focus();
+        }
+
+        // 添加中藥到視窗編輯方劑組成
+        function addHerbToModalEditFormula() {
+            const herbName = document.getElementById('modalEditHerbSearchInput').value.trim();
+            const dosage = parseFloat(document.getElementById('modalEditHerbDosageInput').value);
+            
+            if (!herbName) {
+                showNotification('請選擇中藥', 'error');
+                return;
+            }
+            
+            if (!dosage || dosage <= 0) {
+                showNotification('請輸入有效的劑量', 'error');
+                return;
+            }
+            
+            // 檢查中藥是否存在
+            const herbExists = herbs.some(herb => herb.name === herbName);
+            if (!herbExists) {
+                showNotification('請從搜尋結果中選擇中藥', 'error');
+                return;
+            }
+            
+            // 檢查是否已經添加過
+            const existingIndex = selectedHerbsForModalEditFormula.findIndex(item => item.name === herbName);
+            if (existingIndex >= 0) {
+                // 更新劑量
+                selectedHerbsForModalEditFormula[existingIndex].dosage = dosage;
+                showNotification(`已更新 ${herbName} 的劑量為 ${dosage}g`, 'info');
+            } else {
+                // 添加新中藥
+                selectedHerbsForModalEditFormula.push({
+                    name: herbName,
+                    dosage: dosage
+                });
+                showNotification(`已添加 ${herbName} ${dosage}g`);
+            }
+            
+            // 清空輸入框
+            document.getElementById('modalEditHerbSearchInput').value = '';
+            document.getElementById('modalEditHerbDosageInput').value = '';
+            document.getElementById('modalEditHerbSearchResults').classList.add('hidden');
+            
+            // 更新顯示
+            updateModalEditSelectedHerbsDisplay();
+            updateModalEditFormulaCompositionText();
+        }
+
+        // 更新視窗編輯方劑的已選中藥顯示
+        function updateModalEditSelectedHerbsDisplay() {
+            const container = document.getElementById('modalEditSelectedHerbsDisplay');
+            
+            if (selectedHerbsForModalEditFormula.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">尚未添加任何中藥</p>';
+                return;
+            }
+            
+            container.innerHTML = selectedHerbsForModalEditFormula.map((herb, index) => `
+                <div class="flex items-center justify-between bg-white rounded-lg p-3 border border-gray-200">
+                    <div class="flex items-center space-x-3">
+                        <span class="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-bold">
+                            ${index + 1}
+                        </span>
+                        <span class="font-medium text-gray-800">${herb.name}</span>
+                        <span class="text-blue-600 font-mono">${herb.dosage}g</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="editHerbInModalEditFormula(${index})" class="text-blue-600 hover:text-blue-800 text-sm">
+                            編輯
+                        </button>
+                        <button onclick="removeHerbFromModalEditFormula(${index})" class="text-red-600 hover:text-red-800 text-sm">
+                            移除
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 更新視窗編輯方劑的組成文字
+        function updateModalEditFormulaCompositionText() {
+            const compositionText = selectedHerbsForModalEditFormula
+                .map(herb => `${herb.name} ${herb.dosage}g`)
+                .join('，');
+            
+            document.getElementById('modalEditFormulaComposition').value = compositionText;
+        }
+
+        // 編輯視窗編輯方劑中的中藥
+        function editHerbInModalEditFormula(index) {
+            const herb = selectedHerbsForModalEditFormula[index];
+            const newDosage = prompt(`請輸入 ${herb.name} 的新劑量 (g):`, herb.dosage);
+            
+            if (newDosage !== null) {
+                const dosage = parseFloat(newDosage);
+                if (dosage && dosage > 0) {
+                    selectedHerbsForModalEditFormula[index].dosage = dosage;
+                    updateModalEditSelectedHerbsDisplay();
+                    updateModalEditFormulaCompositionText();
+                    showNotification(`已更新 ${herb.name} 的劑量為 ${dosage}g`, 'info');
+                } else {
+                    showNotification('請輸入有效的劑量', 'error');
+                }
+            }
+        }
+
+        // 從視窗編輯方劑中移除中藥
+        function removeHerbFromModalEditFormula(index) {
+            const herb = selectedHerbsForModalEditFormula[index];
+            if (confirm(`確定要移除 ${herb.name} 嗎？`)) {
+                selectedHerbsForModalEditFormula.splice(index, 1);
+                updateModalEditSelectedHerbsDisplay();
+                updateModalEditFormulaCompositionText();
+                showNotification(`已移除 ${herb.name}`, 'info');
+            }
+        }
+
+        // 點擊外部關閉搜尋結果
+        document.addEventListener('click', function(event) {
+            const herbSearchResults = document.getElementById('herbSearchResults');
+            const herbSearchInput = document.getElementById('herbSearchInput');
+            
+            if (herbSearchResults && herbSearchInput && 
+                !herbSearchResults.contains(event.target) && 
+                !herbSearchInput.contains(event.target)) {
+                herbSearchResults.classList.add('hidden');
+            }
+        });
+
 
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'967c64b252c085e9',t:'MTc1Mzk1NzU0My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'967cf425e2780443',t:'MTc1Mzk2MzQxOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
