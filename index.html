@@ -26,13 +26,13 @@
             
             <div class="space-y-4">
                 <button onclick="login('admin')" class="w-full bg-red-600 hover:bg-red-700 text-white py-3 px-4 rounded-lg font-medium transition-colors">
-                    👨‍💼 管理員登入
+                    管理員登入
                 </button>
                 <button onclick="login('doctor')" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors">
-                    👨‍⚕️ 醫師登入
+                    醫師登入
                 </button>
                 <button onclick="login('assistant')" class="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-medium transition-colors">
-                    👩‍💻 診所助理登入
+                    診所助理登入
                 </button>
             </div>
         </div>
@@ -67,7 +67,7 @@
                 <!-- 底部登出 -->
                 <div class="p-4 border-t border-gray-200">
                     <button onclick="logout()" class="w-full bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg font-medium transition-colors">
-                        🚪 登出系統
+                        登出系統
                     </button>
                 </div>
             </div>
@@ -116,7 +116,7 @@
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-2xl font-bold text-gray-800">病人資料管理</h2>
                     <button onclick="showAddPatientForm()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium">
-                        ➕ 新增病人
+                        新增病人
                     </button>
                 </div>
                 
@@ -192,10 +192,10 @@
                     </div>
                     <div class="flex space-x-4 pt-4">
                         <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium">
-                            💾 儲存
+                            儲存
                         </button>
                         <button type="button" onclick="showPatientManagement()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
-                            ❌ 取消
+                            取消
                         </button>
                     </div>
                 </form>
@@ -240,10 +240,10 @@
                     </div>
                     <div class="flex space-x-4 pt-4">
                         <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
-                            💾 更新資料
+                            更新資料
                         </button>
                         <button type="button" onclick="showPatientManagement()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
-                            ❌ 取消
+                            取消
                         </button>
                     </div>
                 </form>
@@ -256,7 +256,7 @@
                 <div class="flex justify-between items-center mb-6">
                     <h2 class="text-2xl font-bold text-gray-800">診症系統</h2>
                     <button onclick="showAppointmentForm()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium">
-                        📋 病人掛號
+                        病人掛號
                     </button>
                 </div>
                 
@@ -280,98 +280,6 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
-
-                <!-- 病人詳細資料表單 -->
-                <div id="consultationForm" class="hidden mt-8 border-t pt-6">
-                    <div class="bg-blue-50 rounded-lg p-6 mb-6">
-                        <h3 class="text-lg font-semibold text-blue-800 mb-4">👤 病人詳細資料</h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                            <div class="bg-white rounded-lg p-3">
-                                <span class="text-gray-600 font-medium">病人編號：</span>
-                                <span class="text-blue-600 font-mono font-bold" id="currentPatientNumber"></span>
-                            </div>
-                            <div class="bg-white rounded-lg p-3">
-                                <span class="text-gray-600 font-medium">姓名：</span>
-                                <span class="text-gray-800 font-medium" id="currentPatientName"></span>
-                            </div>
-                            <div class="bg-white rounded-lg p-3">
-                                <span class="text-gray-600 font-medium">性別：</span>
-                                <span class="text-gray-800" id="currentPatientGender"></span>
-                            </div>
-                            <div class="bg-white rounded-lg p-3">
-                                <span class="text-gray-600 font-medium">年齡：</span>
-                                <span class="text-gray-800" id="currentPatientAge"></span>
-                            </div>
-                            <div class="bg-white rounded-lg p-3">
-                                <span class="text-gray-600 font-medium">出生日期：</span>
-                                <span class="text-gray-800" id="currentPatientBirthDate"></span>
-                            </div>
-                            <div class="bg-white rounded-lg p-3">
-                                <span class="text-gray-600 font-medium">電話：</span>
-                                <span class="text-gray-800" id="currentPatientPhone"></span>
-                            </div>
-                            <div class="bg-white rounded-lg p-3 md:col-span-2 lg:col-span-3">
-                                <span class="text-gray-600 font-medium">地址：</span>
-                                <span class="text-gray-800" id="currentPatientAddress"></span>
-                            </div>
-                            <div class="bg-white rounded-lg p-3">
-                                <span class="text-gray-600 font-medium">身份證：</span>
-                                <span class="text-gray-800 font-mono" id="currentPatientIdNumber"></span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <form onsubmit="saveConsultation(event)" class="space-y-6">
-                        <input type="hidden" id="currentAppointmentId">
-                        <input type="hidden" id="currentPatientId">
-                        
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">主訴 *</label>
-                                <textarea id="chiefComplaint" rows="3" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="病人主要症狀描述"></textarea>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">現病史</label>
-                                <textarea id="presentIllness" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="症狀發展過程"></textarea>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">脈象</label>
-                                <input type="text" id="pulse" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：滑脈、弦脈">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">舌象</label>
-                                <input type="text" id="tongue" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：舌紅苔黃">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">中醫診斷 *</label>
-                            <textarea id="diagnosis" rows="2" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="中醫病名及證型"></textarea>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">處方</label>
-                            <textarea id="prescription" rows="4" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="藥物名稱、劑量、服用方法"></textarea>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">醫囑</label>
-                            <textarea id="instructions" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="生活注意事項、復診時間等"></textarea>
-                        </div>
-
-                        <div class="flex space-x-4 pt-4">
-                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
-                                💾 完成診症並儲存記錄
-                            </button>
-                            <button type="button" onclick="cancelConsultation()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
-                                ❌ 取消診症
-                            </button>
-                        </div>
-                    </form>
                 </div>
             </div>
         </div>
@@ -432,10 +340,315 @@
                     
                     <div class="flex space-x-4 pt-4">
                         <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium">
-                            📋 確認掛號
+                            確認掛號
                         </button>
                         <button type="button" onclick="showConsultationSystem()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
-                            ❌ 取消
+                            取消
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 中藥及方劑庫 -->
+        <div id="herbalLibrary" class="hidden max-w-7xl mx-auto px-4 py-6">
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">🌿 中藥及方劑庫</h2>
+                    <div class="flex space-x-2">
+                        <button onclick="showAddHerbForm()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium">
+                            新增中藥
+                        </button>
+                        <button onclick="showAddFormulaForm()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium">
+                            新增方劑
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 分類標籤 -->
+                <div class="mb-6">
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="filterHerbalItems('all')" class="px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700" id="herbal-filter-all">
+                            全部
+                        </button>
+                        <button onclick="filterHerbalItems('herb')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300" id="herbal-filter-herb">
+                            🌿 中藥
+                        </button>
+                        <button onclick="filterHerbalItems('formula')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300" id="herbal-filter-formula">
+                            📜 方劑
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 搜索功能 -->
+                <div class="mb-6">
+                    <div class="relative">
+                        <input type="text" id="herbalSearchInput" placeholder="搜索中藥名稱、功效、方劑名稱..." 
+                               onkeyup="searchHerbalItems()" 
+                               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 中藥及方劑列表 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="herbalItemsList">
+                    <!-- 中藥及方劑卡片會動態載入 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 新增中藥表單 -->
+        <div id="addHerbForm" class="hidden max-w-2xl mx-auto px-4 py-6">
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">新增中藥</h2>
+                <form onsubmit="addHerb(event)" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">中藥名稱 *</label>
+                            <input type="text" id="herbName" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">拼音</label>
+                            <input type="text" id="herbPinyin" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="如：gān cǎo">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">性味 *</label>
+                            <input type="text" id="herbNature" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="如：甘，平">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">歸經 *</label>
+                            <input type="text" id="herbMeridian" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="如：心、肺、脾、胃經">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">功效 *</label>
+                            <textarea id="herbEffects" rows="2" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="主要功效與作用"></textarea>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">主治</label>
+                            <textarea id="herbIndications" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="主要治療疾病"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">用法用量</label>
+                            <input type="text" id="herbDosage" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="如：3-9g">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">注意事項</label>
+                            <input type="text" id="herbPrecautions" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="禁忌或注意事項">
+                        </div>
+                    </div>
+                    <div class="flex space-x-4 pt-4">
+                        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium">
+                            儲存中藥
+                        </button>
+                        <button type="button" onclick="showHerbalLibrary()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
+                            取消
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 新增方劑表單 -->
+        <div id="addFormulaForm" class="hidden max-w-4xl mx-auto px-4 py-6">
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">新增方劑</h2>
+                <form onsubmit="addFormula(event)" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">方劑名稱 *</label>
+                            <input type="text" id="formulaName" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">出處</label>
+                            <input type="text" id="formulaSource" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：《傷寒論》">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">組成 *</label>
+                            <textarea id="formulaComposition" rows="3" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="藥物組成及劑量，如：甘草6g，桂枝9g，芍藥9g..."></textarea>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">功效 *</label>
+                            <textarea id="formulaEffects" rows="2" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="方劑主要功效"></textarea>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">主治 *</label>
+                            <textarea id="formulaIndications" rows="2" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="主要治療疾病或證候"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">用法</label>
+                            <input type="text" id="formulaUsage" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="如：水煎服，日二服">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">注意事項</label>
+                            <input type="text" id="formulaPrecautions" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="禁忌或注意事項">
+                        </div>
+                    </div>
+                    <div class="flex space-x-4 pt-4">
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
+                            儲存方劑
+                        </button>
+                        <button type="button" onclick="showHerbalLibrary()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
+                            取消
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 病歷填寫頁面 -->
+        <div id="medicalRecordForm" class="hidden max-w-4xl mx-auto px-4 py-6">
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">📋 病歷填寫</h2>
+                        <div id="currentPatientInfo" class="text-sm text-gray-600 mt-1">
+                            <!-- 病人資訊會動態載入 -->
+                        </div>
+                    </div>
+                    <button onclick="showConsultationSystem()" class="text-gray-600 hover:text-gray-800">← 返回診症系統</button>
+                </div>
+                
+                <form onsubmit="saveMedicalRecord(event)" class="space-y-6">
+                    <input type="hidden" id="recordPatientId">
+                    <input type="hidden" id="recordAppointmentId">
+                    
+                    <!-- 基本資訊 -->
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-blue-800 mb-4">基本資訊</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">診症日期 *</label>
+                                <input type="date" id="consultationDate" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">診症時間 *</label>
+                                <input type="time" id="consultationTime" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">主診醫師 *</label>
+                                <input type="text" id="consultingDoctor" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" value="李中醫師" readonly>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 主訴 -->
+                    <div class="bg-green-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-green-800 mb-4">主訴 (Chief Complaint)</h3>
+                        <textarea id="chiefComplaint" rows="3" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="病人主要症狀及持續時間，如：頭痛3天，伴隨噁心嘔吐..."></textarea>
+                    </div>
+                    
+                    <!-- 現病史 -->
+                    <div class="bg-amber-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-amber-800 mb-4">現病史 (Present Illness)</h3>
+                        <textarea id="presentIllness" rows="4" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-transparent" placeholder="詳細描述病情發展過程、症狀變化、相關檢查結果等..."></textarea>
+                    </div>
+                    
+                    <!-- 既往史 -->
+                    <div class="bg-purple-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-purple-800 mb-4">既往史 (Past History)</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">過往疾病史</label>
+                                <textarea id="pastMedicalHistory" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="高血壓、糖尿病、手術史等..."></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">藥物過敏史</label>
+                                <textarea id="allergyHistory" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="對特定藥物或食物的過敏反應..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 中醫四診 -->
+                    <div class="bg-red-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-red-800 mb-4">中醫四診</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">望診 (Inspection)</label>
+                                <textarea id="inspection" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="面色、神態、舌象等..."></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">聞診 (Auscultation & Olfaction)</label>
+                                <textarea id="auscultation" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="聲音、氣味等..."></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">問診 (Inquiry)</label>
+                                <textarea id="inquiry" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="寒熱、汗出、飲食、睡眠、二便等..."></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">切診 (Palpation)</label>
+                                <textarea id="palpation" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="脈象、按診等..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 中醫診斷 -->
+                    <div class="bg-indigo-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-indigo-800 mb-4">中醫診斷</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">病名診斷 *</label>
+                                <input type="text" id="tcmDiagnosis" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="如：頭痛、胃脘痛等...">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">證型診斷 *</label>
+                                <input type="text" id="syndromePattern" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="如：肝陽上亢證、脾胃虛寒證等...">
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">診斷依據</label>
+                            <textarea id="diagnosisBasis" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent" placeholder="根據四診資料分析診斷依據..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- 治療方案 -->
+                    <div class="bg-teal-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-teal-800 mb-4">治療方案</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">治法 *</label>
+                                <input type="text" id="treatmentPrinciple" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent" placeholder="如：平肝潛陽、溫中健脾等...">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">方劑名稱</label>
+                                <input type="text" id="prescriptionName" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent" placeholder="如：天麻鉤藤飲加減、理中湯加減等...">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">處方內容 *</label>
+                                <textarea id="prescriptionContent" rows="5" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent" placeholder="詳細藥物組成及劑量，如：&#10;天麻 10g&#10;鉤藤 15g&#10;石決明 30g&#10;..."></textarea>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">服用方法 *</label>
+                                    <input type="text" id="dosageInstructions" required class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent" placeholder="如：水煎服，日二次，飯後溫服">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">療程</label>
+                                    <input type="text" id="treatmentDuration" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent" placeholder="如：7劑，一週後複診">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 醫囑及注意事項 -->
+                    <div class="bg-orange-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-orange-800 mb-4">醫囑及注意事項</h3>
+                        <textarea id="medicalAdvice" rows="4" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent" placeholder="飲食宜忌、生活調理、複診時間等注意事項..."></textarea>
+                    </div>
+                    
+                    <!-- 操作按鈕 -->
+                    <div class="flex space-x-4 pt-6 border-t border-gray-200">
+                        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-medium text-lg">
+                            儲存病歷
+                        </button>
+                        <button type="button" onclick="saveDraftRecord()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium">
+                            儲存草稿
+                        </button>
+                        <button type="button" onclick="showConsultationSystem()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-medium">
+                            取消
                         </button>
                     </div>
                 </form>
@@ -449,7 +662,7 @@
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white">
-                        <h3 class="text-lg font-semibold mb-2">👥 用戶管理</h3>
+                        <h3 class="text-lg font-semibold mb-2">用戶管理</h3>
                         <p class="text-blue-100 mb-4">管理系統用戶權限</p>
                         <button onclick="showFeatureModal('用戶管理功能：此功能可以新增、編輯、刪除系統用戶，並設定不同的權限等級。')" class="bg-white text-blue-600 px-4 py-2 rounded font-medium hover:bg-blue-50">
                             管理用戶
@@ -457,7 +670,7 @@
                     </div>
                     
                     <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 text-white">
-                        <h3 class="text-lg font-semibold mb-2">📊 數據統計</h3>
+                        <h3 class="text-lg font-semibold mb-2">數據統計</h3>
                         <p class="text-green-100 mb-4">查看診所營運數據</p>
                         <button onclick="showStatistics()" class="bg-white text-green-600 px-4 py-2 rounded font-medium hover:bg-green-50">
                             查看統計
@@ -465,12 +678,79 @@
                     </div>
                     
                     <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-6 text-white">
-                        <h3 class="text-lg font-semibold mb-2">⚙️ 系統設定</h3>
+                        <h3 class="text-lg font-semibold mb-2">系統設定</h3>
                         <p class="text-purple-100 mb-4">調整系統參數</p>
                         <button onclick="showFeatureModal('系統設定功能：此功能可以調整系統參數、備份資料、設定診所基本資訊等。')" class="bg-white text-purple-600 px-4 py-2 rounded font-medium hover:bg-purple-50">
                             系統設定
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- 病人病歷記錄頁面 -->
+        <div id="patientMedicalRecords" class="hidden max-w-7xl mx-auto px-4 py-6">
+            <div class="bg-white rounded-xl shadow-lg p-6 fade-in">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">📋 病歷記錄</h2>
+                        <p id="currentPatientName" class="text-sm text-gray-600 mt-1"></p>
+                    </div>
+                    <button onclick="showPatientManagement()" class="text-gray-600 hover:text-gray-800">← 返回病人管理</button>
+                </div>
+                
+                <!-- 搜索和篩選功能 -->
+                <div class="mb-6 space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <input type="date" id="patientRecordDateFrom" 
+                                   onchange="filterPatientMedicalRecords()" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="開始日期">
+                        </div>
+                        <div>
+                            <input type="date" id="patientRecordDateTo" 
+                                   onchange="filterPatientMedicalRecords()" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="結束日期">
+                        </div>
+                    </div>
+                    
+                    <!-- 快速篩選按鈕 -->
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="setPatientDateFilter('today')" class="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm font-medium hover:bg-purple-200">
+                            今日
+                        </button>
+                        <button onclick="setPatientDateFilter('week')" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200">
+                            本週
+                        </button>
+                        <button onclick="setPatientDateFilter('month')" class="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200">
+                            本月
+                        </button>
+                        <button onclick="clearPatientDateFilter()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200">
+                            清除篩選
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 病歷列表 -->
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">診症日期</th>
+                                <th class="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">主訴</th>
+                                <th class="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">診斷</th>
+                                <th class="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">醫師</th>
+                                <th class="border border-gray-200 px-4 py-3 text-left font-medium text-gray-700">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="patientMedicalRecordsList">
+                            <!-- 病歷記錄會動態載入 -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -528,6 +808,50 @@
         </div>
     </div>
 
+    <!-- 中藥詳情視窗 -->
+    <div id="herbDetailModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto fade-in">
+            <div class="bg-amber-600 text-white p-6 rounded-t-2xl">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold">🌿 中藥詳情</h3>
+                    <button onclick="closeModal('herbDetailModal')" class="text-white hover:text-amber-200 text-2xl">×</button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div id="herbDetailContent" class="space-y-4">
+                    <!-- 中藥詳情內容會動態載入 -->
+                </div>
+                <div class="flex justify-end mt-6">
+                    <button onclick="closeModal('herbDetailModal')" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
+                        關閉
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 方劑詳情視窗 -->
+    <div id="formulaDetailModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto fade-in">
+            <div class="bg-blue-600 text-white p-6 rounded-t-2xl">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold">📜 方劑詳情</h3>
+                    <button onclick="closeModal('formulaDetailModal')" class="text-white hover:text-blue-200 text-2xl">×</button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div id="formulaDetailContent" class="space-y-4">
+                    <!-- 方劑詳情內容會動態載入 -->
+                </div>
+                <div class="flex justify-end mt-6">
+                    <button onclick="closeModal('formulaDetailModal')" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
+                        關閉
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 浮動通知 -->
     <div id="floatingNotification" class="fixed top-4 right-4 z-50 hidden">
         <div class="bg-white rounded-lg shadow-2xl border-l-4 p-4 max-w-sm transform translate-x-full transition-transform duration-300 ease-out">
@@ -553,13 +877,73 @@
                 <h3 class="text-xl font-bold">確認刪除</h3>
             </div>
             <div class="p-6 text-center">
-                <p class="text-gray-700 mb-6">確定要刪除此病人資料嗎？<br>此操作無法復原。</p>
+                <p class="text-gray-700 mb-6">確定要刪除此項目嗎？<br>此操作無法復原。</p>
                 <div class="flex space-x-4">
                     <button onclick="closeModal('confirmDeleteModal')" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg font-medium">
                         取消
                     </button>
                     <button id="confirmDeleteBtn" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg font-medium">
                         確定刪除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 撤回確認視窗 -->
+    <div id="withdrawModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full fade-in">
+            <div class="bg-orange-600 text-white p-6 rounded-t-2xl text-center">
+                <div class="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span class="text-3xl">↩️</span>
+                </div>
+                <h3 class="text-xl font-bold">確認撤回掛號</h3>
+            </div>
+            <div class="p-6">
+                <div id="withdrawInfo" class="bg-orange-50 rounded-lg p-4 mb-6">
+                    <!-- 撤回資訊會動態載入 -->
+                </div>
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                    <div class="flex items-start">
+                        <span class="text-yellow-600 text-lg mr-2">⚠️</span>
+                        <div class="text-sm text-yellow-800">
+                            <p class="font-medium mb-1">撤回說明：</p>
+                            <ul class="list-disc list-inside space-y-1 text-xs">
+                                <li>撤回後狀態將重置為「已掛號」</li>
+                                <li>如有填寫的病歷草稿將被保留</li>
+                                <li>操作記錄將被完整保存</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex space-x-4">
+                    <button onclick="closeModal('withdrawModal')" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-3 px-4 rounded-lg font-medium">
+                        取消
+                    </button>
+                    <button id="confirmWithdrawBtn" class="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-3 px-4 rounded-lg font-medium">
+                        確認撤回
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 病歷詳情視窗 -->
+    <div id="medicalRecordDetailModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto fade-in">
+            <div class="bg-blue-600 text-white p-6 rounded-t-2xl">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xl font-bold">📋 病歷詳情</h3>
+                    <button onclick="closeModal('medicalRecordDetailModal')" class="text-white hover:text-blue-200 text-2xl">×</button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div id="medicalRecordDetailContent" class="space-y-6">
+                    <!-- 病歷詳情內容會動態載入 -->
+                </div>
+                <div class="flex justify-end mt-6 pt-6 border-t border-gray-200">
+                    <button onclick="closeModal('medicalRecordDetailModal')" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
+                        關閉
                     </button>
                 </div>
             </div>
@@ -591,51 +975,6 @@
         </div>
     </div>
 
-    <!-- 收據視窗 -->
-    <div id="receiptModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden fade-in">
-            <div class="bg-green-600 text-white p-6 rounded-t-2xl">
-                <div class="flex justify-between items-center">
-                    <h3 class="text-xl font-bold">🧾 診療收據</h3>
-                    <button onclick="closeModal('receiptModal')" class="text-white hover:text-green-200 text-2xl">×</button>
-                </div>
-            </div>
-            <div class="p-6">
-                <div id="receiptContent" class="space-y-4">
-                    <!-- 收據內容會動態載入 -->
-                </div>
-                <div class="flex space-x-4 mt-6">
-                    <button onclick="printReceiptContent()" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium">
-                        🖨️ 列印收據
-                    </button>
-                    <button onclick="closeModal('receiptModal')" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
-                        關閉
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 病歷記錄視窗 -->
-    <div id="patientHistoryModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden fade-in">
-            <div class="bg-indigo-600 text-white p-6 rounded-t-2xl">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h3 class="text-xl font-bold">📋 病歷記錄</h3>
-                        <p id="historyPatientInfo" class="text-indigo-100 text-sm mt-1"></p>
-                    </div>
-                    <button onclick="closeModal('patientHistoryModal')" class="text-white hover:text-indigo-200 text-2xl">×</button>
-                </div>
-            </div>
-            <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                <div id="patientHistoryContent">
-                    <!-- 病歷內容會動態載入 -->
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script>
         // 系統數據
         let currentUser = null;
@@ -648,6 +987,85 @@
         let patientStatus = {}; // 病人診症狀態
         let consultations = [];
         let nextPatientId = 4;
+
+        // 中藥庫數據
+        let herbs = [
+            {
+                id: 1,
+                name: '甘草',
+                pinyin: 'gān cǎo',
+                nature: '甘，平',
+                meridian: '心、肺、脾、胃經',
+                effects: '補脾益氣，清熱解毒，祛痰止咳，緩急止痛，調和諸藥',
+                indications: '脾胃虛弱，倦怠乏力，心悸氣短，咳嗽痰多，脘腹、四肢攣急疼痛，癰腫瘡毒',
+                dosage: '2-10g',
+                precautions: '不宜與京大戟、芫花、甘遂、海藻同用'
+            },
+            {
+                id: 2,
+                name: '人參',
+                pinyin: 'rén shēn',
+                nature: '甘、微苦，微溫',
+                meridian: '脾、肺、心、腎經',
+                effects: '大補元氣，復脈固脫，補脾益肺，生津養血，安神益智',
+                indications: '體虛欲脫，肢冷脈微，脾虛食少，肺虛喘咳，津傷口渴，內熱消渴，氣血虧虛，久病虛羸，驚悸失眠，陽痿宮冷',
+                dosage: '3-9g',
+                precautions: '不宜與藜蘆同用；實證、熱證忌服'
+            },
+            {
+                id: 3,
+                name: '當歸',
+                pinyin: 'dāng guī',
+                nature: '甘、辛，溫',
+                meridian: '肝、心、脾經',
+                effects: '補血活血，調經止痛，潤腸通便',
+                indications: '血虛萎黃，眩暈心悸，月經不調，經閉痛經，虛寒腹痛，風濕痹痛，跌撲損傷，癰疽瘡瘍，腸燥便秘',
+                dosage: '6-12g',
+                precautions: '濕盛中滿及大便溏泄者慎服'
+            }
+        ];
+        let nextHerbId = 4;
+
+        // 方劑庫數據
+        let formulas = [
+            {
+                id: 1,
+                name: '四君子湯',
+                source: '《太平惠民和劑局方》',
+                composition: '人參9g，白朮9g，茯苓9g，甘草6g',
+                effects: '益氣健脾',
+                indications: '脾胃氣虛證。面色萎白，語聲低微，氣短乏力，食少便溏，舌淡苔白，脈虛弱',
+                usage: '水煎服',
+                precautions: '陰虛火旺或實熱證忌用'
+            },
+            {
+                id: 2,
+                name: '四物湯',
+                source: '《太平惠民和劑局方》',
+                composition: '當歸10g，川芎8g，白芍12g，熟地黃12g',
+                effects: '補血調血',
+                indications: '營血虛滯證。心悸失眠，頭暈目眩，面色無華，婦人月經不調，量少或經閉不行，臍腹作痛，舌淡，脈細弦或細澀',
+                usage: '水煎服',
+                precautions: '陰虛有熱、血崩氣脫者忌用'
+            },
+            {
+                id: 3,
+                name: '逍遙散',
+                source: '《太平惠民和劑局方》',
+                composition: '柴胡8g，當歸10g，白芍12g，白朮10g，茯苓12g，甘草6g，薄荷3g，生薑3片',
+                effects: '疏肝解鬱，健脾和營',
+                indications: '肝鬱脾虛證。兩脅作痛，頭痛目眩，口燥咽乾，神疲食少，月經不調，乳房脹痛，脈弦而虛',
+                usage: '水煎服',
+                precautions: '陰虛火旺者慎用'
+            }
+        ];
+        let nextFormulaId = 4;
+
+        let currentFilter = 'all';
+        
+        // 病歷記錄
+        let medicalRecords = [];
+        let nextRecordId = 1;
 
         // 計算年齡函數
         function calculateAge(birthDate) {
@@ -665,15 +1083,15 @@
 
         // 用戶權限設定
         const userPermissions = {
-            admin: ['patientManagement', 'consultationSystem', 'systemManagement'],
-            doctor: ['patientManagement', 'consultationSystem'],
-            assistant: ['patientManagement', 'consultationSystem']
+            admin: ['patientManagement', 'consultationSystem', 'herbalLibrary', 'systemManagement'],
+            doctor: ['patientManagement', 'consultationSystem', 'herbalLibrary', 'systemManagement'],
+            assistant: ['patientManagement', 'consultationSystem', 'herbalLibrary', 'systemManagement']
         };
 
         const userNames = {
-            admin: '👨‍💼 管理員',
-            doctor: '👨‍⚕️ 醫師',
-            assistant: '👩‍💻  診所助理'
+            admin: '管理員',
+            doctor: '醫師',
+            assistant: '診所助理'
         };
 
         // 登入功能
@@ -715,17 +1133,23 @@
             
             const menuItems = {
                 patientManagement: {
-                    title: '👥 病人資料管理',
+                    title: '病人資料管理',
                     desc: '新增、查看、編輯病人資料',
                     action: 'showPatientManagement()'
                 },
                 consultationSystem: {
-                    title: '🩺 診症系統',
+                    title: '診症系統',
                     desc: '進行診症、開立處方',
                     action: 'showConsultationSystem()'
                 },
+                herbalLibrary: {
+                    title: '中藥及方劑庫',
+                    desc: '查看中藥資訊及方劑',
+                    action: 'showHerbalLibrary()'
+                },
+
                 systemManagement: {
-                    title: '⚙️ 系統管理',
+                    title: '系統管理',
                     desc: '用戶管理、數據統計',
                     action: 'showSystemManagement()'
                 }
@@ -752,7 +1176,7 @@
 
         // 隱藏所有頁面
         function hideAllPages() {
-            const pages = ['welcomeMessage', 'patientManagement', 'addPatientForm', 'editPatientForm', 'consultationSystem', 'appointmentForm', 'systemManagement', 'statisticsPage'];
+            const pages = ['welcomeMessage', 'patientManagement', 'addPatientForm', 'editPatientForm', 'consultationSystem', 'appointmentForm', 'medicalRecordForm', 'herbalLibrary', 'addHerbForm', 'addFormulaForm', 'patientMedicalRecords', 'systemManagement', 'statisticsPage'];
             pages.forEach(page => {
                 document.getElementById(page).classList.add('hidden');
             });
@@ -791,9 +1215,9 @@
                     <td class="border border-gray-200 px-4 py-3">${patient.phone}</td>
                     <td class="border border-gray-200 px-4 py-3">
                         <button onclick="viewPatient(${patient.id})" class="text-blue-600 hover:text-blue-800 mr-2">查看</button>
-                        <button onclick="viewPatientHistory(${patient.id})" class="text-indigo-600 hover:text-indigo-800 mr-2">病歷</button>
-                        ${currentUser === 'admin' || currentUser === 'assistant' ? `<button onclick="editPatient(${patient.id})" class="text-green-600 hover:text-green-800 mr-2">編輯</button>` : ''}
-                        ${currentUser === 'admin' ? `<button onclick="deletePatient(${patient.id})" class="text-red-600 hover:text-red-800">刪除</button>` : ''}
+                        <button onclick="viewPatientMedicalRecords(${patient.id})" class="text-purple-600 hover:text-purple-800 mr-2">病歷記錄</button>
+                        <button onclick="editPatient(${patient.id})" class="text-green-600 hover:text-green-800 mr-2">編輯</button>
+                        <button onclick="deletePatient(${patient.id})" class="text-red-600 hover:text-red-800">刪除</button>
                     </td>
                 </tr>
             `).join('');
@@ -1103,7 +1527,6 @@
             
             tbody.innerHTML = todayAppointments.map(appointment => {
                 const patient = patients.find(p => p.id === appointment.patientId);
-                const statusColor = getStatusColor(appointment.status);
                 const appointmentDate = new Date(appointment.appointmentTime);
                 const timeString = appointmentDate.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
                 
@@ -1116,179 +1539,1144 @@
                         <td class="border border-gray-200 px-4 py-3">${appointment.patientName}</td>
                         <td class="border border-gray-200 px-4 py-3">${calculateAge(patient.birthDate)}</td>
                         <td class="border border-gray-200 px-4 py-3">
-                            <span class="px-2 py-1 rounded-full text-xs font-medium ${statusColor}">
-                                ${appointment.status}
-                            </span>
+                            ${getStatusBadge(appointment.status)}
                         </td>
                         <td class="border border-gray-200 px-4 py-3">
-                            ${appointment.status === '已掛號' ? 
-                                `<button onclick="changeToWaiting(${appointment.id})" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm mr-2">轉為等待診症</button>` :
-                                appointment.status === '等待診症' ? 
-                                `<button onclick="startConsultation(${appointment.id})" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm mr-2">開始診症</button>` :
-                                appointment.status === '診症中' ?
-                                `<button onclick="showConsultationRecord(${appointment.id})" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm mr-2">填寫診症記錄</button>` :
-                                appointment.status === '已完成' ?
-                                `<button onclick="printReceipt(${appointment.id})" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm mr-2">印收據</button>
-                                <button onclick="viewPatientHistory(${appointment.patientId})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm">查看病歷</button>` :
-                                '<span class="text-gray-500 text-sm">處理中</span>'
-                            }
-                            ${appointment.status !== '已完成' ? 
-                                `<button onclick="viewPatientHistory(${appointment.patientId})" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm ml-2">查看病歷</button>` : ''
-                            }
+                            ${getStatusActions(appointment)}
                         </td>
                     </tr>
                 `;
             }).join('');
         }
 
-        // 獲取狀態顏色
-        function getStatusColor(status) {
-            switch(status) {
-                case '已掛號': return 'bg-gray-100 text-gray-800';
-                case '等待診症': return 'bg-yellow-100 text-yellow-800';
-                case '診症中': return 'bg-blue-100 text-blue-800';
-                case '已完成': return 'bg-green-100 text-green-800';
-                default: return 'bg-gray-100 text-gray-800';
-            }
+        // 獲取狀態徽章
+        function getStatusBadge(status) {
+            const statusConfig = {
+                '已掛號': { bg: 'bg-blue-500', text: 'text-white' },
+                '侯診中': { bg: 'bg-yellow-500', text: 'text-white' },
+                '診症中': { bg: 'bg-green-500', text: 'text-white' },
+                '已完成': { bg: 'bg-gray-500', text: 'text-white' }
+            };
+            
+            const config = statusConfig[status] || statusConfig['已掛號'];
+            return `
+                <span class="px-3 py-1 rounded-full text-sm font-medium ${config.bg} ${config.text}">
+                    ${status}
+                </span>
+            `;
         }
 
-        // 轉為等待診症狀態
-        function changeToWaiting(appointmentId) {
-            const appointment = appointments.find(apt => apt.id === appointmentId);
-            if (appointment) {
-                const patient = patients.find(p => p.id === appointment.patientId);
-                appointment.status = '等待診症';
-                patientStatus[appointment.patientId] = '等待診症';
-                loadAppointmentList();
-                
-                showNotification(`${patient.patientNumber} - ${patient.name} 已轉為等待診症狀態`, 'info');
-            }
+        // 獲取狀態操作按鈕
+        function getStatusActions(appointment) {
+            // 檢查是否有其他病人正在診症中
+            const hasActiveConsultation = appointments.some(apt => 
+                apt.status === '診症中' && apt.id !== appointment.id
+            );
+            
+            // 檢查是否有病歷記錄（包括草稿）
+            const hasRecord = medicalRecords.some(record => 
+                record.appointmentId === appointment.id && 
+                (record.status === 'completed' || record.status === 'draft')
+            );
+            
+            const actions = {
+                '已掛號': `
+                    <div class="flex flex-col space-y-1">
+                        <button onclick="updateAppointmentStatus(${appointment.id}, '侯診中')" 
+                                ${hasActiveConsultation ? 'disabled' : ''} 
+                                class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors ${hasActiveConsultation ? 'opacity-50 cursor-not-allowed' : ''}">
+                            開始侯診
+                        </button>
+                        <button onclick="deleteAppointment(${appointment.id})" 
+                                ${hasActiveConsultation ? 'disabled' : ''} 
+                                class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors ${hasActiveConsultation ? 'opacity-50 cursor-not-allowed' : ''}">
+                            刪除掛號
+                        </button>
+                        <button onclick="viewMedicalRecord(${appointment.id})" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors">
+                            ${hasRecord ? '查看病歷' : '查看病歷'}
+                        </button>
+                    </div>
+                `,
+                '侯診中': `
+                    <div class="flex flex-col space-y-1">
+                        <button onclick="startConsultation(${appointment.id})" 
+                                ${hasActiveConsultation ? 'disabled' : ''} 
+                                class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors ${hasActiveConsultation ? 'opacity-50 cursor-not-allowed' : ''}">
+                            開始診症
+                        </button>
+                        <button onclick="viewMedicalRecord(${appointment.id})" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors">
+                            ${hasRecord ? '查看病歷' : '查看病歷'}
+                        </button>
+                    </div>
+                `,
+                '診症中': `
+                    <div class="flex flex-col space-y-1">
+                        <div class="bg-green-100 border border-green-300 rounded-md px-3 py-2">
+                            <div class="flex items-center">
+                                <div class="animate-pulse w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                                <span class="text-xs text-green-700 font-medium">診症進行中</span>
+                            </div>
+                        </div>
+                        <button onclick="viewMedicalRecord(${appointment.id})" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors">
+                            ${hasRecord ? '查看病歷' : '查看病歷'}
+                        </button>
+                    </div>
+                `,
+                '已完成': `
+                    <div class="flex flex-col space-y-1">
+                        <button onclick="editMedicalRecord(${appointment.id})" 
+                                ${hasActiveConsultation ? 'disabled' : ''} 
+                                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors ${hasActiveConsultation ? 'opacity-50 cursor-not-allowed' : ''}">
+                            修改病歷
+                        </button>
+                        <button onclick="withdrawAppointment(${appointment.id})" 
+                                ${hasActiveConsultation ? 'disabled' : ''} 
+                                class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors ${hasActiveConsultation ? 'opacity-50 cursor-not-allowed' : ''}">
+                            撤回掛號
+                        </button>
+                        <button onclick="viewMedicalRecord(${appointment.id})" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors">
+                            查看病歷
+                        </button>
+                    </div>
+                `
+            };
+            
+            return actions[appointment.status] || actions['已掛號'];
         }
 
-        // 開始診症
+        // 開始診症（展開病歷填寫）
         function startConsultation(appointmentId) {
             const appointment = appointments.find(apt => apt.id === appointmentId);
             if (appointment) {
-                const patient = patients.find(p => p.id === appointment.patientId);
-                appointment.status = '診症中';
-                patientStatus[appointment.patientId] = '診症中';
-                loadAppointmentList();
+                // 更新狀態為診症中
+                updateAppointmentStatus(appointmentId, '診症中');
                 
-                // 顯示開始診症通知
-                showNotification(`開始診症：${patient.patientNumber} - ${patient.name}`, 'info');
-                
-                // 直接跳轉到診症記錄表單
-                showConsultationRecord(appointmentId);
+                // 在當前頁面展開病歷填寫表單
+                showInlineMedicalRecordForm(appointment);
             }
         }
 
-        // 顯示病人詳細資料表單
-        function showConsultationRecord(appointmentId) {
+        // 更新掛號狀態
+        function updateAppointmentStatus(appointmentId, newStatus) {
+            // 檢查是否有其他病人正在診症中
+            const hasActiveConsultation = appointments.some(apt => 
+                apt.status === '診症中' && apt.id !== appointmentId
+            );
+            
+            if (hasActiveConsultation && (newStatus === '侯診中' || newStatus === '診症中')) {
+                showNotification('目前有其他病人正在診症中，請等待診症完成後再進行操作', 'error');
+                return;
+            }
+            
             const appointment = appointments.find(apt => apt.id === appointmentId);
+            if (appointment) {
+                const oldStatus = appointment.status;
+                appointment.status = newStatus;
+                appointment.lastUpdated = new Date().toISOString();
+                
+                // 記錄狀態變更歷史
+                if (!appointment.statusHistory) {
+                    appointment.statusHistory = [];
+                }
+                appointment.statusHistory.push({
+                    from: oldStatus,
+                    to: newStatus,
+                    timestamp: new Date().toISOString(),
+                    updatedBy: currentUser
+                });
+                
+                // 更新病人狀態
+                patientStatus[appointment.patientId] = newStatus;
+                
+                // 顯示通知
+                const patient = patients.find(p => p.id === appointment.patientId);
+                showNotification(`${patient.name} 的狀態已更新為：${newStatus}`);
+                
+                // 重新載入列表
+                loadAppointmentList();
+            }
+        }
+
+        // 刪除掛號
+        function deleteAppointment(appointmentId) {
+            const appointment = appointments.find(apt => apt.id === appointmentId);
+            if (appointment) {
+                const patient = patients.find(p => p.id === appointment.patientId);
+                
+                if (confirm(`確定要刪除 ${patient.name} 的掛號記錄嗎？\n\n此操作將永久刪除掛號記錄，無法復原。`)) {
+                    // 刪除掛號記錄
+                    appointments = appointments.filter(apt => apt.id !== appointmentId);
+                    
+                    // 清除病人狀態
+                    delete patientStatus[appointment.patientId];
+                    
+                    // 刪除相關的病歷草稿（如果有）
+                    medicalRecords = medicalRecords.filter(record => 
+                        !(record.appointmentId === appointmentId && record.status === 'draft')
+                    );
+                    
+                    showNotification(`已刪除 ${patient.name} 的掛號記錄`, 'info');
+                    loadAppointmentList();
+                }
+            }
+        }
+
+        // 撤回掛號
+        function withdrawAppointment(appointmentId) {
+            const appointment = appointments.find(apt => apt.id === appointmentId);
+            if (appointment) {
+                const patient = patients.find(p => p.id === appointment.patientId);
+                const appointmentTime = new Date(appointment.appointmentTime);
+                
+                // 填入撤回資訊
+                const withdrawInfo = document.getElementById('withdrawInfo');
+                withdrawInfo.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium text-gray-700">病人姓名：</span>
+                            <span class="text-gray-900 font-semibold">${patient.name}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium text-gray-700">病人編號：</span>
+                            <span class="text-blue-600 font-mono">${patient.patientNumber}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium text-gray-700">當前狀態：</span>
+                            <span class="px-2 py-1 rounded-full text-sm font-medium ${getStatusColor(appointment.status)}">${appointment.status}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium text-gray-700">掛號時間：</span>
+                            <span class="text-gray-900">${appointmentTime.toLocaleString('zh-TW')}</span>
+                        </div>
+                        ${appointment.symptoms ? `
+                        <div class="pt-2 border-t border-orange-200">
+                            <span class="font-medium text-gray-700">症狀描述：</span>
+                            <p class="text-gray-900 text-sm mt-1">${appointment.symptoms}</p>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                // 設定確認按鈕事件
+                document.getElementById('confirmWithdrawBtn').onclick = function() {
+                    // 撤回到已掛號狀態
+                    const oldStatus = appointment.status;
+                    appointment.status = '已掛號';
+                    appointment.lastUpdated = new Date().toISOString();
+                    
+                    // 記錄撤回操作
+                    if (!appointment.statusHistory) {
+                        appointment.statusHistory = [];
+                    }
+                    appointment.statusHistory.push({
+                        from: oldStatus,
+                        to: '已掛號',
+                        timestamp: new Date().toISOString(),
+                        updatedBy: currentUser,
+                        action: 'withdraw'
+                    });
+                    
+                    // 更新病人狀態
+                    patientStatus[appointment.patientId] = '已掛號';
+                    
+                    // 隱藏內嵌病歷表單（如果正在顯示）
+                    const inlineForm = document.getElementById('inlineMedicalRecord');
+                    if (inlineForm) {
+                        inlineForm.remove();
+                    }
+                    
+                    closeModal('withdrawModal');
+                    showNotification(`已撤回 ${patient.name} 的掛號，狀態重置為「已掛號」`, 'info');
+                    loadAppointmentList();
+                };
+                
+                showModal('withdrawModal');
+            }
+        }
+        
+        // 獲取狀態顏色
+        function getStatusColor(status) {
+            const statusColors = {
+                '已掛號': 'bg-blue-100 text-blue-800',
+                '侯診中': 'bg-yellow-100 text-yellow-800',
+                '診症中': 'bg-green-100 text-green-800',
+                '已完成': 'bg-gray-100 text-gray-800'
+            };
+            return statusColors[status] || 'bg-blue-100 text-blue-800';
+        }
+        
+        // 修改病歷功能
+        function editMedicalRecord(appointmentId) {
+            const appointment = appointments.find(apt => apt.id === appointmentId);
+            const existingRecord = medicalRecords.find(record => record.appointmentId === appointmentId);
+            
+            if (appointment && existingRecord) {
+                // 顯示內嵌編輯表單，並填入現有資料
+                showInlineMedicalRecordForm(appointment, existingRecord);
+            } else {
+                showNotification('找不到相關的病歷記錄', 'error');
+            }
+        }
+
+        // 在診症系統頁面內展開病歷填寫表單
+        function showInlineMedicalRecordForm(appointment, existingRecord = null) {
             const patient = patients.find(p => p.id === appointment.patientId);
             
-            if (appointment && patient) {
-                // 填入完整病人資訊
-                document.getElementById('currentPatientNumber').textContent = patient.patientNumber;
-                document.getElementById('currentPatientName').textContent = patient.name;
-                document.getElementById('currentPatientGender').textContent = patient.gender;
-                document.getElementById('currentPatientAge').textContent = calculateAge(patient.birthDate) + '歲';
-                document.getElementById('currentPatientBirthDate').textContent = patient.birthDate;
-                document.getElementById('currentPatientPhone').textContent = patient.phone;
-                document.getElementById('currentPatientAddress').textContent = patient.address || '未填寫';
-                document.getElementById('currentPatientIdNumber').textContent = patient.idNumber;
-                
-                // 設定隱藏欄位
-                document.getElementById('currentAppointmentId').value = appointmentId;
-                document.getElementById('currentPatientId').value = patient.id;
-                
-                // 獲取該病人最近的診症記錄
-                const patientConsultations = consultations.filter(c => c.patientId === patient.id);
-                const lastConsultation = patientConsultations.length > 0 ? 
-                    patientConsultations[patientConsultations.length - 1] : null;
-                
-                // 預填上一次的病歷資料，如果沒有則使用空值
-                // 主訴欄位會預填掛號時的症狀描述，如果沒有則使用上次的主訴
-                document.getElementById('chiefComplaint').value = appointment.symptoms || (lastConsultation ? lastConsultation.chiefComplaint : '');
-                document.getElementById('presentIllness').value = lastConsultation ? lastConsultation.presentIllness : '';
-                document.getElementById('pulse').value = lastConsultation ? lastConsultation.pulse : '';
-                document.getElementById('tongue').value = lastConsultation ? lastConsultation.tongue : '';
-                document.getElementById('diagnosis').value = lastConsultation ? lastConsultation.diagnosis : '';
-                document.getElementById('prescription').value = lastConsultation ? lastConsultation.prescription : '';
-                document.getElementById('instructions').value = lastConsultation ? lastConsultation.instructions : '';
-                
-                // 顯示病人詳細資料表單
-                document.getElementById('consultationForm').classList.remove('hidden');
-                
-                // 滾動到表單位置
-                document.getElementById('consultationForm').scrollIntoView({ behavior: 'smooth' });
-            }
-        }
+            // 創建內嵌病歷填寫表單
+            const medicalRecordHtml = `
+                <div id="inlineMedicalRecord" class="mt-6 bg-blue-50 rounded-xl p-6 border-2 border-blue-200 fade-in">
+                    <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h3 class="text-xl font-bold text-blue-800">📋 ${existingRecord ? '修改病歷' : '病歷填寫'}</h3>
+                            <p class="text-sm text-blue-600 mt-1">
+                                病人：<strong>${patient.patientNumber} - ${patient.name}</strong> 
+                                (${patient.gender}, ${calculateAge(patient.birthDate)}歲)
+                            </p>
+                            ${existingRecord ? '<p class="text-xs text-orange-600 mt-1">⚠️ 修改模式：正在編輯現有病歷</p>' : ''}
+                        </div>
 
-        // 儲存診症記錄
-        function saveConsultation(event) {
+                    </div>
+                    
+
+                    
+                    <form onsubmit="saveInlineMedicalRecord(event)" class="space-y-4">
+                        <input type="hidden" id="inlineRecordPatientId" value="${appointment.patientId}">
+                        <input type="hidden" id="inlineRecordAppointmentId" value="${appointment.id}">
+                        
+                        <!-- 簡化的病歷表單 -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">主訴 *</label>
+                                <textarea id="inlineChiefComplaint" rows="2" required 
+                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                    placeholder="病人主要症狀...">${existingRecord ? existingRecord.chiefComplaint : (appointment.symptoms || '')}</textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">現病史</label>
+                                <textarea id="inlinePresentIllness" rows="2" 
+                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                    placeholder="病情發展過程...">${existingRecord ? existingRecord.presentIllness || '' : ''}</textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">中醫診斷 *</label>
+                                <input type="text" id="inlineTcmDiagnosis" required 
+                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                    placeholder="如：頭痛、胃脘痛等..." value="${existingRecord ? existingRecord.tcmDiagnosis || '' : ''}">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">證型診斷 *</label>
+                                <input type="text" id="inlineSyndromePattern" required 
+                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                    placeholder="如：肝陽上亢證等..." value="${existingRecord ? existingRecord.syndromePattern || '' : ''}">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">處方內容 *</label>
+                            <textarea id="inlinePrescriptionContent" rows="4" required 
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                placeholder="詳細藥物組成及劑量，如：&#10;天麻 10g&#10;鉤藤 15g&#10;石決明 30g&#10;...">${existingRecord ? existingRecord.prescriptionContent || '' : ''}</textarea>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">服用方法 *</label>
+                                <input type="text" id="inlineDosageInstructions" required 
+                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                    placeholder="如：水煎服，日二次，飯後溫服" value="${existingRecord ? existingRecord.dosageInstructions || '' : ''}">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">療程</label>
+                                <input type="text" id="inlineTreatmentDuration" 
+                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                    placeholder="如：7劑，一週後複診" value="${existingRecord ? existingRecord.treatmentDuration || '' : ''}">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">醫囑及注意事項</label>
+                            <textarea id="inlineMedicalAdvice" rows="2" 
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                placeholder="飲食宜忌、生活調理等...">${existingRecord ? existingRecord.medicalAdvice || '' : ''}</textarea>
+                        </div>
+                        
+                        <!-- 操作按鈕 -->
+                        <div class="flex space-x-3 pt-4 border-t border-blue-200">
+                            ${existingRecord ? `
+                            <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium text-sm">
+                                更新病歷
+                            </button>
+                            ` : `
+                            <button type="button" onclick="saveInlineDraft()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium text-sm">
+                                儲存病歷
+                            </button>
+                            `}
+                            <button type="button" onclick="hideInlineMedicalRecord()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
+                                取消
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            // 將表單插入到診症系統頁面
+            const consultationDiv = document.getElementById('consultationSystem').querySelector('.bg-white');
+            
+            // 移除現有的內嵌表單（如果有）
+            const existingForm = document.getElementById('inlineMedicalRecord');
+            if (existingForm) {
+                existingForm.remove();
+            }
+            
+            consultationDiv.insertAdjacentHTML('beforeend', medicalRecordHtml);
+            
+            // 滾動到表單位置
+            setTimeout(() => {
+                document.getElementById('inlineMedicalRecord').scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            }, 100);
+        }
+        
+        // 清空病歷表單
+        function clearMedicalRecordForm() {
+            const fieldsToKeep = ['recordPatientId', 'recordAppointmentId', 'consultationDate', 'consultationTime', 'consultingDoctor', 'chiefComplaint'];
+            const form = document.querySelector('#medicalRecordForm form');
+            const inputs = form.querySelectorAll('input, textarea');
+            
+            inputs.forEach(input => {
+                if (!fieldsToKeep.includes(input.id)) {
+                    input.value = '';
+                }
+            });
+        }
+        
+        // 儲存病歷
+        function saveMedicalRecord(event) {
             event.preventDefault();
             
-            const appointmentId = parseInt(document.getElementById('currentAppointmentId').value);
-            const patientId = parseInt(document.getElementById('currentPatientId').value);
+            // 驗證必填欄位
+            const requiredFields = [
+                { id: 'consultationDate', name: '診症日期' },
+                { id: 'consultationTime', name: '診症時間' },
+                { id: 'consultingDoctor', name: '主診醫師' },
+                { id: 'chiefComplaint', name: '主訴' },
+                { id: 'tcmDiagnosis', name: '中醫診斷' },
+                { id: 'syndromePattern', name: '證型診斷' },
+                { id: 'treatmentPrinciple', name: '治法' },
+                { id: 'prescriptionContent', name: '處方內容' },
+                { id: 'dosageInstructions', name: '服用方法' }
+            ];
             
-            // 記錄完成診症的時間
-            const completionTime = new Date();
+            const missingFields = [];
             
-            const consultation = {
-                id: consultations.length + 1,
-                appointmentId: appointmentId,
+            // 先清除所有錯誤樣式
+            requiredFields.forEach(field => {
+                const element = document.getElementById(field.id);
+                if (element) {
+                    element.classList.remove('border-red-500', 'bg-red-50');
+                }
+            });
+            
+            for (const field of requiredFields) {
+                const element = document.getElementById(field.id);
+                if (!element || !element.value.trim()) {
+                    missingFields.push(field.name);
+                    // 為缺失的欄位添加紅色邊框提示
+                    if (element) {
+                        element.classList.add('border-red-500', 'bg-red-50');
+                        element.addEventListener('input', function() {
+                            if (this.value.trim()) {
+                                this.classList.remove('border-red-500', 'bg-red-50');
+                            }
+                        }, { once: true });
+                    }
+                }
+            }
+            
+            if (missingFields.length > 0) {
+                showNotification(`請填寫以下必填欄位：${missingFields.join('、')}`, 'error');
+                // 滾動到第一個缺失的欄位
+                const firstMissingFieldId = requiredFields.find(field => {
+                    const element = document.getElementById(field.id);
+                    return !element || !element.value.trim();
+                })?.id;
+                
+                if (firstMissingFieldId) {
+                    const firstMissingField = document.getElementById(firstMissingFieldId);
+                    if (firstMissingField) {
+                        firstMissingField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        firstMissingField.focus();
+                    }
+                }
+                return;
+            }
+            
+            const patientId = parseInt(document.getElementById('recordPatientId').value);
+            const appointmentId = parseInt(document.getElementById('recordAppointmentId').value);
+            const patient = patients.find(p => p.id === patientId);
+            
+            const medicalRecord = {
+                id: nextRecordId++,
                 patientId: patientId,
-                date: completionTime.toLocaleDateString('zh-TW'),
-                time: completionTime.toLocaleTimeString('zh-TW'),
+                appointmentId: appointmentId,
+                patientName: patient.name,
+                patientNumber: patient.patientNumber,
+                consultationDate: document.getElementById('consultationDate').value,
+                consultationTime: document.getElementById('consultationTime').value,
+                consultingDoctor: document.getElementById('consultingDoctor').value,
                 chiefComplaint: document.getElementById('chiefComplaint').value,
                 presentIllness: document.getElementById('presentIllness').value,
-                pulse: document.getElementById('pulse').value,
-                tongue: document.getElementById('tongue').value,
-                diagnosis: document.getElementById('diagnosis').value,
-                prescription: document.getElementById('prescription').value,
-                instructions: document.getElementById('instructions').value,
-                doctor: userNames[currentUser]
+                pastMedicalHistory: document.getElementById('pastMedicalHistory').value,
+                allergyHistory: document.getElementById('allergyHistory').value,
+                inspection: document.getElementById('inspection').value,
+                auscultation: document.getElementById('auscultation').value,
+                inquiry: document.getElementById('inquiry').value,
+                palpation: document.getElementById('palpation').value,
+                tcmDiagnosis: document.getElementById('tcmDiagnosis').value,
+                syndromePattern: document.getElementById('syndromePattern').value,
+                diagnosisBasis: document.getElementById('diagnosisBasis').value,
+                treatmentPrinciple: document.getElementById('treatmentPrinciple').value,
+                prescriptionName: document.getElementById('prescriptionName').value,
+                prescriptionContent: document.getElementById('prescriptionContent').value,
+                dosageInstructions: document.getElementById('dosageInstructions').value,
+                treatmentDuration: document.getElementById('treatmentDuration').value,
+                medicalAdvice: document.getElementById('medicalAdvice').value,
+                createdAt: new Date().toISOString(),
+                createdBy: currentUser,
+                status: 'completed'
             };
             
-            consultations.push(consultation);
+            medicalRecords.push(medicalRecord);
             
-            // 自動將掛號狀態更新為已完成，並儲存診症記錄ID
-            const appointment = appointments.find(apt => apt.id === appointmentId);
-            if (appointment) {
-                appointment.status = '已完成';
-                appointment.consultationId = consultation.id; // 關聯診症記錄
-                patientStatus[patientId] = '已完成';
+            // 更新掛號狀態為已完成
+            updateAppointmentStatus(appointmentId, '已完成');
+            
+            showNotification(`病歷已成功儲存！病人：${patient.name}`);
+            showConsultationSystem();
+        }
+        
+        // 隱藏內嵌病歷表單
+        function hideInlineMedicalRecord() {
+            const inlineForm = document.getElementById('inlineMedicalRecord');
+            if (inlineForm) {
+                inlineForm.remove();
+            }
+        }
+        
+        // 儲存內嵌病歷
+        function saveInlineMedicalRecord(event) {
+            event.preventDefault();
+            
+            const patientId = parseInt(document.getElementById('inlineRecordPatientId').value);
+            const appointmentId = parseInt(document.getElementById('inlineRecordAppointmentId').value);
+            const patient = patients.find(p => p.id === patientId);
+            
+            // 驗證必填欄位
+            const requiredFields = [
+                { id: 'inlineChiefComplaint', name: '主訴' },
+                { id: 'inlineTcmDiagnosis', name: '中醫診斷' },
+                { id: 'inlineSyndromePattern', name: '證型診斷' },
+                { id: 'inlinePrescriptionContent', name: '處方內容' },
+                { id: 'inlineDosageInstructions', name: '服用方法' }
+            ];
+            
+            const missingFields = [];
+            
+            // 先清除所有錯誤樣式
+            requiredFields.forEach(field => {
+                const element = document.getElementById(field.id);
+                if (element) {
+                    element.classList.remove('border-red-500', 'bg-red-50');
+                }
+            });
+            
+            for (const field of requiredFields) {
+                const element = document.getElementById(field.id);
+                if (!element || !element.value.trim()) {
+                    missingFields.push(field.name);
+                    // 為缺失的欄位添加紅色邊框提示
+                    if (element) {
+                        element.classList.add('border-red-500', 'bg-red-50');
+                        element.addEventListener('input', function() {
+                            if (this.value.trim()) {
+                                this.classList.remove('border-red-500', 'bg-red-50');
+                            }
+                        }, { once: true });
+                    }
+                }
             }
             
-            showNotification('診症記錄儲存成功！病人狀態已更新為「已完成」。');
-            clearConsultationForm();
-            loadAppointmentList();
-        }
-
-        // 取消診症
-        function cancelConsultation() {
-            const appointmentId = parseInt(document.getElementById('currentAppointmentId').value);
-            const appointment = appointments.find(apt => apt.id === appointmentId);
-            
-            if (appointment) {
-                // 將狀態改回等待診症
-                appointment.status = '等待診症';
-                patientStatus[appointment.patientId] = '等待診症';
+            if (missingFields.length > 0) {
+                showNotification(`請填寫以下必填欄位：${missingFields.join('、')}`, 'error');
+                // 滾動到第一個缺失的欄位
+                const firstMissingFieldId = requiredFields.find(field => {
+                    const element = document.getElementById(field.id);
+                    return !element || !element.value.trim();
+                })?.id;
+                
+                if (firstMissingFieldId) {
+                    const firstMissingField = document.getElementById(firstMissingFieldId);
+                    if (firstMissingField) {
+                        firstMissingField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        firstMissingField.focus();
+                    }
+                }
+                return;
             }
             
-            clearConsultationForm();
-            loadAppointmentList();
-            showNotification('已取消診症，病人狀態已恢復為「等待診症」。', 'info');
+            // 檢查是否為修改模式
+            const existingRecordIndex = medicalRecords.findIndex(record => record.appointmentId === appointmentId && record.status === 'completed');
+            const isEditMode = existingRecordIndex >= 0;
+            
+            if (isEditMode) {
+                // 修改模式：更新現有病歷，保留原始資訊
+                const existingRecord = medicalRecords[existingRecordIndex];
+                
+                // 記錄修改歷史
+                if (!existingRecord.modificationHistory) {
+                    existingRecord.modificationHistory = [];
+                }
+                
+                // 保存修改前的狀態
+                existingRecord.modificationHistory.push({
+                    modifiedAt: new Date().toISOString(),
+                    modifiedBy: currentUser,
+                    changes: {
+                        chiefComplaint: { from: existingRecord.chiefComplaint, to: document.getElementById('inlineChiefComplaint').value },
+                        presentIllness: { from: existingRecord.presentIllness, to: document.getElementById('inlinePresentIllness').value },
+                        tcmDiagnosis: { from: existingRecord.tcmDiagnosis, to: document.getElementById('inlineTcmDiagnosis').value },
+                        syndromePattern: { from: existingRecord.syndromePattern, to: document.getElementById('inlineSyndromePattern').value },
+                        prescriptionContent: { from: existingRecord.prescriptionContent, to: document.getElementById('inlinePrescriptionContent').value },
+                        dosageInstructions: { from: existingRecord.dosageInstructions, to: document.getElementById('inlineDosageInstructions').value },
+                        treatmentDuration: { from: existingRecord.treatmentDuration, to: document.getElementById('inlineTreatmentDuration').value },
+                        medicalAdvice: { from: existingRecord.medicalAdvice, to: document.getElementById('inlineMedicalAdvice').value }
+                    }
+                });
+                
+                // 更新病歷內容
+                existingRecord.chiefComplaint = document.getElementById('inlineChiefComplaint').value;
+                existingRecord.presentIllness = document.getElementById('inlinePresentIllness').value;
+                existingRecord.tcmDiagnosis = document.getElementById('inlineTcmDiagnosis').value;
+                existingRecord.syndromePattern = document.getElementById('inlineSyndromePattern').value;
+                existingRecord.prescriptionContent = document.getElementById('inlinePrescriptionContent').value;
+                existingRecord.dosageInstructions = document.getElementById('inlineDosageInstructions').value;
+                existingRecord.treatmentDuration = document.getElementById('inlineTreatmentDuration').value;
+                existingRecord.medicalAdvice = document.getElementById('inlineMedicalAdvice').value;
+                existingRecord.lastModified = new Date().toISOString();
+                existingRecord.modifiedBy = currentUser;
+                
+                showNotification(`病歷已更新！病人：${patient.name}`, 'info');
+            } else {
+                // 新增模式：創建新病歷
+                const medicalRecord = {
+                    id: nextRecordId++,
+                    patientId: patientId,
+                    appointmentId: appointmentId,
+                    patientName: patient.name,
+                    patientNumber: patient.patientNumber,
+                    consultationDate: new Date().toISOString().split('T')[0],
+                    consultationTime: new Date().toTimeString().slice(0, 5),
+                    consultingDoctor: '李中醫師',
+                    chiefComplaint: document.getElementById('inlineChiefComplaint').value,
+                    presentIllness: document.getElementById('inlinePresentIllness').value,
+                    tcmDiagnosis: document.getElementById('inlineTcmDiagnosis').value,
+                    syndromePattern: document.getElementById('inlineSyndromePattern').value,
+                    prescriptionContent: document.getElementById('inlinePrescriptionContent').value,
+                    dosageInstructions: document.getElementById('inlineDosageInstructions').value,
+                    treatmentDuration: document.getElementById('inlineTreatmentDuration').value,
+                    medicalAdvice: document.getElementById('inlineMedicalAdvice').value,
+                    createdAt: new Date().toISOString(),
+                    createdBy: currentUser,
+                    status: 'completed'
+                };
+                
+                medicalRecords.push(medicalRecord);
+                
+                // 更新掛號狀態為已完成
+                updateAppointmentStatus(appointmentId, '已完成');
+                showNotification(`診症完成！病歷已儲存 - 病人：${patient.name}`);
+            }
+            
+            // 隱藏表單
+            hideInlineMedicalRecord();
+        }
+        
+        // 儲存內嵌草稿
+        function saveInlineDraft() {
+            const patientId = parseInt(document.getElementById('inlineRecordPatientId').value);
+            const appointmentId = parseInt(document.getElementById('inlineRecordAppointmentId').value);
+            const patient = patients.find(p => p.id === patientId);
+            
+            // 驗證必填欄位
+            const requiredFields = [
+                { id: 'inlineChiefComplaint', name: '主訴' },
+                { id: 'inlineTcmDiagnosis', name: '中醫診斷' },
+                { id: 'inlineSyndromePattern', name: '證型診斷' },
+                { id: 'inlinePrescriptionContent', name: '處方內容' },
+                { id: 'inlineDosageInstructions', name: '服用方法' }
+            ];
+            
+            const missingFields = [];
+            
+            // 先清除所有錯誤樣式
+            requiredFields.forEach(field => {
+                const element = document.getElementById(field.id);
+                if (element) {
+                    element.classList.remove('border-red-500', 'bg-red-50');
+                }
+            });
+            
+            for (const field of requiredFields) {
+                const element = document.getElementById(field.id);
+                if (!element || !element.value.trim()) {
+                    missingFields.push(field.name);
+                    // 為缺失的欄位添加紅色邊框提示
+                    if (element) {
+                        element.classList.add('border-red-500', 'bg-red-50');
+                        element.addEventListener('input', function() {
+                            if (this.value.trim()) {
+                                this.classList.remove('border-red-500', 'bg-red-50');
+                            }
+                        }, { once: true });
+                    }
+                }
+            }
+            
+            if (missingFields.length > 0) {
+                showNotification(`請填寫以下必填欄位：${missingFields.join('、')}`, 'error');
+                // 滾動到第一個缺失的欄位
+                const firstMissingFieldId = requiredFields.find(field => {
+                    const element = document.getElementById(field.id);
+                    return !element || !element.value.trim();
+                })?.id;
+                
+                if (firstMissingFieldId) {
+                    const firstMissingField = document.getElementById(firstMissingFieldId);
+                    if (firstMissingField) {
+                        firstMissingField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        firstMissingField.focus();
+                    }
+                }
+                return;
+            }
+            
+            // 所有必填欄位都已填寫，完成診症
+            const medicalRecord = {
+                id: nextRecordId++,
+                patientId: patientId,
+                appointmentId: appointmentId,
+                patientName: patient.name,
+                patientNumber: patient.patientNumber,
+                consultationDate: new Date().toISOString().split('T')[0],
+                consultationTime: new Date().toTimeString().slice(0, 5),
+                consultingDoctor: '李中醫師',
+                chiefComplaint: document.getElementById('inlineChiefComplaint').value,
+                presentIllness: document.getElementById('inlinePresentIllness').value,
+                tcmDiagnosis: document.getElementById('inlineTcmDiagnosis').value,
+                syndromePattern: document.getElementById('inlineSyndromePattern').value,
+                prescriptionContent: document.getElementById('inlinePrescriptionContent').value,
+                dosageInstructions: document.getElementById('inlineDosageInstructions').value,
+                treatmentDuration: document.getElementById('inlineTreatmentDuration').value,
+                medicalAdvice: document.getElementById('inlineMedicalAdvice').value,
+                createdAt: new Date().toISOString(),
+                createdBy: currentUser,
+                status: 'completed'
+            };
+            
+            // 刪除現有草稿（如果有）
+            medicalRecords = medicalRecords.filter(record => 
+                !(record.appointmentId === appointmentId && record.status === 'draft')
+            );
+            
+            medicalRecords.push(medicalRecord);
+            
+            // 更新掛號狀態為已完成
+            updateAppointmentStatus(appointmentId, '已完成');
+            
+            showNotification(`診症完成！病歷已儲存 - 病人：${patient.name}`);
+            
+            // 隱藏表單
+            hideInlineMedicalRecord();
         }
 
-        // 清除病人詳細資料表單
-        function clearConsultationForm() {
-            document.getElementById('consultationForm').classList.add('hidden');
-            const inputs = ['chiefComplaint', 'presentIllness', 'pulse', 'tongue', 'diagnosis', 'prescription', 'instructions'];
-            inputs.forEach(id => document.getElementById(id).value = '');
-            document.getElementById('currentAppointmentId').value = '';
-            document.getElementById('currentPatientId').value = '';
+        // 顯示中藥及方劑庫
+        function showHerbalLibrary() {
+            hideAllPages();
+            document.getElementById('herbalLibrary').classList.remove('hidden');
+            loadHerbalItems();
+        }
+
+        // 載入中藥及方劑列表
+        function loadHerbalItems(filteredItems = null) {
+            const container = document.getElementById('herbalItemsList');
+            
+            let itemsToShow = [];
+            
+            if (filteredItems) {
+                itemsToShow = filteredItems;
+            } else {
+                if (currentFilter === 'all') {
+                    itemsToShow = [
+                        ...herbs.map(herb => ({...herb, type: 'herb'})),
+                        ...formulas.map(formula => ({...formula, type: 'formula'}))
+                    ];
+                } else if (currentFilter === 'herb') {
+                    itemsToShow = herbs.map(herb => ({...herb, type: 'herb'}));
+                } else if (currentFilter === 'formula') {
+                    itemsToShow = formulas.map(formula => ({...formula, type: 'formula'}));
+                }
+            }
+            
+            if (itemsToShow.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <div class="text-gray-400 text-6xl mb-4">🔍</div>
+                        <p class="text-gray-500 text-lg">沒有找到符合條件的項目</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = itemsToShow.map(item => {
+                if (item.type === 'herb') {
+                    return createHerbCard(item);
+                } else {
+                    return createFormulaCard(item);
+                }
+            }).join('');
+        }
+
+        // 創建中藥卡片
+        function createHerbCard(herb) {
+            return `
+                <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6 border border-green-200 hover:shadow-lg transition-shadow">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-green-800">${herb.name}</h3>
+                            <p class="text-sm text-green-600">${herb.pinyin || ''}</p>
+                        </div>
+                        <span class="bg-green-600 text-white px-2 py-1 rounded-full text-xs">🌿 中藥</span>
+                    </div>
+                    
+                    <div class="space-y-2 text-sm">
+                        <div>
+                            <span class="font-medium text-gray-700">性味：</span>
+                            <span class="text-gray-600">${herb.nature}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700">歸經：</span>
+                            <span class="text-gray-600">${herb.meridian}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700">功效：</span>
+                            <span class="text-gray-600">${herb.effects.length > 50 ? herb.effects.substring(0, 50) + '...' : herb.effects}</span>
+                        </div>
+                        ${herb.dosage ? `
+                        <div>
+                            <span class="font-medium text-gray-700">用量：</span>
+                            <span class="text-gray-600">${herb.dosage}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <div class="flex space-x-2 mt-4">
+                        <button onclick="viewHerbDetail(${herb.id})" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-medium">
+                            查看詳情
+                        </button>
+                        <button onclick="showNotification('編輯功能開發中...', 'info')" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded text-sm font-medium">
+                            編輯
+                        </button>
+                        <button onclick="deleteHerb(${herb.id})" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm font-medium">
+                            刪除
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 創建方劑卡片
+        function createFormulaCard(formula) {
+            return `
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200 hover:shadow-lg transition-shadow">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-blue-800">${formula.name}</h3>
+                            <p class="text-sm text-blue-600">${formula.source || ''}</p>
+                        </div>
+                        <span class="bg-blue-600 text-white px-2 py-1 rounded-full text-xs">📜 方劑</span>
+                    </div>
+                    
+                    <div class="space-y-2 text-sm">
+                        <div>
+                            <span class="font-medium text-gray-700">組成：</span>
+                            <span class="text-gray-600">${formula.composition.length > 50 ? formula.composition.substring(0, 50) + '...' : formula.composition}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700">功效：</span>
+                            <span class="text-gray-600">${formula.effects}</span>
+                        </div>
+                        <div>
+                            <span class="font-medium text-gray-700">主治：</span>
+                            <span class="text-gray-600">${formula.indications.length > 50 ? formula.indications.substring(0, 50) + '...' : formula.indications}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex space-x-2 mt-4">
+                        <button onclick="viewFormulaDetail(${formula.id})" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium">
+                            查看詳情
+                        </button>
+                        <button onclick="showNotification('編輯功能開發中...', 'info')" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded text-sm font-medium">
+                            編輯
+                        </button>
+                        <button onclick="deleteFormula(${formula.id})" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm font-medium">
+                            刪除
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 篩選功能
+        function filterHerbalItems(filter) {
+            currentFilter = filter;
+            
+            // 更新按鈕樣式
+            document.querySelectorAll('[id^="herbal-filter-"]').forEach(btn => {
+                btn.className = 'px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300';
+            });
+            document.getElementById(`herbal-filter-${filter}`).className = 'px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700';
+            
+            loadHerbalItems();
+        }
+
+        // 搜索功能
+        function searchHerbalItems() {
+            const searchTerm = document.getElementById('herbalSearchInput').value.toLowerCase().trim();
+            
+            if (searchTerm === '') {
+                loadHerbalItems();
+                return;
+            }
+            
+            let allItems = [
+                ...herbs.map(herb => ({...herb, type: 'herb'})),
+                ...formulas.map(formula => ({...formula, type: 'formula'}))
+            ];
+            
+            const filteredItems = allItems.filter(item => {
+                if (item.type === 'herb') {
+                    return item.name.toLowerCase().includes(searchTerm) ||
+                           (item.pinyin && item.pinyin.toLowerCase().includes(searchTerm)) ||
+                           item.effects.toLowerCase().includes(searchTerm) ||
+                           item.nature.toLowerCase().includes(searchTerm) ||
+                           item.meridian.toLowerCase().includes(searchTerm) ||
+                           (item.indications && item.indications.toLowerCase().includes(searchTerm));
+                } else {
+                    return item.name.toLowerCase().includes(searchTerm) ||
+                           item.effects.toLowerCase().includes(searchTerm) ||
+                           item.composition.toLowerCase().includes(searchTerm) ||
+                           item.indications.toLowerCase().includes(searchTerm) ||
+                           (item.source && item.source.toLowerCase().includes(searchTerm));
+                }
+            });
+            
+            loadHerbalItems(filteredItems);
+        }
+
+        // 顯示新增中藥表單
+        function showAddHerbForm() {
+            hideAllPages();
+            document.getElementById('addHerbForm').classList.remove('hidden');
+            
+            // 清空表單
+            document.getElementById('herbName').value = '';
+            document.getElementById('herbPinyin').value = '';
+            document.getElementById('herbNature').value = '';
+            document.getElementById('herbMeridian').value = '';
+            document.getElementById('herbEffects').value = '';
+            document.getElementById('herbIndications').value = '';
+            document.getElementById('herbDosage').value = '';
+            document.getElementById('herbPrecautions').value = '';
+        }
+
+        // 顯示新增方劑表單
+        function showAddFormulaForm() {
+            hideAllPages();
+            document.getElementById('addFormulaForm').classList.remove('hidden');
+            
+            // 清空表單
+            document.getElementById('formulaName').value = '';
+            document.getElementById('formulaSource').value = '';
+            document.getElementById('formulaComposition').value = '';
+            document.getElementById('formulaEffects').value = '';
+            document.getElementById('formulaIndications').value = '';
+            document.getElementById('formulaUsage').value = '';
+            document.getElementById('formulaPrecautions').value = '';
+        }
+
+        // 新增中藥
+        function addHerb(event) {
+            event.preventDefault();
+            
+            const newHerb = {
+                id: nextHerbId++,
+                name: document.getElementById('herbName').value,
+                pinyin: document.getElementById('herbPinyin').value,
+                nature: document.getElementById('herbNature').value,
+                meridian: document.getElementById('herbMeridian').value,
+                effects: document.getElementById('herbEffects').value,
+                indications: document.getElementById('herbIndications').value,
+                dosage: document.getElementById('herbDosage').value,
+                precautions: document.getElementById('herbPrecautions').value
+            };
+            
+            herbs.push(newHerb);
+            showNotification(`中藥 "${newHerb.name}" 新增成功！`);
+            showHerbalLibrary();
+        }
+
+        // 新增方劑
+        function addFormula(event) {
+            event.preventDefault();
+            
+            const newFormula = {
+                id: nextFormulaId++,
+                name: document.getElementById('formulaName').value,
+                source: document.getElementById('formulaSource').value,
+                composition: document.getElementById('formulaComposition').value,
+                effects: document.getElementById('formulaEffects').value,
+                indications: document.getElementById('formulaIndications').value,
+                usage: document.getElementById('formulaUsage').value,
+                precautions: document.getElementById('formulaPrecautions').value
+            };
+            
+            formulas.push(newFormula);
+            showNotification(`方劑 "${newFormula.name}" 新增成功！`);
+            showHerbalLibrary();
+        }
+
+        // 查看中藥詳情
+        function viewHerbDetail(id) {
+            const herb = herbs.find(h => h.id === id);
+            if (herb) {
+                const content = `
+                    <div class="space-y-4">
+                        <div class="text-center border-b border-gray-200 pb-4">
+                            <h4 class="text-2xl font-bold text-amber-800">${herb.name}</h4>
+                            ${herb.pinyin ? `<p class="text-amber-600 mt-1">${herb.pinyin}</p>` : ''}
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-amber-50 rounded-lg p-4">
+                                <h5 class="font-semibold text-amber-800 mb-2">性味</h5>
+                                <p class="text-gray-700">${herb.nature}</p>
+                            </div>
+                            <div class="bg-amber-50 rounded-lg p-4">
+                                <h5 class="font-semibold text-amber-800 mb-2">歸經</h5>
+                                <p class="text-gray-700">${herb.meridian}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-green-50 rounded-lg p-4">
+                            <h5 class="font-semibold text-green-800 mb-2">功效</h5>
+                            <p class="text-gray-700">${herb.effects}</p>
+                        </div>
+                        
+                        ${herb.indications ? `
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h5 class="font-semibold text-blue-800 mb-2">主治</h5>
+                            <p class="text-gray-700">${herb.indications}</p>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${herb.dosage ? `
+                            <div class="bg-purple-50 rounded-lg p-4">
+                                <h5 class="font-semibold text-purple-800 mb-2">用法用量</h5>
+                                <p class="text-gray-700">${herb.dosage}</p>
+                            </div>
+                            ` : ''}
+                            ${herb.precautions ? `
+                            <div class="bg-red-50 rounded-lg p-4">
+                                <h5 class="font-semibold text-red-800 mb-2">注意事項</h5>
+                                <p class="text-gray-700">${herb.precautions}</p>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                document.getElementById('herbDetailContent').innerHTML = content;
+                showModal('herbDetailModal');
+            }
+        }
+
+        // 查看方劑詳情
+        function viewFormulaDetail(id) {
+            const formula = formulas.find(f => f.id === id);
+            if (formula) {
+                const content = `
+                    <div class="space-y-4">
+                        <div class="text-center border-b border-gray-200 pb-4">
+                            <h4 class="text-2xl font-bold text-blue-800">${formula.name}</h4>
+                            ${formula.source ? `<p class="text-blue-600 mt-1">出處：${formula.source}</p>` : ''}
+                        </div>
+                        
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h5 class="font-semibold text-blue-800 mb-2">組成</h5>
+                            <p class="text-gray-700">${formula.composition}</p>
+                        </div>
+                        
+                        <div class="bg-green-50 rounded-lg p-4">
+                            <h5 class="font-semibold text-green-800 mb-2">功效</h5>
+                            <p class="text-gray-700">${formula.effects}</p>
+                        </div>
+                        
+                        <div class="bg-amber-50 rounded-lg p-4">
+                            <h5 class="font-semibold text-amber-800 mb-2">主治</h5>
+                            <p class="text-gray-700">${formula.indications}</p>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${formula.usage ? `
+                            <div class="bg-purple-50 rounded-lg p-4">
+                                <h5 class="font-semibold text-purple-800 mb-2">用法</h5>
+                                <p class="text-gray-700">${formula.usage}</p>
+                            </div>
+                            ` : ''}
+                            ${formula.precautions ? `
+                            <div class="bg-red-50 rounded-lg p-4">
+                                <h5 class="font-semibold text-red-800 mb-2">注意事項</h5>
+                                <p class="text-gray-700">${formula.precautions}</p>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                document.getElementById('formulaDetailContent').innerHTML = content;
+                showModal('formulaDetailModal');
+            }
+        }
+
+        // 刪除中藥
+        function deleteHerb(id) {
+            const herb = herbs.find(h => h.id === id);
+            if (herb && confirm(`確定要刪除中藥 "${herb.name}" 嗎？`)) {
+                herbs = herbs.filter(h => h.id !== id);
+                loadHerbalItems();
+                showNotification(`中藥 "${herb.name}" 已刪除`);
+            }
+        }
+
+        // 刪除方劑
+        function deleteFormula(id) {
+            const formula = formulas.find(f => f.id === id);
+            if (formula && confirm(`確定要刪除方劑 "${formula.name}" 嗎？`)) {
+                formulas = formulas.filter(f => f.id !== id);
+                loadHerbalItems();
+                showNotification(`方劑 "${formula.name}" 已刪除`);
+            }
         }
 
         // 顯示系統管理
@@ -1297,414 +2685,942 @@
             document.getElementById('systemManagement').classList.remove('hidden');
         }
 
+
+
+        // 查看病歷記錄
+        function viewMedicalRecord(appointmentId) {
+            const appointment = appointments.find(apt => apt.id === appointmentId);
+            if (!appointment) {
+                showNotification('找不到掛號記錄', 'error');
+                return;
+            }
+            
+            const patient = patients.find(p => p.id === appointment.patientId);
+            if (!patient) {
+                showNotification('找不到病人資料', 'error');
+                return;
+            }
+            
+            // 獲取該病人的所有病歷記錄（按日期排序，最早的在前）
+            const patientRecords = medicalRecords
+                .filter(record => record.patientId === appointment.patientId && record.status === 'completed')
+                .sort((a, b) => new Date(a.consultationDate) - new Date(b.consultationDate));
+            
+            if (patientRecords.length === 0) {
+                showNotification('此病人暫無病歷記錄', 'info');
+                return;
+            }
+            
+            // 顯示病人所有病歷記錄（帶分頁功能），預設顯示該次診症的病歷
+            viewPatientAllMedicalRecordsWithPagination(patient, patientRecords, appointmentId);
+        }
+
+        // 查看病人所有病歷記錄（簡化版）
+        function viewPatientAllMedicalRecordsWithPagination(patient, records, currentAppointmentId = null) {
+            // 每次病歷都算一頁，最新的在最後一頁
+            let currentPage = records.length; // 預設顯示最新的病歷（最後一頁）
+            const totalPages = records.length;
+            
+            // 如果有指定的appointmentId，找到對應的病歷記錄並設為當前頁
+            if (currentAppointmentId) {
+                const targetRecordIndex = records.findIndex(record => record.appointmentId === currentAppointmentId);
+                if (targetRecordIndex >= 0) {
+                    currentPage = targetRecordIndex + 1; // 轉換為頁碼（從1開始）
+                }
+            }
+            
+            function renderPage(page) {
+                // 第1頁 = 最早的病歷，最後一頁 = 最新的病歷
+                const record = records[page - 1]; // 直接索引，因為records已經按日期排序
+                
+                if (!record) return;
+                
+                const consultationDate = new Date(record.consultationDate);
+                const isCurrentAppointment = record.appointmentId === currentAppointmentId;
+                const isDraft = record.status === 'draft';
+                
+                const content = `
+                    <div class="space-y-4">
+                        <!-- 病人基本資訊 -->
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h4 class="text-lg font-semibold text-blue-800">${patient.patientNumber} - ${patient.name}</h4>
+                                    <p class="text-sm text-blue-600">${patient.gender} · ${calculateAge(patient.birthDate)}歲 · 總診症 ${records.length} 次</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm text-gray-600">第 ${page} 次診症</div>
+                                    <div class="text-xs text-gray-500">${consultationDate.toLocaleDateString('zh-TW')}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 分頁控制 -->
+                        <div class="bg-white rounded-lg border border-gray-200">
+                            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                                <h4 class="text-lg font-semibold text-gray-800">📋 病歷記錄</h4>
+                                <div class="flex items-center space-x-2">
+                                    <button onclick="changePage(1)" 
+                                            ${page === 1 ? 'disabled' : ''} 
+                                            class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                                        第1次
+                                    </button>
+                                    <button onclick="changePage(${page - 1})" 
+                                            ${page === 1 ? 'disabled' : ''} 
+                                            class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                                        上一次
+                                    </button>
+                                    <span class="px-3 py-1 text-sm bg-gray-100 rounded">
+                                        第 ${page} 次診症
+                                    </span>
+                                    <button onclick="changePage(${page + 1})" 
+                                            ${page === totalPages ? 'disabled' : ''} 
+                                            class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                                        下一次
+                                    </button>
+                                    <button onclick="changePage(${totalPages})" 
+                                            ${page === totalPages ? 'disabled' : ''} 
+                                            class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                                        最新
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- 單筆病歷記錄 -->
+                            <div class="p-6 ${isCurrentAppointment ? 'bg-yellow-50' : ''}">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <h5 class="text-xl font-semibold text-gray-800">第 ${page} 次診症</h5>
+                                        ${isDraft ? `
+                                            <span class="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">草稿</span>
+                                        ` : `
+                                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">已完成</span>
+                                        `}
+                                        ${isCurrentAppointment ? `
+                                            <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium">本次診症</span>
+                                        ` : ''}
+                                    </div>
+                                    <div class="text-right text-sm text-gray-600">
+                                        <div>${consultationDate.toLocaleDateString('zh-TW')} ${record.consultationTime}</div>
+                                        <div>醫師：${record.consultingDoctor}</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 病歷內容 -->
+                                <div class="space-y-4">
+                                    <div class="bg-green-50 rounded-lg p-4">
+                                        <h6 class="font-semibold text-green-800 mb-2">主訴</h6>
+                                        <p class="text-gray-700">${record.chiefComplaint}</p>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div class="bg-indigo-50 rounded-lg p-4">
+                                            <h6 class="font-semibold text-indigo-800 mb-2">中醫診斷</h6>
+                                            <p class="text-gray-700">${record.tcmDiagnosis}</p>
+                                            ${record.syndromePattern ? `<p class="text-gray-600 text-sm mt-1">證型：${record.syndromePattern}</p>` : ''}
+                                        </div>
+                                        
+                                        ${record.presentIllness ? `
+                                        <div class="bg-amber-50 rounded-lg p-4">
+                                            <h6 class="font-semibold text-amber-800 mb-2">現病史</h6>
+                                            <p class="text-gray-700 text-sm">${record.presentIllness}</p>
+                                        </div>
+                                        ` : ''}
+                                    </div>
+                                    
+                                    <div class="bg-teal-50 rounded-lg p-4">
+                                        <h6 class="font-semibold text-teal-800 mb-2">處方</h6>
+                                        <div class="bg-white rounded border p-3 mb-3">
+                                            <pre class="text-sm text-gray-800 whitespace-pre-wrap">${record.prescriptionContent}</pre>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <span class="font-medium text-gray-700">服用方法：</span>
+                                                <span class="text-gray-600">${record.dosageInstructions}</span>
+                                            </div>
+                                            ${record.treatmentDuration ? `
+                                            <div>
+                                                <span class="font-medium text-gray-700">療程：</span>
+                                                <span class="text-gray-600">${record.treatmentDuration}</span>
+                                            </div>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                    
+                                    ${record.medicalAdvice ? `
+                                    <div class="bg-orange-50 rounded-lg p-4">
+                                        <h6 class="font-semibold text-orange-800 mb-2">醫囑</h6>
+                                        <p class="text-gray-700 text-sm">${record.medicalAdvice}</p>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('medicalRecordDetailContent').innerHTML = content;
+            }
+            
+            // 分頁切換函數
+            window.changePage = function(page) {
+                if (page >= 1 && page <= totalPages) {
+                    currentPage = page;
+                    renderPage(currentPage);
+                }
+            };
+            
+            // 初始化顯示最新的病歷（最後一頁）
+            renderPage(currentPage);
+            showModal('medicalRecordDetailModal');
+        }
+
+        // 查看病人所有病歷記錄
+        function viewPatientAllMedicalRecords(patient, records, currentAppointmentId = null) {
+            const content = `
+                <div class="space-y-6">
+                    <!-- 病人基本資訊 -->
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-blue-800 mb-3">病人基本資訊</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <span class="text-sm font-medium text-gray-600">病人編號：</span>
+                                <span class="text-blue-600 font-mono font-bold">${patient.patientNumber}</span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-600">姓名：</span>
+                                <span class="text-gray-800">${patient.name}</span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-600">性別：</span>
+                                <span class="text-gray-800">${patient.gender}</span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-600">年齡：</span>
+                                <span class="text-gray-800">${calculateAge(patient.birthDate)} 歲</span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-600">電話：</span>
+                                <span class="text-gray-800">${patient.phone}</span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-600">總診症次數：</span>
+                                <span class="text-green-600 font-bold">${records.filter(r => r.status === 'completed').length} 次</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 病歷記錄列表 -->
+                    <div class="bg-white rounded-lg border border-gray-200">
+                        <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                            <h4 class="text-lg font-semibold text-gray-800">📋 病歷記錄 (共 ${records.length} 筆)</h4>
+                            <p class="text-sm text-gray-600 mt-1">按診症日期排序，最新的在前</p>
+                        </div>
+                        
+                        <div class="divide-y divide-gray-200">
+                            ${records.map((record, index) => {
+                                const consultationDate = new Date(record.consultationDate);
+                                const isCurrentAppointment = record.appointmentId === currentAppointmentId;
+                                const isDraft = record.status === 'draft';
+                                
+                                return `
+                                    <div class="p-6 ${isCurrentAppointment ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''} hover:bg-gray-50 transition-colors">
+                                        <div class="flex justify-between items-start mb-4">
+                                            <div class="flex-1">
+                                                <div class="flex items-center space-x-3 mb-2">
+                                                    <h5 class="text-lg font-semibold text-gray-800">
+                                                        第 ${records.length - index} 次診症
+                                                    </h5>
+                                                    ${isDraft ? `
+                                                        <span class="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">
+                                                            草稿
+                                                        </span>
+                                                    ` : `
+                                                        <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">
+                                                            已完成
+                                                        </span>
+                                                    `}
+                                                    ${isCurrentAppointment ? `
+                                                        <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-medium">
+                                                            本次診症
+                                                        </span>
+                                                    ` : ''}
+                                                </div>
+                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                                    <div>
+                                                        <span class="font-medium text-gray-600">診症日期：</span>
+                                                        <span class="text-gray-800">${consultationDate.toLocaleDateString('zh-TW')}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span class="font-medium text-gray-600">診症時間：</span>
+                                                        <span class="text-gray-800">${record.consultationTime}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span class="font-medium text-gray-600">主診醫師：</span>
+                                                        <span class="text-gray-800">${record.consultingDoctor}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span class="font-medium text-gray-600">建立時間：</span>
+                                                        <span class="text-gray-800">${new Date(record.createdAt).toLocaleDateString('zh-TW')}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button onclick="viewMedicalRecordDetail(${record.id})" 
+                                                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                                查看詳情
+                                            </button>
+                                        </div>
+                                        
+                                        <!-- 病歷摘要 -->
+                                        <div class="bg-gray-50 rounded-lg p-4">
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div>
+                                                    <h6 class="font-medium text-gray-700 mb-1">主訴</h6>
+                                                    <p class="text-gray-600 text-sm line-clamp-2">${record.chiefComplaint}</p>
+                                                </div>
+                                                <div>
+                                                    <h6 class="font-medium text-gray-700 mb-1">診斷</h6>
+                                                    <p class="text-gray-600 text-sm">
+                                                        ${record.tcmDiagnosis}${record.syndromePattern ? ` - ${record.syndromePattern}` : ''}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            ${record.prescriptionContent ? `
+                                                <div class="mt-3 pt-3 border-t border-gray-200">
+                                                    <h6 class="font-medium text-gray-700 mb-1">處方摘要</h6>
+                                                    <p class="text-gray-600 text-sm line-clamp-2">${record.prescriptionContent.split('\n').slice(0, 3).join(', ')}${record.prescriptionContent.split('\n').length > 3 ? '...' : ''}</p>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    
+                    <!-- 統計資訊 -->
+                    <div class="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-3">📊 診療統計</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+                            <div class="bg-white rounded-lg p-3">
+                                <div class="text-2xl font-bold text-blue-600">${records.filter(r => r.status === 'completed').length}</div>
+                                <div class="text-sm text-gray-600">完成診症</div>
+                            </div>
+                            <div class="bg-white rounded-lg p-3">
+                                <div class="text-2xl font-bold text-orange-600">${records.filter(r => r.status === 'draft').length}</div>
+                                <div class="text-sm text-gray-600">草稿記錄</div>
+                            </div>
+                            <div class="bg-white rounded-lg p-3">
+                                <div class="text-2xl font-bold text-green-600">
+                                    ${records.length > 0 ? Math.round((new Date() - new Date(records[records.length - 1].consultationDate)) / (1000 * 60 * 60 * 24)) : 0}
+                                </div>
+                                <div class="text-sm text-gray-600">首診至今天數</div>
+                            </div>
+                            <div class="bg-white rounded-lg p-3">
+                                <div class="text-2xl font-bold text-purple-600">
+                                    ${records.length > 1 ? Math.round((new Date(records[0].consultationDate) - new Date(records[records.length - 1].consultationDate)) / (1000 * 60 * 60 * 24 * (records.length - 1))) : 0}
+                                </div>
+                                <div class="text-sm text-gray-600">平均診療間隔(天)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('medicalRecordDetailContent').innerHTML = content;
+            showModal('medicalRecordDetailModal');
+        }
+
+        // 查看病歷詳情
+        function viewMedicalRecordDetail(recordId) {
+            const record = medicalRecords.find(r => r.id === recordId);
+            if (!record) {
+                showNotification('找不到病歷記錄', 'error');
+                return;
+            }
+            
+            const patient = patients.find(p => p.id === record.patientId);
+            const consultationDate = new Date(record.consultationDate);
+            
+            const content = `
+                <div class="space-y-6">
+                    <!-- 病人基本資訊 -->
+                    <div class="bg-blue-50 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-blue-800 mb-3">病人基本資訊</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <span class="text-sm font-medium text-gray-600">病人編號：</span>
+                                <span class="text-blue-600 font-mono font-bold">${record.patientNumber}</span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-600">姓名：</span>
+                                <span class="text-gray-800">${record.patientName}</span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-600">年齡：</span>
+                                <span class="text-gray-800">${patient ? calculateAge(patient.birthDate) : '未知'} 歲</span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-600">診症日期：</span>
+                                <span class="text-gray-800">${consultationDate.toLocaleDateString('zh-TW')}</span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-600">診症時間：</span>
+                                <span class="text-gray-800">${record.consultationTime}</span>
+                            </div>
+                            <div>
+                                <span class="text-sm font-medium text-gray-600">主診醫師：</span>
+                                <span class="text-gray-800">${record.consultingDoctor}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 主訴 -->
+                    <div class="bg-green-50 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-green-800 mb-3">主訴</h4>
+                        <p class="text-gray-700">${record.chiefComplaint}</p>
+                    </div>
+                    
+                    ${record.presentIllness ? `
+                    <!-- 現病史 -->
+                    <div class="bg-amber-50 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-amber-800 mb-3">現病史</h4>
+                        <p class="text-gray-700">${record.presentIllness}</p>
+                    </div>
+                    ` : ''}
+                    
+                    ${record.pastMedicalHistory || record.allergyHistory ? `
+                    <!-- 既往史 -->
+                    <div class="bg-purple-50 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-purple-800 mb-3">既往史</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${record.pastMedicalHistory ? `
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">過往疾病史</h5>
+                                <p class="text-gray-600 text-sm">${record.pastMedicalHistory}</p>
+                            </div>
+                            ` : ''}
+                            ${record.allergyHistory ? `
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">藥物過敏史</h5>
+                                <p class="text-gray-600 text-sm">${record.allergyHistory}</p>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    ${record.inspection || record.auscultation || record.inquiry || record.palpation ? `
+                    <!-- 中醫四診 -->
+                    <div class="bg-red-50 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-red-800 mb-3">中醫四診</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${record.inspection ? `
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">望診</h5>
+                                <p class="text-gray-600 text-sm">${record.inspection}</p>
+                            </div>
+                            ` : ''}
+                            ${record.auscultation ? `
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">聞診</h5>
+                                <p class="text-gray-600 text-sm">${record.auscultation}</p>
+                            </div>
+                            ` : ''}
+                            ${record.inquiry ? `
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">問診</h5>
+                                <p class="text-gray-600 text-sm">${record.inquiry}</p>
+                            </div>
+                            ` : ''}
+                            ${record.palpation ? `
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">切診</h5>
+                                <p class="text-gray-600 text-sm">${record.palpation}</p>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- 中醫診斷 -->
+                    <div class="bg-indigo-50 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-indigo-800 mb-3">中醫診斷</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">病名診斷</h5>
+                                <p class="text-gray-800 font-medium">${record.tcmDiagnosis}</p>
+                            </div>
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">證型診斷</h5>
+                                <p class="text-gray-800 font-medium">${record.syndromePattern || '未填寫'}</p>
+                            </div>
+                        </div>
+                        ${record.diagnosisBasis ? `
+                        <div>
+                            <h5 class="font-medium text-gray-700 mb-2">診斷依據</h5>
+                            <p class="text-gray-600 text-sm">${record.diagnosisBasis}</p>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- 治療方案 -->
+                    <div class="bg-teal-50 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-teal-800 mb-3">治療方案</h4>
+                        ${record.treatmentPrinciple ? `
+                        <div class="mb-4">
+                            <h5 class="font-medium text-gray-700 mb-2">治法</h5>
+                            <p class="text-gray-800">${record.treatmentPrinciple}</p>
+                        </div>
+                        ` : ''}
+                        ${record.prescriptionName ? `
+                        <div class="mb-4">
+                            <h5 class="font-medium text-gray-700 mb-2">方劑名稱</h5>
+                            <p class="text-gray-800">${record.prescriptionName}</p>
+                        </div>
+                        ` : ''}
+                        <div class="mb-4">
+                            <h5 class="font-medium text-gray-700 mb-2">處方內容</h5>
+                            <div class="bg-white rounded border p-3">
+                                <pre class="text-sm text-gray-800 whitespace-pre-wrap font-mono">${record.prescriptionContent}</pre>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">服用方法</h5>
+                                <p class="text-gray-800">${record.dosageInstructions}</p>
+                            </div>
+                            ${record.treatmentDuration ? `
+                            <div>
+                                <h5 class="font-medium text-gray-700 mb-2">療程</h5>
+                                <p class="text-gray-800">${record.treatmentDuration}</p>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    ${record.medicalAdvice ? `
+                    <!-- 醫囑及注意事項 -->
+                    <div class="bg-orange-50 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-orange-800 mb-3">醫囑及注意事項</h4>
+                        <p class="text-gray-700">${record.medicalAdvice}</p>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- 記錄資訊 -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-3">記錄資訊</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <span class="font-medium text-gray-600">建立時間：</span>
+                                <span class="text-gray-800">${new Date(record.createdAt).toLocaleString('zh-TW')}</span>
+                            </div>
+                            <div>
+                                <span class="font-medium text-gray-600">建立者：</span>
+                                <span class="text-gray-800">${userNames[record.createdBy] || record.createdBy}</span>
+                            </div>
+                            ${record.lastModified ? `
+                            <div>
+                                <span class="font-medium text-gray-600">最後修改：</span>
+                                <span class="text-gray-800">${new Date(record.lastModified).toLocaleString('zh-TW')}</span>
+                            </div>
+                            <div>
+                                <span class="font-medium text-gray-600">修改者：</span>
+                                <span class="text-gray-800">${userNames[record.modifiedBy] || record.modifiedBy}</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    ${record.modificationHistory && record.modificationHistory.length > 0 ? `
+                    <!-- 修改歷史 -->
+                    <div class="bg-yellow-50 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="text-lg font-semibold text-yellow-800">📝 修改歷史</h4>
+                            <button onclick="toggleModificationHistory()" id="toggleHistoryBtn" class="text-yellow-600 hover:text-yellow-800 text-sm font-medium">
+                                展開歷史 ▼
+                            </button>
+                        </div>
+                        <div id="modificationHistoryContent" class="hidden">
+                            <div class="space-y-4">
+                                ${record.modificationHistory.map((history, index) => `
+                                    <div class="bg-white rounded-lg p-4 border border-yellow-200">
+                                        <div class="flex justify-between items-center mb-3">
+                                            <h5 class="font-medium text-gray-800">修改記錄 #${record.modificationHistory.length - index}</h5>
+                                            <div class="text-sm text-gray-600">
+                                                ${new Date(history.modifiedAt).toLocaleString('zh-TW')} 
+                                                by ${userNames[history.modifiedBy] || history.modifiedBy}
+                                            </div>
+                                        </div>
+                                        <div class="space-y-3">
+                                            ${Object.entries(history.changes).map(([field, change]) => {
+                                                if (change.from !== change.to) {
+                                                    const fieldNames = {
+                                                        chiefComplaint: '主訴',
+                                                        presentIllness: '現病史',
+                                                        tcmDiagnosis: '中醫診斷',
+                                                        syndromePattern: '證型診斷',
+                                                        prescriptionContent: '處方內容',
+                                                        dosageInstructions: '服用方法',
+                                                        treatmentDuration: '療程',
+                                                        medicalAdvice: '醫囑及注意事項'
+                                                    };
+                                                    return `
+                                                        <div class="border-l-4 border-yellow-400 pl-4">
+                                                            <div class="font-medium text-gray-700 mb-1">${fieldNames[field] || field}</div>
+                                                            <div class="text-sm">
+                                                                <div class="text-red-600 mb-1">
+                                                                    <span class="font-medium">修改前：</span>
+                                                                    <span class="bg-red-50 px-2 py-1 rounded">${change.from || '(空白)'}</span>
+                                                                </div>
+                                                                <div class="text-green-600">
+                                                                    <span class="font-medium">修改後：</span>
+                                                                    <span class="bg-green-50 px-2 py-1 rounded">${change.to || '(空白)'}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    `;
+                                                }
+                                                return '';
+                                            }).filter(item => item !== '').join('')}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            document.getElementById('medicalRecordDetailContent').innerHTML = content;
+            showModal('medicalRecordDetailModal');
+        }
+
+        // 查看病人病歷記錄
+        function viewPatientMedicalRecords(patientId) {
+            const patient = patients.find(p => p.id === patientId);
+            if (!patient) {
+                showNotification('找不到病人資料', 'error');
+                return;
+            }
+            
+            hideAllPages();
+            document.getElementById('patientMedicalRecords').classList.remove('hidden');
+            document.getElementById('currentPatientName').textContent = `病人：${patient.patientNumber} - ${patient.name}`;
+            
+            // 清空篩選條件
+            document.getElementById('patientRecordDateFrom').value = '';
+            document.getElementById('patientRecordDateTo').value = '';
+            
+            // 儲存當前病人ID
+            window.currentPatientId = patientId;
+            
+            loadPatientMedicalRecordsList();
+        }
+
+        // 載入病人病歷記錄列表
+        function loadPatientMedicalRecordsList(filteredRecords = null) {
+            const tbody = document.getElementById('patientMedicalRecordsList');
+            const patientRecords = medicalRecords.filter(record => 
+                record.patientId === window.currentPatientId && record.status === 'completed'
+            );
+            
+            const recordsToShow = filteredRecords || patientRecords;
+            
+            if (recordsToShow.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="border border-gray-200 px-4 py-8 text-center text-gray-500">
+                            ${filteredRecords ? '沒有找到符合條件的病歷記錄' : '此病人暫無病歷記錄'}
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = recordsToShow.map(record => {
+                const consultationDate = new Date(record.consultationDate);
+                const dateString = consultationDate.toLocaleDateString('zh-TW');
+                
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="border border-gray-200 px-4 py-3">${dateString}</td>
+                        <td class="border border-gray-200 px-4 py-3">
+                            <div class="max-w-xs truncate" title="${record.chiefComplaint}">
+                                ${record.chiefComplaint}
+                            </div>
+                        </td>
+                        <td class="border border-gray-200 px-4 py-3">
+                            <div class="max-w-xs truncate" title="${record.tcmDiagnosis}">
+                                ${record.tcmDiagnosis}
+                            </div>
+                        </td>
+                        <td class="border border-gray-200 px-4 py-3">${record.consultingDoctor}</td>
+                        <td class="border border-gray-200 px-4 py-3">
+                            <button onclick="viewMedicalRecordDetail(${record.id})" class="text-purple-600 hover:text-purple-800 text-sm font-medium">
+                                查看詳情
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 篩選病人病歷記錄（按日期）
+        function filterPatientMedicalRecords() {
+            const dateFrom = document.getElementById('patientRecordDateFrom').value;
+            const dateTo = document.getElementById('patientRecordDateTo').value;
+            
+            let filteredRecords = medicalRecords.filter(record => 
+                record.patientId === window.currentPatientId && record.status === 'completed'
+            );
+            
+            // 應用日期篩選
+            if (dateFrom || dateTo) {
+                filteredRecords = filteredRecords.filter(record => {
+                    const recordDate = new Date(record.consultationDate);
+                    const fromDate = dateFrom ? new Date(dateFrom) : null;
+                    const toDate = dateTo ? new Date(dateTo) : null;
+                    
+                    if (fromDate && recordDate < fromDate) return false;
+                    if (toDate && recordDate > toDate) return false;
+                    return true;
+                });
+            }
+            
+            loadPatientMedicalRecordsList(filteredRecords);
+        }
+
+        // 設定病人病歷日期篩選
+        function setPatientDateFilter(period) {
+            const today = new Date();
+            const dateFromInput = document.getElementById('patientRecordDateFrom');
+            const dateToInput = document.getElementById('patientRecordDateTo');
+            
+            let fromDate;
+            
+            switch (period) {
+                case 'today':
+                    fromDate = new Date(today);
+                    break;
+                case 'week':
+                    fromDate = new Date(today);
+                    fromDate.setDate(today.getDate() - 7);
+                    break;
+                case 'month':
+                    fromDate = new Date(today);
+                    fromDate.setMonth(today.getMonth() - 1);
+                    break;
+                default:
+                    return;
+            }
+            
+            dateFromInput.value = fromDate.toISOString().split('T')[0];
+            dateToInput.value = today.toISOString().split('T')[0];
+            
+            filterPatientMedicalRecords();
+        }
+
+        // 清除病人病歷日期篩選
+        function clearPatientDateFilter() {
+            document.getElementById('patientRecordDateFrom').value = '';
+            document.getElementById('patientRecordDateTo').value = '';
+            filterPatientMedicalRecords();
+        }
+
+
+
+        // 儲存病歷（原儲存草稿功能）
+        function saveDraftRecord() {
+            // 驗證必填欄位
+            const requiredFields = [
+                { id: 'consultationDate', name: '診症日期' },
+                { id: 'consultationTime', name: '診症時間' },
+                { id: 'consultingDoctor', name: '主診醫師' },
+                { id: 'chiefComplaint', name: '主訴' },
+                { id: 'tcmDiagnosis', name: '中醫診斷' },
+                { id: 'syndromePattern', name: '證型診斷' },
+                { id: 'treatmentPrinciple', name: '治法' },
+                { id: 'prescriptionContent', name: '處方內容' },
+                { id: 'dosageInstructions', name: '服用方法' }
+            ];
+            
+            const missingFields = [];
+            
+            // 先清除所有錯誤樣式
+            requiredFields.forEach(field => {
+                const element = document.getElementById(field.id);
+                if (element) {
+                    element.classList.remove('border-red-500', 'bg-red-50');
+                }
+            });
+            
+            for (const field of requiredFields) {
+                const element = document.getElementById(field.id);
+                if (!element || !element.value.trim()) {
+                    missingFields.push(field.name);
+                    // 為缺失的欄位添加紅色邊框提示
+                    if (element) {
+                        element.classList.add('border-red-500', 'bg-red-50');
+                        element.addEventListener('input', function() {
+                            if (this.value.trim()) {
+                                this.classList.remove('border-red-500', 'bg-red-50');
+                            }
+                        }, { once: true });
+                    }
+                }
+            }
+            
+            if (missingFields.length > 0) {
+                showNotification(`請填寫以下必填欄位：${missingFields.join('、')}`, 'error');
+                // 滾動到第一個缺失的欄位
+                const firstMissingFieldId = requiredFields.find(field => {
+                    const element = document.getElementById(field.id);
+                    return !element || !element.value.trim();
+                })?.id;
+                
+                if (firstMissingFieldId) {
+                    const firstMissingField = document.getElementById(firstMissingFieldId);
+                    if (firstMissingField) {
+                        firstMissingField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        firstMissingField.focus();
+                    }
+                }
+                return;
+            }
+            
+            const patientId = parseInt(document.getElementById('recordPatientId').value);
+            const appointmentId = parseInt(document.getElementById('recordAppointmentId').value);
+            const patient = patients.find(p => p.id === patientId);
+            
+            const medicalRecord = {
+                id: nextRecordId++,
+                patientId: patientId,
+                appointmentId: appointmentId,
+                patientName: patient.name,
+                patientNumber: patient.patientNumber,
+                consultationDate: document.getElementById('consultationDate').value,
+                consultationTime: document.getElementById('consultationTime').value,
+                consultingDoctor: document.getElementById('consultingDoctor').value,
+                chiefComplaint: document.getElementById('chiefComplaint').value,
+                presentIllness: document.getElementById('presentIllness').value,
+                pastMedicalHistory: document.getElementById('pastMedicalHistory').value,
+                allergyHistory: document.getElementById('allergyHistory').value,
+                inspection: document.getElementById('inspection').value,
+                auscultation: document.getElementById('auscultation').value,
+                inquiry: document.getElementById('inquiry').value,
+                palpation: document.getElementById('palpation').value,
+                tcmDiagnosis: document.getElementById('tcmDiagnosis').value,
+                syndromePattern: document.getElementById('syndromePattern').value,
+                diagnosisBasis: document.getElementById('diagnosisBasis').value,
+                treatmentPrinciple: document.getElementById('treatmentPrinciple').value,
+                prescriptionName: document.getElementById('prescriptionName').value,
+                prescriptionContent: document.getElementById('prescriptionContent').value,
+                dosageInstructions: document.getElementById('dosageInstructions').value,
+                treatmentDuration: document.getElementById('treatmentDuration').value,
+                medicalAdvice: document.getElementById('medicalAdvice').value,
+                createdAt: new Date().toISOString(),
+                createdBy: currentUser,
+                status: 'completed'
+            };
+            
+            medicalRecords.push(medicalRecord);
+            
+            // 更新掛號狀態為已完成
+            updateAppointmentStatus(appointmentId, '已完成');
+            
+            showNotification(`病歷已成功儲存！病人：${patient.name}`);
+            showConsultationSystem();
+        }
+
         // 顯示統計頁面
         function showStatistics() {
             hideAllPages();
             document.getElementById('statisticsPage').classList.remove('hidden');
-            updateStatistics();
-        }
-
-        // 更新統計數據
-        function updateStatistics() {
+            
+            // 更新統計數據
             document.getElementById('totalPatients').textContent = patients.length;
-            document.getElementById('totalConsultations').textContent = consultations.length;
-            
-            const today = new Date().toLocaleDateString('zh-TW');
-            const todayConsultations = consultations.filter(c => c.date === today).length;
-            document.getElementById('todayConsultations').textContent = todayConsultations;
+            document.getElementById('totalConsultations').textContent = medicalRecords.filter(r => r.status === 'completed').length;
+            document.getElementById('todayConsultations').textContent = appointments.filter(apt => 
+                new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
+            ).length;
         }
 
-        // 浮動通知系統
-        let notificationTimeout;
-
-        function showNotification(message, type = 'success') {
-            const notification = document.getElementById('floatingNotification');
-            const messageEl = document.getElementById('notificationMessage');
-            const iconEl = document.getElementById('notificationIcon');
-            const container = notification.querySelector('div');
-            
-            // 清除之前的定時器
-            if (notificationTimeout) {
-                clearTimeout(notificationTimeout);
-            }
-            
-            // 設定訊息和圖示
-            messageEl.textContent = message;
-            
-            // 根據類型設定樣式
-            switch(type) {
-                case 'success':
-                    container.className = 'bg-white rounded-lg shadow-2xl border-l-4 border-green-500 p-4 max-w-sm transform translate-x-full transition-transform duration-300 ease-out';
-                    iconEl.innerHTML = '<span class="text-green-500 text-xl">✅</span>';
-                    break;
-                case 'error':
-                    container.className = 'bg-white rounded-lg shadow-2xl border-l-4 border-red-500 p-4 max-w-sm transform translate-x-full transition-transform duration-300 ease-out';
-                    iconEl.innerHTML = '<span class="text-red-500 text-xl">❌</span>';
-                    break;
-                case 'info':
-                    container.className = 'bg-white rounded-lg shadow-2xl border-l-4 border-blue-500 p-4 max-w-sm transform translate-x-full transition-transform duration-300 ease-out';
-                    iconEl.innerHTML = '<span class="text-blue-500 text-xl">ℹ️</span>';
-                    break;
-            }
-            
-            // 顯示通知
-            notification.classList.remove('hidden');
-            
-            // 延遲一點讓動畫生效
-            setTimeout(() => {
-                container.classList.remove('translate-x-full');
-            }, 10);
-            
-            // 2秒後自動隱藏
-            notificationTimeout = setTimeout(() => {
-                hideNotification();
-            }, 2000);
-        }
-
-        function hideNotification() {
-            const notification = document.getElementById('floatingNotification');
-            const container = notification.querySelector('div');
-            
-            container.classList.add('translate-x-full');
-            
-            setTimeout(() => {
-                notification.classList.add('hidden');
-            }, 300);
-            
-            if (notificationTimeout) {
-                clearTimeout(notificationTimeout);
-            }
-        }
-
-        // 浮動視窗控制函數
+        // 顯示模態視窗
         function showModal(modalId) {
             document.getElementById(modalId).classList.remove('hidden');
         }
 
+        // 關閉模態視窗
         function closeModal(modalId) {
             document.getElementById(modalId).classList.add('hidden');
         }
 
+        // 顯示功能說明
         function showFeatureModal(message) {
             document.getElementById('featureMessage').textContent = message;
             showModal('featureModal');
         }
 
-
-
-        // 病歷分頁變數
-        let currentHistoryPatientId = null;
-        let currentHistoryPage = 0;
-        let historyConsultations = [];
-
-        // 查看病人病歷記錄
-        function viewPatientHistory(patientId) {
-            const patient = patients.find(p => p.id === patientId);
-            if (!patient) return;
+        // 顯示通知
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('floatingNotification');
+            const messageEl = document.getElementById('notificationMessage');
+            const iconEl = document.getElementById('notificationIcon');
             
-            // 獲取該病人的所有診症記錄
-            historyConsultations = consultations.filter(c => c.patientId === patientId);
+            messageEl.textContent = message;
             
-            // 設定全域變數
-            currentHistoryPatientId = patientId;
-            
-            // 設定病人資訊
-            document.getElementById('historyPatientInfo').textContent = 
-                `${patient.patientNumber} - ${patient.name} (${patient.gender}, ${calculateAge(patient.birthDate)}歲)`;
-            
-            if (historyConsultations.length === 0) {
-                document.getElementById('patientHistoryContent').innerHTML = `
-                    <div class="text-center py-12">
-                        <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <span class="text-4xl text-gray-400">📋</span>
-                        </div>
-                        <h3 class="text-lg font-medium text-gray-600 mb-2">暫無病歷記錄</h3>
-                        <p class="text-gray-500">此病人尚未有診症記錄</p>
-                    </div>
-                `;
+            // 設定圖示和顏色
+            if (type === 'success') {
+                iconEl.innerHTML = '✅';
+                notification.querySelector('.border-l-4').className = 'bg-white rounded-lg shadow-2xl border-l-4 border-green-500 p-4 max-w-sm transform translate-x-full transition-transform duration-300 ease-out';
+            } else if (type === 'error') {
+                iconEl.innerHTML = '❌';
+                notification.querySelector('.border-l-4').className = 'bg-white rounded-lg shadow-2xl border-l-4 border-red-500 p-4 max-w-sm transform translate-x-full transition-transform duration-300 ease-out';
             } else {
-                // 按日期排序（最舊的在前，最新的在後）
-                historyConsultations.sort((a, b) => {
-                    const dateA = new Date(a.date + ' ' + a.time);
-                    const dateB = new Date(b.date + ' ' + b.time);
-                    return dateA - dateB;
-                });
-                
-                // 設定為最後一頁（最新記錄）
-                currentHistoryPage = historyConsultations.length - 1;
-                
-                displayHistoryPage();
+                iconEl.innerHTML = 'ℹ️';
+                notification.querySelector('.border-l-4').className = 'bg-white rounded-lg shadow-2xl border-l-4 border-blue-500 p-4 max-w-sm transform translate-x-full transition-transform duration-300 ease-out';
             }
             
-            showModal('patientHistoryModal');
-        }
-
-        // 顯示病歷頁面
-        function displayHistoryPage() {
-            if (historyConsultations.length === 0) return;
+            notification.classList.remove('hidden');
             
-            const consultation = historyConsultations[currentHistoryPage];
-            const totalPages = historyConsultations.length;
-            // 診症次數：第1次是最舊的，最後一次是最新的
-            const consultationNumber = currentHistoryPage + 1;
-            const currentPageDisplay = `第 ${consultationNumber} 次診症 (第 ${currentHistoryPage + 1} 頁 / 共 ${totalPages} 頁)`;
-            
-            document.getElementById('patientHistoryContent').innerHTML = `
-                <div class="mb-6">
-                    <div class="flex items-center justify-between mb-6">
-                        <h4 class="text-lg font-semibold text-gray-800">診症記錄</h4>
-                        <div class="flex items-center space-x-4">
-                            <span class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm font-medium">
-                                ${currentPageDisplay}
-                            </span>
-                            <div class="flex space-x-2">
-                                <button onclick="previousHistoryPage()" 
-                                        ${currentHistoryPage === 0 ? 'disabled' : ''} 
-                                        class="px-3 py-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded text-sm">
-                                    ← 較舊記錄
-                                </button>
-                                <button onclick="nextHistoryPage()" 
-                                        ${currentHistoryPage === totalPages - 1 ? 'disabled' : ''} 
-                                        class="px-3 py-1 bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded text-sm">
-                                    較新記錄 →
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-gray-50 rounded-lg p-6 border-l-4 border-indigo-500">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <h5 class="text-lg font-semibold text-gray-800">第 ${consultationNumber} 次診症</h5>
-                                <p class="text-sm text-gray-600">${consultation.date} ${consultation.time}</p>
-                                <p class="text-sm text-indigo-600 font-medium">${consultation.doctor}</p>
-                            </div>
-                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">已完成</span>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div class="bg-white rounded-lg p-4">
-                                <h6 class="font-medium text-gray-700 mb-2">🗣️ 主訴</h6>
-                                <p class="text-gray-600">${consultation.chiefComplaint || '未記錄'}</p>
-                            </div>
-                            
-                            <div class="bg-white rounded-lg p-4">
-                                <h6 class="font-medium text-gray-700 mb-2">📝 現病史</h6>
-                                <p class="text-gray-600">${consultation.presentIllness || '未記錄'}</p>
-                            </div>
-                            
-                            <div class="bg-white rounded-lg p-4">
-                                <h6 class="font-medium text-gray-700 mb-2">🫀 脈象</h6>
-                                <p class="text-gray-600">${consultation.pulse || '未記錄'}</p>
-                            </div>
-                            
-                            <div class="bg-white rounded-lg p-4">
-                                <h6 class="font-medium text-gray-700 mb-2">👅 舌象</h6>
-                                <p class="text-gray-600">${consultation.tongue || '未記錄'}</p>
-                            </div>
-                            
-                            <div class="bg-white rounded-lg p-4 md:col-span-2">
-                                <h6 class="font-medium text-gray-700 mb-2">🎯 中醫診斷</h6>
-                                <p class="text-gray-600">${consultation.diagnosis || '未記錄'}</p>
-                            </div>
-                            
-                            <div class="bg-white rounded-lg p-4 md:col-span-2">
-                                <h6 class="font-medium text-gray-700 mb-2">💊 處方</h6>
-                                <p class="text-gray-600 whitespace-pre-line">${consultation.prescription || '未記錄'}</p>
-                            </div>
-                            
-                            <div class="bg-white rounded-lg p-4 md:col-span-2">
-                                <h6 class="font-medium text-gray-700 mb-2">📋 醫囑</h6>
-                                <p class="text-gray-600 whitespace-pre-line">${consultation.instructions || '未記錄'}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        // 上一頁病歷（較舊記錄）
-        function previousHistoryPage() {
-            if (currentHistoryPage > 0) {
-                currentHistoryPage--;
-                displayHistoryPage();
-            }
-        }
-
-        // 下一頁病歷（較新記錄）
-        function nextHistoryPage() {
-            if (currentHistoryPage < historyConsultations.length - 1) {
-                currentHistoryPage++;
-                displayHistoryPage();
-            }
-        }
-
-        // 印收據功能
-        function printReceipt(appointmentId) {
-            const appointment = appointments.find(apt => apt.id === appointmentId);
-            if (!appointment || appointment.status !== '已完成') {
-                showNotification('只有已完成診症的病人才能印收據', 'error');
-                return;
-            }
-            
-            const patient = patients.find(p => p.id === appointment.patientId);
-            const consultation = consultations.find(c => c.appointmentId === appointmentId);
-            
-            if (!patient || !consultation) {
-                showNotification('找不到相關診症記錄', 'error');
-                return;
-            }
-            
-            // 生成收據內容
-            const receiptContent = `
-                <div class="text-center border-b border-gray-200 pb-4 mb-4">
-                    <h4 class="text-lg font-bold text-gray-800">仁心中醫診所</h4>
-                    <p class="text-sm text-gray-600">地址：台北市信義區仁愛路四段123號</p>
-                    <p class="text-sm text-gray-600">電話：(02) 2345-6789</p>
-                </div>
-                
-                <div class="space-y-3 text-sm">
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">收據編號：</span>
-                        <span class="font-mono">R${appointment.id.toString().padStart(6, '0')}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">日期：</span>
-                        <span>${consultation.date}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">時間：</span>
-                        <span>${consultation.time}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">病人編號：</span>
-                        <span class="font-mono text-blue-600">${patient.patientNumber}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">病人姓名：</span>
-                        <span class="font-medium">${patient.name}</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">診療醫師：</span>
-                        <span>${consultation.doctor}</span>
-                    </div>
-                </div>
-                
-                <div class="border-t border-gray-200 pt-4 mt-4">
-                    <h5 class="font-medium text-gray-800 mb-3">診療項目</h5>
-                    <div class="space-y-2 text-sm">
-                        <div class="flex justify-between">
-                            <span>中醫診察費</span>
-                            <span>NT$ 300</span>
-                        </div>
-                        ${consultation.prescription ? `
-                        <div class="flex justify-between">
-                            <span>中藥處方費</span>
-                            <span>NT$ 450</span>
-                        </div>
-                        ` : ''}
-                        <div class="border-t border-gray-200 pt-2 mt-2 flex justify-between font-medium">
-                            <span>總計金額：</span>
-                            <span class="text-green-600">NT$ ${consultation.prescription ? '750' : '300'}</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="border-t border-gray-200 pt-4 mt-4 text-xs text-gray-500">
-                    <p class="mb-2">診斷：${consultation.diagnosis || '未記錄'}</p>
-                    ${consultation.instructions ? `<p class="mb-2">醫囑：${consultation.instructions}</p>` : ''}
-                    <p class="text-center mt-4">感謝您的信任，祝您身體健康！</p>
-                </div>
-            `;
-            
-            document.getElementById('receiptContent').innerHTML = receiptContent;
-            showModal('receiptModal');
-        }
-        
-        // 列印收據內容
-        function printReceiptContent() {
-            const receiptContent = document.getElementById('receiptContent').innerHTML;
-            
-            // 創建新視窗進行列印
-            const printWindow = window.open('', '_blank', 'width=400,height=600');
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>診療收據</title>
-                    <style>
-                        body { 
-                            font-family: 'Microsoft JhengHei', sans-serif; 
-                            margin: 20px; 
-                            font-size: 14px;
-                            line-height: 1.5;
-                        }
-                        .text-center { text-align: center; }
-                        .font-bold { font-weight: bold; }
-                        .font-medium { font-weight: 500; }
-                        .font-mono { font-family: monospace; }
-                        .text-lg { font-size: 18px; }
-                        .text-sm { font-size: 12px; }
-                        .text-xs { font-size: 11px; }
-                        .text-gray-600 { color: #666; }
-                        .text-gray-500 { color: #888; }
-                        .text-gray-800 { color: #333; }
-                        .text-blue-600 { color: #2563eb; }
-                        .text-green-600 { color: #16a34a; }
-                        .border-b { border-bottom: 1px solid #ddd; }
-                        .border-t { border-top: 1px solid #ddd; }
-                        .pb-4 { padding-bottom: 16px; }
-                        .pt-4 { padding-top: 16px; }
-                        .mb-2 { margin-bottom: 8px; }
-                        .mb-3 { margin-bottom: 12px; }
-                        .mb-4 { margin-bottom: 16px; }
-                        .mt-2 { margin-top: 8px; }
-                        .mt-4 { margin-top: 16px; }
-                        .space-y-2 > * + * { margin-top: 8px; }
-                        .space-y-3 > * + * { margin-top: 12px; }
-                        .flex { display: flex; }
-                        .justify-between { justify-content: space-between; }
-                        @media print {
-                            body { margin: 0; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    ${receiptContent}
-                </body>
-                </html>
-            `);
-            
-            printWindow.document.close();
-            printWindow.focus();
-            
-            // 等待內容載入後列印
+            // 動畫效果
             setTimeout(() => {
-                printWindow.print();
-                printWindow.close();
-            }, 250);
+                notification.querySelector('.transform').classList.remove('translate-x-full');
+            }, 100);
             
-            showNotification('收據已送至印表機');
-            closeModal('receiptModal');
+            // 自動隱藏
+            setTimeout(() => {
+                hideNotification();
+            }, 3000);
         }
 
-        // 點擊視窗外區域關閉視窗
-        document.addEventListener('click', function(event) {
-            const modals = ['patientDetailModal', 'confirmDeleteModal', 'featureModal', 'patientHistoryModal', 'receiptModal'];
-            modals.forEach(modalId => {
-                const modal = document.getElementById(modalId);
-                if (event.target === modal) {
-                    closeModal(modalId);
-                }
-            });
+        // 隱藏通知
+        function hideNotification() {
+            const notification = document.getElementById('floatingNotification');
+            notification.querySelector('.transform').classList.add('translate-x-full');
             
-            // 點擊外部關閉搜索結果
-            const searchResults = document.getElementById('searchResults');
-            const searchInput = document.getElementById('appointmentSearchInput');
-            if (searchResults && !searchResults.contains(event.target) && event.target !== searchInput) {
-                searchResults.classList.add('hidden');
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 300);
+        }
+
+        // 切換修改歷史顯示
+        function toggleModificationHistory() {
+            const content = document.getElementById('modificationHistoryContent');
+            const btn = document.getElementById('toggleHistoryBtn');
+            
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                btn.textContent = '收起歷史 ▲';
+            } else {
+                content.classList.add('hidden');
+                btn.textContent = '展開歷史 ▼';
             }
-        });
+        }
+
+
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96749f9147a31fcd',t:'MTc1Mzg3NjA2OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'967c64b252c085e9',t:'MTc1Mzk1NzU0My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
