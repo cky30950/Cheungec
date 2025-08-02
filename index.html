@@ -1596,10 +1596,11 @@
                 if (!patient) return '';
                 
                 const statusInfo = getStatusInfo(appointment.status);
+                const operationButtons = getOperationButtons(appointment);
                 
                 return `
                     <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 text-sm text-gray-900">${index + 1}</td>
+                        <td class="px-4 py-3 text-sm text-gray-900 font-medium">${index + 1}</td>
                         <td class="px-4 py-3 text-sm font-medium text-gray-900">
                             ${patient.name}
                             <div class="text-xs text-gray-500">${patient.patientNumber}</div>
@@ -1613,15 +1614,19 @@
                             })}
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-900">
-                            ${appointment.chiefComplaint || '無'}
+                            <div class="max-w-xs truncate" title="${appointment.chiefComplaint || '無'}">
+                                ${appointment.chiefComplaint || '無'}
+                            </div>
                         </td>
                         <td class="px-4 py-3">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.class}">
                                 ${statusInfo.text}
                             </span>
                         </td>
-                        <td class="px-4 py-3 text-sm space-x-1">
-                            ${getStatusUpdateButtons(appointment)}
+                        <td class="px-4 py-3 text-sm">
+                            <div class="flex flex-wrap gap-1">
+                                ${operationButtons}
+                            </div>
                         </td>
                     </tr>
                 `;
@@ -1639,43 +1644,39 @@
             return statusMap[status] || { text: '未知', class: 'bg-gray-100 text-gray-800' };
         }
         
-        // 獲取狀態更新按鈕
-        function getStatusUpdateButtons(appointment) {
-            // 根據當前狀態和用戶角色顯示適當的狀態轉換按鈕
+        // 獲取操作按鈕
+        function getOperationButtons(appointment) {
+            const buttons = [];
+            
             switch (appointment.status) {
                 case 'registered':
-                    // 已掛號狀態：所有用戶都可以確認病人到達或刪除掛號
-                    return `
-                        <button onclick="confirmPatientArrival(${appointment.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs transition duration-200">確認到達</button>
-                        <button onclick="viewPatientHistory(${appointment.patientId})" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs transition duration-200 ml-1">查看病歷</button>
-                        <button onclick="deleteAppointment(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200 ml-1">刪除掛號</button>
-                    `;
+                    buttons.push(`<button onclick="confirmPatientArrival(${appointment.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs transition duration-200">確認到達</button>`);
+                    buttons.push(`<button onclick="viewPatientHistory(${appointment.patientId})" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs transition duration-200">查看病歷</button>`);
+                    buttons.push(`<button onclick="deleteAppointment(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">刪除掛號</button>`);
+                    break;
                     
                 case 'waiting':
-                    // 候診中狀態：所有用戶都可以操作
-                    return `
-                        <button onclick="startConsultation(${appointment.id})" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs transition duration-200">開始診症</button>
-                        <button onclick="viewPatientHistory(${appointment.patientId})" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs transition duration-200 ml-1">查看病歷</button>
-                    `;
+                    buttons.push(`<button onclick="startConsultation(${appointment.id})" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition duration-200">開始診症</button>`);
+                    buttons.push(`<button onclick="viewPatientHistory(${appointment.patientId})" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs transition duration-200">查看病歷</button>`);
+                    break;
                     
                 case 'consulting':
-                    // 診症中狀態：所有用戶都可以操作
-                    return `
-                        <span class="text-green-600 text-xs font-medium">診症進行中...</span>
-                        <button onclick="viewPatientHistory(${appointment.patientId})" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs transition duration-200 ml-1">查看病歷</button>
-                    `;
+                    buttons.push(`<button onclick="continueConsultation(${appointment.id})" class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs transition duration-200">繼續診症</button>`);
+                    buttons.push(`<button onclick="viewPatientHistory(${appointment.patientId})" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs transition duration-200">查看病歷</button>`);
+                    break;
                     
                 case 'completed':
-                    // 已完成狀態：可以修改病歷或重新設為候診
-                    return `
-                        <button onclick="editMedicalRecord(${appointment.id})" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs transition duration-200">修改病歷</button>
-                        <button onclick="viewPatientHistory(${appointment.patientId})" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs transition duration-200 ml-1">查看病歷</button>
-                        <button onclick="resetToWaiting(${appointment.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition duration-200 ml-1">重新候診</button>
-                    `;
+                    buttons.push(`<button onclick="editMedicalRecord(${appointment.id})" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs transition duration-200">修改病歷</button>`);
+                    buttons.push(`<button onclick="viewPatientHistory(${appointment.patientId})" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs transition duration-200">查看病歷</button>`);
+                    buttons.push(`<button onclick="resetToWaiting(${appointment.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition duration-200">重新候診</button>`);
+                    break;
                     
                 default:
-                    return '<span class="text-gray-400 text-xs">狀態異常</span>';
+                    buttons.push('<span class="text-gray-400 text-xs">狀態異常</span>');
+                    break;
             }
+            
+            return buttons.join('');
         }
         
         // 確認病人到達（助理操作）
@@ -2184,5 +2185,5 @@
             // 診症系統會在載入時自動設置搜尋功能
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'968c1110d5ea1fbe',t:'MTc1NDEyMTg4OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'968c3f71b0b9ddc5',t:'MTc1NDEyMzc4OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
