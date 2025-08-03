@@ -5360,7 +5360,8 @@
             const username = document.getElementById('userName').value.trim();
             const password = document.getElementById('userPassword').value.trim();
             const name = document.getElementById('userDisplayName').value.trim();
-            const role = document.getElementById('userRole').value;
+            const roleElement = document.getElementById('userRole');
+            const role = roleElement.value;
             const email = document.getElementById('userEmail').value.trim();
             const phone = document.getElementById('userPhone').value.trim();
             const active = document.getElementById('userActive').checked;
@@ -5369,9 +5370,11 @@
             console.log('表單驗證詳情:');
             console.log('- 帳號:', `"${username}"`, '長度:', username.length);
             console.log('- 姓名:', `"${name}"`, '長度:', name.length);
-            console.log('- 角色:', `"${role}"`, '類型:', typeof role);
-            console.log('- 角色選擇元素值:', document.getElementById('userRole').value);
-            console.log('- 角色選擇元素選中索引:', document.getElementById('userRole').selectedIndex);
+            console.log('- 角色元素:', roleElement);
+            console.log('- 角色值:', `"${role}"`, '類型:', typeof role);
+            console.log('- 角色選擇元素值:', roleElement ? roleElement.value : 'null');
+            console.log('- 角色選擇元素選中索引:', roleElement ? roleElement.selectedIndex : 'null');
+            console.log('- 所有選項:', roleElement ? Array.from(roleElement.options).map(opt => `"${opt.value}"`).join(', ') : 'null');
             
             if (!username) {
                 console.log('驗證失敗: 帳號為空');
@@ -5387,10 +5390,16 @@
                 return;
             }
             
-            if (!role || role === '') {
+            if (!roleElement) {
+                console.log('驗證失敗: 找不到角色選擇元素');
+                showToast('系統錯誤：找不到角色選擇元素！', 'error');
+                return;
+            }
+            
+            if (!role || role === '' || role === null) {
                 console.log('驗證失敗: 角色為空或未選擇');
                 showToast('請選擇角色！', 'error');
-                document.getElementById('userRole').focus();
+                roleElement.focus();
                 return;
             }
             
@@ -5537,5 +5546,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96961433a75609d8',t:'MTc1NDIyNjg3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96961d9c308d09d8',t:'MTc1NDIyNzI2MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
