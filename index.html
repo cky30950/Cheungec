@@ -516,10 +516,7 @@
                                     </label>
                                     <textarea id="formCurrentHistory" placeholder="發病經過、症狀變化、治療經過等..." rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
                                 </div>
-                            </div>
-                            
-                            <!-- 右側 -->
-                            <div class="space-y-4">
+                                
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                                         中醫診斷 *
@@ -529,10 +526,21 @@
                                 
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                        證型診斷 *
+                                        證型診斷
                                     </label>
                                     <textarea id="formSyndrome" placeholder="辨證分型、病機分析..." rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
                                 </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        針灸備註
+                                    </label>
+                                    <textarea id="formAcupunctureNotes" placeholder="針灸穴位、手法、注意事項等..." rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                                </div>
+                            </div>
+                            
+                            <!-- 右側 -->
+                            <div class="space-y-4">
                                 
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
@@ -609,6 +617,13 @@
                                 
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                        服用方法
+                                    </label>
+                                    <textarea id="formUsage" placeholder="煎煮方法、服用時間、劑量等..." rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
                                         收費項目
                                     </label>
                                     
@@ -651,13 +666,6 @@
                                     
                                     <!-- 隱藏的文本域用於存儲收費項目 -->
                                     <textarea id="formBillingItems" class="hidden"></textarea>
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                        服用方法
-                                    </label>
-                                    <textarea id="formUsage" placeholder="煎煮方法、服用時間、劑量等..." rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
                                 </div>
                                 
                                 <div>
@@ -2102,10 +2110,8 @@
                 case 'waiting':
                     if (isDisabled) {
                         buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>開始診症</span>`);
-                        buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>移除掛號</span>`);
                     } else {
                         buttons.push(`<button onclick="startConsultation(${appointment.id})" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition duration-200">開始診症</button>`);
-                        buttons.push(`<button onclick="removeAppointment(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">移除掛號</button>`);
                     }
                     break;
                     
@@ -2192,6 +2198,11 @@
             console.log(`移除掛號狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}`);
             
             // 檢查是否可以移除
+            if (appointment.status === 'waiting') {
+                showToast(`無法移除掛號！病人 ${patient.name} 已確認到達候診中，請聯繫醫師處理。`, 'warning');
+                return;
+            }
+            
             if (appointment.status === 'consulting') {
                 showToast(`無法移除掛號！病人 ${patient.name} 目前正在診症中，請先結束診症後再移除。`, 'warning');
                 return;
@@ -2344,6 +2355,7 @@
                     document.getElementById('formCurrentHistory').value = consultation.currentHistory || '';
                     document.getElementById('formDiagnosis').value = consultation.diagnosis || '';
                     document.getElementById('formSyndrome').value = consultation.syndrome || '';
+                    document.getElementById('formAcupunctureNotes').value = consultation.acupunctureNotes || '';
                     document.getElementById('formUsage').value = consultation.usage || '';
                     document.getElementById('formTreatmentCourse').value = consultation.treatmentCourse || '';
                     document.getElementById('formInstructions').value = consultation.instructions || '';
@@ -2413,7 +2425,7 @@
         
         // 清空診症表單
         function clearConsultationForm() {
-            ['formSymptoms', 'formTongue', 'formPulse', 'formCurrentHistory', 'formDiagnosis', 'formSyndrome', 'formPrescription', 'formUsage', 'formTreatmentCourse', 'formInstructions', 'formFollowUpDate'].forEach(id => {
+            ['formSymptoms', 'formTongue', 'formPulse', 'formCurrentHistory', 'formDiagnosis', 'formSyndrome', 'formAcupunctureNotes', 'formPrescription', 'formUsage', 'formTreatmentCourse', 'formInstructions', 'formFollowUpDate'].forEach(id => {
                 document.getElementById(id).value = '';
             });
             
@@ -2523,8 +2535,8 @@
             const syndrome = document.getElementById('formSyndrome').value.trim();
             const prescription = document.getElementById('formPrescription').value.trim();
             
-            if (!symptoms || !diagnosis || !syndrome) {
-                showToast('請填寫必填欄位：主訴、中醫診斷、證型診斷！', 'error');
+            if (!symptoms || !diagnosis) {
+                showToast('請填寫必填欄位：主訴、中醫診斷！', 'error');
                 return;
             }
             
@@ -2541,6 +2553,7 @@
                     existingConsultation.currentHistory = document.getElementById('formCurrentHistory').value.trim();
                     existingConsultation.diagnosis = diagnosis;
                     existingConsultation.syndrome = syndrome;
+                    existingConsultation.acupunctureNotes = document.getElementById('formAcupunctureNotes').value.trim();
                     
                     // 合併現有處方和新添加的處方項目
                     let finalPrescription = prescription;
@@ -2582,6 +2595,7 @@
                     currentHistory: document.getElementById('formCurrentHistory').value.trim(),
                     diagnosis: diagnosis,
                     syndrome: syndrome,
+                    acupunctureNotes: document.getElementById('formAcupunctureNotes').value.trim(),
                     prescription: prescription,
                     usage: document.getElementById('formUsage').value.trim(),
                     treatmentCourse: document.getElementById('formTreatmentCourse').value.trim(),
@@ -2744,10 +2758,6 @@
                                         class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded">
                                     📄 列印
                                 </button>
-                                <button onclick="editConsultationFromPatientHistory(${consultation.appointmentId})" 
-                                        class="text-orange-600 hover:text-orange-800 text-sm font-medium bg-orange-50 px-3 py-2 rounded">
-                                    ✏️ 編輯
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -2780,9 +2790,7 @@
                                     <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.currentHistory}</div>
                                 </div>
                                 ` : ''}
-                            </div>
-                            
-                            <div class="space-y-4">
+                                
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">中醫診斷</span>
                                     <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400">${consultation.diagnosis || '無記錄'}</div>
@@ -2793,6 +2801,15 @@
                                     <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400">${consultation.syndrome || '無記錄'}</div>
                                 </div>
                                 
+                                ${consultation.acupunctureNotes ? `
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">針灸備註</span>
+                                    <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400">${consultation.acupunctureNotes}</div>
+                                </div>
+                                ` : ''}
+                            </div>
+                            
+                            <div class="space-y-4">
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>
                                     <div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 whitespace-pre-line">${consultation.prescription || '無記錄'}</div>
@@ -2852,17 +2869,7 @@
             document.getElementById('patientMedicalHistoryModal').classList.add('hidden');
         }
 
-        // 從病人資料管理的病歷中編輯
-        function editConsultationFromPatientHistory(appointmentId) {
-            // 關閉病歷彈窗
-            closePatientMedicalHistoryModal();
-            
-            // 切換到診症系統頁面
-            showSection('consultationSystem');
-            
-            // 調用編輯病歷功能
-            editMedicalRecord(appointmentId);
-        }
+
 
         // 診症系統中的病歷查看功能
         let currentConsultationConsultations = [];
@@ -2992,10 +2999,6 @@
                                         class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded">
                                     📄 列印
                                 </button>
-                                <button onclick="editConsultationFromHistory(${consultation.appointmentId})" 
-                                        class="text-orange-600 hover:text-orange-800 text-sm font-medium bg-orange-50 px-3 py-2 rounded">
-                                    ✏️ 編輯
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -3028,9 +3031,7 @@
                                     <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.currentHistory}</div>
                                 </div>
                                 ` : ''}
-                            </div>
-                            
-                            <div class="space-y-4">
+                                
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">中醫診斷</span>
                                     <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400">${consultation.diagnosis || '無記錄'}</div>
@@ -3041,6 +3042,15 @@
                                     <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400">${consultation.syndrome || '無記錄'}</div>
                                 </div>
                                 
+                                ${consultation.acupunctureNotes ? `
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">針灸備註</span>
+                                    <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400">${consultation.acupunctureNotes}</div>
+                                </div>
+                                ` : ''}
+                            </div>
+                            
+                            <div class="space-y-4">
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>
                                     <div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 whitespace-pre-line">${consultation.prescription || '無記錄'}</div>
@@ -3100,14 +3110,7 @@
             document.getElementById('medicalHistoryModal').classList.add('hidden');
         }
         
-        // 從診症記錄中編輯
-        function editConsultationFromHistory(appointmentId) {
-            // 關閉診症記錄彈窗
-            closeMedicalHistoryModal();
-            
-            // 調用編輯病歷功能
-            editMedicalRecord(appointmentId);
-        }
+
         
         // 列印診症記錄
         function printConsultationRecord(consultationId) {
@@ -3213,6 +3216,13 @@
                         <div class="section-title">證型診斷</div>
                         <div class="content-box">${consultation.syndrome || '無記錄'}</div>
                     </div>
+                    
+                    ${consultation.acupunctureNotes ? `
+                    <div class="section">
+                        <div class="section-title">針灸備註</div>
+                        <div class="content-box">${consultation.acupunctureNotes}</div>
+                    </div>
+                    ` : ''}
                     
                     <div class="section">
                         <div class="section-title">處方內容</div>
@@ -4566,9 +4576,6 @@
                 
                 // 更新顯示
                 updateBillingDisplay();
-                
-                // 顯示提示信息
-                showToast(`已自動添加診金：${consultationFeeItem.name}`, 'info');
             } else {
                 // 如果沒有找到任何診療費項目，顯示警告
                 showToast('未找到可用的診金收費項目，請手動添加', 'warning');
@@ -4578,7 +4585,7 @@
         
         // 清空診症表單時也要清空處方搜索
         function clearConsultationFormOld() {
-            ['formSymptoms', 'formTongue', 'formPulse', 'formCurrentHistory', 'formDiagnosis', 'formSyndrome', 'formPrescription', 'formUsage', 'formTreatmentCourse', 'formInstructions', 'formFollowUpDate'].forEach(id => {
+            ['formSymptoms', 'formTongue', 'formPulse', 'formCurrentHistory', 'formDiagnosis', 'formSyndrome', 'formAcupunctureNotes', 'formPrescription', 'formUsage', 'formTreatmentCourse', 'formInstructions', 'formFollowUpDate'].forEach(id => {
                 document.getElementById(id).value = '';
             });
             
@@ -4598,5 +4605,5 @@
             updateStatistics();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96945f5827a3e2df',t:'MTc1NDIwODk4Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969503a946b30478',t:'MTc1NDIxNTcxMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
