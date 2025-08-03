@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>中醫診所管理系統</title>
+    <title>中醫診所系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
@@ -68,7 +68,7 @@
         <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
             <div class="text-center mb-8">
                 <div class="text-4xl mb-4">🏥</div>
-                <h1 class="text-2xl font-bold text-gray-800 mb-2">中醫診所管理系統</h1>
+                <h1 class="text-2xl font-bold text-gray-800 mb-2">中醫診所系統</h1>
                 <p class="text-gray-600">請選擇您的身份登入</p>
             </div>
             
@@ -141,7 +141,7 @@
                             </div>
                         </button>
                         <span class="text-2xl mr-3">🏥</span>
-                        <h1 class="text-xl font-bold text-gray-800">中醫診所管理系統</h1>
+                        <h1 class="text-xl font-bold text-gray-800">中醫診所系統</h1>
                     </div>
                     <div class="flex items-center space-x-4">
                         <span id="userRole" class="text-sm text-gray-600"></span>
@@ -158,11 +158,11 @@
             <!-- 歡迎頁面 -->
             <div id="welcomePage" class="text-center py-16">
                 <div class="text-6xl mb-6">🏥</div>
-                <h2 class="text-3xl font-bold text-gray-800 mb-4">歡迎使用中醫診所管理系統</h2>
+                <h2 class="text-3xl font-bold text-gray-800 mb-4">歡迎使用中醫診所系統</h2>
                 <p class="text-gray-600 text-lg mb-8">請點擊左上角選單按鈕開始使用系統功能</p>
                 <div class="bg-white rounded-xl shadow-lg p-8 max-w-2xl mx-auto">
                     <h3 class="text-xl font-semibold mb-4">系統功能概覽</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                         <div class="text-center p-4 bg-green-50 rounded-lg">
                             <div class="text-2xl mb-2">👥</div>
                             <div class="font-semibold">病人資料管理</div>
@@ -172,6 +172,11 @@
                             <div class="text-2xl mb-2">🩺</div>
                             <div class="font-semibold">診症系統</div>
                             <div class="text-gray-600 mt-1">記錄症狀、診斷、開立處方</div>
+                        </div>
+                        <div class="text-center p-4 bg-purple-50 rounded-lg">
+                            <div class="text-2xl mb-2">👤</div>
+                            <div class="font-semibold">用戶管理</div>
+                            <div class="text-gray-600 mt-1">管理診所用戶帳號</div>
                         </div>
                         <div class="text-center p-4 bg-red-50 rounded-lg">
                             <div class="text-2xl mb-2">⚙️</div>
@@ -895,6 +900,9 @@
                         <button onclick="filterBillingItems('other')" id="billing-filter-other" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
                             其他
                         </button>
+                        <button onclick="filterBillingItems('discount')" id="billing-filter-discount" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
+                            折扣項目
+                        </button>
                     </div>
                 </div>
 
@@ -920,11 +928,13 @@
                                         <option value="medicine">藥費</option>
                                         <option value="treatment">治療費</option>
                                         <option value="other">其他</option>
+                                        <option value="discount">折扣項目</option>
                                     </select>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">收費金額 *</label>
-                                    <input type="number" id="billingItemPrice" placeholder="0" min="0" step="1" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <input type="number" id="billingItemPrice" placeholder="0" step="1" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <p class="text-xs text-gray-500 mt-1">折扣項目：輸入0.9表示9折，輸入9會自動轉為9折，或輸入負數表示固定金額折扣</p>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">計費單位</label>
@@ -959,6 +969,119 @@
                     <div id="billingItemsList" class="space-y-4">
                         <!-- 收費項目內容會動態載入 -->
                     </div>
+                </div>
+            </div>
+
+            <!-- 診所用戶管理 -->
+            <div id="userManagement" class="hidden bg-white rounded-xl shadow-lg p-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <h2 class="text-2xl font-bold text-gray-800">診所用戶管理</h2>
+                    <div class="flex flex-col md:flex-row gap-3">
+                        <div class="relative">
+                            <input type="text" id="searchUser" placeholder="搜尋用戶名稱或帳號..." class="border border-gray-300 rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-green-500 focus:border-transparent w-full md:w-64">
+                            <span class="absolute right-3 top-2.5 text-gray-400">🔍</span>
+                        </div>
+                        <button onclick="showAddUserForm()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition duration-200 whitespace-nowrap">
+                            + 新增用戶
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 角色篩選標籤 -->
+                <div class="mb-6">
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="filterUsers('all')" id="user-filter-all" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 transition duration-200">
+                            全部用戶
+                        </button>
+                        <button onclick="filterUsers('admin')" id="user-filter-admin" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
+                            管理員
+                        </button>
+                        <button onclick="filterUsers('doctor')" id="user-filter-doctor" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
+                            醫師
+                        </button>
+                        <button onclick="filterUsers('assistant')" id="user-filter-assistant" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
+                            助理
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 新增/編輯用戶表單彈窗 -->
+                <div id="addUserModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+                    <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-xl">
+                            <h3 id="userFormTitle" class="text-xl font-bold text-gray-800">新增用戶</h3>
+                            <button onclick="hideAddUserForm()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+                        </div>
+                        
+                        <div class="p-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">帳號 *</label>
+                                    <input type="text" id="userName" placeholder="請輸入登入帳號" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">密碼 *</label>
+                                    <input type="password" id="userPassword" placeholder="請輸入密碼" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
+                                    <input type="text" id="userDisplayName" placeholder="請輸入真實姓名" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">角色 *</label>
+                                    <select id="userRole" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                        <option value="">請選擇角色</option>
+                                        <option value="admin">管理員</option>
+                                        <option value="doctor">醫師</option>
+                                        <option value="assistant">助理</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">電子郵件</label>
+                                    <input type="email" id="userEmail" placeholder="請輸入電子郵件" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">電話號碼</label>
+                                    <input type="tel" id="userPhone" placeholder="請輸入電話號碼" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="flex items-center">
+                                        <input type="checkbox" id="userActive" checked class="mr-2 rounded">
+                                        <span class="text-sm font-medium text-gray-700">啟用此用戶帳號</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-200">
+                                <button onclick="hideAddUserForm()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition duration-200">
+                                    取消
+                                </button>
+                                <button onclick="saveUser()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition duration-200">
+                                    <span id="userSaveButtonText">儲存</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 用戶列表 -->
+                <div class="overflow-x-auto">
+                    <table class="w-full table-auto">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">帳號</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">姓名</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">角色</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">聯絡資訊</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">狀態</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">最後登入</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userList" class="divide-y divide-gray-200">
+                            <!-- 用戶資料會動態載入 -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -1007,6 +1130,7 @@
     <script>
         // 系統資料儲存
         let currentUser = null;
+        let currentUserData = null;
         
         // 浮動提示功能
         function showToast(message, type = 'info') {
@@ -1405,6 +1529,36 @@
                 description: '診斷證明書費用',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 7008,
+                name: '長者折扣',
+                category: 'discount',
+                price: 0.9,
+                unit: '折',
+                description: '65歲以上長者享9折優惠',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 7009,
+                name: '學生折扣',
+                category: 'discount',
+                price: 0.9,
+                unit: '折',
+                description: '持學生證享9折優惠',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 7010,
+                name: '會員優惠',
+                category: 'discount',
+                price: 0.95,
+                unit: '折',
+                description: '診所會員專享95折優惠',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
             }
         ];
 
@@ -1415,16 +1569,79 @@
             localStorage.setItem('billingItems', JSON.stringify(billingItems));
         }
 
-        // 用戶權限設定 - 所有用戶都有完整權限
+        // 預設用戶資料
+        const defaultUsers = [
+            {
+                id: 1,
+                username: 'admin',
+                password: 'admin123',
+                name: '系統管理員',
+                role: 'admin',
+                email: 'admin@clinic.com',
+                phone: '02-1234-5678',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString(),
+                lastLogin: null
+            },
+            {
+                id: 2,
+                username: 'doctor01',
+                password: 'doctor123',
+                name: '王醫師',
+                role: 'doctor',
+                email: 'doctor@clinic.com',
+                phone: '02-1234-5679',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString(),
+                lastLogin: null
+            },
+            {
+                id: 3,
+                username: 'assistant01',
+                password: 'assistant123',
+                name: '李助理',
+                role: 'assistant',
+                email: 'assistant@clinic.com',
+                phone: '02-1234-5680',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString(),
+                lastLogin: null
+            }
+        ];
+
+        // 初始化用戶資料
+        let users = JSON.parse(localStorage.getItem('users') || '[]');
+        if (users.length === 0) {
+            users = defaultUsers;
+            localStorage.setItem('users', JSON.stringify(users));
+        }
+
+        // 用戶權限設定
         const userPermissions = {
-            admin: ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'systemManagement'],
+            admin: ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'systemManagement'],
             doctor: ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'systemManagement'],
-            assistant: ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'systemManagement']
+            assistant: ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement']
         };
 
         // 登入功能
         function login(role) {
+            // 簡化登入：直接使用角色登入（示範用）
+            // 在實際應用中，這裡應該要有帳號密碼驗證
+            
+            // 找到對應角色的第一個啟用用戶
+            const user = users.find(u => u.role === role && u.active);
+            if (!user) {
+                showToast(`找不到可用的${role}帳號！`, 'error');
+                return;
+            }
+            
+            // 更新最後登入時間
+            user.lastLogin = new Date().toISOString();
+            localStorage.setItem('users', JSON.stringify(users));
+            
             currentUser = role;
+            currentUserData = user;
+            
             document.getElementById('loginPage').classList.add('hidden');
             document.getElementById('mainSystem').classList.remove('hidden');
             
@@ -1434,8 +1651,8 @@
                 assistant: '診所助理'
             };
             
-            document.getElementById('userRole').textContent = `當前用戶：${roleNames[role]}`;
-            document.getElementById('sidebarUserRole').textContent = `當前用戶：${roleNames[role]}`;
+            document.getElementById('userRole').textContent = `當前用戶：${user.name} (${roleNames[role]})`;
+            document.getElementById('sidebarUserRole').textContent = `當前用戶：${user.name} (${roleNames[role]})`;
             generateSidebarMenu();
             updateStatistics();
         }
@@ -1457,6 +1674,7 @@
         // 登出功能
         function logout() {
             currentUser = null;
+            currentUserData = null;
             document.getElementById('loginPage').classList.remove('hidden');
             document.getElementById('mainSystem').classList.add('hidden');
             document.getElementById('sidebar').classList.add('-translate-x-full');
@@ -1474,6 +1692,7 @@
                 consultationSystem: { title: '診症系統', icon: '🩺', description: '記錄症狀、診斷、開立處方' },
                 herbLibrary: { title: '中藥庫管理', icon: '🌿', description: '管理中藥材及方劑資料' },
                 billingManagement: { title: '收費項目管理', icon: '💰', description: '管理診療費用及收費項目' },
+                userManagement: { title: '診所用戶管理', icon: '👤', description: '管理診所用戶帳號及權限' },
                 systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' }
             };
             
@@ -1512,12 +1731,14 @@
                 loadHerbLibrary();
             } else if (sectionId === 'billingManagement') {
                 loadBillingManagement();
+            } else if (sectionId === 'userManagement') {
+                loadUserManagement();
             }
         }
 
         // 隱藏所有區域
         function hideAllSections() {
-            ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'systemManagement', 'welcomePage'].forEach(id => {
+            ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'systemManagement', 'welcomePage'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
         }
@@ -2120,6 +2341,9 @@
                     break;
                     
                 case 'completed':
+                    // 列印收據功能不受診症狀態限制
+                    buttons.push(`<button onclick="printReceiptFromAppointment(${appointment.id})" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition duration-200">列印收據</button>`);
+                    
                     if (isDisabled) {
                         buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>修改病歷</span>`);
                         buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>撤回診症</span>`);
@@ -3112,6 +3336,29 @@
         
 
         
+        // 從掛號記錄列印收據
+        function printReceiptFromAppointment(appointmentId) {
+            const appointment = appointments.find(apt => apt.id === appointmentId);
+            if (!appointment) {
+                showToast('找不到掛號記錄！', 'error');
+                return;
+            }
+            
+            if (appointment.status !== 'completed' || !appointment.consultationId) {
+                showToast('只能列印已完成診症的收據！', 'error');
+                return;
+            }
+            
+            const consultation = consultations.find(c => c.id === appointment.consultationId);
+            if (!consultation) {
+                showToast('找不到對應的診症記錄！', 'error');
+                return;
+            }
+            
+            // 直接調用現有的列印功能
+            printConsultationRecord(consultation.id);
+        }
+        
         // 列印診症記錄
         function printConsultationRecord(consultationId) {
             const consultation = consultations.find(c => c.id === consultationId);
@@ -3126,159 +3373,303 @@
                 return;
             }
             
-            // 創建列印內容
+            // 解析收費項目以計算總金額
+            let totalAmount = 0;
+            let billingItemsHtml = '';
+            if (consultation.billingItems) {
+                const lines = consultation.billingItems.split('\n');
+                lines.forEach(line => {
+                    if (line.includes('=') && line.includes('$')) {
+                        const match = line.match(/\$(\d+)/);
+                        if (match) {
+                            totalAmount += parseInt(match[1]);
+                        }
+                        billingItemsHtml += `<tr><td style="padding: 5px; border-bottom: 1px dotted #ccc;">${line}</td></tr>`;
+                    } else if (line.includes('總費用')) {
+                        const match = line.match(/\$(\d+)/);
+                        if (match) {
+                            totalAmount = parseInt(match[1]);
+                        }
+                    }
+                });
+            }
+            
+            // 創建中醫診所收據格式
             const printContent = `
                 <!DOCTYPE html>
                 <html lang="zh-TW">
                 <head>
                     <meta charset="UTF-8">
-                    <title>診症記錄 - ${patient.name}</title>
+                    <title>收據 - ${patient.name}</title>
                     <style>
-                        body { font-family: 'Microsoft JhengHei', sans-serif; margin: 20px; line-height: 1.6; }
-                        .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
-                        .clinic-name { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-                        .record-title { font-size: 18px; color: #666; }
-                        .patient-info { background: #f5f5f5; padding: 15px; margin-bottom: 20px; border-radius: 5px; }
-                        .info-row { display: flex; margin-bottom: 8px; }
-                        .info-label { font-weight: bold; width: 100px; }
-                        .section { margin-bottom: 20px; }
-                        .section-title { font-weight: bold; font-size: 16px; color: #333; border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 10px; }
-                        .content-box { background: #fafafa; padding: 10px; border-left: 4px solid #007bff; margin-bottom: 10px; }
-                        .prescription-box { background: #fff8dc; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
-                        .footer { margin-top: 30px; text-align: right; font-size: 12px; color: #666; }
+                        body { 
+                            font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif; 
+                            margin: 0; 
+                            padding: 20px; 
+                            line-height: 1.4;
+                            font-size: 14px;
+                        }
+                        .receipt-container {
+                            max-width: 400px;
+                            margin: 0 auto;
+                            border: 2px solid #000;
+                            padding: 15px;
+                            background: white;
+                        }
+                        .clinic-header {
+                            text-align: center;
+                            border-bottom: 2px double #000;
+                            padding-bottom: 10px;
+                            margin-bottom: 15px;
+                        }
+                        .clinic-name {
+                            font-size: 20px;
+                            font-weight: bold;
+                            margin-bottom: 3px;
+                            letter-spacing: 2px;
+                        }
+                        .clinic-subtitle {
+                            font-size: 12px;
+                            color: #666;
+                            margin-bottom: 5px;
+                        }
+                        .receipt-title {
+                            font-size: 18px;
+                            font-weight: bold;
+                            text-align: center;
+                            margin: 10px 0;
+                            letter-spacing: 3px;
+                        }
+                        .receipt-info {
+                            margin-bottom: 15px;
+                        }
+                        .info-row {
+                            display: flex;
+                            justify-content: space-between;
+                            margin-bottom: 5px;
+                            font-size: 13px;
+                        }
+                        .info-label {
+                            font-weight: bold;
+                        }
+                        .items-section {
+                            border-top: 1px solid #000;
+                            border-bottom: 1px solid #000;
+                            padding: 10px 0;
+                            margin: 15px 0;
+                        }
+                        .items-title {
+                            font-weight: bold;
+                            text-align: center;
+                            margin-bottom: 10px;
+                            font-size: 15px;
+                        }
+                        .items-table {
+                            width: 100%;
+                            font-size: 13px;
+                        }
+                        .items-table td {
+                            padding: 3px 5px;
+                            border-bottom: 1px dotted #999;
+                        }
+                        .total-section {
+                            text-align: right;
+                            margin: 15px 0;
+                            font-size: 16px;
+                            font-weight: bold;
+                        }
+                        .total-amount {
+                            font-size: 10px;
+                            color: #000;
+                            border: 2px solid #000;
+                            padding: 8px;
+                            display: inline-block;
+                            min-width: 100px;
+                            text-align: center;
+                        }
+                        .prescription-section {
+                            margin: 15px 0;
+                            border-top: 1px dashed #666;
+                            padding-top: 10px;
+                        }
+                        .prescription-title {
+                            font-weight: bold;
+                            margin-bottom: 8px;
+                            font-size: 14px;
+                        }
+                        .prescription-content {
+                            background: #f9f9f9;
+                            padding: 8px;
+                            border: 1px solid #ddd;
+                            font-size: 12px;
+                            line-height: 1.3;
+                        }
+                        .footer-info {
+                            margin-top: 20px;
+                            border-top: 1px dashed #666;
+                            padding-top: 10px;
+                            font-size: 11px;
+                            color: #666;
+                        }
+                        .footer-row {
+                            display: flex;
+                            justify-content: space-between;
+                            margin-bottom: 3px;
+                        }
+                        .thank-you {
+                            text-align: center;
+                            margin: 15px 0;
+                            font-weight: bold;
+                            font-size: 14px;
+                        }
+                        .diagnosis-section {
+                            margin: 10px 0;
+                            font-size: 12px;
+                        }
+                        .diagnosis-title {
+                            font-weight: bold;
+                            margin-bottom: 5px;
+                        }
                         @media print {
-                            body { margin: 0; }
-                            .no-print { display: none; }
+                            body { margin: 0; padding: 10px; }
+                            .receipt-container { border: 2px solid #000; }
                         }
                     </style>
                 </head>
                 <body>
-                    <div class="header">
-                        <div class="clinic-name">中醫診所</div>
-                        <div class="record-title">診症記錄</div>
-                    </div>
-                    
-                    <div class="patient-info">
-                        <div class="info-row">
-                            <span class="info-label">病人姓名：</span>
-                            <span>${patient.name}</span>
+                    <div class="receipt-container">
+                        <!-- 診所標題 -->
+                        <div class="clinic-header">
+                            <div class="clinic-name">中醫診所</div>
+                            <div class="clinic-subtitle">Traditional Chinese Medicine Clinic</div>
+                            <div class="clinic-subtitle">電話：(852) 2345-6789　地址：香港中環皇后大道中123號</div>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">病人編號：</span>
-                            <span>${patient.patientNumber}</span>
+                        
+                        <!-- 收據標題 -->
+                        <div class="receipt-title">收　據</div>
+                        
+                        <!-- 基本資訊 -->
+                        <div class="receipt-info">
+                            <div class="info-row">
+                                <span class="info-label">收據編號：</span>
+                                <span>R${consultation.id.toString().padStart(6, '0')}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">病人姓名：</span>
+                                <span>${patient.name}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">病歷號碼：</span>
+                                <span>${patient.patientNumber}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">診療日期：</span>
+                                <span>${new Date(consultation.date).toLocaleDateString('zh-TW', {
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit'
+                                })}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">診療時間：</span>
+                                <span>${new Date(consultation.date).toLocaleTimeString('zh-TW', {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                })}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">主治醫師：</span>
+                                <span>${consultation.doctor === 'doctor' ? '王醫師' : consultation.doctor || '未記錄'}</span>
+                            </div>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">年齡性別：</span>
-                            <span>${formatAge(patient.birthDate)} / ${patient.gender}</span>
+                        
+                        <!-- 診斷資訊 -->
+                        ${consultation.diagnosis ? `
+                        <div class="diagnosis-section">
+                            <div class="diagnosis-title">診斷：</div>
+                            <div>${consultation.diagnosis}</div>
+                            ${consultation.syndrome ? `<div>證型：${consultation.syndrome}</div>` : ''}
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">診症日期：</span>
-                            <span>${new Date(consultation.date).toLocaleDateString('zh-TW')} ${new Date(consultation.date).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit'})}</span>
+                        ` : ''}
+                        
+                        <!-- 收費項目 -->
+                        ${consultation.billingItems ? `
+                        <div class="items-section">
+                            <div class="items-title">收費明細</div>
+                            <table class="items-table">
+                                ${billingItemsHtml}
+                            </table>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label">診症醫師：</span>
-                            <span>${consultation.doctor || '未記錄'}</span>
+                        ` : ''}
+                        
+                        <!-- 總金額 -->
+                        <div class="total-section">
+                            <div style="margin-bottom: 8px; font-size: 10px;">應收金額：</div>
+                            <div class="total-amount">HK$ ${totalAmount.toLocaleString()}</div>
                         </div>
-                    </div>
-                    
-                    <div class="section">
-                        <div class="section-title">主訴</div>
-                        <div class="content-box">${consultation.symptoms || '無記錄'}</div>
-                    </div>
-                    
-                    ${consultation.tongue ? `
-                    <div class="section">
-                        <div class="section-title">舌象</div>
-                        <div class="content-box">${consultation.tongue}</div>
-                    </div>
-                    ` : ''}
-                    
-                    ${consultation.pulse ? `
-                    <div class="section">
-                        <div class="section-title">脈象</div>
-                        <div class="content-box">${consultation.pulse}</div>
-                    </div>
-                    ` : ''}
-                    
-                    ${consultation.currentHistory ? `
-                    <div class="section">
-                        <div class="section-title">現病史</div>
-                        <div class="content-box">${consultation.currentHistory}</div>
-                    </div>
-                    ` : ''}
-                    
-                    <div class="section">
-                        <div class="section-title">中醫診斷</div>
-                        <div class="content-box">${consultation.diagnosis || '無記錄'}</div>
-                    </div>
-                    
-                    <div class="section">
-                        <div class="section-title">證型診斷</div>
-                        <div class="content-box">${consultation.syndrome || '無記錄'}</div>
-                    </div>
-                    
-                    ${consultation.acupunctureNotes ? `
-                    <div class="section">
-                        <div class="section-title">針灸備註</div>
-                        <div class="content-box">${consultation.acupunctureNotes}</div>
-                    </div>
-                    ` : ''}
-                    
-                    <div class="section">
-                        <div class="section-title">處方內容</div>
-                        <div class="prescription-box">${consultation.prescription ? consultation.prescription.replace(/\n/g, '<br>') : '無記錄'}</div>
-                    </div>
-                    
-                    ${consultation.usage ? `
-                    <div class="section">
-                        <div class="section-title">服用方法</div>
-                        <div class="content-box">${consultation.usage}</div>
-                    </div>
-                    ` : ''}
-                    
-                    ${consultation.treatmentCourse ? `
-                    <div class="section">
-                        <div class="section-title">療程</div>
-                        <div class="content-box">${consultation.treatmentCourse}</div>
-                    </div>
-                    ` : ''}
-                    
-                    ${consultation.instructions ? `
-                    <div class="section">
-                        <div class="section-title">醫囑及注意事項</div>
-                        <div class="content-box">${consultation.instructions}</div>
-                    </div>
-                    ` : ''}
-                    
-                    ${consultation.followUpDate ? `
-                    <div class="section">
-                        <div class="section-title">複診時間</div>
-                        <div class="content-box">${new Date(consultation.followUpDate).toLocaleString('zh-TW')}</div>
-                    </div>
-                    ` : ''}
-                    
-                    ${consultation.billingItems ? `
-                    <div class="section">
-                        <div class="section-title">收費項目</div>
-                        <div class="content-box">${consultation.billingItems.replace(/\n/g, '<br>')}</div>
-                    </div>
-                    ` : ''}
-                    
-                    <div class="footer">
-                        列印時間：${new Date().toLocaleString('zh-TW')}
+                        
+                        <!-- 處方資訊 -->
+                        ${consultation.prescription ? `
+                        <div class="prescription-section">
+                            <div class="prescription-title">📋 處方內容</div>
+                            <div class="prescription-content">${consultation.prescription.replace(/\n/g, '<br>')}</div>
+                            ${consultation.usage ? `
+                            <div style="margin-top: 8px; font-size: 12px;">
+                                <strong>服用方法：</strong>${consultation.usage}
+                            </div>
+                            ` : ''}
+                        </div>
+                        ` : ''}
+                        
+                        <!-- 醫囑 -->
+                        ${consultation.instructions ? `
+                        <div style="margin: 10px 0; font-size: 12px; background: #fff3cd; padding: 8px; border: 1px solid #ffeaa7;">
+                            <strong>⚠️ 醫囑及注意事項：</strong><br>
+                            ${consultation.instructions}
+                        </div>
+                        ` : ''}
+                        
+                        <!-- 複診提醒 -->
+                        ${consultation.followUpDate ? `
+                        <div style="margin: 10px 0; font-size: 12px; background: #e3f2fd; padding: 8px; border: 1px solid #90caf9;">
+                            <strong>📅 建議複診時間：</strong><br>
+                            ${new Date(consultation.followUpDate).toLocaleString('zh-TW')}
+                        </div>
+                        ` : ''}
+                        
+                        <!-- 感謝語 -->
+                        <div class="thank-you">
+                            謝謝您的光臨，祝您身體健康！
+                        </div>
+                        
+                        <!-- 頁尾資訊 -->
+                        <div class="footer-info">
+                            <div class="footer-row">
+                                <span>收據開立時間：</span>
+                                <span>${new Date().toLocaleString('zh-TW')}</span>
+                            </div>
+                            <div class="footer-row">
+                                <span>診所營業時間：</span>
+                                <span>週一至週五 09:00-18:00</span>
+                            </div>
+                            <div class="footer-row">
+                                <span>本收據請妥善保存</span>
+                                <span>如有疑問請洽櫃檯</span>
+                            </div>
+                        </div>
                     </div>
                 </body>
                 </html>
             `;
             
             // 開啟新視窗進行列印
-            const printWindow = window.open('', '_blank');
+            const printWindow = window.open('', '_blank', 'width=500,height=700');
             printWindow.document.write(printContent);
             printWindow.document.close();
             printWindow.focus();
             printWindow.print();
             
-            showToast('病歷記錄已準備列印！', 'success');
+            showToast('中醫診所收據已準備列印！', 'success');
         }
 
         // 撤回診症功能
@@ -3880,7 +4271,8 @@
                 consultation: { name: '診療費', icon: '🩺', items: [] },
                 medicine: { name: '藥費', icon: '💊', items: [] },
                 treatment: { name: '治療費', icon: '🔧', items: [] },
-                other: { name: '其他', icon: '📋', items: [] }
+                other: { name: '其他', icon: '📋', items: [] },
+                discount: { name: '折扣項目', icon: '💸', items: [] }
             };
             
             filteredItems.forEach(item => {
@@ -3914,13 +4306,31 @@
             const statusClass = item.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
             const statusText = item.active ? '啟用' : '停用';
             
+            // 折扣項目使用不同的顏色顯示
+            const priceColor = item.category === 'discount' ? 'text-red-600' : 'text-green-600';
+            let pricePrefix = '$';
+            let displayPrice = Math.abs(item.price);
+            
+            // 處理折扣項目的顯示
+            if (item.category === 'discount') {
+                if (item.price > 0 && item.price < 1) {
+                    // 百分比折扣 (0.9 = 9折)
+                    pricePrefix = '';
+                    displayPrice = (item.price * 10).toFixed(0);
+                } else if (item.price < 0) {
+                    // 固定金額折扣
+                    pricePrefix = '-$';
+                    displayPrice = Math.abs(item.price);
+                }
+            }
+            
             return `
                 <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition duration-200 ${!item.active ? 'opacity-75' : ''}">
                     <div class="flex justify-between items-start mb-3">
                         <div class="flex-1">
                             <h4 class="text-lg font-semibold text-gray-900">${item.name}</h4>
                             <div class="flex items-center mt-1">
-                                <span class="text-2xl font-bold text-green-600">$${item.price}</span>
+                                <span class="text-2xl font-bold ${priceColor}">${pricePrefix}${displayPrice}</span>
                                 ${item.unit ? `<span class="text-sm text-gray-500 ml-1">/ ${item.unit}</span>` : ''}
                             </div>
                         </div>
@@ -4001,9 +4411,25 @@
                 return;
             }
             
-            if (isNaN(price) || price < 0) {
+            if (isNaN(price)) {
                 showToast('請輸入有效的收費金額！', 'error');
                 return;
+            }
+            
+            // 折扣項目允許負數或0-1之間的小數（百分比），其他項目不允許負數
+            if (category !== 'discount' && price < 0) {
+                showToast('除折扣項目外，收費金額不能為負數！', 'error');
+                return;
+            }
+            
+            // 折扣項目的特殊驗證
+            if (category === 'discount') {
+                if (price > 0 && price >= 1 && price <= 10) {
+                    // 如果輸入1-10之間的數字，自動轉換為折扣比例
+                    price = price / 10;
+                    document.getElementById('billingItemPrice').value = price;
+                    showToast(`已自動轉換為${(price * 10).toFixed(0)}折`, 'info');
+                }
             }
             
             const item = {
@@ -4376,7 +4802,8 @@
                     consultation: '診療費',
                     medicine: '藥費',
                     treatment: '治療費',
-                    other: '其他'
+                    other: '其他',
+                    discount: '折扣項目'
                 };
                 const categoryName = categoryNames[item.category] || '未分類';
                 const bgColor = getCategoryBgColor(item.category);
@@ -4386,7 +4813,18 @@
                         <div class="text-center">
                             <div class="font-semibold text-gray-900 text-sm mb-1">${item.name}</div>
                             <div class="text-xs bg-white text-gray-600 px-2 py-1 rounded mb-2">${categoryName}</div>
-                            <div class="text-sm font-bold text-green-600">$${item.price}</div>
+                            <div class="text-sm font-bold ${item.category === 'discount' ? 'text-red-600' : 'text-green-600'}">
+                                ${(() => {
+                                    if (item.category === 'discount') {
+                                        if (item.price > 0 && item.price < 1) {
+                                            return `${(item.price * 10).toFixed(0)}折`;
+                                        } else if (item.price < 0) {
+                                            return `-$${Math.abs(item.price)}`;
+                                        }
+                                    }
+                                    return `$${Math.abs(item.price)}`;
+                                })()}
+                            </div>
                             ${item.unit ? `<div class="text-xs text-gray-600">/ ${item.unit}</div>` : ''}
                             ${item.description ? `<div class="text-xs text-gray-600 mt-1">${item.description.substring(0, 30)}${item.description.length > 30 ? '...' : ''}</div>` : ''}
                         </div>
@@ -4403,7 +4841,8 @@
                 consultation: 'bg-blue-50 hover:bg-blue-100 border-blue-200',
                 medicine: 'bg-green-50 hover:bg-green-100 border-green-200',
                 treatment: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
-                other: 'bg-gray-50 hover:bg-gray-100 border-gray-200'
+                other: 'bg-gray-50 hover:bg-gray-100 border-gray-200',
+                discount: 'bg-red-50 hover:bg-red-100 border-red-200'
             };
             return colors[category] || colors.other;
         }
@@ -4459,51 +4898,163 @@
             }
             
             // 計算總費用
-            const totalAmount = selectedBillingItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            let totalAmount = 0;
+            let subtotalBeforeDiscount = 0;
+            
+            // 先計算非折扣項目的小計
+            selectedBillingItems.forEach(item => {
+                if (item.category !== 'discount') {
+                    subtotalBeforeDiscount += item.price * item.quantity;
+                }
+            });
+            
+            // 計算折扣後的總金額
+            totalAmount = subtotalBeforeDiscount;
+            selectedBillingItems.forEach(item => {
+                if (item.category === 'discount') {
+                    if (item.price > 0 && item.price < 1) {
+                        // 百分比折扣：對小計進行折扣計算
+                        const discountAmount = subtotalBeforeDiscount * (1 - item.price) * item.quantity;
+                        totalAmount -= discountAmount;
+                    } else {
+                        // 固定金額折扣
+                        totalAmount += item.price * item.quantity;
+                    }
+                }
+            });
             totalAmountSpan.textContent = `$${totalAmount}`;
             
-            // 顯示已選擇的項目
+            // 分離折扣項目和非折扣項目，但保持各自的添加順序
+            const nonDiscountItems = [];
+            const discountItems = [];
+            
+            selectedBillingItems.forEach((item, originalIndex) => {
+                if (item.category === 'discount') {
+                    discountItems.push({ item, originalIndex });
+                } else {
+                    nonDiscountItems.push({ item, originalIndex });
+                }
+            });
+            
+            // 合併顯示：非折扣項目在前，折扣項目在後
+            const displayItems = [...nonDiscountItems, ...discountItems];
+            
+            // 顯示已選擇的項目（非折扣項目在前，折扣項目在後）
             container.innerHTML = `
                 <div class="space-y-2">
-                    ${selectedBillingItems.map((item, index) => {
+                    ${displayItems.map(({ item, originalIndex }) => {
                         const categoryNames = {
                             consultation: '診療費',
                             medicine: '藥費',
                             treatment: '治療費',
-                            other: '其他'
+                            other: '其他',
+                            discount: '折扣項目'
                         };
                         const categoryName = categoryNames[item.category] || '未分類';
                         const bgColor = getCategoryBgColor(item.category);
-                        const subtotal = item.price * item.quantity;
+                        let subtotal;
+                        let subtotalDisplay;
+                        
+                        if (item.category === 'discount' && item.price > 0 && item.price < 1) {
+                            // 百分比折扣：顯示折扣金額
+                            const discountAmount = subtotalBeforeDiscount * (1 - item.price) * item.quantity;
+                            subtotal = -discountAmount;
+                            subtotalDisplay = `-$${discountAmount.toFixed(0)}`;
+                        } else {
+                            // 一般項目或固定金額折扣
+                            subtotal = item.price * item.quantity;
+                            subtotalDisplay = `$${subtotal}`;
+                        }
                         
                         return `
                             <div class="flex items-center ${bgColor} border rounded-lg p-3">
                                 <div class="flex-1">
                                     <div class="font-semibold text-gray-900">${item.name}</div>
                                     <div class="text-xs text-gray-600">${categoryName}</div>
-                                    <div class="text-sm text-green-600 font-medium">$${item.price}${item.unit ? ` / ${item.unit}` : ''}</div>
+                                    <div class="text-sm font-medium ${item.category === 'discount' ? 'text-red-600' : 'text-green-600'}">
+                                        ${(() => {
+                                            if (item.category === 'discount') {
+                                                if (item.price > 0 && item.price < 1) {
+                                                    return `${(item.price * 10).toFixed(0)}折`;
+                                                } else if (item.price < 0) {
+                                                    return `-$${Math.abs(item.price)}`;
+                                                }
+                                            }
+                                            return `$${Math.abs(item.price)}`;
+                                        })()}${item.unit ? ` / ${item.unit}` : ''}
+                                    </div>
                                 </div>
                                 <div class="flex items-center space-x-2 mr-3">
-                                    <button onclick="updateBillingQuantity(${index}, -1)" class="w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition duration-200">-</button>
+                                    <button onclick="updateBillingQuantity(${originalIndex}, -1)" class="w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition duration-200">-</button>
                                     <span class="w-8 text-center font-semibold">${item.quantity}</span>
-                                    <button onclick="updateBillingQuantity(${index}, 1)" class="w-6 h-6 bg-green-500 text-white rounded-full text-xs hover:bg-green-600 transition duration-200">+</button>
+                                    <button onclick="updateBillingQuantity(${originalIndex}, 1)" class="w-6 h-6 bg-green-500 text-white rounded-full text-xs hover:bg-green-600 transition duration-200">+</button>
                                 </div>
                                 <div class="mr-3 text-right">
-                                    <div class="font-bold text-green-600">$${subtotal}</div>
+                                    <div class="font-bold ${subtotal < 0 ? 'text-red-600' : 'text-green-600'}">${subtotalDisplay}</div>
                                 </div>
-                                <button onclick="removeBillingItem(${index})" class="text-red-500 hover:text-red-700 font-bold text-lg px-2">×</button>
+                                <button onclick="removeBillingItem(${originalIndex})" class="text-red-500 hover:text-red-700 font-bold text-lg px-2">×</button>
                             </div>
                         `;
                     }).join('')}
                 </div>
+                
+                <!-- 小計和總計顯示 -->
+                ${subtotalBeforeDiscount > 0 && selectedBillingItems.some(item => item.category === 'discount') ? `
+                    <div class="mt-4 pt-3 border-t border-gray-200">
+                        <div class="text-right space-y-1">
+                            <div class="text-sm text-gray-600">
+                                小計：<span class="font-medium">$${subtotalBeforeDiscount}</span>
+                            </div>
+                            ${selectedBillingItems.filter(item => item.category === 'discount').map(item => {
+                                if (item.price > 0 && item.price < 1) {
+                                    const discountAmount = subtotalBeforeDiscount * (1 - item.price) * item.quantity;
+                                    return `<div class="text-sm text-red-600">
+                                        ${item.name}：<span class="font-medium">-$${discountAmount.toFixed(0)}</span>
+                                    </div>`;
+                                } else {
+                                    return `<div class="text-sm text-red-600">
+                                        ${item.name}：<span class="font-medium">$${item.price * item.quantity}</span>
+                                    </div>`;
+                                }
+                            }).join('')}
+                            <div class="text-base font-bold text-green-600 pt-1 border-t border-gray-300">
+                                總計：$${Math.round(totalAmount)}
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
             `;
             
-            // 更新隱藏的文本域
+            // 更新隱藏的文本域（非折扣項目在前，折扣項目在後）
             let billingText = '';
+            
+            // 如果有折扣項目，先顯示小計
+            if (selectedBillingItems.some(item => item.category === 'discount')) {
+                billingText += `小計：$${subtotalBeforeDiscount}\n\n`;
+            }
+            
+            // 先記錄非折扣項目
             selectedBillingItems.forEach(item => {
-                billingText += `${item.name} x${item.quantity} = $${item.price * item.quantity}\n`;
+                if (item.category !== 'discount') {
+                    billingText += `${item.name} x${item.quantity} = $${item.price * item.quantity}\n`;
+                }
             });
-            billingText += `\n總費用：$${totalAmount}`;
+            
+            // 再記錄折扣項目
+            selectedBillingItems.forEach(item => {
+                if (item.category === 'discount') {
+                    if (item.price > 0 && item.price < 1) {
+                        // 百分比折扣
+                        const discountAmount = subtotalBeforeDiscount * (1 - item.price) * item.quantity;
+                        billingText += `${item.name} x${item.quantity} = -$${discountAmount.toFixed(0)}\n`;
+                    } else {
+                        // 固定金額折扣
+                        billingText += `${item.name} x${item.quantity} = $${item.price * item.quantity}\n`;
+                    }
+                }
+            });
+            
+            billingText += `\n總費用：$${Math.round(totalAmount)}`;
             hiddenTextarea.value = billingText.trim();
         }
         
@@ -4600,10 +5151,278 @@
             clearBillingSearch();
         }
 
+        // 用戶管理功能
+        let editingUserId = null;
+        let currentUserFilter = 'all';
+        
+        function loadUserManagement() {
+            displayUsers();
+            
+            // 搜尋功能
+            const searchInput = document.getElementById('searchUser');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    displayUsers();
+                });
+            }
+        }
+        
+        function filterUsers(role) {
+            currentUserFilter = role;
+            
+            // 更新按鈕樣式
+            document.querySelectorAll('[id^="user-filter-"]').forEach(btn => {
+                btn.className = 'px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200';
+            });
+            document.getElementById(`user-filter-${role}`).className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 transition duration-200';
+            
+            displayUsers();
+        }
+        
+        function displayUsers() {
+            const searchTerm = document.getElementById('searchUser').value.toLowerCase();
+            const tbody = document.getElementById('userList');
+            
+            // 過濾用戶資料
+            let filteredUsers = users.filter(user => {
+                const matchesSearch = user.username.toLowerCase().includes(searchTerm) ||
+                                    user.name.toLowerCase().includes(searchTerm) ||
+                                    (user.email && user.email.toLowerCase().includes(searchTerm));
+                
+                const matchesFilter = currentUserFilter === 'all' || user.role === currentUserFilter;
+                
+                return matchesSearch && matchesFilter;
+            });
+            
+            if (filteredUsers.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                            ${searchTerm ? '沒有找到符合條件的用戶' : '尚無用戶資料'}
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            tbody.innerHTML = filteredUsers.map(user => {
+                const roleNames = {
+                    admin: '管理員',
+                    doctor: '醫師',
+                    assistant: '助理'
+                };
+                const roleName = roleNames[user.role] || user.role;
+                
+                const statusClass = user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                const statusText = user.active ? '啟用' : '停用';
+                
+                const lastLogin = user.lastLogin ? 
+                    new Date(user.lastLogin).toLocaleDateString('zh-TW') + ' ' + 
+                    new Date(user.lastLogin).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit'}) : 
+                    '從未登入';
+                
+                return `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 text-sm font-medium text-gray-900">${user.username}</td>
+                        <td class="px-4 py-3 text-sm text-gray-900">${user.name}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                ${roleName}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-900">
+                            ${user.email ? `<div>${user.email}</div>` : ''}
+                            ${user.phone ? `<div class="text-gray-600">${user.phone}</div>` : ''}
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
+                                ${statusText}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-600">${lastLogin}</td>
+                        <td class="px-4 py-3 text-sm space-x-2">
+                            <button onclick="editUser(${user.id})" class="text-blue-600 hover:text-blue-800">編輯</button>
+                            <button onclick="resetUserPassword(${user.id})" class="text-orange-600 hover:text-orange-800">重設密碼</button>
+                            ${user.id !== 1 ? `<button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-800">刪除</button>` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        function showAddUserForm() {
+            editingUserId = null;
+            document.getElementById('userFormTitle').textContent = '新增用戶';
+            document.getElementById('userSaveButtonText').textContent = '儲存';
+            clearUserForm();
+            document.getElementById('addUserModal').classList.remove('hidden');
+        }
+        
+        function hideAddUserForm() {
+            document.getElementById('addUserModal').classList.add('hidden');
+            clearUserForm();
+            editingUserId = null;
+        }
+        
+        function clearUserForm() {
+            ['userName', 'userPassword', 'userDisplayName', 'userRole', 'userEmail', 'userPhone'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            document.getElementById('userActive').checked = true;
+        }
+        
+        function editUser(id) {
+            const user = users.find(u => u.id === id);
+            if (!user) return;
+            
+            editingUserId = id;
+            document.getElementById('userFormTitle').textContent = '編輯用戶';
+            document.getElementById('userSaveButtonText').textContent = '更新';
+            
+            document.getElementById('userName').value = user.username || '';
+            document.getElementById('userPassword').value = ''; // 密碼欄位保持空白
+            document.getElementById('userDisplayName').value = user.name || '';
+            document.getElementById('userRole').value = user.role || '';
+            document.getElementById('userEmail').value = user.email || '';
+            document.getElementById('userPhone').value = user.phone || '';
+            document.getElementById('userActive').checked = user.active !== false;
+            
+            // 編輯模式下密碼欄位提示
+            document.getElementById('userPassword').placeholder = '留空則不修改密碼';
+            
+            document.getElementById('addUserModal').classList.remove('hidden');
+        }
+        
+        function saveUser() {
+            const username = document.getElementById('userName').value.trim();
+            const password = document.getElementById('userPassword').value.trim();
+            const name = document.getElementById('userDisplayName').value.trim();
+            const role = document.getElementById('userRole').value;
+            const email = document.getElementById('userEmail').value.trim();
+            const phone = document.getElementById('userPhone').value.trim();
+            const active = document.getElementById('userActive').checked;
+            
+            // 驗證必填欄位
+            if (!username || !name || !role) {
+                showToast('請填寫必要資料（帳號、姓名、角色）！', 'error');
+                return;
+            }
+            
+            // 新增用戶時密碼為必填
+            if (!editingUserId && !password) {
+                showToast('新增用戶時密碼為必填！', 'error');
+                return;
+            }
+            
+            // 驗證帳號格式
+            const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+            if (!usernameRegex.test(username)) {
+                showToast('帳號只能包含英文、數字、底線，長度3-20字元！', 'error');
+                return;
+            }
+            
+            // 檢查帳號是否重複
+            const existingUser = users.find(u => u.username === username && u.id !== editingUserId);
+            if (existingUser) {
+                showToast('此帳號已存在，請使用其他帳號！', 'error');
+                return;
+            }
+            
+            // 驗證密碼格式（如果有輸入）
+            if (password && password.length < 6) {
+                showToast('密碼長度至少6個字元！', 'error');
+                return;
+            }
+            
+            // 驗證電子郵件格式（如果有輸入）
+            if (email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    showToast('請輸入有效的電子郵件格式！', 'error');
+                    return;
+                }
+            }
+            
+            // 生成新的用戶ID（確保唯一性）
+            const newUserId = editingUserId || Math.max(...users.map(u => u.id), 0) + 1;
+            
+            const user = {
+                id: newUserId,
+                username: username,
+                password: password || (editingUserId ? users.find(u => u.id === editingUserId).password : ''),
+                name: name,
+                role: role,
+                email: email,
+                phone: phone,
+                active: active,
+                createdAt: editingUserId ? users.find(u => u.id === editingUserId).createdAt : new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                lastLogin: editingUserId ? users.find(u => u.id === editingUserId).lastLogin : null
+            };
+            
+            if (editingUserId) {
+                // 更新現有用戶
+                const index = users.findIndex(u => u.id === editingUserId);
+                if (index !== -1) {
+                    users[index] = user;
+                    showToast('用戶資料已成功更新！', 'success');
+                } else {
+                    showToast('找不到要更新的用戶！', 'error');
+                    return;
+                }
+            } else {
+                // 新增用戶
+                users.push(user);
+                showToast('用戶已成功新增！', 'success');
+            }
+            
+            localStorage.setItem('users', JSON.stringify(users));
+            hideAddUserForm();
+            displayUsers();
+        }
+        
+        function resetUserPassword(id) {
+            const user = users.find(u => u.id === id);
+            if (!user) return;
+            
+            const newPassword = prompt(`請輸入 ${user.name} (${user.username}) 的新密碼：`);
+            if (newPassword === null) return; // 用戶取消
+            
+            if (newPassword.length < 6) {
+                showToast('密碼長度至少6個字元！', 'error');
+                return;
+            }
+            
+            if (confirm(`確定要重設 ${user.name} 的密碼嗎？`)) {
+                user.password = newPassword;
+                user.updatedAt = new Date().toISOString();
+                localStorage.setItem('users', JSON.stringify(users));
+                showToast(`${user.name} 的密碼已重設！`, 'success');
+            }
+        }
+        
+        function deleteUser(id) {
+            const user = users.find(u => u.id === id);
+            if (!user) return;
+            
+            // 不能刪除預設管理員
+            if (user.id === 1) {
+                showToast('無法刪除預設管理員帳號！', 'error');
+                return;
+            }
+            
+            if (confirm(`確定要刪除用戶「${user.name} (${user.username})」嗎？\n\n此操作無法復原！`)) {
+                users = users.filter(u => u.id !== id);
+                localStorage.setItem('users', JSON.stringify(users));
+                showToast(`用戶「${user.name}」已刪除！`, 'success');
+                displayUsers();
+            }
+        }
+
         // 初始化系統
         document.addEventListener('DOMContentLoaded', function() {
             updateStatistics();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969503a946b30478',t:'MTc1NDIxNTcxMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9695d64390398576',t:'MTc1NDIyNDMzOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
