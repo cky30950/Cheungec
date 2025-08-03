@@ -473,7 +473,7 @@
                     <div class="p-6">
                         <!-- 病人資訊 -->
                         <div class="bg-blue-50 rounded-lg p-4 mb-6">
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                                 <div>
                                     <span class="font-medium">病人：</span>
                                     <span id="formPatientName" class="text-blue-600 font-semibold"></span>
@@ -481,10 +481,6 @@
                                 <div>
                                     <span class="font-medium">掛號時間：</span>
                                     <span id="formAppointmentTime"></span>
-                                </div>
-                                <div>
-                                    <span class="font-medium">主訴：</span>
-                                    <span id="formChiefComplaint"></span>
                                 </div>
                             </div>
                         </div>
@@ -543,21 +539,6 @@
                                         處方內容
                                     </label>
                                     
-                                    <!-- 服藥天數設定 -->
-                                    <div class="mb-3 bg-green-50 rounded-lg p-3 border border-green-200">
-                                        <div class="flex items-center space-x-4">
-                                            <span class="text-sm font-medium text-green-800">📅 服藥天數：</span>
-                                            <div class="flex items-center space-x-2">
-                                                <button onclick="updateMedicationDays(-1)" class="w-8 h-8 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition duration-200">-</button>
-                                                <input type="number" id="medicationDays" value="5" min="1" max="30" 
-                                                       class="w-16 px-2 py-1 text-center border border-green-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                                       onchange="updateTotalDoses()" onclick="this.select()">
-                                                <button onclick="updateMedicationDays(1)" class="w-8 h-8 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition duration-200">+</button>
-                                                <span class="text-sm text-green-800 font-medium">天</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
                                     <!-- 中藥庫搜索區域 -->
                                     <div class="mb-3 bg-blue-50 rounded-lg p-3 border border-blue-200">
                                         <div class="flex items-center mb-2">
@@ -586,6 +567,39 @@
                                             <div class="text-sm text-gray-500 text-center py-4">
                                                 請使用上方搜索功能添加中藥材或方劑
                                             </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 服藥天數及次數設定 -->
+                                    <div class="mt-3 bg-green-50 rounded-lg p-3 border border-green-200">
+                                        <div class="space-y-3">
+                                            <!-- 服藥天數 -->
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-sm font-medium text-green-800">服藥天數</span>
+                                                <div class="flex items-center space-x-2">
+                                                    <button onclick="updateMedicationDays(-1)" class="w-7 h-7 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition duration-200">-</button>
+                                                    <input type="number" id="medicationDays" value="5" min="1" max="30" 
+                                                           class="w-14 px-2 py-1 text-center border border-green-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                                                           onchange="updateMedicationDaysFromInput()" onclick="this.select()">
+                                                    <button onclick="updateMedicationDays(1)" class="w-7 h-7 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition duration-200">+</button>
+                                                    <span class="text-sm text-green-800">天</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- 服藥次數 -->
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-sm font-medium text-green-800">每日次數</span>
+                                                <div class="flex items-center space-x-2">
+                                                    <button onclick="updateMedicationFrequency(-1)" class="w-7 h-7 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition duration-200">-</button>
+                                                    <input type="number" id="medicationFrequency" value="2" min="1" max="6" 
+                                                           class="w-14 px-2 py-1 text-center border border-green-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                                                           onchange="updateTotalDoses()" onclick="this.select()">
+                                                    <button onclick="updateMedicationFrequency(1)" class="w-7 h-7 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition duration-200">+</button>
+                                                    <span class="text-sm text-green-800">次/日</span>
+                                                </div>
+                                            </div>
+                                            
+
                                         </div>
                                     </div>
                                     
@@ -1326,21 +1340,11 @@
         const defaultBillingItems = [
             {
                 id: 7001,
-                name: '初診費',
+                name: '診金',
                 category: 'consultation',
-                price: 300,
+                price: 250,
                 unit: '次',
-                description: '首次就診診療費用',
-                active: true,
-                createdAt: new Date('2024-01-01').toISOString()
-            },
-            {
-                id: 7002,
-                name: '複診費',
-                category: 'consultation',
-                price: 200,
-                unit: '次',
-                description: '複診診療費用',
+                description: '診療費用',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString()
             },
@@ -2328,7 +2332,6 @@
             // 設置病人資訊
             document.getElementById('formPatientName').textContent = `${patient.name} (${patient.patientNumber})`;
             document.getElementById('formAppointmentTime').textContent = new Date(appointment.appointmentTime).toLocaleString('zh-TW');
-            document.getElementById('formChiefComplaint').textContent = appointment.chiefComplaint || '無';
             
             // 檢查是否為編輯模式
             if (appointment.status === 'completed' && appointment.consultationId) {
@@ -2395,6 +2398,10 @@
                 if (appointment.chiefComplaint) {
                     document.getElementById('formSymptoms').value = appointment.chiefComplaint;
                 }
+                
+                // 自動添加預設診金收費
+                addDefaultConsultationFee(patient);
+                
                 document.getElementById('consultationSaveButtonText').textContent = '完成診症';
             }
             
@@ -2410,8 +2417,9 @@
                 document.getElementById(id).value = '';
             });
             
-            // 重置服藥天數為預設值
+            // 重置服藥日數和次數為預設值
             document.getElementById('medicationDays').value = '5';
+            document.getElementById('medicationFrequency').value = '2';
             
             // 清空處方項目
             selectedPrescriptionItems = [];
@@ -4173,9 +4181,11 @@
                 ` : ''}
             `;
             
-            // 更新隱藏的文本域（包含服藥天數資訊）
+            // 更新隱藏的文本域（包含服藥資訊）
             const medicationDays = document.getElementById('medicationDays') ? document.getElementById('medicationDays').value || '5' : '5';
-            let prescriptionText = `服藥天數：${medicationDays}天\n\n`;
+            const medicationFrequency = document.getElementById('medicationFrequency') ? document.getElementById('medicationFrequency').value || '2' : '2';
+            
+            let prescriptionText = `服藥日數：${medicationDays}日\n每日次數：${medicationFrequency}次\n\n`;
             
             selectedPrescriptionItems.forEach(item => {
                 if (item.type === 'herb') {
@@ -4195,19 +4205,90 @@
             const newDays = Math.max(1, Math.min(30, currentDays + change));
             daysInput.value = newDays;
             
-            // 只更新處方顯示，不觸發其他狀態變更
+            // 更新處方顯示
+            if (selectedPrescriptionItems.length > 0) {
+                updatePrescriptionDisplay();
+            }
+            
+            // 自動更新藥費
+            updateMedicineFeeByDays(newDays);
+        }
+        
+        // 更新服藥次數
+        function updateMedicationFrequency(change) {
+            const frequencyInput = document.getElementById('medicationFrequency');
+            const currentFrequency = parseInt(frequencyInput.value) || 2;
+            const newFrequency = Math.max(1, Math.min(6, currentFrequency + change));
+            frequencyInput.value = newFrequency;
+            
+            // 更新處方顯示
             if (selectedPrescriptionItems.length > 0) {
                 updatePrescriptionDisplay();
             }
         }
         
-        // 更新總劑數顯示
-        function updateTotalDoses() {
-            // 這個函數現在只負責更新處方顯示
+        // 根據開藥天數自動更新藥費
+        function updateMedicineFeeByDays(days) {
+            // 尋找中藥調劑費項目
+            const medicineFeeItem = billingItems.find(item => 
+                item.active && 
+                item.category === 'medicine' && 
+                (item.name.includes('中藥') || item.name.includes('藥費') || item.name.includes('調劑'))
+            );
+            
+            if (!medicineFeeItem) {
+                return; // 如果沒有找到藥費項目，不進行自動更新
+            }
+            
+            // 查找現有的藥費項目
+            const existingMedicineFeeIndex = selectedBillingItems.findIndex(item => 
+                item.id === medicineFeeItem.id
+            );
+            
+            if (existingMedicineFeeIndex !== -1) {
+                // 更新現有藥費項目的數量為天數
+                selectedBillingItems[existingMedicineFeeIndex].quantity = days;
+                updateBillingDisplay();
+                showToast(`已更新藥費：${medicineFeeItem.name} x${days}天`, 'info');
+            } else {
+                // 如果沒有藥費項目，自動添加
+                const billingItem = {
+                    id: medicineFeeItem.id,
+                    name: medicineFeeItem.name,
+                    category: medicineFeeItem.category,
+                    price: medicineFeeItem.price,
+                    unit: medicineFeeItem.unit,
+                    description: medicineFeeItem.description,
+                    quantity: days
+                };
+                
+                selectedBillingItems.push(billingItem);
+                updateBillingDisplay();
+                showToast(`已自動添加藥費：${medicineFeeItem.name} x${days}天`, 'info');
+            }
+        }
+        
+        // 處理天數輸入框直接變更
+        function updateMedicationDaysFromInput() {
+            const daysInput = document.getElementById('medicationDays');
+            const days = parseInt(daysInput.value) || 5;
+            
+            // 確保天數在有效範圍內
+            const validDays = Math.max(1, Math.min(30, days));
+            if (validDays !== days) {
+                daysInput.value = validDays;
+            }
+            
+            // 更新處方顯示
             if (selectedPrescriptionItems.length > 0) {
                 updatePrescriptionDisplay();
             }
+            
+            // 自動更新藥費
+            updateMedicineFeeByDays(validDays);
         }
+        
+
         
         // 更新處方藥量
         function updatePrescriptionDosage(index, newDosage) {
@@ -4445,6 +4526,56 @@
             document.getElementById('billingSearchResults').classList.add('hidden');
         }
         
+        // 自動添加預設診金收費
+        function addDefaultConsultationFee(patient) {
+            // 尋找診金收費項目（優先尋找名稱包含「診金」的項目）
+            let consultationFeeItem = billingItems.find(item => 
+                item.active && 
+                item.category === 'consultation' && 
+                item.name.includes('診金')
+            );
+            
+            // 如果沒有找到診金項目，使用第一個診療費項目
+            if (!consultationFeeItem) {
+                consultationFeeItem = billingItems.find(item => 
+                    item.active && item.category === 'consultation'
+                );
+            }
+            
+            // 如果找到診金項目，自動添加
+            if (consultationFeeItem) {
+                // 清空現有收費項目
+                selectedBillingItems = [];
+                
+                // 添加診金項目
+                const billingItem = {
+                    id: consultationFeeItem.id,
+                    name: consultationFeeItem.name,
+                    category: consultationFeeItem.category,
+                    price: consultationFeeItem.price,
+                    unit: consultationFeeItem.unit,
+                    description: consultationFeeItem.description,
+                    quantity: 1
+                };
+                
+                selectedBillingItems.push(billingItem);
+                
+                // 自動添加預設藥費（根據預設5天）
+                const defaultDays = 5;
+                updateMedicineFeeByDays(defaultDays);
+                
+                // 更新顯示
+                updateBillingDisplay();
+                
+                // 顯示提示信息
+                showToast(`已自動添加診金：${consultationFeeItem.name}`, 'info');
+            } else {
+                // 如果沒有找到任何診療費項目，顯示警告
+                showToast('未找到可用的診金收費項目，請手動添加', 'warning');
+                updateBillingDisplay();
+            }
+        }
+        
         // 清空診症表單時也要清空處方搜索
         function clearConsultationFormOld() {
             ['formSymptoms', 'formTongue', 'formPulse', 'formCurrentHistory', 'formDiagnosis', 'formSyndrome', 'formPrescription', 'formUsage', 'formTreatmentCourse', 'formInstructions', 'formFollowUpDate'].forEach(id => {
@@ -4467,5 +4598,5 @@
             updateStatistics();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9693bc9a05cfe2e4',t:'MTc1NDIwMjMxNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96945f5827a3e2df',t:'MTc1NDIwODk4Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
