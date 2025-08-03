@@ -69,22 +69,46 @@
             <div class="text-center mb-8">
                 <div class="text-4xl mb-4">🏥</div>
                 <h1 class="text-2xl font-bold text-gray-800 mb-2">中醫診所系統</h1>
-                <p class="text-gray-600">請選擇您的身份登入</p>
+                <p class="text-gray-600">請輸入您的帳號密碼登入</p>
             </div>
             
             <div class="space-y-4">
-                <button onclick="login('admin')" class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center">
-                    <span class="mr-2">👨‍💼</span>
-                    管理員登入
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">帳號</label>
+                    <input type="text" id="mainLoginUsername" placeholder="請輸入帳號" 
+                           class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           onkeypress="if(event.key==='Enter') document.getElementById('mainLoginPassword').focus()">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">密碼</label>
+                    <input type="password" id="mainLoginPassword" placeholder="請輸入密碼" 
+                           class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           onkeypress="if(event.key==='Enter') attemptMainLogin()">
+                </div>
+                
+                <button onclick="attemptMainLogin()" 
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200">
+                    登入系統
                 </button>
-                <button onclick="login('doctor')" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center">
-                    <span class="mr-2">👨‍⚕️</span>
-                    醫師登入
-                </button>
-                <button onclick="login('assistant')" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center">
-                    <span class="mr-2">👩‍💻</span>
-                    診所助理登入
-                </button>
+                
+                <!-- 示範帳號提示 -->
+                <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div class="text-sm font-medium text-blue-800 mb-3">示範帳號：</div>
+                    <div class="text-xs text-blue-700 space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span>👨‍💼 診所管理</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">manager / manager2024</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span>👨‍⚕️ 醫師</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">drzhang / zhang888</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span>👩‍💻 護理師</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">nurse_amy / amy2024</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -160,7 +184,7 @@
                 <div class="text-6xl mb-6">🏥</div>
                 <h2 class="text-3xl font-bold text-gray-800 mb-4">歡迎使用中醫診所系統</h2>
                 <p class="text-gray-600 text-lg mb-8">請點擊左上角選單按鈕開始使用系統功能</p>
-                <div class="bg-white rounded-xl shadow-lg p-8 max-w-2xl mx-auto">
+                <div class="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto">
                     <h3 class="text-xl font-semibold mb-4">系統功能概覽</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                         <div class="text-center p-4 bg-green-50 rounded-lg">
@@ -176,7 +200,7 @@
                         <div class="text-center p-4 bg-purple-50 rounded-lg">
                             <div class="text-2xl mb-2">👤</div>
                             <div class="font-semibold">用戶管理</div>
-                            <div class="text-gray-600 mt-1">管理診所用戶帳號</div>
+                            <div class="text-gray-600 mt-1">管理診所用戶帳號及權限</div>
                         </div>
                         <div class="text-center p-4 bg-red-50 rounded-lg">
                             <div class="text-2xl mb-2">⚙️</div>
@@ -987,20 +1011,14 @@
                     </div>
                 </div>
 
-                <!-- 角色篩選標籤 -->
+                <!-- 狀態篩選標籤 -->
                 <div class="mb-6">
                     <div class="flex flex-wrap gap-2">
                         <button onclick="filterUsers('all')" id="user-filter-all" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 transition duration-200">
                             全部用戶
                         </button>
-                        <button onclick="filterUsers('admin')" id="user-filter-admin" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
-                            管理員
-                        </button>
-                        <button onclick="filterUsers('doctor')" id="user-filter-doctor" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
-                            醫師
-                        </button>
-                        <button onclick="filterUsers('assistant')" id="user-filter-assistant" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
-                            助理
+                        <button onclick="filterUsers('inactive')" id="user-filter-inactive" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
+                            已停用
                         </button>
                     </div>
                 </div>
@@ -1018,22 +1036,24 @@
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">帳號 *</label>
                                     <input type="text" id="userName" placeholder="請輸入登入帳號" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <p class="text-xs text-gray-500 mt-1">帳號只能包含英文字母、數字和底線</p>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">密碼 *</label>
                                     <input type="password" id="userPassword" placeholder="請輸入密碼" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <p class="text-xs text-gray-500 mt-1">密碼至少6個字符</p>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
                                     <input type="text" id="userDisplayName" placeholder="請輸入真實姓名" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">角色 *</label>
-                                    <select id="userRole" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                        <option value="">請選擇角色</option>
-                                        <option value="admin">管理員</option>
-                                        <option value="doctor">醫師</option>
-                                        <option value="assistant">助理</option>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">職位 *</label>
+                                    <select id="userPosition" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                        <option value="">請選擇職位</option>
+                                        <option value="診所管理">診所管理</option>
+                                        <option value="醫師">醫師</option>
+                                        <option value="護理師">護理師</option>
                                     </select>
                                 </div>
                                 <div>
@@ -1049,6 +1069,7 @@
                                         <input type="checkbox" id="userActive" checked class="mr-2 rounded">
                                         <span class="text-sm font-medium text-gray-700">啟用此用戶帳號</span>
                                     </label>
+                                    <p class="text-xs text-gray-500 mt-1">停用的帳號將無法登入系統</p>
                                 </div>
                             </div>
                             
@@ -1071,8 +1092,8 @@
                             <tr>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">帳號</th>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">姓名</th>
-                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">角色</th>
-                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">聯絡資訊</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">職位</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">電子郵件</th>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">狀態</th>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">最後登入</th>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">操作</th>
@@ -1084,6 +1105,8 @@
                     </table>
                 </div>
             </div>
+
+
 
             <!-- 系統管理 -->
             <div id="systemManagement" class="hidden bg-white rounded-xl shadow-lg p-6">
@@ -1573,36 +1596,36 @@
         const defaultUsers = [
             {
                 id: 1,
-                username: 'admin',
-                password: 'admin123',
-                name: '系統管理員',
-                role: 'admin',
-                email: 'admin@clinic.com',
-                phone: '02-1234-5678',
+                username: 'manager',
+                password: 'manager2024',
+                name: '陳經理',
+                position: '診所管理',
+                email: 'manager@tcmclinic.com',
+                phone: '02-8888-1001',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString(),
                 lastLogin: null
             },
             {
                 id: 2,
-                username: 'doctor01',
-                password: 'doctor123',
-                name: '王醫師',
-                role: 'doctor',
-                email: 'doctor@clinic.com',
-                phone: '02-1234-5679',
+                username: 'drzhang',
+                password: 'zhang888',
+                name: '張中醫師',
+                position: '醫師',
+                email: 'drzhang@tcmclinic.com',
+                phone: '02-8888-1002',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString(),
                 lastLogin: null
             },
             {
                 id: 3,
-                username: 'assistant01',
-                password: 'assistant123',
-                name: '李助理',
-                role: 'assistant',
-                email: 'assistant@clinic.com',
-                phone: '02-1234-5680',
+                username: 'nurse_amy',
+                password: 'amy2024',
+                name: '林護理師',
+                position: '護理師',
+                email: 'amy@tcmclinic.com',
+                phone: '02-8888-1003',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString(),
                 lastLogin: null
@@ -1616,45 +1639,72 @@
             localStorage.setItem('users', JSON.stringify(users));
         }
 
-        // 用戶權限設定
-        const userPermissions = {
-            admin: ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'systemManagement'],
-            doctor: ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'systemManagement'],
-            assistant: ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement']
-        };
+        // 所有用戶都有完整權限
+        const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'systemManagement'];
 
-        // 登入功能
-        function login(role) {
-            // 簡化登入：直接使用角色登入（示範用）
-            // 在實際應用中，這裡應該要有帳號密碼驗證
+        // 主要登入功能
+        function attemptMainLogin() {
+            const username = document.getElementById('mainLoginUsername').value.trim();
+            const password = document.getElementById('mainLoginPassword').value.trim();
             
-            // 找到對應角色的第一個啟用用戶
-            const user = users.find(u => u.role === role && u.active);
-            if (!user) {
-                showToast(`找不到可用的${role}帳號！`, 'error');
+            if (!username || !password) {
+                showToast('請輸入帳號和密碼！', 'error');
                 return;
             }
             
-            // 更新最後登入時間
-            user.lastLogin = new Date().toISOString();
-            localStorage.setItem('users', JSON.stringify(users));
+            // 尋找匹配的用戶
+            const user = users.find(u => 
+                u.username === username && 
+                u.password === password && 
+                u.active
+            );
             
-            currentUser = role;
+            if (!user) {
+                // 檢查是否帳號存在但密碼錯誤
+                const existingUser = users.find(u => u.username === username);
+                if (existingUser) {
+                    if (!existingUser.active) {
+                        showToast('此帳號已被停用，請聯繫管理員！', 'error');
+                    } else {
+                        showToast('密碼錯誤，請重新輸入！', 'error');
+                    }
+                } else {
+                    showToast('帳號不存在，請檢查輸入！', 'error');
+                }
+                
+                // 清空密碼欄位
+                document.getElementById('mainLoginPassword').value = '';
+                document.getElementById('mainLoginPassword').focus();
+                return;
+            }
+            
+            // 登入成功
+            performLogin(user);
+        }
+        
+        // 執行登入
+        function performLogin(user) {
+            // 更新最後登入時間
+            const userIndex = users.findIndex(u => u.id === user.id);
+            if (userIndex !== -1) {
+                users[userIndex].lastLogin = new Date().toISOString();
+                localStorage.setItem('users', JSON.stringify(users));
+            }
+            
+            currentUser = user.username;
             currentUserData = user;
             
+            // 切換到主系統
             document.getElementById('loginPage').classList.add('hidden');
             document.getElementById('mainSystem').classList.remove('hidden');
             
-            const roleNames = {
-                admin: '管理員',
-                doctor: '醫師',
-                assistant: '診所助理'
-            };
+            document.getElementById('userRole').textContent = `當前用戶：${user.name} (${user.position || '未設定職位'})`;
+            document.getElementById('sidebarUserRole').textContent = `當前用戶：${user.name} (${user.position || '未設定職位'})`;
             
-            document.getElementById('userRole').textContent = `當前用戶：${user.name} (${roleNames[role]})`;
-            document.getElementById('sidebarUserRole').textContent = `當前用戶：${user.name} (${roleNames[role]})`;
             generateSidebarMenu();
             updateStatistics();
+            
+            showToast(`歡迎回來，${user.name}！`, 'success');
         }
 
         // 側邊選單控制
@@ -1696,7 +1746,7 @@
                 systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' }
             };
             
-            userPermissions[currentUser].forEach(permission => {
+            allPermissions.forEach(permission => {
                 const item = menuItems[permission];
                 const button = document.createElement('button');
                 button.className = 'w-full text-left p-4 rounded-lg hover:bg-gray-100 transition duration-200 border border-gray-200 mb-2';
@@ -2202,7 +2252,7 @@
                 chiefComplaint: chiefComplaint || '無特殊主訴',
                 status: 'registered', // registered, waiting, consulting, completed
                 createdAt: new Date().toISOString(),
-                createdBy: currentUser
+                createdBy: currentUserData ? currentUserData.username : currentUser
             };
             
             appointments.push(appointment);
@@ -2395,7 +2445,7 @@
             // 更新狀態為候診中
             appointment.status = 'waiting';
             appointment.arrivedAt = new Date().toISOString();
-            appointment.confirmedBy = currentUser;
+            appointment.confirmedBy = currentUserData ? currentUserData.username : currentUser;
             
             // 保存狀態變更
             localStorage.setItem('appointments', JSON.stringify(appointments));
@@ -2500,7 +2550,7 @@
             // 如果是已掛號狀態，自動確認到達
             if (appointment.status === 'registered') {
                 appointment.arrivedAt = new Date().toISOString();
-                appointment.confirmedBy = currentUser;
+                appointment.confirmedBy = currentUserData ? currentUserData.username : currentUser;
                 showToast(`${patient.name} 已自動確認到達`, 'info');
             }
             
@@ -2535,7 +2585,7 @@
             // 開始新的診症 - 正確設置狀態為診症中
             appointment.status = 'consulting';
             appointment.consultationStartTime = new Date().toISOString();
-            appointment.consultingDoctor = currentUser;
+            appointment.consultingDoctor = currentUserData ? currentUserData.username : currentUser;
             
             // 立即保存狀態變更
             localStorage.setItem('appointments', JSON.stringify(appointments));
@@ -2807,7 +2857,7 @@
                     existingConsultation.followUpDate = document.getElementById('formFollowUpDate').value;
                     existingConsultation.billingItems = document.getElementById('formBillingItems').value.trim();
                     existingConsultation.updatedAt = new Date().toISOString();
-                    existingConsultation.updatedBy = currentUser;
+                    existingConsultation.updatedBy = currentUserData ? currentUserData.username : currentUser;
                     
                     localStorage.setItem('consultations', JSON.stringify(consultations));
                     showToast(`${patient.name} 的病歷已成功更新！`, 'success');
@@ -2832,7 +2882,7 @@
                     followUpDate: document.getElementById('formFollowUpDate').value,
                     billingItems: document.getElementById('formBillingItems').value.trim(),
                     date: new Date().toISOString(),
-                    doctor: currentUser,
+                    doctor: currentUserData ? currentUserData.username : currentUser,
                     status: 'completed'
                 };
                 
@@ -2843,7 +2893,7 @@
                 appointment.status = 'completed';
                 appointment.completedAt = new Date().toISOString();
                 appointment.consultationId = consultation.id;
-                appointment.completedBy = currentUser;
+                appointment.completedBy = currentUserData ? currentUserData.username : currentUser;
                 localStorage.setItem('appointments', JSON.stringify(appointments));
                 
                 showToast(`${patient.name} 的診症記錄已完成並保存！`, 'success');
@@ -2974,7 +3024,7 @@
                                     ${new Date(consultation.date).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit'})}
                                 </span>
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
-                                    醫師：${consultation.doctor || '未記錄'}
+                                    醫師：${getDoctorDisplayName(consultation.doctor)}
                                 </span>
                                 ${consultation.updatedAt ? `
                                     <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
@@ -3215,7 +3265,7 @@
                                     ${new Date(consultation.date).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit'})}
                                 </span>
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
-                                    醫師：${consultation.doctor || '未記錄'}
+                                    醫師：${getDoctorDisplayName(consultation.doctor)}
                                 </span>
                                 ${consultation.updatedAt ? `
                                     <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
@@ -3584,7 +3634,7 @@
                             </div>
                             <div class="info-row">
                                 <span class="info-label">主治醫師：</span>
-                                <span>${consultation.doctor === 'doctor' ? '王醫師' : consultation.doctor || '未記錄'}</span>
+                                <span>${getDoctorDisplayName(consultation.doctor)}</span>
                             </div>
                         </div>
                         
@@ -5156,6 +5206,27 @@
             clearBillingSearch();
         }
 
+
+
+        // 獲取醫師顯示名稱
+        function getDoctorDisplayName(doctorRole) {
+            if (!doctorRole) return '未記錄';
+            
+            // 如果是舊的固定值，直接返回
+            if (doctorRole === 'doctor') {
+                return '張中醫師';
+            }
+            
+            // 尋找對應的醫師用戶
+            const doctorUser = users.find(u => u.role === 'doctor' && (u.username === doctorRole || u.role === doctorRole));
+            if (doctorUser) {
+                return doctorUser.name;
+            }
+            
+            // 如果找不到，返回原值
+            return doctorRole;
+        }
+        
         // 用戶管理功能
         let editingUserId = null;
         let currentUserFilter = 'all';
@@ -5172,14 +5243,14 @@
             }
         }
         
-        function filterUsers(role) {
-            currentUserFilter = role;
+        function filterUsers(status) {
+            currentUserFilter = status;
             
             // 更新按鈕樣式
             document.querySelectorAll('[id^="user-filter-"]').forEach(btn => {
                 btn.className = 'px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200';
             });
-            document.getElementById(`user-filter-${role}`).className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 transition duration-200';
+            document.getElementById(`user-filter-${status}`).className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 transition duration-200';
             
             displayUsers();
         }
@@ -5194,10 +5265,15 @@
                                     user.name.toLowerCase().includes(searchTerm) ||
                                     (user.email && user.email.toLowerCase().includes(searchTerm));
                 
-                const matchesFilter = currentUserFilter === 'all' || user.role === currentUserFilter;
+                let matchesFilter = true;
+                if (currentUserFilter === 'inactive') {
+                    matchesFilter = !user.active;
+                }
                 
                 return matchesSearch && matchesFilter;
             });
+            
+            tbody.innerHTML = '';
             
             if (filteredUsers.length === 0) {
                 tbody.innerHTML = `
@@ -5210,49 +5286,40 @@
                 return;
             }
             
-            tbody.innerHTML = filteredUsers.map(user => {
-                const roleNames = {
-                    admin: '管理員',
-                    doctor: '醫師',
-                    assistant: '助理'
-                };
-                const roleName = roleNames[user.role] || user.role;
-                
+            filteredUsers.forEach(user => {
                 const statusClass = user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
                 const statusText = user.active ? '啟用' : '停用';
                 
                 const lastLogin = user.lastLogin ? 
-                    new Date(user.lastLogin).toLocaleDateString('zh-TW') + ' ' + 
-                    new Date(user.lastLogin).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit'}) : 
-                    '從未登入';
+                    new Date(user.lastLogin).toLocaleString('zh-TW') : '從未登入';
                 
-                return `
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 text-sm font-medium text-gray-900">${user.username}</td>
-                        <td class="px-4 py-3 text-sm text-gray-900">${user.name}</td>
-                        <td class="px-4 py-3 text-sm">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                ${roleName}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-900">
-                            ${user.email ? `<div>${user.email}</div>` : ''}
-                            ${user.phone ? `<div class="text-gray-600">${user.phone}</div>` : ''}
-                        </td>
-                        <td class="px-4 py-3">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
-                                ${statusText}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-600">${lastLogin}</td>
-                        <td class="px-4 py-3 text-sm space-x-2">
-                            <button onclick="editUser(${user.id})" class="text-blue-600 hover:text-blue-800">編輯</button>
-                            <button onclick="resetUserPassword(${user.id})" class="text-orange-600 hover:text-orange-800">重設密碼</button>
-                            ${user.id !== 1 ? `<button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-800">刪除</button>` : ''}
-                        </td>
-                    </tr>
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="px-4 py-3 text-sm text-gray-900 font-medium">${user.username}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900">${user.name}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${user.position || '未設定'}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900">${user.email || '未設定'}</td>
+                    <td class="px-4 py-3">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
+                            ${statusText}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${lastLogin}</td>
+                    <td class="px-4 py-3 text-sm space-x-2">
+                        <button onclick="editUser(${user.id})" class="text-blue-600 hover:text-blue-800">編輯</button>
+                        ${user.id !== currentUserData.id ? `
+                            <button onclick="toggleUserStatus(${user.id})" class="text-orange-600 hover:text-orange-800">
+                                ${user.active ? '停用' : '啟用'}
+                            </button>
+                            <button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-800">刪除</button>
+                        ` : `
+                            <span class="text-gray-400 text-xs">當前用戶</span>
+                        `}
+                    </td>
                 `;
-            }).join('');
+                tbody.appendChild(row);
+            });
         }
         
         function showAddUserForm() {
@@ -5270,7 +5337,7 @@
         }
         
         function clearUserForm() {
-            ['userName', 'userPassword', 'userDisplayName', 'userRole', 'userEmail', 'userPhone'].forEach(id => {
+            ['userName', 'userPassword', 'userDisplayName', 'userPosition', 'userEmail', 'userPhone'].forEach(id => {
                 document.getElementById(id).value = '';
             });
             document.getElementById('userActive').checked = true;
@@ -5287,13 +5354,10 @@
             document.getElementById('userName').value = user.username || '';
             document.getElementById('userPassword').value = ''; // 密碼欄位保持空白
             document.getElementById('userDisplayName').value = user.name || '';
-            document.getElementById('userRole').value = user.role || '';
+            document.getElementById('userPosition').value = user.position || '';
             document.getElementById('userEmail').value = user.email || '';
             document.getElementById('userPhone').value = user.phone || '';
             document.getElementById('userActive').checked = user.active !== false;
-            
-            // 編輯模式下密碼欄位提示
-            document.getElementById('userPassword').placeholder = '留空則不修改密碼';
             
             document.getElementById('addUserModal').classList.remove('hidden');
         }
@@ -5302,27 +5366,33 @@
             const username = document.getElementById('userName').value.trim();
             const password = document.getElementById('userPassword').value.trim();
             const name = document.getElementById('userDisplayName').value.trim();
-            const role = document.getElementById('userRole').value;
+            const position = document.getElementById('userPosition').value.trim();
             const email = document.getElementById('userEmail').value.trim();
             const phone = document.getElementById('userPhone').value.trim();
             const active = document.getElementById('userActive').checked;
             
             // 驗證必填欄位
-            if (!username || !name || !role) {
-                showToast('請填寫必要資料（帳號、姓名、角色）！', 'error');
+            if (!username || !name || !position) {
+                showToast('請填寫必要資料（帳號、姓名、職位）！', 'error');
+                return;
+            }
+            
+            // 驗證帳號格式
+            const usernameRegex = /^[a-zA-Z0-9_]+$/;
+            if (!usernameRegex.test(username)) {
+                showToast('帳號只能包含英文字母、數字和底線！', 'error');
                 return;
             }
             
             // 新增用戶時密碼為必填
             if (!editingUserId && !password) {
-                showToast('新增用戶時密碼為必填！', 'error');
+                showToast('請輸入密碼！', 'error');
                 return;
             }
             
-            // 驗證帳號格式
-            const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
-            if (!usernameRegex.test(username)) {
-                showToast('帳號只能包含英文、數字、底線，長度3-20字元！', 'error');
+            // 驗證密碼長度
+            if (password && password.length < 6) {
+                showToast('密碼至少需要6個字符！', 'error');
                 return;
             }
             
@@ -5333,13 +5403,7 @@
                 return;
             }
             
-            // 驗證密碼格式（如果有輸入）
-            if (password && password.length < 6) {
-                showToast('密碼長度至少6個字元！', 'error');
-                return;
-            }
-            
-            // 驗證電子郵件格式（如果有輸入）
+            // 驗證電子郵件格式
             if (email) {
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 if (!emailRegex.test(email)) {
@@ -5348,61 +5412,84 @@
                 }
             }
             
-            // 生成新的用戶ID（確保唯一性）
-            const newUserId = editingUserId || Math.max(...users.map(u => u.id), 0) + 1;
-            
-            const user = {
-                id: newUserId,
-                username: username,
-                password: password || (editingUserId ? users.find(u => u.id === editingUserId).password : ''),
-                name: name,
-                role: role,
-                email: email,
-                phone: phone,
-                active: active,
-                createdAt: editingUserId ? users.find(u => u.id === editingUserId).createdAt : new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                lastLogin: editingUserId ? users.find(u => u.id === editingUserId).lastLogin : null
-            };
-            
             if (editingUserId) {
                 // 更新現有用戶
-                const index = users.findIndex(u => u.id === editingUserId);
-                if (index !== -1) {
-                    users[index] = user;
-                    showToast('用戶資料已成功更新！', 'success');
-                } else {
+                const userIndex = users.findIndex(u => u.id === editingUserId);
+                if (userIndex === -1) {
                     showToast('找不到要更新的用戶！', 'error');
                     return;
                 }
+                
+                // 直接更新用戶屬性
+                users[userIndex].username = username;
+                users[userIndex].name = name;
+                users[userIndex].position = position;
+                users[userIndex].email = email;
+                users[userIndex].phone = phone;
+                users[userIndex].active = active;
+                users[userIndex].updatedAt = new Date().toISOString();
+                
+                // 只有在密碼有輸入時才更新密碼
+                if (password) {
+                    users[userIndex].password = password;
+                }
+                
+                // 如果更新的是當前登入用戶，同步更新 currentUserData
+                if (editingUserId === currentUserData.id) {
+                    currentUserData = users[userIndex];
+                    currentUser = users[userIndex].username;
+                    
+                    // 更新顯示的用戶資訊
+                    document.getElementById('userRole').textContent = `當前用戶：${users[userIndex].name} (${users[userIndex].position || '未設定職位'})`;
+                    document.getElementById('sidebarUserRole').textContent = `當前用戶：${users[userIndex].name} (${users[userIndex].position || '未設定職位'})`;
+                }
+                
+                showToast('用戶資料已成功更新！', 'success');
             } else {
                 // 新增用戶
-                users.push(user);
+                const newUser = {
+                    id: Date.now(),
+                    username: username,
+                    password: password,
+                    name: name,
+                    position: position,
+                    email: email,
+                    phone: phone,
+                    active: active,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    lastLogin: null
+                };
+                
+                users.push(newUser);
                 showToast('用戶已成功新增！', 'success');
             }
             
             localStorage.setItem('users', JSON.stringify(users));
-            hideAddUserForm();
             displayUsers();
+            hideAddUserForm();
         }
         
-        function resetUserPassword(id) {
+        function toggleUserStatus(id) {
             const user = users.find(u => u.id === id);
             if (!user) return;
             
-            const newPassword = prompt(`請輸入 ${user.name} (${user.username}) 的新密碼：`);
-            if (newPassword === null) return; // 用戶取消
-            
-            if (newPassword.length < 6) {
-                showToast('密碼長度至少6個字元！', 'error');
+            // 防止停用自己的帳號
+            if (user.id === currentUserData.id) {
+                showToast('不能停用自己的帳號！', 'error');
                 return;
             }
             
-            if (confirm(`確定要重設 ${user.name} 的密碼嗎？`)) {
-                user.password = newPassword;
+            const action = user.active ? '停用' : '啟用';
+            const confirmMessage = `確定要${action}用戶「${user.name}」嗎？\n\n${user.active ? '停用後該用戶將無法登入系統。' : '啟用後該用戶可以正常登入系統。'}`;
+            
+            if (confirm(confirmMessage)) {
+                user.active = !user.active;
                 user.updatedAt = new Date().toISOString();
+                
                 localStorage.setItem('users', JSON.stringify(users));
-                showToast(`${user.name} 的密碼已重設！`, 'success');
+                displayUsers();
+                showToast(`用戶「${user.name}」已${action}！`, 'success');
             }
         }
         
@@ -5410,24 +5497,44 @@
             const user = users.find(u => u.id === id);
             if (!user) return;
             
-            // 不能刪除預設管理員
-            if (user.id === 1) {
-                showToast('無法刪除預設管理員帳號！', 'error');
+            // 防止刪除自己的帳號
+            if (user.id === currentUserData.id) {
+                showToast('不能刪除自己的帳號！', 'error');
                 return;
             }
             
-            if (confirm(`確定要刪除用戶「${user.name} (${user.username})」嗎？\n\n此操作無法復原！`)) {
+            // 檢查是否為最後一個管理員
+            const adminUsers = users.filter(u => u.role === 'admin' && u.active && u.id !== id);
+            if (user.role === 'admin' && adminUsers.length === 0) {
+                showToast('不能刪除最後一個管理員帳號！', 'error');
+                return;
+            }
+            
+            const confirmMessage = `確定要刪除用戶「${user.name}」嗎？\n\n` +
+                                 `帳號：${user.username}\n` +
+                                 `角色：${user.role === 'admin' ? '管理員' : user.role === 'doctor' ? '醫師' : '助理'}\n\n` +
+                                 `注意：此操作無法復原！`;
+            
+            if (confirm(confirmMessage)) {
                 users = users.filter(u => u.id !== id);
                 localStorage.setItem('users', JSON.stringify(users));
-                showToast(`用戶「${user.name}」已刪除！`, 'success');
                 displayUsers();
+                showToast(`用戶「${user.name}」已刪除！`, 'success');
             }
         }
 
         // 初始化系統
         document.addEventListener('DOMContentLoaded', function() {
             updateStatistics();
+            
+            // 自動聚焦到帳號輸入框
+            const usernameInput = document.getElementById('mainLoginUsername');
+            if (usernameInput) {
+                setTimeout(() => {
+                    usernameInput.focus();
+                }, 100);
+            }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9695e5e992ee050c',t:'MTc1NDIyNDk3OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9696d865069e0eeb',t:'MTc1NDIzNDkxMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
