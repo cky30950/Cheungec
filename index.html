@@ -1867,6 +1867,19 @@
         
         // 選擇病人進行掛號
         function selectPatientForRegistration(patientId) {
+            // 檢查是否有病人正在診症中
+            const consultingAppointment = appointments.find(apt => 
+                apt.status === 'consulting' && 
+                new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
+            );
+            
+            if (consultingAppointment) {
+                const consultingPatient = patients.find(p => p.id === consultingAppointment.patientId);
+                const consultingPatientName = consultingPatient ? consultingPatient.name : '某位病人';
+                showToast(`無法進行掛號！${consultingPatientName}正在診症中，請等待診症完成後再進行掛號操作。`, 'warning');
+                return;
+            }
+            
             const patient = patients.find(p => p.id === patientId);
             if (!patient) return;
             
@@ -1880,6 +1893,8 @@
             document.getElementById('patientSearchResults').classList.add('hidden');
             selectedPatientForRegistration = null;
         }
+        
+
         
         // 顯示掛號彈窗
         function showRegistrationModal(patient) {
@@ -2045,18 +2060,49 @@
         function getOperationButtons(appointment) {
             const buttons = [];
             
+            // 檢查是否有病人正在診症中
+            const isAnyoneConsulting = appointments.some(apt => 
+                apt.status === 'consulting' && 
+                new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
+            );
+            
+            const isCurrentConsulting = appointment.status === 'consulting';
+            
             // 所有狀態都可以查看診症記錄
             buttons.push(`<button onclick="viewPatientMedicalHistory(${appointment.patientId})" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition duration-200">診症記錄</button>`);
             
+            // 如果有人在診症中且不是當前病人，則其他操作都被禁用
+            const isDisabled = isAnyoneConsulting && !isCurrentConsulting;
+            let disabledTooltip = '';
+            if (isDisabled) {
+                const consultingAppointment = appointments.find(apt => 
+                    apt.status === 'consulting' && 
+                    new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
+                );
+                const consultingPatient = consultingAppointment ? patients.find(p => p.id === consultingAppointment.patientId) : null;
+                const consultingPatientName = consultingPatient ? consultingPatient.name : '某位病人';
+                disabledTooltip = `title="${consultingPatientName}正在診症中，操作暫時禁用"`;
+            }
+            
             switch (appointment.status) {
                 case 'registered':
-                    buttons.push(`<button onclick="confirmPatientArrival(${appointment.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs transition duration-200">確認到達</button>`);
-                    buttons.push(`<button onclick="removeAppointment(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">移除掛號</button>`);
+                    if (isDisabled) {
+                        buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>確認到達</span>`);
+                        buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>移除掛號</span>`);
+                    } else {
+                        buttons.push(`<button onclick="confirmPatientArrival(${appointment.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs transition duration-200">確認到達</button>`);
+                        buttons.push(`<button onclick="removeAppointment(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">移除掛號</button>`);
+                    }
                     break;
                     
                 case 'waiting':
-                    buttons.push(`<button onclick="startConsultation(${appointment.id})" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition duration-200">開始診症</button>`);
-                    buttons.push(`<button onclick="removeAppointment(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">移除掛號</button>`);
+                    if (isDisabled) {
+                        buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>開始診症</span>`);
+                        buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>移除掛號</span>`);
+                    } else {
+                        buttons.push(`<button onclick="startConsultation(${appointment.id})" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition duration-200">開始診症</button>`);
+                        buttons.push(`<button onclick="removeAppointment(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">移除掛號</button>`);
+                    }
                     break;
                     
                 case 'consulting':
@@ -2064,8 +2110,13 @@
                     break;
                     
                 case 'completed':
-                    buttons.push(`<button onclick="editMedicalRecord(${appointment.id})" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs transition duration-200">修改病歷</button>`);
-                    buttons.push(`<button onclick="withdrawConsultation(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">撤回診症</button>`);
+                    if (isDisabled) {
+                        buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>修改病歷</span>`);
+                        buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>撤回診症</span>`);
+                    } else {
+                        buttons.push(`<button onclick="editMedicalRecord(${appointment.id})" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs transition duration-200">修改病歷</button>`);
+                        buttons.push(`<button onclick="withdrawConsultation(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">撤回診症</button>`);
+                    }
                     break;
                     
                 default:
@@ -4416,5 +4467,5 @@
             updateStatistics();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969393805059e2f7',t:'MTc1NDIwMDYzMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9693bc9a05cfe2e4',t:'MTc1NDIwMjMxNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
