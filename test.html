@@ -96,7 +96,7 @@
                     <div class="text-sm font-medium text-blue-800 mb-3">示範帳號：</div>
                     <div class="text-xs text-blue-700 space-y-2">
                         <div class="flex justify-between items-center">
-                            <span>👨‍💼 管理員</span>
+                            <span>👨‍💼 診所管理</span>
                             <span class="font-mono bg-white px-2 py-1 rounded">manager / manager2024</span>
                         </div>
                         <div class="flex justify-between items-center">
@@ -1011,20 +1011,11 @@
                     </div>
                 </div>
 
-                <!-- 角色篩選標籤 -->
+                <!-- 狀態篩選標籤 -->
                 <div class="mb-6">
                     <div class="flex flex-wrap gap-2">
                         <button onclick="filterUsers('all')" id="user-filter-all" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 transition duration-200">
                             全部用戶
-                        </button>
-                        <button onclick="filterUsers('admin')" id="user-filter-admin" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
-                            管理員
-                        </button>
-                        <button onclick="filterUsers('doctor')" id="user-filter-doctor" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
-                            醫師
-                        </button>
-                        <button onclick="filterUsers('assistant')" id="user-filter-assistant" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
-                            助理
                         </button>
                         <button onclick="filterUsers('inactive')" id="user-filter-inactive" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
                             已停用
@@ -1057,12 +1048,12 @@
                                     <input type="text" id="userDisplayName" placeholder="請輸入真實姓名" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">角色 *</label>
-                                    <select id="userRole" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                        <option value="">請選擇角色</option>
-                                        <option value="admin">管理員</option>
-                                        <option value="doctor">醫師</option>
-                                        <option value="assistant">助理</option>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">職位 *</label>
+                                    <select id="userPosition" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                        <option value="">請選擇職位</option>
+                                        <option value="診所管理">診所管理</option>
+                                        <option value="醫師">醫師</option>
+                                        <option value="護理師">護理師</option>
                                     </select>
                                 </div>
                                 <div>
@@ -1101,7 +1092,7 @@
                             <tr>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">帳號</th>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">姓名</th>
-                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">角色</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">職位</th>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">電子郵件</th>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">狀態</th>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">最後登入</th>
@@ -1608,7 +1599,7 @@
                 username: 'manager',
                 password: 'manager2024',
                 name: '陳經理',
-                role: 'admin',
+                position: '診所管理',
                 email: 'manager@tcmclinic.com',
                 phone: '02-8888-1001',
                 active: true,
@@ -1620,7 +1611,7 @@
                 username: 'drzhang',
                 password: 'zhang888',
                 name: '張中醫師',
-                role: 'doctor',
+                position: '醫師',
                 email: 'drzhang@tcmclinic.com',
                 phone: '02-8888-1002',
                 active: true,
@@ -1632,7 +1623,7 @@
                 username: 'nurse_amy',
                 password: 'amy2024',
                 name: '林護理師',
-                role: 'assistant',
+                position: '護理師',
                 email: 'amy@tcmclinic.com',
                 phone: '02-8888-1003',
                 active: true,
@@ -1648,12 +1639,8 @@
             localStorage.setItem('users', JSON.stringify(users));
         }
 
-        // 用戶權限設定
-        const userPermissions = {
-            admin: ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'systemManagement'],
-            doctor: ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'systemManagement'],
-            assistant: ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement']
-        };
+        // 所有用戶都有完整權限
+        const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'systemManagement'];
 
         // 主要登入功能
         function attemptMainLogin() {
@@ -1704,21 +1691,15 @@
                 localStorage.setItem('users', JSON.stringify(users));
             }
             
-            currentUser = user.role;
+            currentUser = user.username;
             currentUserData = user;
             
             // 切換到主系統
             document.getElementById('loginPage').classList.add('hidden');
             document.getElementById('mainSystem').classList.remove('hidden');
             
-            const roleNames = {
-                admin: '管理員',
-                doctor: '醫師',
-                assistant: '診所助理'
-            };
-            
-            document.getElementById('userRole').textContent = `當前用戶：${user.name} (${roleNames[user.role]})`;
-            document.getElementById('sidebarUserRole').textContent = `當前用戶：${user.name} (${roleNames[user.role]})`;
+            document.getElementById('userRole').textContent = `當前用戶：${user.name} (${user.position || '未設定職位'})`;
+            document.getElementById('sidebarUserRole').textContent = `當前用戶：${user.name} (${user.position || '未設定職位'})`;
             
             generateSidebarMenu();
             updateStatistics();
@@ -1765,7 +1746,7 @@
                 systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' }
             };
             
-            userPermissions[currentUser].forEach(permission => {
+            allPermissions.forEach(permission => {
                 const item = menuItems[permission];
                 const button = document.createElement('button');
                 button.className = 'w-full text-left p-4 rounded-lg hover:bg-gray-100 transition duration-200 border border-gray-200 mb-2';
@@ -5262,14 +5243,14 @@
             }
         }
         
-        function filterUsers(role) {
-            currentUserFilter = role;
+        function filterUsers(status) {
+            currentUserFilter = status;
             
             // 更新按鈕樣式
             document.querySelectorAll('[id^="user-filter-"]').forEach(btn => {
                 btn.className = 'px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200';
             });
-            document.getElementById(`user-filter-${role}`).className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 transition duration-200';
+            document.getElementById(`user-filter-${status}`).className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 transition duration-200';
             
             displayUsers();
         }
@@ -5287,8 +5268,6 @@
                 let matchesFilter = true;
                 if (currentUserFilter === 'inactive') {
                     matchesFilter = !user.active;
-                } else if (currentUserFilter !== 'all') {
-                    matchesFilter = user.role === currentUserFilter;
                 }
                 
                 return matchesSearch && matchesFilter;
@@ -5308,12 +5287,6 @@
             }
             
             filteredUsers.forEach(user => {
-                const roleNames = {
-                    admin: '管理員',
-                    doctor: '醫師',
-                    assistant: '助理'
-                };
-                
                 const statusClass = user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
                 const statusText = user.active ? '啟用' : '停用';
                 
@@ -5325,11 +5298,7 @@
                 row.innerHTML = `
                     <td class="px-4 py-3 text-sm text-gray-900 font-medium">${user.username}</td>
                     <td class="px-4 py-3 text-sm text-gray-900">${user.name}</td>
-                    <td class="px-4 py-3 text-sm">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            ${roleNames[user.role] || user.role}
-                        </span>
-                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${user.position || '未設定'}</td>
                     <td class="px-4 py-3 text-sm text-gray-900">${user.email || '未設定'}</td>
                     <td class="px-4 py-3">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
@@ -5368,7 +5337,7 @@
         }
         
         function clearUserForm() {
-            ['userName', 'userPassword', 'userDisplayName', 'userRole', 'userEmail', 'userPhone'].forEach(id => {
+            ['userName', 'userPassword', 'userDisplayName', 'userPosition', 'userEmail', 'userPhone'].forEach(id => {
                 document.getElementById(id).value = '';
             });
             document.getElementById('userActive').checked = true;
@@ -5385,7 +5354,7 @@
             document.getElementById('userName').value = user.username || '';
             document.getElementById('userPassword').value = ''; // 密碼欄位保持空白
             document.getElementById('userDisplayName').value = user.name || '';
-            document.getElementById('userRole').value = user.role || '';
+            document.getElementById('userPosition').value = user.position || '';
             document.getElementById('userEmail').value = user.email || '';
             document.getElementById('userPhone').value = user.phone || '';
             document.getElementById('userActive').checked = user.active !== false;
@@ -5397,14 +5366,14 @@
             const username = document.getElementById('userName').value.trim();
             const password = document.getElementById('userPassword').value.trim();
             const name = document.getElementById('userDisplayName').value.trim();
-            const role = document.getElementById('userRole').value;
+            const position = document.getElementById('userPosition').value.trim();
             const email = document.getElementById('userEmail').value.trim();
             const phone = document.getElementById('userPhone').value.trim();
             const active = document.getElementById('userActive').checked;
             
             // 驗證必填欄位
-            if (!username || !name || !role) {
-                showToast('請填寫必要資料（帳號、姓名、角色）！', 'error');
+            if (!username || !name || !position) {
+                showToast('請填寫必要資料（帳號、姓名、職位）！', 'error');
                 return;
             }
             
@@ -5454,7 +5423,7 @@
                 // 直接更新用戶屬性
                 users[userIndex].username = username;
                 users[userIndex].name = name;
-                users[userIndex].role = role;
+                users[userIndex].position = position;
                 users[userIndex].email = email;
                 users[userIndex].phone = phone;
                 users[userIndex].active = active;
@@ -5468,20 +5437,11 @@
                 // 如果更新的是當前登入用戶，同步更新 currentUserData
                 if (editingUserId === currentUserData.id) {
                     currentUserData = users[userIndex];
-                    currentUser = users[userIndex].role;
+                    currentUser = users[userIndex].username;
                     
                     // 更新顯示的用戶資訊
-                    const roleNames = {
-                        admin: '管理員',
-                        doctor: '醫師',
-                        assistant: '診所助理'
-                    };
-                    
-                    document.getElementById('userRole').textContent = `當前用戶：${users[userIndex].name} (${roleNames[users[userIndex].role]})`;
-                    document.getElementById('sidebarUserRole').textContent = `當前用戶：${users[userIndex].name} (${roleNames[users[userIndex].role]})`;
-                    
-                    // 重新生成選單以反映權限變更
-                    generateSidebarMenu();
+                    document.getElementById('userRole').textContent = `當前用戶：${users[userIndex].name} (${users[userIndex].position || '未設定職位'})`;
+                    document.getElementById('sidebarUserRole').textContent = `當前用戶：${users[userIndex].name} (${users[userIndex].position || '未設定職位'})`;
                 }
                 
                 showToast('用戶資料已成功更新！', 'success');
@@ -5492,7 +5452,7 @@
                     username: username,
                     password: password,
                     name: name,
-                    role: role,
+                    position: position,
                     email: email,
                     phone: phone,
                     active: active,
@@ -5576,5 +5536,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9696c477841a094a',t:'MTc1NDIzNDA5NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9696d865069e0eeb',t:'MTc1NDIzNDkxMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
