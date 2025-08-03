@@ -1005,9 +1005,6 @@
                             <input type="text" id="searchUser" placeholder="搜尋用戶名稱或帳號..." class="border border-gray-300 rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-green-500 focus:border-transparent w-full md:w-64">
                             <span class="absolute right-3 top-2.5 text-gray-400">🔍</span>
                         </div>
-                        <button onclick="showAddUserForm()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition duration-200 whitespace-nowrap">
-                            + 新增用戶
-                        </button>
                     </div>
                 </div>
 
@@ -1029,11 +1026,11 @@
                     </div>
                 </div>
 
-                <!-- 新增/編輯用戶表單彈窗 -->
+                <!-- 編輯用戶表單彈窗 -->
                 <div id="addUserModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
                     <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                         <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-xl">
-                            <h3 id="userFormTitle" class="text-xl font-bold text-gray-800">新增用戶</h3>
+                            <h3 id="userFormTitle" class="text-xl font-bold text-gray-800">編輯用戶</h3>
                             <button onclick="hideAddUserForm()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
                         </div>
                         
@@ -1041,15 +1038,17 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">帳號 *</label>
-                                    <input type="text" id="userName" placeholder="請輸入登入帳號" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <input type="text" id="userUsername" placeholder="請輸入登入帳號" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <p class="text-xs text-gray-500 mt-1">帳號只能包含英文字母、數字和底線</p>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">密碼 *</label>
-                                    <input type="password" id="userPassword" placeholder="請輸入密碼" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">密碼</label>
+                                    <input type="password" id="userPassword" placeholder="留空表示不修改密碼" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <p class="text-xs text-gray-500 mt-1">密碼長度至少6個字元</p>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
-                                    <input type="text" id="userDisplayName" placeholder="請輸入真實姓名" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <input type="text" id="userName" placeholder="請輸入真實姓名" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">角色 *</label>
@@ -1065,8 +1064,8 @@
                                     <input type="email" id="userEmail" placeholder="請輸入電子郵件" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">電話號碼</label>
-                                    <input type="tel" id="userPhone" placeholder="請輸入電話號碼" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">聯絡電話</label>
+                                    <input type="tel" id="userPhone" placeholder="請輸入聯絡電話" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
                                 <div class="md:col-span-2">
                                     <label class="flex items-center">
@@ -1076,17 +1075,26 @@
                                 </div>
                             </div>
                             
-                            <div class="flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-200">
-                                <button onclick="hideAddUserForm()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition duration-200">
-                                    取消
-                                </button>
-                                <button onclick="saveUser()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition duration-200">
-                                    <span id="userSaveButtonText">儲存</span>
-                                </button>
+                            <div class="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
+                                <div>
+                                    <button id="deleteUserButton" onclick="deleteCurrentUser()" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition duration-200 hidden">
+                                        刪除用戶
+                                    </button>
+                                </div>
+                                <div class="flex space-x-4">
+                                    <button onclick="hideAddUserForm()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition duration-200">
+                                        取消
+                                    </button>
+                                    <button onclick="saveUser()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition duration-200">
+                                        <span id="userSaveButtonText">更新</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+
 
                 <!-- 用戶列表 -->
                 <div class="overflow-x-auto">
@@ -5218,6 +5226,146 @@
         let editingUserId = null;
         let currentUserFilter = 'all';
         
+        // 編輯用戶表單功能
+        function hideAddUserForm() {
+            document.getElementById('addUserModal').classList.add('hidden');
+            clearUserForm();
+            editingUserId = null;
+            // 隱藏刪除按鈕
+            document.getElementById('deleteUserButton').classList.add('hidden');
+        }
+        
+        function clearUserForm() {
+            ['userUsername', 'userPassword', 'userName', 'userRole', 'userEmail', 'userPhone'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+            document.getElementById('userActive').checked = true;
+        }
+        
+        function editUser(id) {
+            const user = users.find(u => u.id === id);
+            if (!user) return;
+            
+            editingUserId = id;
+            document.getElementById('userFormTitle').textContent = '編輯用戶';
+            document.getElementById('userSaveButtonText').textContent = '更新';
+            
+            document.getElementById('userUsername').value = user.username || '';
+            document.getElementById('userPassword').value = ''; // 密碼欄位保持空白
+            document.getElementById('userName').value = user.name || '';
+            document.getElementById('userRole').value = user.role || '';
+            document.getElementById('userEmail').value = user.email || '';
+            document.getElementById('userPhone').value = user.phone || '';
+            document.getElementById('userActive').checked = user.active !== false;
+            
+            // 顯示或隱藏刪除按鈕（預設管理員不能刪除）
+            const deleteButton = document.getElementById('deleteUserButton');
+            console.log('編輯用戶ID:', id, '是否為預設管理員:', user.id === 1);
+            if (user.id === 1) {
+                deleteButton.classList.add('hidden');
+                console.log('隱藏刪除按鈕 - 預設管理員');
+            } else {
+                deleteButton.classList.remove('hidden');
+                console.log('顯示刪除按鈕 - 非預設管理員');
+            }
+            
+            document.getElementById('addUserModal').classList.remove('hidden');
+        }
+        
+        function saveUser() {
+            // 只允許編輯現有用戶
+            if (!editingUserId) {
+                showToast('系統錯誤：無法新增用戶！', 'error');
+                return;
+            }
+            
+            const username = document.getElementById('userUsername').value.trim();
+            const password = document.getElementById('userPassword').value.trim();
+            const name = document.getElementById('userName').value.trim();
+            const role = document.getElementById('userRole').value;
+            const email = document.getElementById('userEmail').value.trim();
+            const phone = document.getElementById('userPhone').value.trim();
+            const active = document.getElementById('userActive').checked;
+            
+            // 詳細驗證必填欄位
+            if (!username) {
+                showToast('請輸入帳號！', 'error');
+                document.getElementById('userUsername').focus();
+                return;
+            }
+            
+            if (!name) {
+                showToast('請輸入姓名！', 'error');
+                document.getElementById('userName').focus();
+                return;
+            }
+            
+            if (!role || role === '') {
+                showToast('請選擇角色！', 'error');
+                document.getElementById('userRole').focus();
+                return;
+            }
+            
+            // 驗證帳號格式
+            const usernameRegex = /^[a-zA-Z0-9_]+$/;
+            if (!usernameRegex.test(username)) {
+                showToast('帳號只能包含英文字母、數字和底線！', 'error');
+                return;
+            }
+            
+            // 檢查帳號是否重複（編輯時排除自己）
+            const existingUser = users.find(u => u.username === username && u.id !== editingUserId);
+            if (existingUser) {
+                showToast('此帳號已存在，請使用其他帳號！', 'error');
+                return;
+            }
+            
+            // 驗證密碼長度（如果有輸入密碼）
+            if (password && password.length < 6) {
+                showToast('密碼長度至少6個字元！', 'error');
+                return;
+            }
+            
+            // 驗證電子郵件格式（如果有填寫）
+            if (email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    showToast('請輸入有效的電子郵件格式！', 'error');
+                    return;
+                }
+            }
+            
+            const user = {
+                id: editingUserId,
+                username: username,
+                name: name,
+                role: role,
+                email: email,
+                phone: phone,
+                active: active,
+                createdAt: users.find(u => u.id === editingUserId).createdAt,
+                updatedAt: new Date().toISOString(),
+                lastLogin: users.find(u => u.id === editingUserId).lastLogin
+            };
+            
+            // 只有在輸入密碼時才更新密碼
+            if (password) {
+                user.password = password;
+            } else {
+                // 編輯模式且沒有輸入新密碼，保持原密碼
+                user.password = users.find(u => u.id === editingUserId).password;
+            }
+            
+            // 更新現有用戶
+            const index = users.findIndex(u => u.id === editingUserId);
+            users[index] = user;
+            showToast('用戶資料已成功更新！', 'success');
+            
+            localStorage.setItem('users', JSON.stringify(users));
+            hideAddUserForm();
+            displayUsers();
+        }
+        
         function loadUserManagement() {
             displayUsers();
             
@@ -5305,200 +5453,31 @@
                         <td class="px-4 py-3 text-sm text-gray-600">${lastLogin}</td>
                         <td class="px-4 py-3 text-sm space-x-2">
                             <button onclick="editUser(${user.id})" class="text-blue-600 hover:text-blue-800">編輯</button>
-                            <button onclick="resetUserPassword(${user.id})" class="text-orange-600 hover:text-orange-800">重設密碼</button>
-                            ${user.id !== 1 ? `<button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-800">刪除</button>` : ''}
                         </td>
                     </tr>
                 `;
             }).join('');
         }
         
-        function showAddUserForm() {
-            editingUserId = null;
-            document.getElementById('userFormTitle').textContent = '新增用戶';
-            document.getElementById('userSaveButtonText').textContent = '儲存';
-            clearUserForm();
-            document.getElementById('addUserModal').classList.remove('hidden');
-        }
+
         
-        function hideAddUserForm() {
-            document.getElementById('addUserModal').classList.add('hidden');
-            clearUserForm();
-            editingUserId = null;
-        }
+
         
-        function clearUserForm() {
-            ['userName', 'userPassword', 'userDisplayName', 'userRole', 'userEmail', 'userPhone'].forEach(id => {
-                document.getElementById(id).value = '';
-            });
-            document.getElementById('userActive').checked = true;
-        }
+
         
-        function editUser(id) {
-            const user = users.find(u => u.id === id);
-            if (!user) return;
-            
-            editingUserId = id;
-            document.getElementById('userFormTitle').textContent = '編輯用戶';
-            document.getElementById('userSaveButtonText').textContent = '更新';
-            
-            document.getElementById('userName').value = user.username || '';
-            document.getElementById('userPassword').value = ''; // 密碼欄位保持空白
-            document.getElementById('userDisplayName').value = user.name || '';
-            document.getElementById('userRole').value = user.role || '';
-            document.getElementById('userEmail').value = user.email || '';
-            document.getElementById('userPhone').value = user.phone || '';
-            document.getElementById('userActive').checked = user.active !== false;
-            
-            // 編輯模式下密碼欄位提示
-            document.getElementById('userPassword').placeholder = '留空則不修改密碼';
-            
-            document.getElementById('addUserModal').classList.remove('hidden');
-        }
+
         
-        function saveUser() {
-            const username = document.getElementById('userName').value.trim();
-            const password = document.getElementById('userPassword').value.trim();
-            const name = document.getElementById('userDisplayName').value.trim();
-            const roleElement = document.getElementById('userRole');
-            const role = roleElement.value;
-            const email = document.getElementById('userEmail').value.trim();
-            const phone = document.getElementById('userPhone').value.trim();
-            const active = document.getElementById('userActive').checked;
-            
-            // 詳細驗證必填欄位
-            console.log('表單驗證詳情:');
-            console.log('- 帳號:', `"${username}"`, '長度:', username.length);
-            console.log('- 姓名:', `"${name}"`, '長度:', name.length);
-            console.log('- 角色元素:', roleElement);
-            console.log('- 角色值:', `"${role}"`, '類型:', typeof role);
-            console.log('- 角色選擇元素值:', roleElement ? roleElement.value : 'null');
-            console.log('- 角色選擇元素選中索引:', roleElement ? roleElement.selectedIndex : 'null');
-            console.log('- 所有選項:', roleElement ? Array.from(roleElement.options).map(opt => `"${opt.value}"`).join(', ') : 'null');
-            
-            if (!username) {
-                console.log('驗證失敗: 帳號為空');
-                showToast('請輸入帳號！', 'error');
-                document.getElementById('userName').focus();
+        function deleteCurrentUser() {
+            if (!editingUserId) {
+                showToast('系統錯誤：無法確定要刪除的用戶！', 'error');
                 return;
             }
             
-            if (!name) {
-                console.log('驗證失敗: 姓名為空');
-                showToast('請輸入姓名！', 'error');
-                document.getElementById('userDisplayName').focus();
+            const user = users.find(u => u.id === editingUserId);
+            if (!user) {
+                showToast('找不到用戶資料！', 'error');
                 return;
             }
-            
-            if (!roleElement) {
-                console.log('驗證失敗: 找不到角色選擇元素');
-                showToast('系統錯誤：找不到角色選擇元素！', 'error');
-                return;
-            }
-            
-            if (!role || role === '' || role === null) {
-                console.log('驗證失敗: 角色為空或未選擇');
-                showToast('請選擇角色！', 'error');
-                roleElement.focus();
-                return;
-            }
-            
-            // 新增用戶時密碼為必填
-            if (!editingUserId && !password) {
-                showToast('新增用戶時密碼為必填！', 'error');
-                return;
-            }
-            
-            // 驗證帳號格式
-            const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
-            if (!usernameRegex.test(username)) {
-                showToast('帳號只能包含英文、數字、底線，長度3-20字元！', 'error');
-                return;
-            }
-            
-            // 檢查帳號是否重複
-            const existingUser = users.find(u => u.username === username && u.id !== editingUserId);
-            if (existingUser) {
-                showToast('此帳號已存在，請使用其他帳號！', 'error');
-                return;
-            }
-            
-            // 驗證密碼格式（如果有輸入）
-            if (password && password.length < 6) {
-                showToast('密碼長度至少6個字元！', 'error');
-                return;
-            }
-            
-            // 驗證電子郵件格式（如果有輸入）
-            if (email) {
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(email)) {
-                    showToast('請輸入有效的電子郵件格式！', 'error');
-                    return;
-                }
-            }
-            
-            // 生成新的用戶ID（確保唯一性）
-            const newUserId = editingUserId || Math.max(...users.map(u => u.id), 0) + 1;
-            
-            const user = {
-                id: newUserId,
-                username: username,
-                password: password || (editingUserId ? users.find(u => u.id === editingUserId).password : ''),
-                name: name,
-                role: role,
-                email: email,
-                phone: phone,
-                active: active,
-                createdAt: editingUserId ? users.find(u => u.id === editingUserId).createdAt : new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                lastLogin: editingUserId ? users.find(u => u.id === editingUserId).lastLogin : null
-            };
-            
-            if (editingUserId) {
-                // 更新現有用戶
-                const index = users.findIndex(u => u.id === editingUserId);
-                if (index !== -1) {
-                    users[index] = user;
-                    showToast('用戶資料已成功更新！', 'success');
-                } else {
-                    showToast('找不到要更新的用戶！', 'error');
-                    return;
-                }
-            } else {
-                // 新增用戶
-                users.push(user);
-                showToast('用戶已成功新增！', 'success');
-            }
-            
-            localStorage.setItem('users', JSON.stringify(users));
-            hideAddUserForm();
-            displayUsers();
-        }
-        
-        function resetUserPassword(id) {
-            const user = users.find(u => u.id === id);
-            if (!user) return;
-            
-            const newPassword = prompt(`請輸入 ${user.name} (${user.username}) 的新密碼：`);
-            if (newPassword === null) return; // 用戶取消
-            
-            if (newPassword.length < 6) {
-                showToast('密碼長度至少6個字元！', 'error');
-                return;
-            }
-            
-            if (confirm(`確定要重設 ${user.name} 的密碼嗎？`)) {
-                user.password = newPassword;
-                user.updatedAt = new Date().toISOString();
-                localStorage.setItem('users', JSON.stringify(users));
-                showToast(`${user.name} 的密碼已重設！`, 'success');
-            }
-        }
-        
-        function deleteUser(id) {
-            const user = users.find(u => u.id === id);
-            if (!user) return;
             
             // 不能刪除預設管理員
             if (user.id === 1) {
@@ -5507,9 +5486,10 @@
             }
             
             if (confirm(`確定要刪除用戶「${user.name} (${user.username})」嗎？\n\n此操作無法復原！`)) {
-                users = users.filter(u => u.id !== id);
+                users = users.filter(u => u.id !== editingUserId);
                 localStorage.setItem('users', JSON.stringify(users));
                 showToast(`用戶「${user.name}」已刪除！`, 'success');
+                hideAddUserForm();
                 displayUsers();
             }
         }
@@ -5546,5 +5526,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96961d9c308d09d8',t:'MTc1NDIyNzI2MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9696471585e904e6',t:'MTc1NDIyODk2MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
