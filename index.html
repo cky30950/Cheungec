@@ -540,7 +540,7 @@
                                 
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                        處方內容 *
+                                        處方內容
                                     </label>
                                     
                                     <!-- 服藥天數設定 -->
@@ -2065,6 +2065,7 @@
                     
                 case 'completed':
                     buttons.push(`<button onclick="editMedicalRecord(${appointment.id})" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs transition duration-200">修改病歷</button>`);
+                    buttons.push(`<button onclick="withdrawConsultation(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">撤回診症</button>`);
                     break;
                     
                 default:
@@ -2086,17 +2087,34 @@
             }
             
             const patient = patients.find(p => p.id === appointment.patientId);
-            
-            if (appointment.status !== 'registered') {
-                showToast('只能確認已掛號狀態的病人到達！', 'warning');
+            if (!patient) {
+                showToast('找不到病人資料！', 'error');
                 return;
             }
             
+            // 詳細狀態檢查
+            console.log(`確認到達狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}`);
+            
+            // 只有已掛號狀態才能確認到達
+            if (appointment.status !== 'registered') {
+                const statusNames = {
+                    'waiting': '候診中',
+                    'consulting': '診症中',
+                    'completed': '已完成'
+                };
+                const currentStatusName = statusNames[appointment.status] || appointment.status;
+                showToast(`無法確認到達！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能對「已掛號」的病人確認到達。`, 'warning');
+                return;
+            }
+            
+            // 更新狀態為候診中
             appointment.status = 'waiting';
             appointment.arrivedAt = new Date().toISOString();
             appointment.confirmedBy = currentUser;
             
+            // 保存狀態變更
             localStorage.setItem('appointments', JSON.stringify(appointments));
+            
             showToast(`${patient.name} 已確認到達，進入候診狀態！`, 'success');
             loadTodayAppointments();
         }
@@ -2110,21 +2128,38 @@
             }
             
             const patient = patients.find(p => p.id === appointment.patientId);
+            if (!patient) {
+                showToast('找不到病人資料！', 'error');
+                return;
+            }
+            
+            // 詳細狀態檢查
+            console.log(`移除掛號狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}`);
             
             // 檢查是否可以移除
             if (appointment.status === 'consulting') {
-                showToast('診症中的病人無法移除掛號！', 'warning');
+                showToast(`無法移除掛號！病人 ${patient.name} 目前正在診症中，請先結束診症後再移除。`, 'warning');
                 return;
             }
             
             if (appointment.status === 'completed') {
-                showToast('已完成診症的記錄無法移除！', 'warning');
+                showToast(`無法移除掛號！病人 ${patient.name} 已完成診症，已完成的記錄無法移除。`, 'warning');
                 return;
             }
             
             // 確認移除
-            const statusText = appointment.status === 'registered' ? '已掛號' : '候診中';
-            if (confirm(`確定要移除 ${patient.name} 的掛號嗎？\n\n狀態：${statusText}\n掛號時間：${new Date(appointment.appointmentTime).toLocaleString('zh-TW')}\n\n注意：此操作無法復原！`)) {
+            const statusNames = {
+                'registered': '已掛號',
+                'waiting': '候診中'
+            };
+            const statusText = statusNames[appointment.status] || appointment.status;
+            
+            const confirmMessage = `確定要移除 ${patient.name} 的掛號嗎？\n\n` +
+                                 `狀態：${statusText}\n` +
+                                 `掛號時間：${new Date(appointment.appointmentTime).toLocaleString('zh-TW')}\n\n` +
+                                 `注意：此操作無法復原！`;
+            
+            if (confirm(confirmMessage)) {
                 // 從掛號列表中移除
                 appointments = appointments.filter(apt => apt.id !== appointmentId);
                 localStorage.setItem('appointments', JSON.stringify(appointments));
@@ -2135,6 +2170,7 @@
                 // 如果正在診症表單中顯示該病人，則關閉表單
                 if (currentConsultingAppointmentId === appointmentId) {
                     closeConsultationForm();
+                    currentConsultingAppointmentId = null;
                 }
             }
         }
@@ -2152,31 +2188,73 @@
             }
             
             const patient = patients.find(p => p.id === appointment.patientId);
-            
-            // 檢查病人是否在候診狀態
-            if (appointment.status !== 'waiting') {
-                showToast('只能對候診中的病人開始診症！', 'warning');
+            if (!patient) {
+                showToast('找不到病人資料！', 'error');
                 return;
+            }
+            
+            // 詳細狀態檢查和診斷
+            console.log(`開始診症狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}`);
+            
+            // 檢查病人狀態是否允許開始診症
+            if (!['waiting', 'registered'].includes(appointment.status)) {
+                const statusNames = {
+                    'consulting': '診症中',
+                    'completed': '已完成'
+                };
+                const currentStatusName = statusNames[appointment.status] || appointment.status;
+                showToast(`無法開始診症！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能對「已掛號」或「候診中」的病人開始診症。`, 'error');
+                return;
+            }
+            
+            // 如果是已掛號狀態，自動確認到達
+            if (appointment.status === 'registered') {
+                appointment.arrivedAt = new Date().toISOString();
+                appointment.confirmedBy = currentUser;
+                showToast(`${patient.name} 已自動確認到達`, 'info');
             }
             
             // 檢查是否已有其他病人在診症中
             const consultingAppointment = appointments.find(apt => 
-                apt.status === 'consulting' && apt.id !== appointmentId
+                apt.status === 'consulting' && 
+                apt.id !== appointmentId &&
+                new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
             );
+            
             if (consultingAppointment) {
                 const consultingPatient = patients.find(p => p.id === consultingAppointment.patientId);
-                showToast(`${consultingPatient.name} 正在診症中，請先完成該病人的診症！`, 'warning');
-                return;
+                const consultingPatientName = consultingPatient ? consultingPatient.name : '未知病人';
+                
+                if (confirm(`目前 ${consultingPatientName} 正在診症中。\n\n是否要結束該病人的診症並開始為 ${patient.name} 診症？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`)) {
+                    // 結束當前診症的病人
+                    consultingAppointment.status = 'waiting';
+                    delete consultingAppointment.consultationStartTime;
+                    delete consultingAppointment.consultingDoctor;
+                    
+                    // 關閉可能開啟的診症表單
+                    if (currentConsultingAppointmentId === consultingAppointment.id) {
+                        closeConsultationForm();
+                    }
+                    
+                    showToast(`已結束 ${consultingPatientName} 的診症`, 'info');
+                } else {
+                    return; // 用戶取消操作
+                }
             }
             
-            // 更新狀態為診症中
+            // 開始新的診症 - 正確設置狀態為診症中
             appointment.status = 'consulting';
             appointment.consultationStartTime = new Date().toISOString();
             appointment.consultingDoctor = currentUser;
+            
+            // 立即保存狀態變更
             localStorage.setItem('appointments', JSON.stringify(appointments));
             
+            // 設置當前診症ID並顯示表單
             currentConsultingAppointmentId = appointmentId;
             showConsultationForm(appointment);
+            
+            // 重新載入列表以顯示正確狀態
             loadTodayAppointments();
             
             showToast(`開始為 ${patient.name} 診症`, 'success');
@@ -2283,7 +2361,6 @@
             
             // 重置服藥天數為預設值
             document.getElementById('medicationDays').value = '5';
-            document.getElementById('dailyFrequency').value = '2';
             
             // 清空處方項目
             selectedPrescriptionItems = [];
@@ -2298,8 +2375,18 @@
         
         // 關閉診症表單
         function closeConsultationForm() {
+            // 隱藏診症表單
             document.getElementById('consultationForm').classList.add('hidden');
+            
+            // 清理全域變數
             currentConsultingAppointmentId = null;
+            
+            // 清空處方和收費項目選擇
+            selectedPrescriptionItems = [];
+            selectedBillingItems = [];
+            
+            // 滾動回頂部
+            document.getElementById('consultationSystem').scrollIntoView({ behavior: 'smooth' });
         }
         
         // 取消診症
@@ -2312,24 +2399,50 @@
             const appointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
             if (!appointment) {
                 closeConsultationForm();
+                currentConsultingAppointmentId = null;
                 return;
             }
             
             const patient = patients.find(p => p.id === appointment.patientId);
+            if (!patient) {
+                closeConsultationForm();
+                currentConsultingAppointmentId = null;
+                return;
+            }
+            
+            // 詳細狀態檢查
+            console.log(`取消診症狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}`);
             
             if (appointment.status === 'consulting') {
-                if (confirm(`確定要取消 ${patient.name} 的診症嗎？\n\n病人狀態將回到候診中。`)) {
+                const confirmMessage = `確定要取消 ${patient.name} 的診症嗎？\n\n` +
+                                     `病人狀態將回到候診中，已填寫的診症內容將會遺失。\n\n` +
+                                     `注意：此操作無法復原！`;
+                
+                if (confirm(confirmMessage)) {
+                    // 將狀態改回候診中
                     appointment.status = 'waiting';
                     delete appointment.consultationStartTime;
                     delete appointment.consultingDoctor;
+                    
+                    // 保存狀態變更
                     localStorage.setItem('appointments', JSON.stringify(appointments));
                     
                     showToast(`已取消 ${patient.name} 的診症，病人回到候診狀態`, 'info');
+                    
+                    // 關閉表單並清理
                     closeConsultationForm();
+                    currentConsultingAppointmentId = null;
                     loadTodayAppointments();
                 }
-            } else {
+            } else if (appointment.status === 'completed') {
+                // 如果是已完成的診症，只是關閉編輯模式
+                showToast('已退出病歷編輯模式', 'info');
                 closeConsultationForm();
+                currentConsultingAppointmentId = null;
+            } else {
+                // 其他狀態直接關閉
+                closeConsultationForm();
+                currentConsultingAppointmentId = null;
             }
         }
         
@@ -2351,8 +2464,8 @@
             const syndrome = document.getElementById('formSyndrome').value.trim();
             const prescription = document.getElementById('formPrescription').value.trim();
             
-            if (!symptoms || !diagnosis || !syndrome || !prescription) {
-                showToast('請填寫必填欄位：主訴、中醫診斷、證型診斷、處方內容！', 'error');
+            if (!symptoms || !diagnosis || !syndrome) {
+                showToast('請填寫必填欄位：主訴、中醫診斷、證型診斷！', 'error');
                 return;
             }
             
@@ -2458,10 +2571,10 @@
             // 獲取該病人的所有診症記錄
             currentPatientConsultations = consultations
                 .filter(c => c.patientId === patientId)
-                .sort((a, b) => new Date(b.date) - new Date(a.date)); // 按日期降序排列
+                .sort((a, b) => new Date(a.date) - new Date(b.date)); // 按日期升序排列（較舊至較新）
             
-            // 預設顯示最新的病歷（第一頁）
-            currentPatientHistoryPage = 0;
+            // 預設顯示最新的病歷（最近一次診症）
+            currentPatientHistoryPage = currentPatientConsultations.length - 1;
             
             // 設置標題
             document.getElementById('patientMedicalHistoryTitle').textContent = `${patient.name} 的病歷記錄`;
@@ -2517,7 +2630,7 @@
             const consultation = currentPatientConsultations[currentPatientHistoryPage];
             const totalPages = currentPatientConsultations.length;
             const currentPageNumber = currentPatientHistoryPage + 1;
-            const consultationNumber = totalPages - currentPatientHistoryPage;
+            const consultationNumber = currentPatientHistoryPage + 1;
             
             contentDiv.innerHTML = `
                 <!-- 分頁導航 -->
@@ -2536,7 +2649,7 @@
                         <button onclick="changePatientHistoryPage(-1)" 
                                 ${currentPatientHistoryPage === 0 ? 'disabled' : ''}
                                 class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
-                            ← 較新
+                            ← 較舊
                         </button>
                         <span class="text-sm text-gray-600 px-2">
                             ${currentPageNumber} / ${totalPages}
@@ -2544,7 +2657,7 @@
                         <button onclick="changePatientHistoryPage(1)" 
                                 ${currentPatientHistoryPage === totalPages - 1 ? 'disabled' : ''}
                                 class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
-                            較舊 →
+                            較新 →
                         </button>
                     </div>
                 </div>
@@ -2706,10 +2819,10 @@
             // 獲取該病人的所有診症記錄
             currentConsultationConsultations = consultations
                 .filter(c => c.patientId === patientId)
-                .sort((a, b) => new Date(b.date) - new Date(a.date)); // 按日期降序排列
+                .sort((a, b) => new Date(a.date) - new Date(b.date)); // 按日期升序排列（較舊至較新）
             
-            // 預設顯示最新的病歷（第一頁）
-            currentConsultationHistoryPage = 0;
+            // 預設顯示最新的病歷（最近一次診症）
+            currentConsultationHistoryPage = currentConsultationConsultations.length - 1;
             
             // 設置標題
             document.getElementById('medicalHistoryTitle').textContent = `${patient.name} 的診症記錄`;
@@ -2765,7 +2878,7 @@
             const consultation = currentConsultationConsultations[currentConsultationHistoryPage];
             const totalPages = currentConsultationConsultations.length;
             const currentPageNumber = currentConsultationHistoryPage + 1;
-            const consultationNumber = totalPages - currentConsultationHistoryPage;
+            const consultationNumber = currentConsultationHistoryPage + 1;
             
             contentDiv.innerHTML = `
                 <!-- 分頁導航 -->
@@ -2784,7 +2897,7 @@
                         <button onclick="changeConsultationHistoryPage(-1)" 
                                 ${currentConsultationHistoryPage === 0 ? 'disabled' : ''}
                                 class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
-                            ← 較新
+                            ← 較舊
                         </button>
                         <span class="text-sm text-gray-600 px-2">
                             ${currentPageNumber} / ${totalPages}
@@ -2792,7 +2905,7 @@
                         <button onclick="changeConsultationHistoryPage(1)" 
                                 ${currentConsultationHistoryPage === totalPages - 1 ? 'disabled' : ''}
                                 class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
-                            較舊 →
+                            較新 →
                         </button>
                     </div>
                 </div>
@@ -3099,27 +3212,164 @@
             showToast('病歷記錄已準備列印！', 'success');
         }
 
-        // 修改病歷功能
-        function editMedicalRecord(appointmentId) {
+        // 撤回診症功能
+        function withdrawConsultation(appointmentId) {
             const appointment = appointments.find(apt => apt.id === appointmentId);
-            if (!appointment || !appointment.consultationId) {
-                showToast('找不到診症記錄！', 'warning');
+            if (!appointment) {
+                showToast('找不到掛號記錄！', 'error');
+                return;
+            }
+            
+            const patient = patients.find(p => p.id === appointment.patientId);
+            if (!patient) {
+                showToast('找不到病人資料！', 'error');
+                return;
+            }
+            
+            // 詳細狀態檢查
+            console.log(`撤回診症狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}, 診症記錄ID: ${appointment.consultationId}`);
+            
+            // 只有已完成的診症才能撤回
+            if (appointment.status !== 'completed') {
+                const statusNames = {
+                    'registered': '已掛號',
+                    'waiting': '候診中',
+                    'consulting': '診症中'
+                };
+                const currentStatusName = statusNames[appointment.status] || appointment.status;
+                showToast(`無法撤回診症！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能撤回已完成的診症。`, 'warning');
+                return;
+            }
+            
+            // 檢查是否有診症記錄
+            if (!appointment.consultationId) {
+                showToast(`無法撤回診症！病人 ${patient.name} 沒有對應的診症記錄。`, 'error');
                 return;
             }
             
             const consultation = consultations.find(c => c.id === appointment.consultationId);
-            const patient = patients.find(p => p.id === appointment.patientId);
-            
-            if (!consultation || !patient) {
-                showToast('診症記錄資料不完整！', 'error');
+            if (!consultation) {
+                showToast(`無法撤回診症！找不到病人 ${patient.name} 的診症記錄資料。`, 'error');
                 return;
+            }
+            
+            // 確認撤回操作
+            const confirmMessage = `確定要撤回 ${patient.name} 的診症嗎？\n\n` +
+                                 `此操作將會：\n` +
+                                 `• 刪除該次診症記錄\n` +
+                                 `• 病人狀態回到「已掛號」\n` +
+                                 `• 所有診症資料將永久遺失\n\n` +
+                                 `診症日期：${new Date(consultation.date).toLocaleString('zh-TW')}\n` +
+                                 `診斷：${consultation.diagnosis || '無記錄'}\n\n` +
+                                 `注意：此操作無法復原！`;
+            
+            if (confirm(confirmMessage)) {
+                // 刪除診症記錄
+                const consultationIndex = consultations.findIndex(c => c.id === appointment.consultationId);
+                if (consultationIndex !== -1) {
+                    consultations.splice(consultationIndex, 1);
+                    localStorage.setItem('consultations', JSON.stringify(consultations));
+                }
+                
+                // 將掛號狀態改回已掛號
+                appointment.status = 'registered';
+                delete appointment.completedAt;
+                delete appointment.consultationId;
+                delete appointment.completedBy;
+                delete appointment.consultationStartTime;
+                delete appointment.consultingDoctor;
+                
+                // 保存狀態變更
+                localStorage.setItem('appointments', JSON.stringify(appointments));
+                
+                showToast(`已撤回 ${patient.name} 的診症，病人狀態回到已掛號`, 'success');
+                
+                // 如果正在編輯該病歷，則關閉表單
+                if (currentConsultingAppointmentId === appointmentId) {
+                    closeConsultationForm();
+                    currentConsultingAppointmentId = null;
+                }
+                
+                // 重新載入列表和統計
+                loadTodayAppointments();
+                updateStatistics();
+            }
+        }
+
+        // 修改病歷功能
+        function editMedicalRecord(appointmentId) {
+            const appointment = appointments.find(apt => apt.id === appointmentId);
+            if (!appointment) {
+                showToast('找不到掛號記錄！', 'error');
+                return;
+            }
+            
+            const patient = patients.find(p => p.id === appointment.patientId);
+            if (!patient) {
+                showToast('找不到病人資料！', 'error');
+                return;
+            }
+            
+            // 詳細狀態檢查
+            console.log(`修改病歷狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}, 診症記錄ID: ${appointment.consultationId}`);
+            
+            // 只有已完成的診症才能修改病歷
+            if (appointment.status !== 'completed') {
+                const statusNames = {
+                    'registered': '已掛號',
+                    'waiting': '候診中',
+                    'consulting': '診症中'
+                };
+                const currentStatusName = statusNames[appointment.status] || appointment.status;
+                showToast(`無法修改病歷！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能修改已完成診症的病歷。`, 'warning');
+                return;
+            }
+            
+            // 檢查是否有診症記錄
+            if (!appointment.consultationId) {
+                showToast(`無法修改病歷！病人 ${patient.name} 沒有對應的診症記錄。`, 'error');
+                return;
+            }
+            
+            const consultation = consultations.find(c => c.id === appointment.consultationId);
+            if (!consultation) {
+                showToast(`無法修改病歷！找不到病人 ${patient.name} 的診症記錄資料。`, 'error');
+                return;
+            }
+            
+            // 檢查是否有其他病人正在診症中
+            const consultingAppointment = appointments.find(apt => 
+                apt.status === 'consulting' && 
+                new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
+            );
+            
+            if (consultingAppointment) {
+                const consultingPatient = patients.find(p => p.id === consultingAppointment.patientId);
+                const consultingPatientName = consultingPatient ? consultingPatient.name : '未知病人';
+                
+                if (confirm(`目前 ${consultingPatientName} 正在診症中。\n\n是否要結束該病人的診症並開始修改 ${patient.name} 的病歷？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`)) {
+                    // 結束當前診症的病人
+                    consultingAppointment.status = 'waiting';
+                    delete consultingAppointment.consultationStartTime;
+                    delete consultingAppointment.consultingDoctor;
+                    
+                    // 關閉可能開啟的診症表單
+                    if (currentConsultingAppointmentId === consultingAppointment.id) {
+                        closeConsultationForm();
+                    }
+                    
+                    showToast(`已結束 ${consultingPatientName} 的診症`, 'info');
+                    localStorage.setItem('appointments', JSON.stringify(appointments));
+                } else {
+                    return; // 用戶取消操作
+                }
             }
             
             // 設置為編輯模式
             currentConsultingAppointmentId = appointmentId;
             showConsultationForm(appointment);
             
-            showToast('進入病歷編輯模式', 'info');
+            showToast(`進入 ${patient.name} 的病歷編輯模式`, 'info');
         }
 
         // 系統管理功能
@@ -3872,10 +4122,9 @@
                 ` : ''}
             `;
             
-            // 更新隱藏的文本域（包含服藥天數和次數資訊）
-            const medicationDays = document.getElementById('medicationDays').value || '5';
-            const dailyFrequency = document.getElementById('dailyFrequency').value || '2';
-            let prescriptionText = `服藥天數：${medicationDays}天，每日${dailyFrequency}次\n\n`;
+            // 更新隱藏的文本域（包含服藥天數資訊）
+            const medicationDays = document.getElementById('medicationDays') ? document.getElementById('medicationDays').value || '5' : '5';
+            let prescriptionText = `服藥天數：${medicationDays}天\n\n`;
             
             selectedPrescriptionItems.forEach(item => {
                 if (item.type === 'herb') {
@@ -3894,24 +4143,19 @@
             const currentDays = parseInt(daysInput.value) || 5;
             const newDays = Math.max(1, Math.min(30, currentDays + change));
             daysInput.value = newDays;
-            updateTotalDoses();
-            updatePrescriptionDisplay();
-        }
-        
-        // 更新每日服藥次數
-        function updateDailyFrequency(change) {
-            const frequencyInput = document.getElementById('dailyFrequency');
-            const currentFrequency = parseInt(frequencyInput.value) || 2;
-            const newFrequency = Math.max(1, Math.min(6, currentFrequency + change));
-            frequencyInput.value = newFrequency;
-            updateTotalDoses();
-            updatePrescriptionDisplay();
+            
+            // 只更新處方顯示，不觸發其他狀態變更
+            if (selectedPrescriptionItems.length > 0) {
+                updatePrescriptionDisplay();
+            }
         }
         
         // 更新總劑數顯示
         function updateTotalDoses() {
-            const days = document.getElementById('medicationDays').value || '5';
-            updatePrescriptionDisplay();
+            // 這個函數現在只負責更新處方顯示
+            if (selectedPrescriptionItems.length > 0) {
+                updatePrescriptionDisplay();
+            }
         }
         
         // 更新處方藥量
@@ -4172,5 +4416,5 @@
             updateStatistics();
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96931a30f2e314b4',t:'MTc1NDE5NTY2My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9693840b77e2854b',t:'MTc1NDE5OTk5OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
