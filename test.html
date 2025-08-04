@@ -3147,6 +3147,9 @@
             closeConsultationForm();
             loadTodayAppointments();
             updateStatistics();
+            
+            // 清空搜尋欄位
+            clearAllSearchFields();
         }
         
 
@@ -4657,7 +4660,7 @@
                         <div class="flex-1">
                             <h4 class="text-lg font-semibold text-gray-900">${item.name}</h4>
                             <div class="flex items-center mt-1">
-                                <span class="text-2xl font-bold ${priceColor}">${pricePrefix}${displayPrice}</span>
+                                <span class="text-2xl font-bold text-green-600">$${Math.abs(item.price)}</span>
                                 ${item.unit ? `<span class="text-sm text-gray-500 ml-1">/ ${item.unit}</span>` : ''}
                             </div>
                         </div>
@@ -4755,7 +4758,7 @@
                     // 如果輸入1-10之間的數字，自動轉換為折扣比例
                     price = price / 10;
                     document.getElementById('billingItemPrice').value = price;
-                    showToast(`已自動轉換為${(price * 10).toFixed(0)}折`, 'info');
+                    showToast(`已自動轉換為${(price * 100).toFixed(0)}折`, 'info');
                 }
             }
             
@@ -5109,12 +5112,9 @@
                         if (medicineFeeIndex !== -1) {
                             selectedBillingItems.splice(medicineFeeIndex, 1);
                             updateBillingDisplay();
-                            showToast(`已移除藥費項目`, 'info');
                         }
                     }
                 }
-                
-                showToast(`已移除：${removedItem.name}`, 'info');
             }
         }
         
@@ -5174,12 +5174,14 @@
                                 ${(() => {
                                     if (item.category === 'discount') {
                                         if (item.price > 0 && item.price < 1) {
-                                            return `${(item.price * 10).toFixed(0)}折`;
+                                            return `${(item.price * 100).toFixed(0)}折`;
                                         } else if (item.price < 0) {
                                             return `-$${Math.abs(item.price)}`;
+                                        } else {
+                                            return `$${item.price}`;
                                         }
                                     }
-                                    return `$${Math.abs(item.price)}`;
+                                    return `$${item.price}`;
                                 })()}
                             </div>
                             ${item.unit ? `<div class="text-xs text-gray-600">/ ${item.unit}</div>` : ''}
@@ -5332,12 +5334,14 @@
                                         ${(() => {
                                             if (item.category === 'discount') {
                                                 if (item.price > 0 && item.price < 1) {
-                                                    return `${(item.price * 10).toFixed(0)}折`;
+                                                    return `${(item.price * 10).toFixed(1)}折`;
                                                 } else if (item.price < 0) {
                                                     return `-$${Math.abs(item.price)}`;
+                                                } else {
+                                                    return `$${item.price}`;
                                                 }
                                             }
-                                            return `$${Math.abs(item.price)}`;
+                                            return `$${item.price}`;
                                         })()}${item.unit ? ` / ${item.unit}` : ''}
                                     </div>
                                 </div>
@@ -5434,7 +5438,7 @@
             if (index >= 0 && index < selectedBillingItems.length) {
                 const removedItem = selectedBillingItems.splice(index, 1)[0];
                 updateBillingDisplay();
-                showToast(`已移除：${removedItem.name}`, 'info');
+                // showToast(`已移除：${removedItem.name}`, 'info');
             }
         }
         
@@ -5442,6 +5446,21 @@
         function clearBillingSearch() {
             document.getElementById('billingSearch').value = '';
             document.getElementById('billingSearchResults').classList.add('hidden');
+        }
+        
+        // 清空所有搜尋欄位
+        function clearAllSearchFields() {
+            // 清空病人搜尋欄
+            const patientSearchInput = document.getElementById('patientSearchInput');
+            if (patientSearchInput) {
+                patientSearchInput.value = '';
+            }
+            
+            // 清空處方搜尋欄
+            clearPrescriptionSearch();
+            
+            // 清空收費項目搜尋欄
+            clearBillingSearch();
         }
         
         // 自動添加預設診金收費
@@ -5534,7 +5553,7 @@
             // 更新處方顯示
             updatePrescriptionDisplay();
             
-            showToast(`已載入 ${patient.name} 上次的處方內容`, 'success');
+            // showToast(`已載入 ${patient.name} 上次的處方內容`, 'success');
         }
         
         // 解析處方內容並重建處方項目
@@ -6192,5 +6211,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969d15bbc687dda1',t:'MTc1NDMwMDMzOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969d6730679fe2e0',t:'MTc1NDMwMzY3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
