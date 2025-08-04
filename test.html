@@ -613,8 +613,8 @@
                                         </div>
                                     </div>
                                     
-                                    <!-- 服藥天數及次數設定 -->
-                                    <div class="mt-3 bg-green-50 rounded-lg p-3 border border-green-200">
+                                    <!-- 服藥天數及次數設定（只在有處方內容時顯示） -->
+                                    <div id="medicationSettings" class="mt-3 bg-green-50 rounded-lg p-3 border border-green-200" style="display: none;">
                                         <div class="space-y-3">
                                             <!-- 服藥天數 -->
                                             <div class="flex items-center justify-between">
@@ -636,13 +636,11 @@
                                                     <button onclick="updateMedicationFrequency(-1)" class="w-7 h-7 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition duration-200">-</button>
                                                     <input type="number" id="medicationFrequency" value="2" min="1" max="6" 
                                                            class="w-14 px-2 py-1 text-center border border-green-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                                                           onchange="updateTotalDoses()" onclick="this.select()">
+                                                           onchange="updateMedicationFrequency(0)" onclick="this.select()">
                                                     <button onclick="updateMedicationFrequency(1)" class="w-7 h-7 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition duration-200">+</button>
                                                     <span class="text-sm text-green-800">次/日</span>
                                                 </div>
                                             </div>
-                                            
-
                                         </div>
                                     </div>
                                     
@@ -3281,6 +3279,21 @@
                                         class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded">
                                     📄 列印
                                 </button>
+                                ${(() => {
+                                    // 檢查是否正在診症且為相同病人
+                                    if (currentConsultingAppointmentId) {
+                                        const currentAppointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
+                                        if (currentAppointment && currentAppointment.patientId === consultation.patientId) {
+                                            return `
+                                                <button onclick="loadMedicalRecordToCurrentConsultation(${consultation.id})" 
+                                                        class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded">
+                                                    📋 載入病歷
+                                                </button>
+                                            `;
+                                        }
+                                    }
+                                    return '';
+                                })()}
                             </div>
                         </div>
                     </div>
@@ -3522,6 +3535,21 @@
                                         class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded">
                                     📄 列印
                                 </button>
+                                ${(() => {
+                                    // 檢查是否正在診症且為相同病人
+                                    if (currentConsultingAppointmentId) {
+                                        const currentAppointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
+                                        if (currentAppointment && currentAppointment.patientId === consultation.patientId) {
+                                            return `
+                                                <button onclick="loadMedicalRecordToCurrentConsultation(${consultation.id})" 
+                                                        class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded">
+                                                    📋 載入病歷
+                                                </button>
+                                            `;
+                                        }
+                                    }
+                                    return '';
+                                })()}
                             </div>
                         </div>
                     </div>
@@ -4851,6 +4879,12 @@
             // 更新顯示
             updatePrescriptionDisplay();
             
+            // 如果是第一個處方項目，自動添加藥費
+            if (selectedPrescriptionItems.length === 1) {
+                const days = parseInt(document.getElementById('medicationDays').value) || 5;
+                updateMedicineFeeByDays(days);
+            }
+            
             // 清除搜索
             clearPrescriptionSearch();
             
@@ -4861,6 +4895,7 @@
         function updatePrescriptionDisplay() {
             const container = document.getElementById('selectedPrescriptionItems');
             const hiddenTextarea = document.getElementById('formPrescription');
+            const medicationSettings = document.getElementById('medicationSettings');
             
             if (selectedPrescriptionItems.length === 0) {
                 container.innerHTML = `
@@ -4869,8 +4904,13 @@
                     </div>
                 `;
                 hiddenTextarea.value = '';
+                // 隱藏服藥天數設定
+                medicationSettings.style.display = 'none';
                 return;
             }
+            
+            // 顯示服藥天數設定
+            medicationSettings.style.display = 'block';
             
             // 顯示已添加的項目
             const displayHtml = `
@@ -4945,7 +4985,8 @@
                 updatePrescriptionDisplay();
             }
             
-            // 不自動更新藥費，讓醫師手動選擇收費項目
+            // 自動更新藥費
+            updateMedicineFeeByDays(newDays);
         }
         
         // 更新服藥次數
@@ -4963,6 +5004,11 @@
         
         // 根據開藥天數自動更新藥費
         function updateMedicineFeeByDays(days) {
+            // 只有在有處方內容時才自動更新藥費
+            if (selectedPrescriptionItems.length === 0) {
+                return;
+            }
+            
             // 尋找中藥調劑費項目
             const medicineFeeItem = billingItems.find(item => 
                 item.active && 
@@ -5018,7 +5064,8 @@
                 updatePrescriptionDisplay();
             }
             
-            // 不自動更新藥費，讓醫師手動選擇收費項目
+            // 自動更新藥費
+            updateMedicineFeeByDays(validDays);
         }
         
 
@@ -5044,6 +5091,29 @@
             if (index >= 0 && index < selectedPrescriptionItems.length) {
                 const removedItem = selectedPrescriptionItems.splice(index, 1)[0];
                 updatePrescriptionDisplay();
+                
+                // 如果移除後沒有處方項目了，移除藥費
+                if (selectedPrescriptionItems.length === 0) {
+                    // 尋找並移除藥費項目
+                    const medicineFeeItem = billingItems.find(item => 
+                        item.active && 
+                        item.category === 'medicine' && 
+                        (item.name.includes('中藥') || item.name.includes('藥費') || item.name.includes('調劑'))
+                    );
+                    
+                    if (medicineFeeItem) {
+                        const medicineFeeIndex = selectedBillingItems.findIndex(item => 
+                            item.id === medicineFeeItem.id
+                        );
+                        
+                        if (medicineFeeIndex !== -1) {
+                            selectedBillingItems.splice(medicineFeeIndex, 1);
+                            updateBillingDisplay();
+                            showToast(`已移除藥費項目`, 'info');
+                        }
+                    }
+                }
+                
                 showToast(`已移除：${removedItem.name}`, 'info');
             }
         }
@@ -5602,23 +5672,15 @@
                 return;
             }
             
-            // 確認載入
-            const confirmMessage = `確定要載入 ${patient.name} 上次的收費項目嗎？\n\n` +
-                                 `上次診症日期：${new Date(lastConsultation.date).toLocaleDateString('zh-TW')}\n\n` +
-                                 `注意：這將會覆蓋目前已選擇的收費項目！`;
+            // 直接載入，不需要確認
+            // 清空現有收費項目
+            selectedBillingItems = [];
             
-            if (confirm(confirmMessage)) {
-                // 清空現有收費項目
-                selectedBillingItems = [];
-                
-                // 解析並載入上次收費項目
-                parseBillingItemsFromText(lastConsultation.billingItems);
-                
-                // 更新顯示
-                updateBillingDisplay();
-                
-                showToast(`已載入 ${patient.name} 上次的收費項目`, 'success');
-            }
+            // 解析並載入上次收費項目
+            parseBillingItemsFromText(lastConsultation.billingItems);
+            
+            // 更新顯示
+            updateBillingDisplay();
         }
         
         // 解析收費項目文字並載入
@@ -5669,6 +5731,108 @@
             selectedBillingItems = [];
             parseBillingItemsFromText(lastConsultation.billingItems);
             updateBillingDisplay();
+        }
+        
+        // 載入指定病歷記錄到當前診症
+        function loadMedicalRecordToCurrentConsultation(consultationId) {
+            if (!currentConsultingAppointmentId) {
+                showToast('請先開始診症！', 'error');
+                return;
+            }
+            
+            const consultation = consultations.find(c => c.id === consultationId);
+            if (!consultation) {
+                showToast('找不到指定的診症記錄！', 'error');
+                return;
+            }
+            
+            const currentAppointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
+            if (!currentAppointment) {
+                showToast('找不到當前診症記錄！', 'error');
+                return;
+            }
+            
+            // 確認是否為相同病人
+            if (currentAppointment.patientId !== consultation.patientId) {
+                showToast('只能載入相同病人的病歷記錄！', 'error');
+                return;
+            }
+            
+            const patient = patients.find(p => p.id === consultation.patientId);
+            const consultationDate = new Date(consultation.date).toLocaleDateString('zh-TW');
+            
+            // 確認載入操作
+            const confirmMessage = `確定要載入 ${patient ? patient.name : '未知病人'} 在 ${consultationDate} 的病歷記錄嗎？\n\n` +
+                                 `此操作將會覆蓋當前已填寫的診症內容，包括：\n` +
+                                 `• 主訴、舌象、脈象等診症資料\n` +
+                                 `• 診斷和證型\n` +
+                                 `• 處方內容\n` +
+                                 `• 收費項目\n` +
+                                 `• 醫囑和注意事項\n\n` +
+                                 `注意：此操作無法復原！`;
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            // 載入診症資料
+            document.getElementById('formSymptoms').value = consultation.symptoms || '';
+            document.getElementById('formTongue').value = consultation.tongue || '';
+            document.getElementById('formPulse').value = consultation.pulse || '';
+            document.getElementById('formCurrentHistory').value = consultation.currentHistory || '';
+            document.getElementById('formDiagnosis').value = consultation.diagnosis || '';
+            document.getElementById('formSyndrome').value = consultation.syndrome || '';
+            document.getElementById('formAcupunctureNotes').value = consultation.acupunctureNotes || '';
+            document.getElementById('formUsage').value = consultation.usage || '';
+            document.getElementById('formTreatmentCourse').value = consultation.treatmentCourse || '';
+            document.getElementById('formInstructions').value = consultation.instructions || '';
+            document.getElementById('formFollowUpDate').value = consultation.followUpDate || '';
+            
+            // 載入處方內容
+            selectedPrescriptionItems = [];
+            if (consultation.prescription) {
+                // 直接將處方內容設置到隱藏文本域
+                document.getElementById('formPrescription').value = consultation.prescription;
+                
+                // 解析處方內容並重建處方項目
+                parsePrescriptionToItems(consultation.prescription);
+                
+                // 更新處方顯示
+                updatePrescriptionDisplay();
+            } else {
+                // 清空處方
+                document.getElementById('formPrescription').value = '';
+                updatePrescriptionDisplay();
+            }
+            
+            // 載入收費項目
+            selectedBillingItems = [];
+            if (consultation.billingItems) {
+                // 直接將收費項目設置到隱藏文本域
+                document.getElementById('formBillingItems').value = consultation.billingItems;
+                
+                // 解析並載入收費項目
+                parseBillingItemsFromText(consultation.billingItems);
+                
+                // 更新收費顯示
+                updateBillingDisplay();
+            } else {
+                // 清空收費項目
+                document.getElementById('formBillingItems').value = '';
+                updateBillingDisplay();
+            }
+            
+            // 清除搜索框
+            clearPrescriptionSearch();
+            clearBillingSearch();
+            
+            // 關閉病歷查看彈窗
+            closeMedicalHistoryModal();
+            
+            // 滾動到診症表單
+            document.getElementById('consultationForm').scrollIntoView({ behavior: 'smooth' });
+            
+            showToast(`已載入 ${patient ? patient.name : '未知病人'} 在 ${consultationDate} 的完整病歷記錄`, 'success');
         }
         
         // 清空診症表單時也要清空處方搜索
@@ -6028,5 +6192,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969cd681a184ddbd',t:'MTc1NDI5Nzc0OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969d15bbc687dda1',t:'MTc1NDMwMDMzOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
