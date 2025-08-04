@@ -3010,9 +3010,8 @@
                 updatePrescriptionDisplay();
                 clearPrescriptionSearch();
                 
-                // 不自動載入上次收費項目，讓醫師手動選擇
-                selectedBillingItems = [];
-                updateBillingDisplay();
+                // 自動添加預設診金收費項目
+                addDefaultConsultationFee(patient);
                 
                 // 顯示預填提示
                 showToast(`已預填 ${patient.name} 上次診症資料（${new Date(lastConsultation.date).toLocaleDateString('zh-TW')}），處方內容請重新開立`, 'info');
@@ -3024,9 +3023,8 @@
                     document.getElementById('formSymptoms').value = appointment.chiefComplaint;
                 }
                 
-                // 不自動添加收費項目，讓醫師手動選擇
-                selectedBillingItems = [];
-                updateBillingDisplay();
+                // 自動添加預設診金收費項目
+                addDefaultConsultationFee(patient);
                 
                 showToast(`${patient.name} 是首次診症，已載入預設表單`, 'info');
             }
@@ -3052,7 +3050,7 @@
             updatePrescriptionDisplay();
             clearPrescriptionSearch();
             
-            // 清空收費項目
+            // 清空收費項目（但會在 prefillWithPreviousRecord 中自動添加診金）
             selectedBillingItems = [];
             updateBillingDisplay();
             clearBillingSearch();
@@ -6375,5 +6373,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969df7e233b85dec',t:'MTc1NDMwOTYwMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969e3fd174b07155',t:'MTc1NDMxMjU0OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
