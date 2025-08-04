@@ -68,7 +68,8 @@
         <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
             <div class="text-center mb-8">
                 <div class="text-4xl mb-4">🏥</div>
-                <h1 class="text-2xl font-bold text-gray-800 mb-2">中醫診所系統</h1>
+                <h1 id="loginTitle" class="text-2xl font-bold text-gray-800 mb-2">中醫診所</h1>
+                <p id="loginEnglishTitle" class="text-sm text-gray-500 mb-3">Traditional Chinese Medicine Clinic</p>
                 <p class="text-gray-600">請輸入您的帳號密碼登入</p>
             </div>
             
@@ -165,7 +166,10 @@
                             </div>
                         </button>
                         <span class="text-2xl mr-3">🏥</span>
-                        <h1 class="text-xl font-bold text-gray-800">中醫診所系統</h1>
+                        <div>
+                            <h1 id="systemTitle" class="text-xl font-bold text-gray-800">中醫診所</h1>
+                            <p id="systemEnglishTitle" class="text-xs text-gray-500">Traditional Chinese Medicine Clinic</p>
+                        </div>
                     </div>
                     <div class="flex items-center space-x-4">
                         <span id="userRole" class="text-sm text-gray-600"></span>
@@ -182,7 +186,8 @@
             <!-- 歡迎頁面 -->
             <div id="welcomePage" class="text-center py-16">
                 <div class="text-6xl mb-6">🏥</div>
-                <h2 class="text-3xl font-bold text-gray-800 mb-4">歡迎使用中醫診所系統</h2>
+                <h2 id="welcomeTitle" class="text-3xl font-bold text-gray-800 mb-2">歡迎使用中醫診所</h2>
+                <p id="welcomeEnglishTitle" class="text-lg text-gray-500 mb-4">Welcome to Traditional Chinese Medicine Clinic</p>
                 <p class="text-gray-600 text-lg mb-8">請點擊左上角選單按鈕開始使用系統功能</p>
                 <div class="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto">
                     <h3 class="text-xl font-semibold mb-4">系統功能概覽</h3>
@@ -1142,6 +1147,21 @@
                     </div>
                     
                     <div class="bg-gray-50 rounded-lg p-6">
+                        <h3 class="text-lg font-semibold mb-4">診所設定</h3>
+                        <div class="space-y-3">
+                            <div class="text-center py-4" id="clinicSettingsDisplay">
+                                <div class="text-sm text-gray-700 mb-3">
+                                    <div class="font-medium">診所中文名稱：<span id="displayChineseName">中醫診所</span></div>
+                                    <div class="text-gray-600 mt-1">診所英文名稱：<span id="displayEnglishName">Traditional Chinese Medicine Clinic</span></div>
+                                </div>
+                                <button onclick="showClinicSettingsModal()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-200">
+                                    診所資料修改
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-lg p-6">
                         <h3 class="text-lg font-semibold mb-4">資料管理</h3>
                         <div class="space-y-3">
                             <button onclick="exportData()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-200">
@@ -1160,10 +1180,69 @@
         </div>
     </div>
 
+    <!-- 診所資料修改彈窗 -->
+    <div id="clinicSettingsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-xl">
+                <h3 class="text-xl font-bold text-gray-800">診所資料修改</h3>
+                <button onclick="hideClinicSettingsModal()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+            </div>
+            
+            <div class="p-6">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">診所中文名稱 *</label>
+                        <input type="text" id="clinicChineseName" placeholder="請輸入診所中文名稱" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">診所英文名稱</label>
+                        <input type="text" id="clinicEnglishName" placeholder="請輸入診所英文名稱" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">診所營業時間</label>
+                        <input type="text" id="clinicBusinessHours" placeholder="例：週一至週五 09:00-18:00" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">診所電話</label>
+                        <input type="tel" id="clinicPhone" placeholder="請輸入診所電話號碼" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">診所地址</label>
+                        <textarea id="clinicAddress" placeholder="請輸入診所完整地址" rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-200">
+                    <button onclick="hideClinicSettingsModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition duration-200">
+                        取消
+                    </button>
+                    <button onclick="saveClinicSettings()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-200">
+                        儲存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // 系統資料儲存
         let currentUser = null;
         let currentUserData = null;
+        
+        // 診所設定
+        let clinicSettings = JSON.parse(localStorage.getItem('clinicSettings') || '{}');
+        if (!clinicSettings.chineseName) {
+            clinicSettings.chineseName = '中醫診所';
+            clinicSettings.englishName = 'Traditional Chinese Medicine Clinic';
+            clinicSettings.businessHours = '週一至週五 09:00-18:00';
+            clinicSettings.phone = '(852) 2345-6789';
+            clinicSettings.address = '香港中環皇后大道中123號';
+            localStorage.setItem('clinicSettings', JSON.stringify(clinicSettings));
+        }
         
         // 浮動提示功能
         function showToast(message, type = 'info') {
@@ -2931,9 +3010,8 @@
                 updatePrescriptionDisplay();
                 clearPrescriptionSearch();
                 
-                // 不自動載入上次收費項目，讓醫師手動選擇
-                selectedBillingItems = [];
-                updateBillingDisplay();
+                // 自動添加預設診金收費項目
+                addDefaultConsultationFee(patient);
                 
                 // 顯示預填提示
                 showToast(`已預填 ${patient.name} 上次診症資料（${new Date(lastConsultation.date).toLocaleDateString('zh-TW')}），處方內容請重新開立`, 'info');
@@ -2945,9 +3023,8 @@
                     document.getElementById('formSymptoms').value = appointment.chiefComplaint;
                 }
                 
-                // 不自動添加收費項目，讓醫師手動選擇
-                selectedBillingItems = [];
-                updateBillingDisplay();
+                // 自動添加預設診金收費項目
+                addDefaultConsultationFee(patient);
                 
                 showToast(`${patient.name} 是首次診症，已載入預設表單`, 'info');
             }
@@ -2973,7 +3050,7 @@
             updatePrescriptionDisplay();
             clearPrescriptionSearch();
             
-            // 清空收費項目
+            // 清空收費項目（但會在 prefillWithPreviousRecord 中自動添加診金）
             selectedBillingItems = [];
             updateBillingDisplay();
             clearBillingSearch();
@@ -3870,9 +3947,9 @@
                     <div class="receipt-container">
                         <!-- 診所標題 -->
                         <div class="clinic-header">
-                            <div class="clinic-name">中醫診所</div>
-                            <div class="clinic-subtitle">Traditional Chinese Medicine Clinic</div>
-                            <div class="clinic-subtitle">電話：(852) 2345-6789　地址：香港中環皇后大道中123號</div>
+                            <div class="clinic-name">${clinicSettings.chineseName || '中醫診所'}</div>
+                            <div class="clinic-subtitle">${clinicSettings.englishName || 'Traditional Chinese Medicine Clinic'}</div>
+                            <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                         </div>
                         
                         <!-- 收據標題 -->
@@ -3980,7 +4057,7 @@
                             </div>
                             <div class="footer-row">
                                 <span>診所營業時間：</span>
-                                <span>週一至週五 09:00-18:00</span>
+                                <span>${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</span>
                             </div>
                             <div class="footer-row">
                                 <span>本收據請妥善保存</span>
@@ -4222,6 +4299,97 @@
                 }
             }
         }
+
+        // 診所設定管理功能
+        function showClinicSettingsModal() {
+            // 載入現有設定
+            document.getElementById('clinicChineseName').value = clinicSettings.chineseName || '';
+            document.getElementById('clinicEnglishName').value = clinicSettings.englishName || '';
+            document.getElementById('clinicBusinessHours').value = clinicSettings.businessHours || '';
+            document.getElementById('clinicPhone').value = clinicSettings.phone || '';
+            document.getElementById('clinicAddress').value = clinicSettings.address || '';
+            
+            document.getElementById('clinicSettingsModal').classList.remove('hidden');
+        }
+        
+        function hideClinicSettingsModal() {
+            document.getElementById('clinicSettingsModal').classList.add('hidden');
+        }
+        
+        function saveClinicSettings() {
+            const chineseName = document.getElementById('clinicChineseName').value.trim();
+            const englishName = document.getElementById('clinicEnglishName').value.trim();
+            const businessHours = document.getElementById('clinicBusinessHours').value.trim();
+            const phone = document.getElementById('clinicPhone').value.trim();
+            const address = document.getElementById('clinicAddress').value.trim();
+            
+            if (!chineseName) {
+                showToast('請輸入診所中文名稱！', 'error');
+                return;
+            }
+            
+            // 更新診所設定
+            clinicSettings.chineseName = chineseName;
+            clinicSettings.englishName = englishName;
+            clinicSettings.businessHours = businessHours;
+            clinicSettings.phone = phone;
+            clinicSettings.address = address;
+            clinicSettings.updatedAt = new Date().toISOString();
+            
+            // 保存到本地儲存
+            localStorage.setItem('clinicSettings', JSON.stringify(clinicSettings));
+            
+            // 更新系統管理頁面的顯示
+            updateClinicSettingsDisplay();
+            
+            hideClinicSettingsModal();
+            showToast('診所資料已成功更新！', 'success');
+        }
+        
+        function updateClinicSettingsDisplay() {
+            // 更新系統管理頁面的診所設定顯示
+            const chineseNameSpan = document.getElementById('displayChineseName');
+            const englishNameSpan = document.getElementById('displayEnglishName');
+            
+            if (chineseNameSpan) {
+                chineseNameSpan.textContent = clinicSettings.chineseName || '中醫診所';
+            }
+            if (englishNameSpan) {
+                englishNameSpan.textContent = clinicSettings.englishName || 'Traditional Chinese Medicine Clinic';
+            }
+            
+            // 更新登入頁面的診所名稱
+            const loginTitle = document.getElementById('loginTitle');
+            const loginEnglishTitle = document.getElementById('loginEnglishTitle');
+            if (loginTitle) {
+                loginTitle.textContent = clinicSettings.chineseName || '中醫診所';
+            }
+            if (loginEnglishTitle) {
+                loginEnglishTitle.textContent = clinicSettings.englishName || 'Traditional Chinese Medicine Clinic';
+            }
+            
+            // 更新主頁面的診所名稱
+            const systemTitle = document.getElementById('systemTitle');
+            const systemEnglishTitle = document.getElementById('systemEnglishTitle');
+            if (systemTitle) {
+                systemTitle.textContent = clinicSettings.chineseName || '中醫診所';
+            }
+            if (systemEnglishTitle) {
+                systemEnglishTitle.textContent = clinicSettings.englishName || 'Traditional Chinese Medicine Clinic';
+            }
+            
+            // 更新歡迎頁面的診所名稱
+            const welcomeTitle = document.getElementById('welcomeTitle');
+            const welcomeEnglishTitle = document.getElementById('welcomeEnglishTitle');
+            if (welcomeTitle) {
+                welcomeTitle.textContent = `歡迎使用${clinicSettings.chineseName || '中醫診所'}`;
+            }
+            if (welcomeEnglishTitle) {
+                welcomeEnglishTitle.textContent = `Welcome to ${clinicSettings.englishName || 'Traditional Chinese Medicine Clinic'}`;
+            }
+        }
+
+
 
         // 中藥庫管理功能
         let editingHerbId = null;
@@ -6189,9 +6357,12 @@
             }
         }
 
+
+
         // 初始化系統
         document.addEventListener('DOMContentLoaded', function() {
             updateStatistics();
+            updateClinicSettingsDisplay();
             
             // 自動聚焦到帳號輸入框
             const usernameInput = document.getElementById('mainLoginUsername');
@@ -6202,5 +6373,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969d908712cb0438',t:'MTc1NDMwNTM2OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969e3fd174b07155',t:'MTc1NDMxMjU0OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
