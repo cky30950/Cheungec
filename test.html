@@ -1153,6 +1153,9 @@
                             <button onclick="clearData()" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition duration-200">
                                 清除資料
                             </button>
+                            <button onclick="clearLocalStorage()" class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-lg transition duration-200">
+                                清除本地儲存
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -4223,6 +4226,22 @@
             }
         }
 
+        function clearLocalStorage() {
+            if (confirm('警告：此操作將清除所有本地儲存資料，包括病人資料、診症記錄、中藥庫、收費項目、用戶資料等，確定要繼續嗎？')) {
+                if (confirm('最後確認：所有本地儲存的資料將被永久刪除，系統將重置為初始狀態！')) {
+                    // 清除所有本地儲存
+                    localStorage.clear();
+                    
+                    showToast('本地儲存已清除！系統將重新載入...', 'success');
+                    
+                    // 延遲重新載入頁面，讓用戶看到提示訊息
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                }
+            }
+        }
+
         // 中藥庫管理功能
         let editingHerbId = null;
         let editingFormulaId = null;
@@ -6202,5 +6221,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969d908712cb0438',t:'MTc1NDMwNTM2OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969d9a0a002fc3e8',t:'MTc1NDMwNTc1OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
