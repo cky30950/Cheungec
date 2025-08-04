@@ -96,15 +96,15 @@
                     <div class="text-sm font-medium text-blue-800 mb-3">示範帳號：</div>
                     <div class="text-xs text-blue-700 space-y-2">
                         <div class="flex justify-between items-center">
-                            <span>👨‍💼 診所管理</span>
+                            <span>👨‍💼 陳診所管理</span>
                             <span class="font-mono bg-white px-2 py-1 rounded">manager / manager2024</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span>👨‍⚕️ 醫師</span>
+                            <span>👨‍⚕️ 張醫師</span>
                             <span class="font-mono bg-white px-2 py-1 rounded">drzhang / zhang888</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span>👩‍💻 護理師</span>
+                            <span>👩‍💻 林護理師</span>
                             <span class="font-mono bg-white px-2 py-1 rounded">nurse_amy / amy2024</span>
                         </div>
                     </div>
@@ -1698,13 +1698,13 @@
             document.getElementById('loginPage').classList.add('hidden');
             document.getElementById('mainSystem').classList.remove('hidden');
             
-            document.getElementById('userRole').textContent = `當前用戶：${user.name} (${user.position || '未設定職位'})`;
-            document.getElementById('sidebarUserRole').textContent = `當前用戶：${user.name} (${user.position || '未設定職位'})`;
+            document.getElementById('userRole').textContent = `當前用戶：${getUserDisplayName(user)}`;
+            document.getElementById('sidebarUserRole').textContent = `當前用戶：${getUserDisplayName(user)}`;
             
             generateSidebarMenu();
             updateStatistics();
             
-            showToast(`歡迎回來，${user.name}！`, 'success');
+            showToast(`歡迎回來，${getUserDisplayName(user)}！`, 'success');
         }
 
         // 側邊選單控制
@@ -5208,19 +5208,29 @@
 
 
 
+        // 獲取用戶顯示名稱（姓名第一個字 + 職位）
+        function getUserDisplayName(user) {
+            if (!user || !user.name) return '未知用戶';
+            
+            const firstName = user.name.charAt(0);
+            const position = user.position || '用戶';
+            
+            return `${firstName}${position}`;
+        }
+        
         // 獲取醫師顯示名稱
         function getDoctorDisplayName(doctorRole) {
             if (!doctorRole) return '未記錄';
             
             // 如果是舊的固定值，直接返回
             if (doctorRole === 'doctor') {
-                return '張中醫師';
+                return '張醫師';
             }
             
             // 尋找對應的醫師用戶
-            const doctorUser = users.find(u => u.role === 'doctor' && (u.username === doctorRole || u.role === doctorRole));
+            const doctorUser = users.find(u => u.username === doctorRole);
             if (doctorUser) {
-                return doctorUser.name;
+                return getUserDisplayName(doctorUser);
             }
             
             // 如果找不到，返回原值
@@ -5440,8 +5450,8 @@
                     currentUser = users[userIndex].username;
                     
                     // 更新顯示的用戶資訊
-                    document.getElementById('userRole').textContent = `當前用戶：${users[userIndex].name} (${users[userIndex].position || '未設定職位'})`;
-                    document.getElementById('sidebarUserRole').textContent = `當前用戶：${users[userIndex].name} (${users[userIndex].position || '未設定職位'})`;
+                    document.getElementById('userRole').textContent = `當前用戶：${getUserDisplayName(users[userIndex])}`;
+                    document.getElementById('sidebarUserRole').textContent = `當前用戶：${getUserDisplayName(users[userIndex])}`;
                 }
                 
                 showToast('用戶資料已成功更新！', 'success');
@@ -5536,5 +5546,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9696d865069e0eeb',t:'MTc1NDIzNDkxMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969c1739f1a572ce',t:'MTc1NDI4OTkxNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
