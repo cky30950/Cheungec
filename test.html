@@ -588,12 +588,12 @@
                                     </div>
                                     
                                     <!-- 中藥庫搜索區域 -->
-                                    <div class="mb-3 bg-blue-50 rounded-lg p-3 border border-blue-200">
+                                    <div class="mb-3 bg-yellow-50 rounded-lg p-3 border border-yellow-200">
                                         <div class="flex items-center mb-2">
-                                            <span class="text-sm font-medium text-blue-800 mr-2">🔍 搜索中藥庫：</span>
+                                            <span class="text-sm font-medium text-yellow-800 mr-2">🔍 搜索中藥庫：</span>
                                             <div class="flex-1 relative">
                                                 <input type="text" id="prescriptionSearch" placeholder="搜索中藥材或方劑名稱..." 
-                                                       class="w-full border border-blue-300 rounded px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                       class="w-full border border-yellow-300 rounded px-3 py-1 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                                                        oninput="searchHerbsForPrescription()">
                                                 <button onclick="clearPrescriptionSearch()" class="absolute right-2 top-1 text-gray-400 hover:text-gray-600 text-sm">×</button>
                                             </div>
@@ -601,7 +601,7 @@
                                         
                                         <!-- 搜索結果 -->
                                         <div id="prescriptionSearchResults" class="hidden">
-                                            <div class="bg-white rounded border border-blue-200 max-h-48 overflow-y-auto">
+                                            <div class="bg-white rounded border border-yellow-200 max-h-48 overflow-y-auto">
                                                 <div id="prescriptionSearchList" class="grid grid-cols-1 md:grid-cols-2 gap-2 p-2">
                                                     <!-- 搜索結果會動態載入 -->
                                                 </div>
@@ -619,31 +619,31 @@
                                     </div>
                                     
                                     <!-- 服藥天數及次數設定（只在有處方內容時顯示） -->
-                                    <div id="medicationSettings" class="mt-3 bg-green-50 rounded-lg p-3 border border-green-200" style="display: none;">
+                                    <div id="medicationSettings" class="mt-3 bg-yellow-50 rounded-lg p-3 border border-yellow-200" style="display: none;">
                                         <div class="space-y-3">
                                             <!-- 服藥天數 -->
                                             <div class="flex items-center justify-between">
-                                                <span class="text-sm font-medium text-green-800">服藥天數</span>
+                                                <span class="text-sm font-medium text-yellow-800">服藥天數</span>
                                                 <div class="flex items-center space-x-2">
-                                                    <button onclick="updateMedicationDays(-1)" class="w-7 h-7 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition duration-200">-</button>
+                                                    <button onclick="updateMedicationDays(-1)" class="w-7 h-7 bg-yellow-500 text-white rounded-full text-sm hover:bg-yellow-600 transition duration-200">-</button>
                                                     <input type="number" id="medicationDays" value="5" min="1" max="30" 
-                                                           class="w-14 px-2 py-1 text-center border border-green-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                                                           class="w-14 px-2 py-1 text-center border border-yellow-300 rounded focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-sm"
                                                            onchange="updateMedicationDaysFromInput()" onclick="this.select()">
-                                                    <button onclick="updateMedicationDays(1)" class="w-7 h-7 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition duration-200">+</button>
-                                                    <span class="text-sm text-green-800">天</span>
+                                                    <button onclick="updateMedicationDays(1)" class="w-7 h-7 bg-yellow-500 text-white rounded-full text-sm hover:bg-yellow-600 transition duration-200">+</button>
+                                                    <span class="text-sm text-yellow-800">天</span>
                                                 </div>
                                             </div>
                                             
                                             <!-- 服藥次數 -->
                                             <div class="flex items-center justify-between">
-                                                <span class="text-sm font-medium text-green-800">每日次數</span>
+                                                <span class="text-sm font-medium text-yellow-800">每日次數</span>
                                                 <div class="flex items-center space-x-2">
-                                                    <button onclick="updateMedicationFrequency(-1)" class="w-7 h-7 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition duration-200">-</button>
+                                                    <button onclick="updateMedicationFrequency(-1)" class="w-7 h-7 bg-yellow-500 text-white rounded-full text-sm hover:bg-yellow-600 transition duration-200">-</button>
                                                     <input type="number" id="medicationFrequency" value="2" min="1" max="6" 
-                                                           class="w-14 px-2 py-1 text-center border border-green-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                                                           class="w-14 px-2 py-1 text-center border border-yellow-300 rounded focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-sm"
                                                            onchange="updateMedicationFrequency(0)" onclick="this.select()">
-                                                    <button onclick="updateMedicationFrequency(1)" class="w-7 h-7 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition duration-200">+</button>
-                                                    <span class="text-sm text-green-800">次/日</span>
+                                                    <button onclick="updateMedicationFrequency(1)" class="w-7 h-7 bg-yellow-500 text-white rounded-full text-sm hover:bg-yellow-600 transition duration-200">+</button>
+                                                    <span class="text-sm text-yellow-800">次/日</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -873,7 +873,7 @@
                                 <div class="space-y-4">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">組成 *</label>
-                                        <textarea id="formulaComposition" placeholder="請輸入方劑組成，例如：&#10;人參 9g&#10;白朮 9g&#10;茯苓 9g&#10;甘草 6g" rows="8" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                                        <textarea id="formulaComposition" placeholder="請輸入方劑組成，例如：&#10;人參&#10;白朮&#10;茯苓&#10;甘草" rows="8" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">用法</label>
@@ -1554,7 +1554,7 @@
                 source: '太平惠民和劑局方',
                 effects: '益氣健脾',
                 indications: '脾胃氣虛，面色萎白，語聲低微，氣短乏力，食少便溏，舌淡苔白，脈虛弱',
-                composition: '人參 9g\n白朮 9g\n茯苓 9g\n甘草 6g',
+                composition: '人參\n白朮\n茯苓\n甘草',
                 usage: '水煎服，每日一劑，分二次溫服',
                 cautions: '陰虛火旺者慎用',
                 createdAt: new Date('2024-01-01').toISOString()
@@ -1566,7 +1566,7 @@
                 source: '醫學正傳',
                 effects: '益氣健脾，燥濕化痰',
                 indications: '脾胃氣虛兼有痰濕，食少便溏，胸脘痞悶，嘔逆等症',
-                composition: '人參 9g\n白朮 9g\n茯苓 9g\n甘草 6g\n陳皮 6g\n半夏 6g',
+                composition: '人參\n白朮\n茯苓\n甘草\n陳皮\n半夏',
                 usage: '水煎服，每日一劑，分二次溫服',
                 cautions: '陰虛燥咳、津液不足者忌用',
                 createdAt: new Date('2024-01-01').toISOString()
@@ -4999,14 +4999,14 @@
             // 顯示搜索結果
             resultsList.innerHTML = matchedItems.map(item => {
                 const typeName = item.type === 'herb' ? '中藥材' : '方劑';
-                const bgColor = item.type === 'herb' ? 'bg-green-50 hover:bg-green-100 border-green-200' : 'bg-blue-50 hover:bg-blue-100 border-blue-200';
+                const bgColor = 'bg-yellow-50 hover:bg-yellow-100 border-yellow-200';
                 
                 return `
                     <div class="p-3 ${bgColor} border rounded-lg cursor-pointer transition duration-200" onclick="addToPrescription('${item.type}', ${item.id})">
                         <div class="text-center">
                             <div class="font-semibold text-gray-900 text-sm mb-1">${item.name}</div>
                             <div class="text-xs bg-white text-gray-600 px-2 py-1 rounded mb-2">${typeName}</div>
-                            ${item.type === 'herb' && item.dosage ? `<div class="text-xs text-blue-600 font-medium">${item.dosage}</div>` : ''}
+                            ${item.type === 'herb' && item.dosage ? `<div class="text-xs text-yellow-600 font-medium">${item.dosage}</div>` : ''}
                             ${item.effects ? `<div class="text-xs text-gray-600 mt-1">${item.effects.substring(0, 30)}${item.effects.length > 30 ? '...' : ''}</div>` : ''}
                         </div>
                     </div>
@@ -5040,7 +5040,7 @@
                 type: type,
                 name: item.name,
                 dosage: type === 'herb' ? (item.dosage || '6g') : null,
-                customDosage: type === 'herb' ? '6' : null, // 預設6克
+                customDosage: '6', // 中藥材和方劑都預設6克
                 composition: type === 'formula' ? item.composition : null,
                 effects: item.effects
             };
@@ -5061,6 +5061,8 @@
             
             showToast(`已添加${type === 'herb' ? '中藥材' : '方劑'}：${item.name}`, 'success');
         }
+        
+
         
         // 更新處方顯示
         function updatePrescriptionDisplay() {
@@ -5087,44 +5089,41 @@
             const displayHtml = `
                 <div class="space-y-3">
                     ${selectedPrescriptionItems.map((item, index) => {
-                        const bgColor = item.type === 'herb' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200';
+                        const bgColor = 'bg-yellow-50 border-yellow-200';
                         
                         return `
-                            <div class="flex items-center ${bgColor} border rounded-lg p-3">
-                                <div class="flex-1">
-                                    <div class="font-semibold text-gray-900">${item.name}</div>
-                                    ${item.type === 'formula' ? `<div class="text-xs text-gray-600">方劑</div>` : ''}
-                                </div>
-                                ${item.type === 'herb' ? `
+                            <div class="${bgColor} border rounded-lg p-3">
+                                <div class="flex items-center">
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-gray-900">${item.name}</div>
+                                        ${item.type === 'formula' ? `<div class="text-xs text-gray-600">方劑</div>` : ''}
+                                    </div>
                                     <div class="flex items-center space-x-2 mr-3">
                                         <input type="number" 
                                                value="${item.customDosage || '6'}" 
                                                min="0.5" 
                                                max="100" 
                                                step="0.5"
-                                               class="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-center"
+                                               class="w-16 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-center"
                                                onchange="updatePrescriptionDosage(${index}, this.value)"
                                                onclick="this.select()">
                                         <span class="text-sm text-gray-600 font-medium">g</span>
                                     </div>
+                                    <button onclick="removePrescriptionItem(${index})" class="text-red-500 hover:text-red-700 font-bold text-lg px-2">×</button>
+                                </div>
+                                
+                                ${item.type === 'formula' && item.composition ? `
+                                    <div class="mt-3 pt-3 border-t border-yellow-200">
+                                        <div class="text-xs font-semibold text-gray-700 mb-2">方劑組成：</div>
+                                        <div class="text-xs text-gray-600 bg-white rounded px-3 py-2 border border-yellow-100">
+                                            ${item.composition.replace(/\n/g, '、')}
+                                        </div>
+                                    </div>
                                 ` : ''}
-                                <button onclick="removePrescriptionItem(${index})" class="text-red-500 hover:text-red-700 font-bold text-lg px-2">×</button>
                             </div>
                         `;
                     }).join('')}
                 </div>
-                
-                ${selectedPrescriptionItems.some(item => item.type === 'formula') ? `
-                    <div class="mt-4 space-y-2">
-                        <div class="text-sm font-semibold text-gray-700">方劑組成：</div>
-                        ${selectedPrescriptionItems.filter(item => item.type === 'formula').map(formula => `
-                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                                <div class="font-semibold text-gray-900 mb-2">${formula.name}：</div>
-                                <div class="text-sm text-gray-700 whitespace-pre-line">${formula.composition || '組成未記錄'}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                ` : ''}
             `;
             
             container.innerHTML = displayHtml;
@@ -5137,7 +5136,12 @@
                     const dosage = item.customDosage || '6';
                     prescriptionText += `${item.name} ${dosage}g\n`;
                 } else if (item.type === 'formula') {
-                    prescriptionText += `${item.name}：\n${item.composition || '組成未記錄'}\n\n`;
+                    const dosage = item.customDosage || '6';
+                    prescriptionText += `${item.name} ${dosage}g\n`;
+                    if (item.composition) {
+                        prescriptionText += `${item.composition.replace(/\n/g, '、')}\n`;
+                    }
+                    prescriptionText += '\n';
                 }
             });
             
@@ -5256,6 +5260,8 @@
                 }
             }
         }
+        
+
         
         // 移除處方項目
         function removePrescriptionItem(index) {
@@ -5720,100 +5726,88 @@
             if (!prescriptionText) return;
             
             const lines = prescriptionText.split('\n');
-            let currentFormula = null;
-            let formulaComposition = [];
+            let i = 0;
             
-            for (let i = 0; i < lines.length; i++) {
+            while (i < lines.length) {
                 const line = lines[i].trim();
-                if (!line) continue;
+                if (!line) {
+                    i++;
+                    continue;
+                }
                 
-                // 檢查是否為方劑標題（以：結尾）
-                if (line.endsWith('：')) {
-                    // 如果之前有方劑在處理，先完成它
-                    if (currentFormula) {
-                        finishCurrentFormula();
-                    }
+                // 檢查是否為方劑格式（方劑名 劑量g）
+                const formulaMatch = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)g$/);
+                if (formulaMatch) {
+                    const formulaName = formulaMatch[1].trim();
+                    const dosage = formulaMatch[2];
                     
-                    // 開始新的方劑
-                    const formulaName = line.slice(0, -1).trim();
+                    // 在中藥庫中尋找對應的方劑
                     const formula = herbLibrary.find(item => 
                         item.type === 'formula' && item.name === formulaName
                     );
                     
                     if (formula) {
-                        currentFormula = {
+                        const prescriptionItem = {
                             id: formula.id,
                             type: 'formula',
                             name: formula.name,
+                            customDosage: dosage,
                             composition: formula.composition,
                             effects: formula.effects
                         };
-                        formulaComposition = [];
+                        selectedPrescriptionItems.push(prescriptionItem);
+                    } else {
+                        // 如果在中藥庫中找不到，創建一個臨時項目
+                        const prescriptionItem = {
+                            id: Date.now() + Math.random(), // 臨時ID
+                            type: 'formula',
+                            name: formulaName,
+                            customDosage: dosage,
+                            composition: '（從上次處方載入）',
+                            effects: '（從上次處方載入）'
+                        };
+                        selectedPrescriptionItems.push(prescriptionItem);
                     }
+                    i++;
                     continue;
                 }
                 
-                // 如果正在處理方劑，收集組成內容
-                if (currentFormula) {
-                    // 檢查是否為中藥材格式（藥材名 劑量g）
-                    const herbMatch = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)g$/);
-                    if (herbMatch) {
-                        formulaComposition.push(line);
+                // 檢查是否為中藥材格式（藥材名 劑量g）
+                const herbMatch = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)g$/);
+                if (herbMatch) {
+                    const herbName = herbMatch[1].trim();
+                    const dosage = herbMatch[2];
+                    
+                    // 在中藥庫中尋找對應的中藥材
+                    const herb = herbLibrary.find(item => 
+                        item.type === 'herb' && item.name === herbName
+                    );
+                    
+                    if (herb) {
+                        const prescriptionItem = {
+                            id: herb.id,
+                            type: 'herb',
+                            name: herb.name,
+                            dosage: herb.dosage || '6g',
+                            customDosage: dosage,
+                            effects: herb.effects
+                        };
+                        selectedPrescriptionItems.push(prescriptionItem);
                     } else {
-                        // 如果不是藥材格式，可能是方劑的其他描述，也加入組成
-                        formulaComposition.push(line);
-                    }
-                } else {
-                    // 不在方劑中，解析為獨立的中藥材
-                    const herbMatch = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)g$/);
-                    if (herbMatch) {
-                        const herbName = herbMatch[1].trim();
-                        const dosage = herbMatch[2];
-                        
-                        // 在中藥庫中尋找對應的中藥材
-                        const herb = herbLibrary.find(item => 
-                            item.type === 'herb' && item.name === herbName
-                        );
-                        
-                        if (herb) {
-                            const prescriptionItem = {
-                                id: herb.id,
-                                type: 'herb',
-                                name: herb.name,
-                                dosage: herb.dosage || '6g',
-                                customDosage: dosage,
-                                effects: herb.effects
-                            };
-                            selectedPrescriptionItems.push(prescriptionItem);
-                        } else {
-                            // 如果在中藥庫中找不到，創建一個臨時項目
-                            const prescriptionItem = {
-                                id: Date.now() + Math.random(), // 臨時ID
-                                type: 'herb',
-                                name: herbName,
-                                dosage: `${dosage}g`,
-                                customDosage: dosage,
-                                effects: '（從上次處方載入）'
-                            };
-                            selectedPrescriptionItems.push(prescriptionItem);
-                        }
+                        // 如果在中藥庫中找不到，創建一個臨時項目
+                        const prescriptionItem = {
+                            id: Date.now() + Math.random(), // 臨時ID
+                            type: 'herb',
+                            name: herbName,
+                            dosage: `${dosage}g`,
+                            customDosage: dosage,
+                            effects: '（從上次處方載入）'
+                        };
+                        selectedPrescriptionItems.push(prescriptionItem);
                     }
                 }
-            }
-            
-            // 處理最後一個方劑（如果有的話）
-            if (currentFormula) {
-                finishCurrentFormula();
-            }
-            
-            // 完成當前方劑的處理
-            function finishCurrentFormula() {
-                if (formulaComposition.length > 0) {
-                    currentFormula.composition = formulaComposition.join('\n');
-                }
-                selectedPrescriptionItems.push(currentFormula);
-                currentFormula = null;
-                formulaComposition = [];
+                
+                i++;
             }
         }
         
@@ -6373,5 +6367,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969e3fd174b07155',t:'MTc1NDMxMjU0OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969eb44061df0b53',t:'MTc1NDMxNzMxNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
