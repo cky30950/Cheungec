@@ -96,15 +96,15 @@
                     <div class="text-sm font-medium text-blue-800 mb-3">示範帳號：</div>
                     <div class="text-xs text-blue-700 space-y-2">
                         <div class="flex justify-between items-center">
-                            <span>👨‍💼 陳診所管理</span>
+                            <span>👨‍💼 陳經理診所管理</span>
                             <span class="font-mono bg-white px-2 py-1 rounded">manager / manager2024</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span>👨‍⚕️ 張醫師</span>
+                            <span>👨‍⚕️ 張中醫師醫師</span>
                             <span class="font-mono bg-white px-2 py-1 rounded">drzhang / zhang888</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span>👩‍💻 林護理師</span>
+                            <span>👩‍💻 林護理師護理師</span>
                             <span class="font-mono bg-white px-2 py-1 rounded">nurse_amy / amy2024</span>
                         </div>
                     </div>
@@ -572,9 +572,15 @@
                             <div class="space-y-4">
                                 
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                        處方內容
-                                    </label>
+                                    <div class="flex justify-between items-center mb-2">
+                                        <label class="block text-sm font-semibold text-gray-700">
+                                            處方內容
+                                        </label>
+                                        <button type="button" onclick="loadPreviousPrescription()" 
+                                                class="text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded transition duration-200">
+                                            📋 載入上次處方
+                                        </button>
+                                    </div>
                                     
                                     <!-- 中藥庫搜索區域 -->
                                     <div class="mb-3 bg-blue-50 rounded-lg p-3 border border-blue-200">
@@ -607,8 +613,8 @@
                                         </div>
                                     </div>
                                     
-                                    <!-- 服藥天數及次數設定 -->
-                                    <div class="mt-3 bg-green-50 rounded-lg p-3 border border-green-200">
+                                    <!-- 服藥天數及次數設定（只在有處方內容時顯示） -->
+                                    <div id="medicationSettings" class="mt-3 bg-green-50 rounded-lg p-3 border border-green-200" style="display: none;">
                                         <div class="space-y-3">
                                             <!-- 服藥天數 -->
                                             <div class="flex items-center justify-between">
@@ -630,13 +636,11 @@
                                                     <button onclick="updateMedicationFrequency(-1)" class="w-7 h-7 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition duration-200">-</button>
                                                     <input type="number" id="medicationFrequency" value="2" min="1" max="6" 
                                                            class="w-14 px-2 py-1 text-center border border-green-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                                                           onchange="updateTotalDoses()" onclick="this.select()">
+                                                           onchange="updateMedicationFrequency(0)" onclick="this.select()">
                                                     <button onclick="updateMedicationFrequency(1)" class="w-7 h-7 bg-green-500 text-white rounded-full text-sm hover:bg-green-600 transition duration-200">+</button>
                                                     <span class="text-sm text-green-800">次/日</span>
                                                 </div>
                                             </div>
-                                            
-
                                         </div>
                                     </div>
                                     
@@ -652,9 +656,15 @@
                                 </div>
                                 
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                        收費項目
-                                    </label>
+                                    <div class="flex justify-between items-center mb-2">
+                                        <label class="block text-sm font-semibold text-gray-700">
+                                            收費項目
+                                        </label>
+                                        <button type="button" onclick="loadPreviousBillingItems()" 
+                                                class="text-xs bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded transition duration-200">
+                                            💰 載入上次收費
+                                        </button>
+                                    </div>
                                     
                                     <!-- 收費項目搜索區域 -->
                                     <div class="mb-3 bg-green-50 rounded-lg p-3 border border-green-200">
@@ -1493,93 +1503,292 @@
 
         // 預設收費項目資料
         const defaultBillingItems = [
+            // 診療費類別
             {
-                id: 7001,
+                id: 4001,
                 name: '診金',
                 category: 'consultation',
-                price: 250,
+                price: 150,
                 unit: '次',
-                description: '診療費用',
+                description: '中醫師診症費用',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString()
             },
             {
-                id: 7003,
+                id: 4002,
+                name: '複診費',
+                category: 'consultation',
+                price: 120,
+                unit: '次',
+                description: '複診病人診症費用',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4003,
+                name: '急診費',
+                category: 'consultation',
+                price: 200,
+                unit: '次',
+                description: '急診或非辦公時間診症',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            
+            // 藥費類別
+            {
+                id: 4011,
                 name: '中藥調劑費',
                 category: 'medicine',
-                price: 50,
+                price: 25,
                 unit: '劑',
-                description: '中藥調劑處理費用',
+                description: '中藥材調劑及包裝費用',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString()
             },
             {
-                id: 7004,
+                id: 4012,
+                name: '濃縮中藥粉',
+                category: 'medicine',
+                price: 15,
+                unit: '包',
+                description: '科學中藥濃縮粉劑',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4013,
+                name: '外用藥膏',
+                category: 'medicine',
+                price: 80,
+                unit: '支',
+                description: '中藥外用藥膏',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4014,
+                name: '藥酒',
+                category: 'medicine',
+                price: 120,
+                unit: '瓶',
+                description: '中藥浸製藥酒',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            
+            // 治療費類別
+            {
+                id: 4021,
                 name: '針灸治療',
                 category: 'treatment',
-                price: 500,
+                price: 100,
                 unit: '次',
-                description: '針灸治療費用',
+                description: '針灸穴位治療',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString()
             },
             {
-                id: 7005,
+                id: 4022,
                 name: '推拿按摩',
                 category: 'treatment',
-                price: 600,
+                price: 150,
                 unit: '次',
-                description: '推拿按摩治療費用',
+                description: '中醫推拿按摩治療',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString()
             },
             {
-                id: 7006,
+                id: 4023,
                 name: '拔罐治療',
                 category: 'treatment',
-                price: 300,
+                price: 80,
                 unit: '次',
-                description: '拔罐治療費用',
+                description: '拔罐療法',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString()
             },
             {
-                id: 7007,
+                id: 4024,
+                name: '刮痧治療',
+                category: 'treatment',
+                price: 60,
+                unit: '次',
+                description: '刮痧療法',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4025,
+                name: '艾灸治療',
+                category: 'treatment',
+                price: 90,
+                unit: '次',
+                description: '艾條灸法治療',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4026,
+                name: '電針治療',
+                category: 'treatment',
+                price: 120,
+                unit: '次',
+                description: '電針刺激治療',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4027,
+                name: '耳針治療',
+                category: 'treatment',
+                price: 70,
+                unit: '次',
+                description: '耳穴針刺治療',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4028,
+                name: '小兒推拿',
+                category: 'treatment',
+                price: 100,
+                unit: '次',
+                description: '小兒推拿按摩',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            
+            // 其他類別
+            {
+                id: 4031,
                 name: '診斷書',
                 category: 'other',
-                price: 100,
+                price: 50,
                 unit: '份',
-                description: '診斷證明書費用',
+                description: '中醫診斷證明書',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString()
             },
             {
-                id: 7008,
-                name: '長者折扣',
+                id: 4032,
+                name: '病假證明',
+                category: 'other',
+                price: 30,
+                unit: '份',
+                description: '病假證明書',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4033,
+                name: '體質調理諮詢',
+                category: 'other',
+                price: 200,
+                unit: '次',
+                description: '個人體質分析及調理建議',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4034,
+                name: '飲食指導',
+                category: 'other',
+                price: 80,
+                unit: '次',
+                description: '中醫飲食療法指導',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4035,
+                name: '養生保健諮詢',
+                category: 'other',
+                price: 120,
+                unit: '次',
+                description: '中醫養生保健指導',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            
+            // 折扣項目類別
+            {
+                id: 4041,
+                name: '長者優惠',
                 category: 'discount',
-                price: 0.9,
-                unit: '折',
-                description: '65歲以上長者享9折優惠',
+                price: 0.9, // 9折
+                unit: '',
+                description: '65歲以上長者9折優惠',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString()
             },
             {
-                id: 7009,
-                name: '學生折扣',
+                id: 4042,
+                name: '學生優惠',
                 category: 'discount',
-                price: 0.9,
-                unit: '折',
-                description: '持學生證享9折優惠',
+                price: 0.85, // 85折
+                unit: '',
+                description: '學生憑證85折優惠',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString()
             },
             {
-                id: 7010,
+                id: 4043,
                 name: '會員優惠',
                 category: 'discount',
-                price: 0.95,
-                unit: '折',
-                description: '診所會員專享95折優惠',
+                price: 0.95, // 95折
+                unit: '',
+                description: '診所會員95折優惠',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4044,
+                name: '療程套餐折扣',
+                category: 'discount',
+                price: 0.8, // 8折
+                unit: '',
+                description: '購買療程套餐8折優惠',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4045,
+                name: '初診優惠',
+                category: 'discount',
+                price: -50, // 固定減50元
+                unit: '',
+                description: '首次就診減免50元',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4046,
+                name: '複診優惠券',
+                category: 'discount',
+                price: -30, // 固定減30元
+                unit: '',
+                description: '複診優惠券減免30元',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4047,
+                name: '家庭套餐折扣',
+                category: 'discount',
+                price: 0.75, // 75折
+                unit: '',
+                description: '家庭成員同時就診75折',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4048,
+                name: '節日特惠',
+                category: 'discount',
+                price: 0.88, // 88折
+                unit: '',
+                description: '節日期間特別優惠88折',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString()
             }
@@ -2638,9 +2847,9 @@
                     // 解析處方內容並重建處方項目
                     selectedPrescriptionItems = [];
                     if (consultation.prescription) {
-                        // 這裡簡化處理，將處方內容設置到隱藏文本域
+                        // 直接將處方內容設置到隱藏文本域
                         document.getElementById('formPrescription').value = consultation.prescription;
-                        // 顯示提示信息
+                        // 顯示現有處方內容
                         document.getElementById('selectedPrescriptionItems').innerHTML = `
                             <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                                 <div class="text-sm font-semibold text-gray-700 mb-2">現有處方內容：</div>
@@ -2679,14 +2888,8 @@
                     clearConsultationForm();
                 }
             } else {
-                // 新診症模式：清空表單並預填主訴
-                clearConsultationForm();
-                if (appointment.chiefComplaint) {
-                    document.getElementById('formSymptoms').value = appointment.chiefComplaint;
-                }
-                
-                // 自動添加預設診金收費
-                addDefaultConsultationFee(patient);
+                // 新診症模式：預填上次病歷資料
+                prefillWithPreviousRecord(patient, appointment);
                 
                 document.getElementById('consultationSaveButtonText').textContent = '完成診症';
             }
@@ -2695,6 +2898,59 @@
             
             // 滾動到表單位置
             document.getElementById('consultationForm').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // 預填上次病歷資料
+        function prefillWithPreviousRecord(patient, appointment) {
+            // 獲取該病人的最近一次診症記錄（排除當前正在編輯的記錄）
+            const patientConsultations = consultations
+                .filter(c => c.patientId === patient.id)
+                .sort((a, b) => new Date(b.date) - new Date(a.date)); // 按日期降序排列（最新在前）
+            
+            const lastConsultation = patientConsultations[0]; // 最近一次診症記錄
+            
+            if (lastConsultation) {
+                // 預填基本診症資料（但不包括主訴和處方，因為每次可能不同）
+                document.getElementById('formTongue').value = lastConsultation.tongue || '';
+                document.getElementById('formPulse').value = lastConsultation.pulse || '';
+                document.getElementById('formDiagnosis').value = lastConsultation.diagnosis || '';
+                document.getElementById('formSyndrome').value = lastConsultation.syndrome || '';
+                document.getElementById('formUsage').value = lastConsultation.usage || '早晚一次，飯後服';
+                document.getElementById('formTreatmentCourse').value = lastConsultation.treatmentCourse || '一周';
+                document.getElementById('formInstructions').value = lastConsultation.instructions || '注意休息，飲食清淡';
+                
+                // 預填主訴（如果掛號時沒有填寫主訴，則使用上次的主訴）
+                if (appointment.chiefComplaint && appointment.chiefComplaint !== '無特殊主訴') {
+                    document.getElementById('formSymptoms').value = appointment.chiefComplaint;
+                } else {
+                    document.getElementById('formSymptoms').value = lastConsultation.symptoms || '';
+                }
+                
+                // 不載入上次處方內容，讓醫師重新開立
+                selectedPrescriptionItems = [];
+                updatePrescriptionDisplay();
+                clearPrescriptionSearch();
+                
+                // 不自動載入上次收費項目，讓醫師手動選擇
+                selectedBillingItems = [];
+                updateBillingDisplay();
+                
+                // 顯示預填提示
+                showToast(`已預填 ${patient.name} 上次診症資料（${new Date(lastConsultation.date).toLocaleDateString('zh-TW')}），處方內容請重新開立`, 'info');
+                
+            } else {
+                // 沒有歷史記錄，使用預設值
+                clearConsultationForm();
+                if (appointment.chiefComplaint) {
+                    document.getElementById('formSymptoms').value = appointment.chiefComplaint;
+                }
+                
+                // 不自動添加收費項目，讓醫師手動選擇
+                selectedBillingItems = [];
+                updateBillingDisplay();
+                
+                showToast(`${patient.name} 是首次診症，已載入預設表單`, 'info');
+            }
         }
         
         // 清空診症表單
@@ -2834,22 +3090,8 @@
                     existingConsultation.syndrome = syndrome;
                     existingConsultation.acupunctureNotes = document.getElementById('formAcupunctureNotes').value.trim();
                     
-                    // 合併現有處方和新添加的處方項目
-                    let finalPrescription = prescription;
-                    if (selectedPrescriptionItems.length > 0) {
-                        let newPrescriptionText = '';
-                        selectedPrescriptionItems.forEach(item => {
-                            if (item.type === 'herb') {
-                                newPrescriptionText += `${item.name} ${item.dosage}\n`;
-                            } else if (item.type === 'formula') {
-                                newPrescriptionText += `${item.name}：\n${item.composition || '組成未記錄'}\n\n`;
-                            }
-                        });
-                        if (newPrescriptionText.trim()) {
-                            finalPrescription = finalPrescription ? finalPrescription + '\n\n' + newPrescriptionText.trim() : newPrescriptionText.trim();
-                        }
-                    }
-                    existingConsultation.prescription = finalPrescription;
+                    // 處方內容直接使用表單中的內容（包含現有處方和新添加的項目）
+                    existingConsultation.prescription = prescription;
                     
                     existingConsultation.usage = document.getElementById('formUsage').value.trim();
                     existingConsultation.treatmentCourse = document.getElementById('formTreatmentCourse').value.trim();
@@ -2905,6 +3147,9 @@
             closeConsultationForm();
             loadTodayAppointments();
             updateStatistics();
+            
+            // 清空搜尋欄位
+            clearAllSearchFields();
         }
         
 
@@ -3037,6 +3282,21 @@
                                         class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded">
                                     📄 列印
                                 </button>
+                                ${(() => {
+                                    // 檢查是否正在診症且為相同病人
+                                    if (currentConsultingAppointmentId) {
+                                        const currentAppointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
+                                        if (currentAppointment && currentAppointment.patientId === consultation.patientId) {
+                                            return `
+                                                <button onclick="loadMedicalRecordToCurrentConsultation(${consultation.id})" 
+                                                        class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded">
+                                                    📋 載入病歷
+                                                </button>
+                                            `;
+                                        }
+                                    }
+                                    return '';
+                                })()}
                             </div>
                         </div>
                     </div>
@@ -3278,6 +3538,21 @@
                                         class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded">
                                     📄 列印
                                 </button>
+                                ${(() => {
+                                    // 檢查是否正在診症且為相同病人
+                                    if (currentConsultingAppointmentId) {
+                                        const currentAppointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
+                                        if (currentAppointment && currentAppointment.patientId === consultation.patientId) {
+                                            return `
+                                                <button onclick="loadMedicalRecordToCurrentConsultation(${consultation.id})" 
+                                                        class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded">
+                                                    📋 載入病歷
+                                                </button>
+                                            `;
+                                        }
+                                    }
+                                    return '';
+                                })()}
                             </div>
                         </div>
                     </div>
@@ -4385,7 +4660,7 @@
                         <div class="flex-1">
                             <h4 class="text-lg font-semibold text-gray-900">${item.name}</h4>
                             <div class="flex items-center mt-1">
-                                <span class="text-2xl font-bold ${priceColor}">${pricePrefix}${displayPrice}</span>
+                                <span class="text-2xl font-bold text-green-600">$${Math.abs(item.price)}</span>
                                 ${item.unit ? `<span class="text-sm text-gray-500 ml-1">/ ${item.unit}</span>` : ''}
                             </div>
                         </div>
@@ -4483,7 +4758,7 @@
                     // 如果輸入1-10之間的數字，自動轉換為折扣比例
                     price = price / 10;
                     document.getElementById('billingItemPrice').value = price;
-                    showToast(`已自動轉換為${(price * 10).toFixed(0)}折`, 'info');
+                    showToast(`已自動轉換為${(price * 100).toFixed(0)}折`, 'info');
                 }
             }
             
@@ -4607,6 +4882,12 @@
             // 更新顯示
             updatePrescriptionDisplay();
             
+            // 如果是第一個處方項目，自動添加藥費
+            if (selectedPrescriptionItems.length === 1) {
+                const days = parseInt(document.getElementById('medicationDays').value) || 5;
+                updateMedicineFeeByDays(days);
+            }
+            
             // 清除搜索
             clearPrescriptionSearch();
             
@@ -4617,6 +4898,7 @@
         function updatePrescriptionDisplay() {
             const container = document.getElementById('selectedPrescriptionItems');
             const hiddenTextarea = document.getElementById('formPrescription');
+            const medicationSettings = document.getElementById('medicationSettings');
             
             if (selectedPrescriptionItems.length === 0) {
                 container.innerHTML = `
@@ -4625,11 +4907,16 @@
                     </div>
                 `;
                 hiddenTextarea.value = '';
+                // 隱藏服藥天數設定
+                medicationSettings.style.display = 'none';
                 return;
             }
             
-            // 顯示已選擇的項目
-            container.innerHTML = `
+            // 顯示服藥天數設定
+            medicationSettings.style.display = 'block';
+            
+            // 顯示已添加的項目
+            const displayHtml = `
                 <div class="space-y-3">
                     ${selectedPrescriptionItems.map((item, index) => {
                         const bgColor = item.type === 'herb' ? 'bg-green-50 border-green-200' : 'bg-blue-50 border-blue-200';
@@ -4672,11 +4959,10 @@
                 ` : ''}
             `;
             
-            // 更新隱藏的文本域（包含服藥資訊）
-            const medicationDays = document.getElementById('medicationDays') ? document.getElementById('medicationDays').value || '5' : '5';
-            const medicationFrequency = document.getElementById('medicationFrequency') ? document.getElementById('medicationFrequency').value || '2' : '2';
+            container.innerHTML = displayHtml;
             
-            let prescriptionText = `服藥日數：${medicationDays}日\n每日次數：${medicationFrequency}次\n\n`;
+            // 更新隱藏的文本域
+            let prescriptionText = '';
             
             selectedPrescriptionItems.forEach(item => {
                 if (item.type === 'herb') {
@@ -4686,6 +4972,7 @@
                     prescriptionText += `${item.name}：\n${item.composition || '組成未記錄'}\n\n`;
                 }
             });
+            
             hiddenTextarea.value = prescriptionText.trim();
         }
         
@@ -4720,6 +5007,11 @@
         
         // 根據開藥天數自動更新藥費
         function updateMedicineFeeByDays(days) {
+            // 只有在有處方內容時才自動更新藥費
+            if (selectedPrescriptionItems.length === 0) {
+                return;
+            }
+            
             // 尋找中藥調劑費項目
             const medicineFeeItem = billingItems.find(item => 
                 item.active && 
@@ -4788,17 +5080,7 @@
                 if (dosage > 0 && dosage <= 100) {
                     selectedPrescriptionItems[index].customDosage = newDosage;
                     // 重新生成處方文本
-                    const hiddenTextarea = document.getElementById('formPrescription');
-                    let prescriptionText = '';
-                    selectedPrescriptionItems.forEach(item => {
-                        if (item.type === 'herb') {
-                            const itemDosage = item.customDosage || '6';
-                            prescriptionText += `${item.name} ${itemDosage}g\n`;
-                        } else if (item.type === 'formula') {
-                            prescriptionText += `${item.name}：\n${item.composition || '組成未記錄'}\n\n`;
-                        }
-                    });
-                    hiddenTextarea.value = prescriptionText.trim();
+                    updatePrescriptionDisplay();
                 } else {
                     // 如果輸入無效，恢復原值
                     updatePrescriptionDisplay();
@@ -4812,7 +5094,27 @@
             if (index >= 0 && index < selectedPrescriptionItems.length) {
                 const removedItem = selectedPrescriptionItems.splice(index, 1)[0];
                 updatePrescriptionDisplay();
-                showToast(`已移除：${removedItem.name}`, 'info');
+                
+                // 如果移除後沒有處方項目了，移除藥費
+                if (selectedPrescriptionItems.length === 0) {
+                    // 尋找並移除藥費項目
+                    const medicineFeeItem = billingItems.find(item => 
+                        item.active && 
+                        item.category === 'medicine' && 
+                        (item.name.includes('中藥') || item.name.includes('藥費') || item.name.includes('調劑'))
+                    );
+                    
+                    if (medicineFeeItem) {
+                        const medicineFeeIndex = selectedBillingItems.findIndex(item => 
+                            item.id === medicineFeeItem.id
+                        );
+                        
+                        if (medicineFeeIndex !== -1) {
+                            selectedBillingItems.splice(medicineFeeIndex, 1);
+                            updateBillingDisplay();
+                        }
+                    }
+                }
             }
         }
         
@@ -4872,12 +5174,14 @@
                                 ${(() => {
                                     if (item.category === 'discount') {
                                         if (item.price > 0 && item.price < 1) {
-                                            return `${(item.price * 10).toFixed(0)}折`;
+                                            return `${(item.price * 100).toFixed(0)}折`;
                                         } else if (item.price < 0) {
                                             return `-$${Math.abs(item.price)}`;
+                                        } else {
+                                            return `$${item.price}`;
                                         }
                                     }
-                                    return `$${Math.abs(item.price)}`;
+                                    return `$${item.price}`;
                                 })()}
                             </div>
                             ${item.unit ? `<div class="text-xs text-gray-600">/ ${item.unit}</div>` : ''}
@@ -5030,12 +5334,14 @@
                                         ${(() => {
                                             if (item.category === 'discount') {
                                                 if (item.price > 0 && item.price < 1) {
-                                                    return `${(item.price * 10).toFixed(0)}折`;
+                                                    return `${(item.price * 10).toFixed(1)}折`;
                                                 } else if (item.price < 0) {
                                                     return `-$${Math.abs(item.price)}`;
+                                                } else {
+                                                    return `$${item.price}`;
                                                 }
                                             }
-                                            return `$${Math.abs(item.price)}`;
+                                            return `$${item.price}`;
                                         })()}${item.unit ? ` / ${item.unit}` : ''}
                                     </div>
                                 </div>
@@ -5132,7 +5438,7 @@
             if (index >= 0 && index < selectedBillingItems.length) {
                 const removedItem = selectedBillingItems.splice(index, 1)[0];
                 updateBillingDisplay();
-                showToast(`已移除：${removedItem.name}`, 'info');
+                // showToast(`已移除：${removedItem.name}`, 'info');
             }
         }
         
@@ -5140,6 +5446,21 @@
         function clearBillingSearch() {
             document.getElementById('billingSearch').value = '';
             document.getElementById('billingSearchResults').classList.add('hidden');
+        }
+        
+        // 清空所有搜尋欄位
+        function clearAllSearchFields() {
+            // 清空病人搜尋欄
+            const patientSearchInput = document.getElementById('patientSearchInput');
+            if (patientSearchInput) {
+                patientSearchInput.value = '';
+            }
+            
+            // 清空處方搜尋欄
+            clearPrescriptionSearch();
+            
+            // 清空收費項目搜尋欄
+            clearBillingSearch();
         }
         
         // 自動添加預設診金收費
@@ -5183,10 +5504,354 @@
                 // 更新顯示
                 updateBillingDisplay();
             } else {
-                // 如果沒有找到任何診療費項目，顯示警告
-                showToast('未找到可用的診金收費項目，請手動添加', 'warning');
+                // 如果沒有找到任何診療費項目，只清空收費項目並更新顯示
+                selectedBillingItems = [];
                 updateBillingDisplay();
             }
+        }
+        
+
+        
+        // 載入上次處方內容（按鈕觸發）
+        function loadPreviousPrescription() {
+            if (!currentConsultingAppointmentId) {
+                showToast('請先開始診症！', 'error');
+                return;
+            }
+            
+            const appointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
+            if (!appointment) {
+                showToast('找不到當前診症記錄！', 'error');
+                return;
+            }
+            
+            const patient = patients.find(p => p.id === appointment.patientId);
+            if (!patient) {
+                showToast('找不到病人資料！', 'error');
+                return;
+            }
+            
+            // 獲取該病人的最近一次診症記錄（排除當前正在編輯的記錄）
+            const patientConsultations = consultations
+                .filter(c => c.patientId === patient.id)
+                .sort((a, b) => new Date(b.date) - new Date(a.date)); // 按日期降序排列（最新在前）
+            
+            const lastConsultation = patientConsultations[0]; // 最近一次診症記錄
+            
+            if (!lastConsultation || !lastConsultation.prescription) {
+                showToast(`${patient.name} 沒有上次處方記錄可載入`, 'warning');
+                return;
+            }
+            
+            // 直接載入，不需要確認
+            // 清空現有處方項目
+            selectedPrescriptionItems = [];
+            
+            // 解析上次處方內容，重建處方項目
+            parsePrescriptionToItems(lastConsultation.prescription);
+            
+            // 更新處方顯示
+            updatePrescriptionDisplay();
+            
+            // showToast(`已載入 ${patient.name} 上次的處方內容`, 'success');
+        }
+        
+        // 解析處方內容並重建處方項目
+        function parsePrescriptionToItems(prescriptionText) {
+            if (!prescriptionText) return;
+            
+            const lines = prescriptionText.split('\n');
+            let currentFormula = null;
+            let formulaComposition = [];
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                // 檢查是否為方劑標題（以：結尾）
+                if (line.endsWith('：')) {
+                    // 如果之前有方劑在處理，先完成它
+                    if (currentFormula) {
+                        finishCurrentFormula();
+                    }
+                    
+                    // 開始新的方劑
+                    const formulaName = line.slice(0, -1).trim();
+                    const formula = herbLibrary.find(item => 
+                        item.type === 'formula' && item.name === formulaName
+                    );
+                    
+                    if (formula) {
+                        currentFormula = {
+                            id: formula.id,
+                            type: 'formula',
+                            name: formula.name,
+                            composition: formula.composition,
+                            effects: formula.effects
+                        };
+                        formulaComposition = [];
+                    }
+                    continue;
+                }
+                
+                // 如果正在處理方劑，收集組成內容
+                if (currentFormula) {
+                    // 檢查是否為中藥材格式（藥材名 劑量g）
+                    const herbMatch = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)g$/);
+                    if (herbMatch) {
+                        formulaComposition.push(line);
+                    } else {
+                        // 如果不是藥材格式，可能是方劑的其他描述，也加入組成
+                        formulaComposition.push(line);
+                    }
+                } else {
+                    // 不在方劑中，解析為獨立的中藥材
+                    const herbMatch = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)g$/);
+                    if (herbMatch) {
+                        const herbName = herbMatch[1].trim();
+                        const dosage = herbMatch[2];
+                        
+                        // 在中藥庫中尋找對應的中藥材
+                        const herb = herbLibrary.find(item => 
+                            item.type === 'herb' && item.name === herbName
+                        );
+                        
+                        if (herb) {
+                            const prescriptionItem = {
+                                id: herb.id,
+                                type: 'herb',
+                                name: herb.name,
+                                dosage: herb.dosage || '6g',
+                                customDosage: dosage,
+                                effects: herb.effects
+                            };
+                            selectedPrescriptionItems.push(prescriptionItem);
+                        } else {
+                            // 如果在中藥庫中找不到，創建一個臨時項目
+                            const prescriptionItem = {
+                                id: Date.now() + Math.random(), // 臨時ID
+                                type: 'herb',
+                                name: herbName,
+                                dosage: `${dosage}g`,
+                                customDosage: dosage,
+                                effects: '（從上次處方載入）'
+                            };
+                            selectedPrescriptionItems.push(prescriptionItem);
+                        }
+                    }
+                }
+            }
+            
+            // 處理最後一個方劑（如果有的話）
+            if (currentFormula) {
+                finishCurrentFormula();
+            }
+            
+            // 完成當前方劑的處理
+            function finishCurrentFormula() {
+                if (formulaComposition.length > 0) {
+                    currentFormula.composition = formulaComposition.join('\n');
+                }
+                selectedPrescriptionItems.push(currentFormula);
+                currentFormula = null;
+                formulaComposition = [];
+            }
+        }
+        
+
+        
+        // 載入上次收費項目（按鈕觸發）
+        function loadPreviousBillingItems() {
+            if (!currentConsultingAppointmentId) {
+                showToast('請先開始診症！', 'error');
+                return;
+            }
+            
+            const appointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
+            if (!appointment) {
+                showToast('找不到當前診症記錄！', 'error');
+                return;
+            }
+            
+            const patient = patients.find(p => p.id === appointment.patientId);
+            if (!patient) {
+                showToast('找不到病人資料！', 'error');
+                return;
+            }
+            
+            // 獲取該病人的最近一次診症記錄
+            const patientConsultations = consultations
+                .filter(c => c.patientId === patient.id)
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            const lastConsultation = patientConsultations[0];
+            
+            if (!lastConsultation || !lastConsultation.billingItems) {
+                showToast(`${patient.name} 沒有上次收費記錄可載入`, 'warning');
+                return;
+            }
+            
+            // 直接載入，不需要確認
+            // 清空現有收費項目
+            selectedBillingItems = [];
+            
+            // 解析並載入上次收費項目
+            parseBillingItemsFromText(lastConsultation.billingItems);
+            
+            // 更新顯示
+            updateBillingDisplay();
+        }
+        
+        // 解析收費項目文字並載入
+        function parseBillingItemsFromText(billingText) {
+            if (!billingText) {
+                return;
+            }
+            
+            // 解析上次收費項目
+            const billingLines = billingText.split('\n');
+            
+            billingLines.forEach(line => {
+                line = line.trim();
+                if (!line || line.includes('小計') || line.includes('總費用')) return;
+                
+                // 解析收費項目格式：項目名 x數量 = $金額 或 項目名 x數量 = -$金額
+                const itemMatch = line.match(/^(.+?)\s+x(\d+)\s+=\s+([\-\$]?\d+)$/);
+                if (itemMatch) {
+                    const itemName = itemMatch[1].trim();
+                    const quantity = parseInt(itemMatch[2]);
+                    
+                    // 在收費項目中尋找對應的項目
+                    const billingItem = billingItems.find(item => 
+                        item.active && item.name === itemName
+                    );
+                    
+                    if (billingItem) {
+                        const selectedItem = {
+                            id: billingItem.id,
+                            name: billingItem.name,
+                            category: billingItem.category,
+                            price: billingItem.price,
+                            unit: billingItem.unit,
+                            description: billingItem.description,
+                            quantity: quantity
+                        };
+                        selectedBillingItems.push(selectedItem);
+                    } else {
+                        // 如果在收費項目中找不到，創建一個臨時項目（用於已刪除的收費項目）
+                        console.log(`找不到收費項目：${itemName}，可能已被刪除`);
+                    }
+                }
+            });
+        }
+        
+        // 載入上次收費項目（內部函數 - 保留向後兼容）
+        function loadPreviousBillingItemsFromConsultation(lastConsultation) {
+            selectedBillingItems = [];
+            parseBillingItemsFromText(lastConsultation.billingItems);
+            updateBillingDisplay();
+        }
+        
+        // 載入指定病歷記錄到當前診症
+        function loadMedicalRecordToCurrentConsultation(consultationId) {
+            if (!currentConsultingAppointmentId) {
+                showToast('請先開始診症！', 'error');
+                return;
+            }
+            
+            const consultation = consultations.find(c => c.id === consultationId);
+            if (!consultation) {
+                showToast('找不到指定的診症記錄！', 'error');
+                return;
+            }
+            
+            const currentAppointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
+            if (!currentAppointment) {
+                showToast('找不到當前診症記錄！', 'error');
+                return;
+            }
+            
+            // 確認是否為相同病人
+            if (currentAppointment.patientId !== consultation.patientId) {
+                showToast('只能載入相同病人的病歷記錄！', 'error');
+                return;
+            }
+            
+            const patient = patients.find(p => p.id === consultation.patientId);
+            const consultationDate = new Date(consultation.date).toLocaleDateString('zh-TW');
+            
+            // 確認載入操作
+            const confirmMessage = `確定要載入 ${patient ? patient.name : '未知病人'} 在 ${consultationDate} 的病歷記錄嗎？\n\n` +
+                                 `此操作將會覆蓋當前已填寫的診症內容，包括：\n` +
+                                 `• 主訴、舌象、脈象等診症資料\n` +
+                                 `• 診斷和證型\n` +
+                                 `• 處方內容\n` +
+                                 `• 收費項目\n` +
+                                 `• 醫囑和注意事項\n\n` +
+                                 `注意：此操作無法復原！`;
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            // 載入診症資料
+            document.getElementById('formSymptoms').value = consultation.symptoms || '';
+            document.getElementById('formTongue').value = consultation.tongue || '';
+            document.getElementById('formPulse').value = consultation.pulse || '';
+            document.getElementById('formCurrentHistory').value = consultation.currentHistory || '';
+            document.getElementById('formDiagnosis').value = consultation.diagnosis || '';
+            document.getElementById('formSyndrome').value = consultation.syndrome || '';
+            document.getElementById('formAcupunctureNotes').value = consultation.acupunctureNotes || '';
+            document.getElementById('formUsage').value = consultation.usage || '';
+            document.getElementById('formTreatmentCourse').value = consultation.treatmentCourse || '';
+            document.getElementById('formInstructions').value = consultation.instructions || '';
+            document.getElementById('formFollowUpDate').value = consultation.followUpDate || '';
+            
+            // 載入處方內容
+            selectedPrescriptionItems = [];
+            if (consultation.prescription) {
+                // 直接將處方內容設置到隱藏文本域
+                document.getElementById('formPrescription').value = consultation.prescription;
+                
+                // 解析處方內容並重建處方項目
+                parsePrescriptionToItems(consultation.prescription);
+                
+                // 更新處方顯示
+                updatePrescriptionDisplay();
+            } else {
+                // 清空處方
+                document.getElementById('formPrescription').value = '';
+                updatePrescriptionDisplay();
+            }
+            
+            // 載入收費項目
+            selectedBillingItems = [];
+            if (consultation.billingItems) {
+                // 直接將收費項目設置到隱藏文本域
+                document.getElementById('formBillingItems').value = consultation.billingItems;
+                
+                // 解析並載入收費項目
+                parseBillingItemsFromText(consultation.billingItems);
+                
+                // 更新收費顯示
+                updateBillingDisplay();
+            } else {
+                // 清空收費項目
+                document.getElementById('formBillingItems').value = '';
+                updateBillingDisplay();
+            }
+            
+            // 清除搜索框
+            clearPrescriptionSearch();
+            clearBillingSearch();
+            
+            // 關閉病歷查看彈窗
+            closeMedicalHistoryModal();
+            
+            // 滾動到診症表單
+            document.getElementById('consultationForm').scrollIntoView({ behavior: 'smooth' });
+            
+            showToast(`已載入 ${patient ? patient.name : '未知病人'} 在 ${consultationDate} 的完整病歷記錄`, 'success');
         }
         
         // 清空診症表單時也要清空處方搜索
@@ -5208,14 +5873,14 @@
 
 
 
-        // 獲取用戶顯示名稱（姓名第一個字 + 職位）
+        // 獲取用戶顯示名稱（姓名全名 + 職位）
         function getUserDisplayName(user) {
             if (!user || !user.name) return '未知用戶';
             
-            const firstName = user.name.charAt(0);
+            const fullName = user.name;
             const position = user.position || '用戶';
             
-            return `${firstName}${position}`;
+            return `${fullName}${position}`;
         }
         
         // 獲取醫師顯示名稱
@@ -5224,7 +5889,7 @@
             
             // 如果是舊的固定值，直接返回
             if (doctorRole === 'doctor') {
-                return '張醫師';
+                return '張中醫師醫師';
             }
             
             // 尋找對應的醫師用戶
@@ -5546,5 +6211,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969c1739f1a572ce',t:'MTc1NDI4OTkxNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969d6730679fe2e0',t:'MTc1NDMwMzY3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
