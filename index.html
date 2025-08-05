@@ -1094,12 +1094,17 @@
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">職位 *</label>
-                                    <select id="userPosition" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <select id="userPosition" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" onchange="toggleRegistrationNumberField()">
                                         <option value="">請選擇職位</option>
                                         <option value="診所管理">診所管理</option>
                                         <option value="醫師">醫師</option>
                                         <option value="護理師">護理師</option>
                                     </select>
+                                </div>
+                                <div id="registrationNumberField" class="hidden">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">中醫註冊編號 *</label>
+                                    <input type="text" id="userRegistrationNumber" placeholder="請輸入中醫註冊編號" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <p class="text-xs text-gray-500 mt-1">醫師職位必須填寫註冊編號</p>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">電子郵件</label>
@@ -1138,6 +1143,7 @@
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">帳號</th>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">姓名</th>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">職位</th>
+                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">註冊編號</th>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">電子郵件</th>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">狀態</th>
                                 <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">最後登入</th>
@@ -1266,8 +1272,8 @@
         // 診所設定
         let clinicSettings = JSON.parse(localStorage.getItem('clinicSettings') || '{}');
         if (!clinicSettings.chineseName) {
-            clinicSettings.chineseName = '中醫診所';
-            clinicSettings.englishName = 'Traditional Chinese Medicine Clinic';
+            clinicSettings.chineseName = '123456';
+            clinicSettings.englishName = '123456 Clinic';
             clinicSettings.businessHours = '週一至週五 09:00-18:00';
             clinicSettings.phone = '(852) 2345-6789';
             clinicSettings.address = '香港中環皇后大道中123號';
@@ -1930,6 +1936,7 @@
                 password: 'zhang888',
                 name: '張中醫師',
                 position: '醫師',
+                registrationNumber: 'CM001234',
                 email: 'drzhang@tcmclinic.com',
                 phone: '02-8888-1002',
                 active: true,
@@ -3019,8 +3026,38 @@
                     clearConsultationForm();
                 }
             } else {
-                // 新診症模式：預填上次病歷資料
-                prefillWithPreviousRecord(patient, appointment);
+                // 新診症模式：使用空白表單
+                clearConsultationForm();
+                
+                // 設置預設到診時間為當前診症開始時間
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const localDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+                document.getElementById('formVisitTime').value = localDateTime;
+                
+                // 設置預設休息期間（今天到後天，共3天）
+                const startDate = new Date();
+                const endDate = new Date();
+                endDate.setDate(startDate.getDate() + 2);
+                
+                const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+                const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+                
+                document.getElementById('formRestStartDate').value = startDateStr;
+                document.getElementById('formRestEndDate').value = endDateStr;
+                updateRestPeriod();
+                
+                // 如果掛號時有填寫主訴，則預填到主訴欄位
+                if (appointment.chiefComplaint && appointment.chiefComplaint !== '無特殊主訴') {
+                    document.getElementById('formSymptoms').value = appointment.chiefComplaint;
+                }
+                
+                // 自動添加預設診金收費項目
+                addDefaultConsultationFee(patient);
                 
                 document.getElementById('consultationSaveButtonText').textContent = '完成診症';
             }
@@ -3031,104 +3068,7 @@
             document.getElementById('consultationForm').scrollIntoView({ behavior: 'smooth' });
         }
         
-        // 預填上次病歷資料
-        function prefillWithPreviousRecord(patient, appointment) {
-            // 獲取該病人的最近一次診症記錄（排除當前正在編輯的記錄）
-            const patientConsultations = consultations
-                .filter(c => c.patientId === patient.id)
-                .sort((a, b) => new Date(b.date) - new Date(a.date)); // 按日期降序排列（最新在前）
-            
-            const lastConsultation = patientConsultations[0]; // 最近一次診症記錄
-            
-            // 設置預設到診時間為當前診症開始時間
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const localDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
-            document.getElementById('formVisitTime').value = localDateTime;
-            
-            // 設置預設休息期間（今天到後天，共3天）
-            const startDate = new Date();
-            const endDate = new Date();
-            endDate.setDate(startDate.getDate() + 2); // 後天
-            
-            const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
-            const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
-            
-            document.getElementById('formRestStartDate').value = startDateStr;
-            document.getElementById('formRestEndDate').value = endDateStr;
-            updateRestPeriod();
-            
-            if (lastConsultation) {
-                // 預填基本診症資料（但不包括主訴和處方，因為每次可能不同）
-                document.getElementById('formTongue').value = lastConsultation.tongue || '';
-                document.getElementById('formPulse').value = lastConsultation.pulse || '';
-                document.getElementById('formDiagnosis').value = lastConsultation.diagnosis || '';
-                document.getElementById('formSyndrome').value = lastConsultation.syndrome || '';
-                document.getElementById('formUsage').value = lastConsultation.usage || '早晚一次，飯後服';
-                document.getElementById('formTreatmentCourse').value = lastConsultation.treatmentCourse || '一周';
-                document.getElementById('formInstructions').value = lastConsultation.instructions || '注意休息，飲食清淡';
-                
-                // 預填複診時間
-                document.getElementById('formFollowUpDate').value = lastConsultation.followUpDate || '';
-                
-                // 如果上次有設定休息期間，可以參考但不直接使用
-                if (lastConsultation.restStartDate && lastConsultation.restEndDate) {
-                    // 可以在這裡添加邏輯來參考上次的休息期間長度
-                    const lastStart = new Date(lastConsultation.restStartDate);
-                    const lastEnd = new Date(lastConsultation.restEndDate);
-                    const lastDuration = Math.ceil((lastEnd.getTime() - lastStart.getTime()) / (1000 * 3600 * 24)) + 1;
-                    
-                    // 根據上次的休息天數調整這次的結束日期
-                    if (lastDuration > 0 && lastDuration <= 30) {
-                        const newEndDate = new Date(startDate);
-                        newEndDate.setDate(startDate.getDate() + lastDuration - 1);
-                        const newEndDateStr = `${newEndDate.getFullYear()}-${String(newEndDate.getMonth() + 1).padStart(2, '0')}-${String(newEndDate.getDate()).padStart(2, '0')}`;
-                        document.getElementById('formRestEndDate').value = newEndDateStr;
-                        updateRestPeriod();
-                    }
-                }
-                
-                // 預填主訴（如果掛號時沒有填寫主訴，則使用上次的主訴）
-                if (appointment.chiefComplaint && appointment.chiefComplaint !== '無特殊主訴') {
-                    document.getElementById('formSymptoms').value = appointment.chiefComplaint;
-                } else {
-                    document.getElementById('formSymptoms').value = lastConsultation.symptoms || '';
-                }
-                
-                // 不載入上次處方內容，讓醫師重新開立
-                selectedPrescriptionItems = [];
-                updatePrescriptionDisplay();
-                clearPrescriptionSearch();
-                
-                // 自動添加預設診金收費項目
-                addDefaultConsultationFee(patient);
-                
-                // 顯示預填提示
-                showToast(`已預填 ${patient.name} 上次診症資料（${new Date(lastConsultation.date).toLocaleDateString('zh-TW')}），處方內容請重新開立`, 'info');
-                
-            } else {
-                // 沒有歷史記錄，使用預設值
-                clearConsultationForm();
-                if (appointment.chiefComplaint) {
-                    document.getElementById('formSymptoms').value = appointment.chiefComplaint;
-                }
-                
-                // 重新設置到診時間和休息期間（因為 clearConsultationForm 可能會清空）
-                document.getElementById('formVisitTime').value = localDateTime;
-                document.getElementById('formRestStartDate').value = startDateStr;
-                document.getElementById('formRestEndDate').value = endDateStr;
-                updateRestPeriod();
-                
-                // 自動添加預設診金收費項目
-                addDefaultConsultationFee(patient);
-                
-                showToast(`${patient.name} 是首次診症，已載入預設表單`, 'info');
-            }
-        }
+
         
         // 清空診症表單
         function clearConsultationForm() {
@@ -3976,16 +3916,18 @@
                         body { 
                             font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif; 
                             margin: 0; 
-                            padding: 20px; 
-                            line-height: 1.4;
-                            font-size: 14px;
+                            padding: 10px; 
+                            line-height: 1.3;
+                            font-size: 11px;
                         }
                         .receipt-container {
-                            max-width: 400px;
+                            width: 148mm;
+                            height: 210mm;
                             margin: 0 auto;
                             border: 2px solid #000;
-                            padding: 15px;
+                            padding: 8px;
                             background: white;
+                            box-sizing: border-box;
                         }
                         .clinic-header {
                             text-align: center;
@@ -3994,31 +3936,31 @@
                             margin-bottom: 15px;
                         }
                         .clinic-name {
-                            font-size: 20px;
+                            font-size: 14px;
                             font-weight: bold;
-                            margin-bottom: 3px;
-                            letter-spacing: 2px;
+                            margin-bottom: 2px;
+                            letter-spacing: 1px;
                         }
                         .clinic-subtitle {
-                            font-size: 12px;
+                            font-size: 10px;
                             color: #666;
-                            margin-bottom: 5px;
+                            margin-bottom: 3px;
                         }
                         .receipt-title {
-                            font-size: 18px;
+                            font-size: 14px;
                             font-weight: bold;
                             text-align: center;
-                            margin: 10px 0;
-                            letter-spacing: 3px;
+                            margin: 6px 0;
+                            letter-spacing: 2px;
                         }
                         .receipt-info {
-                            margin-bottom: 15px;
+                            margin-bottom: 10px;
                         }
                         .info-row {
                             display: flex;
                             justify-content: space-between;
-                            margin-bottom: 5px;
-                            font-size: 13px;
+                            margin-bottom: 3px;
+                            font-size: 11px;
                         }
                         .info-label {
                             font-weight: bold;
@@ -4026,18 +3968,18 @@
                         .items-section {
                             border-top: 1px solid #000;
                             border-bottom: 1px solid #000;
-                            padding: 10px 0;
-                            margin: 15px 0;
+                            padding: 6px 0;
+                            margin: 8px 0;
                         }
                         .items-title {
                             font-weight: bold;
                             text-align: center;
-                            margin-bottom: 10px;
-                            font-size: 15px;
+                            margin-bottom: 6px;
+                            font-size: 12px;
                         }
                         .items-table {
                             width: 100%;
-                            font-size: 13px;
+                            font-size: 10px;
                         }
                         .items-table td {
                             padding: 3px 5px;
@@ -4045,65 +3987,78 @@
                         }
                         .total-section {
                             text-align: right;
-                            margin: 15px 0;
-                            font-size: 16px;
+                            margin: 8px 0;
+                            font-size: 12px;
                             font-weight: bold;
                         }
                         .total-amount {
-                            font-size: 10px;
+                            font-size: 12px;
                             color: #000;
                             border: 2px solid #000;
-                            padding: 8px;
+                            padding: 4px;
                             display: inline-block;
-                            min-width: 100px;
+                            min-width: 60px;
                             text-align: center;
                         }
                         .prescription-section {
-                            margin: 15px 0;
+                            margin: 8px 0;
                             border-top: 1px dashed #666;
-                            padding-top: 10px;
+                            padding-top: 6px;
                         }
                         .prescription-title {
                             font-weight: bold;
-                            margin-bottom: 8px;
-                            font-size: 14px;
+                            margin-bottom: 4px;
+                            font-size: 11px;
                         }
                         .prescription-content {
                             background: #f9f9f9;
-                            padding: 8px;
+                            padding: 4px;
                             border: 1px solid #ddd;
-                            font-size: 12px;
-                            line-height: 1.3;
+                            font-size: 10px;
+                            line-height: 1.2;
                         }
                         .footer-info {
-                            margin-top: 20px;
+                            margin-top: 10px;
                             border-top: 1px dashed #666;
-                            padding-top: 10px;
-                            font-size: 11px;
+                            padding-top: 6px;
+                            font-size: 9px;
                             color: #666;
                         }
                         .footer-row {
                             display: flex;
                             justify-content: space-between;
-                            margin-bottom: 3px;
+                            margin-bottom: 2px;
                         }
                         .thank-you {
                             text-align: center;
-                            margin: 15px 0;
+                            margin: 8px 0;
                             font-weight: bold;
-                            font-size: 14px;
+                            font-size: 11px;
                         }
                         .diagnosis-section {
-                            margin: 10px 0;
-                            font-size: 12px;
+                            margin: 6px 0;
+                            font-size: 10px;
                         }
                         .diagnosis-title {
                             font-weight: bold;
-                            margin-bottom: 5px;
+                            margin-bottom: 3px;
                         }
                         @media print {
-                            body { margin: 0; padding: 10px; }
-                            .receipt-container { border: 2px solid #000; }
+                            @page {
+                                size: A5;
+                                margin: 10mm;
+                            }
+                            body { 
+                                margin: 0; 
+                                padding: 0; 
+                                font-size: 11px;
+                            }
+                            .receipt-container { 
+                                border: 2px solid #000;
+                                width: 100%;
+                                height: 100%;
+                                padding: 8mm;
+                            }
                         }
                     </style>
                 </head>
@@ -4152,6 +4107,15 @@
                                 <span class="info-label">主治醫師：</span>
                                 <span>${getDoctorDisplayName(consultation.doctor)}</span>
                             </div>
+                            ${(() => {
+                                const regNumber = getDoctorRegistrationNumber(consultation.doctor);
+                                return regNumber ? `
+                                    <div class="info-row">
+                                        <span class="info-label">註冊編號：</span>
+                                        <span>${regNumber}</span>
+                                    </div>
+                                ` : '';
+                            })()}
                         </div>
                         
                         <!-- 診斷資訊 -->
@@ -4183,7 +4147,79 @@
                         ${consultation.prescription ? `
                         <div class="prescription-section">
                             <div class="prescription-title">📋 處方內容</div>
-                            <div class="prescription-content">${consultation.prescription.replace(/\n/g, '<br>')}</div>
+                            <div class="prescription-content">${(() => {
+                                // 將處方內容按行分割，然後橫向排列
+                                const lines = consultation.prescription.split('\n').filter(line => line.trim());
+                                const allItems = [];
+                                let i = 0;
+                                
+                                while (i < lines.length) {
+                                    const line = lines[i].trim();
+                                    if (!line) {
+                                        i++;
+                                        continue;
+                                    }
+                                    
+                                    // 檢查是否為藥材/方劑格式（名稱 劑量g）
+                                    const itemMatch = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)g$/);
+                                    if (itemMatch) {
+                                        const itemName = itemMatch[1].trim();
+                                        const dosage = itemMatch[2];
+                                        
+                                        // 檢查是否為常見方劑名稱
+                                        const isFormula = ['湯', '散', '丸', '膏', '飲', '丹', '煎', '方', '劑'].some(suffix => itemName.includes(suffix));
+                                        
+                                        if (isFormula) {
+                                            // 檢查下一行是否為方劑組成
+                                            let composition = '';
+                                            if (i + 1 < lines.length) {
+                                                const nextLine = lines[i + 1].trim();
+                                                // 如果下一行不是標準藥材格式，視為方劑組成
+                                                if (nextLine && !nextLine.match(/^.+?\s+\d+(?:\.\d+)?g$/)) {
+                                                    composition = nextLine.replace(/\n/g, '、').replace(/、/g, ',');
+                                                    i++; // 跳過組成行
+                                                }
+                                            }
+                                            
+                                            // 方劑顯示格式：方劑名 劑量g (組成)
+                                            if (composition) {
+                                                allItems.push(`${itemName} ${dosage}g <span style="font-size: 8px;">(${composition})</span>`);
+                                            } else {
+                                                allItems.push(`${itemName} ${dosage}g`);
+                                            }
+                                        } else {
+                                            // 普通藥材
+                                            allItems.push(`${itemName} ${dosage}g`);
+                                        }
+                                    } else {
+                                        // 非標準格式的行，可能是獨立的說明
+                                        allItems.push(`<div style="margin: 2px 0; font-size: 9px; color: #666;">${line}</div>`);
+                                    }
+                                    
+                                    i++;
+                                }
+                                
+                                // 分離普通項目和特殊行
+                                const regularItems = allItems.filter(item => typeof item === 'string' && !item.includes('<div'));
+                                const specialLines = allItems.filter(item => typeof item === 'string' && item.includes('<div'));
+                                
+                                let result = '';
+                                
+                                // 先顯示特殊行
+                                specialLines.forEach(line => {
+                                    result += line;
+                                });
+                                
+                                // 然後顯示所有項目（包括方劑和藥材），每行4個橫向排列
+                                if (regularItems.length > 0) {
+                                    for (let j = 0; j < regularItems.length; j += 4) {
+                                        const lineItems = regularItems.slice(j, j + 4);
+                                        result += `<div style="margin: 2px 0;">${lineItems.join('　')}</div>`;
+                                    }
+                                }
+                                
+                                return result || consultation.prescription.replace(/\n/g, '<br>');
+                            })()}</div>
                             ${consultation.usage ? `
                             <div style="margin-top: 8px; font-size: 12px;">
                                 <strong>服用方法：</strong>${consultation.usage}
@@ -4268,94 +4304,98 @@
                         body { 
                             font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif; 
                             margin: 0; 
-                            padding: 30px; 
-                            line-height: 1.6;
-                            font-size: 16px;
+                            padding: 8px; 
+                            line-height: 1.3;
+                            font-size: 10px;
                             background: white;
                         }
                         .certificate-container {
-                            max-width: 600px;
+                            width: 148mm;
+                            height: 210mm;
                             margin: 0 auto;
                             border: 3px solid #000;
-                            padding: 40px;
+                            padding: 8px;
                             background: white;
                             position: relative;
+                            box-sizing: border-box;
                         }
                         .clinic-header {
                             text-align: center;
                             border-bottom: 2px solid #000;
-                            padding-bottom: 20px;
-                            margin-bottom: 30px;
+                            padding-bottom: 10px;
+                            margin-bottom: 15px;
                         }
                         .clinic-name {
-                            font-size: 24px;
+                            font-size: 13px;
                             font-weight: bold;
-                            margin-bottom: 8px;
-                            letter-spacing: 3px;
+                            margin-bottom: 3px;
+                            letter-spacing: 1px;
                         }
                         .clinic-subtitle {
-                            font-size: 14px;
+                            font-size: 10px;
                             color: #666;
-                            margin-bottom: 8px;
+                            margin-bottom: 4px;
                         }
                         .certificate-title {
-                            font-size: 28px;
+                            font-size: 16px;
                             font-weight: bold;
                             text-align: center;
-                            margin: 30px 0;
-                            letter-spacing: 8px;
+                            margin: 8px 0;
+                            letter-spacing: 3px;
                             color: #000;
                         }
                         .certificate-number {
                             text-align: right;
-                            font-size: 14px;
+                            font-size: 10px;
                             color: #666;
-                            margin-bottom: 20px;
+                            margin-bottom: 10px;
                         }
                         .content-section {
-                            margin: 25px 0;
-                            font-size: 18px;
-                            line-height: 2;
+                            margin: 8px 0;
+                            font-size: 10px;
+                            line-height: 1.4;
                         }
                         .patient-info {
-                            margin: 20px 0;
+                            margin: 8px 0;
                         }
                         .info-row {
-                            margin: 15px 0;
+                            margin: 4px 0;
                             display: flex;
                             align-items: center;
                         }
                         .info-label {
                             font-weight: bold;
-                            min-width: 120px;
+                            min-width: 80px;
                             display: inline-block;
+                            font-size: 10px;
                         }
                         .info-value {
                             border-bottom: 1px solid #000;
-                            min-width: 200px;
-                            padding: 5px 10px;
-                            margin-left: 10px;
+                            min-width: 120px;
+                            padding: 3px 6px;
+                            margin-left: 6px;
+                            font-size: 10px;
                         }
                         .attendance-section {
-                            margin: 25px 0;
+                            margin: 8px 0;
                             background: #e3f2fd;
-                            padding: 20px;
+                            padding: 6px;
                             border: 2px solid #2196f3;
-                            border-radius: 8px;
+                            border-radius: 4px;
                             text-align: center;
                         }
                         .attendance-title {
-                            font-size: 20px;
+                            font-size: 11px;
                             font-weight: bold;
                             color: #1976d2;
-                            margin-bottom: 15px;
+                            margin-bottom: 4px;
                         }
                         .attendance-details {
-                            font-size: 18px;
-                            line-height: 1.8;
+                            font-size: 10px;
+                            line-height: 1.3;
                         }
                         .doctor-signature {
-                            margin-top: 50px;
+                            margin-top: 10px;
                             display: flex;
                             justify-content: space-between;
                             align-items: flex-end;
@@ -4365,25 +4405,25 @@
                         }
                         .signature-line {
                             border-bottom: 2px solid #000;
-                            width: 150px;
-                            height: 60px;
-                            margin: 20px auto;
+                            width: 60px;
+                            height: 25px;
+                            margin: 6px auto;
                             position: relative;
                         }
                         .signature-label {
-                            font-size: 14px;
+                            font-size: 9px;
                             color: #666;
-                            margin-top: 5px;
+                            margin-top: 3px;
                         }
                         .date-section {
                             text-align: right;
-                            font-size: 16px;
+                            font-size: 10px;
                         }
                         .footer-note {
-                            margin-top: 40px;
-                            padding-top: 20px;
+                            margin-top: 15px;
+                            padding-top: 8px;
                             border-top: 1px dashed #666;
-                            font-size: 12px;
+                            font-size: 8px;
                             color: #666;
                             text-align: center;
                         }
@@ -4403,8 +4443,21 @@
                             z-index: 1;
                         }
                         @media print {
-                            body { margin: 0; padding: 20px; }
-                            .certificate-container { border: 3px solid #000; }
+                            @page {
+                                size: A5;
+                                margin: 10mm;
+                            }
+                            body { 
+                                margin: 0; 
+                                padding: 0; 
+                                font-size: 11px;
+                            }
+                            .certificate-container { 
+                                border: 3px solid #000;
+                                width: 100%;
+                                height: 100%;
+                                padding: 8mm;
+                            }
                         }
                     </style>
                 </head>
@@ -4468,7 +4521,6 @@
                                             minute: '2-digit'
                                         });
                                     })()}</div>
-                                    <div><strong>主治醫師：</strong>${getDoctorDisplayName(consultation.doctor)}</div>
                                 </div>
                             </div>
                             
@@ -4497,6 +4549,14 @@
                                     <div style="margin-top: 10px; font-weight: bold;">
                                         ${getDoctorDisplayName(consultation.doctor)}
                                     </div>
+                                    ${(() => {
+                                        const regNumber = getDoctorRegistrationNumber(consultation.doctor);
+                                        return regNumber ? `
+                                            <div style="margin-top: 5px; font-size: 12px; color: #666;">
+                                                註冊編號：${regNumber}
+                                            </div>
+                                        ` : '';
+                                    })()}
                                 </div>
                                 
                                 <div class="date-section">
@@ -4564,93 +4624,97 @@
                         body { 
                             font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif; 
                             margin: 0; 
-                            padding: 30px; 
-                            line-height: 1.6;
-                            font-size: 16px;
+                            padding: 8px; 
+                            line-height: 1.3;
+                            font-size: 10px;
                             background: white;
                         }
                         .certificate-container {
-                            max-width: 600px;
+                            width: 148mm;
+                            height: 210mm;
                             margin: 0 auto;
                             border: 3px solid #000;
-                            padding: 40px;
+                            padding: 8px;
                             background: white;
                             position: relative;
+                            box-sizing: border-box;
                         }
                         .clinic-header {
                             text-align: center;
                             border-bottom: 2px solid #000;
-                            padding-bottom: 20px;
-                            margin-bottom: 30px;
+                            padding-bottom: 10px;
+                            margin-bottom: 15px;
                         }
                         .clinic-name {
-                            font-size: 24px;
+                            font-size: 13px;
                             font-weight: bold;
-                            margin-bottom: 8px;
-                            letter-spacing: 3px;
+                            margin-bottom: 3px;
+                            letter-spacing: 1px;
                         }
                         .clinic-subtitle {
-                            font-size: 14px;
+                            font-size: 10px;
                             color: #666;
-                            margin-bottom: 8px;
+                            margin-bottom: 4px;
                         }
                         .certificate-title {
-                            font-size: 28px;
+                            font-size: 16px;
                             font-weight: bold;
                             text-align: center;
-                            margin: 30px 0;
-                            letter-spacing: 8px;
+                            margin: 8px 0;
+                            letter-spacing: 3px;
                             color: #000;
                         }
                         .certificate-number {
                             text-align: right;
-                            font-size: 14px;
+                            font-size: 10px;
                             color: #666;
-                            margin-bottom: 20px;
+                            margin-bottom: 10px;
                         }
                         .content-section {
-                            margin: 25px 0;
-                            font-size: 18px;
-                            line-height: 2;
+                            margin: 8px 0;
+                            font-size: 10px;
+                            line-height: 1.4;
                         }
                         .patient-info {
-                            margin: 20px 0;
+                            margin: 8px 0;
                         }
                         .info-row {
-                            margin: 15px 0;
+                            margin: 4px 0;
                             display: flex;
                             align-items: center;
                         }
                         .info-label {
                             font-weight: bold;
-                            min-width: 120px;
+                            min-width: 80px;
                             display: inline-block;
+                            font-size: 10px;
                         }
                         .info-value {
                             border-bottom: 1px solid #000;
-                            min-width: 200px;
-                            padding: 5px 10px;
-                            margin-left: 10px;
+                            min-width: 120px;
+                            padding: 3px 6px;
+                            margin-left: 6px;
+                            font-size: 10px;
                         }
                         .diagnosis-section {
-                            margin: 25px 0;
+                            margin: 8px 0;
                             background: #f9f9f9;
-                            padding: 20px;
+                            padding: 6px;
                             border: 1px solid #ddd;
-                            border-radius: 5px;
+                            border-radius: 3px;
                         }
                         .rest-period {
-                            margin: 25px 0;
-                            font-size: 20px;
+                            margin: 8px 0;
+                            font-size: 11px;
                             font-weight: bold;
                             text-align: center;
                             background: #fff3cd;
-                            padding: 20px;
+                            padding: 6px;
                             border: 2px solid #ffc107;
-                            border-radius: 8px;
+                            border-radius: 4px;
                         }
                         .doctor-signature {
-                            margin-top: 50px;
+                            margin-top: 10px;
                             display: flex;
                             justify-content: space-between;
                             align-items: flex-end;
@@ -4660,25 +4724,25 @@
                         }
                         .signature-line {
                             border-bottom: 2px solid #000;
-                            width: 150px;
-                            height: 60px;
-                            margin: 20px auto;
+                            width: 60px;
+                            height: 25px;
+                            margin: 6px auto;
                             position: relative;
                         }
                         .signature-label {
-                            font-size: 14px;
+                            font-size: 9px;
                             color: #666;
-                            margin-top: 5px;
+                            margin-top: 3px;
                         }
                         .date-section {
                             text-align: right;
-                            font-size: 16px;
+                            font-size: 10px;
                         }
                         .footer-note {
-                            margin-top: 40px;
-                            padding-top: 20px;
+                            margin-top: 15px;
+                            padding-top: 8px;
                             border-top: 1px dashed #666;
-                            font-size: 12px;
+                            font-size: 8px;
                             color: #666;
                             text-align: center;
                         }
@@ -4698,8 +4762,21 @@
                             z-index: 1;
                         }
                         @media print {
-                            body { margin: 0; padding: 20px; }
-                            .certificate-container { border: 3px solid #000; }
+                            @page {
+                                size: A5;
+                                margin: 10mm;
+                            }
+                            body { 
+                                margin: 0; 
+                                padding: 0; 
+                                font-size: 11px;
+                            }
+                            .certificate-container { 
+                                border: 3px solid #000;
+                                width: 100%;
+                                height: 100%;
+                                padding: 8mm;
+                            }
                         }
                     </style>
                 </head>
@@ -4823,6 +4900,14 @@
                                     <div style="margin-top: 10px; font-weight: bold;">
                                         ${getDoctorDisplayName(consultation.doctor)}
                                     </div>
+                                    ${(() => {
+                                        const regNumber = getDoctorRegistrationNumber(consultation.doctor);
+                                        return regNumber ? `
+                                            <div style="margin-top: 5px; font-size: 12px; color: #666;">
+                                                註冊編號：${regNumber}
+                                            </div>
+                                        ` : '';
+                                    })()}
                                 </div>
                                 
                                 <div class="date-section">
@@ -5138,40 +5223,40 @@
             const englishNameSpan = document.getElementById('displayEnglishName');
             
             if (chineseNameSpan) {
-                chineseNameSpan.textContent = clinicSettings.chineseName || '中醫診所';
+                chineseNameSpan.textContent = clinicSettings.chineseName || '123456';
             }
             if (englishNameSpan) {
-                englishNameSpan.textContent = clinicSettings.englishName || 'Traditional Chinese Medicine Clinic';
+                englishNameSpan.textContent = clinicSettings.englishName || '123456 Clinic';
             }
             
             // 更新登入頁面的診所名稱
             const loginTitle = document.getElementById('loginTitle');
             const loginEnglishTitle = document.getElementById('loginEnglishTitle');
             if (loginTitle) {
-                loginTitle.textContent = clinicSettings.chineseName || '中醫診所';
+                loginTitle.textContent = clinicSettings.chineseName || '123456';
             }
             if (loginEnglishTitle) {
-                loginEnglishTitle.textContent = clinicSettings.englishName || 'Traditional Chinese Medicine Clinic';
+                loginEnglishTitle.textContent = clinicSettings.englishName || '123456 Clinic';
             }
             
             // 更新主頁面的診所名稱
             const systemTitle = document.getElementById('systemTitle');
             const systemEnglishTitle = document.getElementById('systemEnglishTitle');
             if (systemTitle) {
-                systemTitle.textContent = clinicSettings.chineseName || '中醫診所';
+                systemTitle.textContent = clinicSettings.chineseName || '123456';
             }
             if (systemEnglishTitle) {
-                systemEnglishTitle.textContent = clinicSettings.englishName || 'Traditional Chinese Medicine Clinic';
+                systemEnglishTitle.textContent = clinicSettings.englishName || '123456 Clinic';
             }
             
             // 更新歡迎頁面的診所名稱
             const welcomeTitle = document.getElementById('welcomeTitle');
             const welcomeEnglishTitle = document.getElementById('welcomeEnglishTitle');
             if (welcomeTitle) {
-                welcomeTitle.textContent = `歡迎使用${clinicSettings.chineseName || '中醫診所'}`;
+                welcomeTitle.textContent = `歡迎使用${clinicSettings.chineseName || '123456'}`;
             }
             if (welcomeEnglishTitle) {
-                welcomeEnglishTitle.textContent = `Welcome to ${clinicSettings.englishName || 'Traditional Chinese Medicine Clinic'}`;
+                welcomeTitle.textContent = `Welcome to ${clinicSettings.englishName || '123456 Clinic'}`;
             }
         }
 
@@ -6551,80 +6636,84 @@
                     continue;
                 }
                 
-                // 檢查是否為方劑格式（方劑名 劑量g）
-                const formulaMatch = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)g$/);
-                if (formulaMatch) {
-                    const formulaName = formulaMatch[1].trim();
-                    const dosage = formulaMatch[2];
+                // 檢查是否為藥材/方劑格式（名稱 劑量g）
+                const itemMatch = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)g$/);
+                if (itemMatch) {
+                    const itemName = itemMatch[1].trim();
+                    const dosage = itemMatch[2];
                     
-                    // 在中藥庫中尋找對應的方劑
-                    const formula = herbLibrary.find(item => 
-                        item.type === 'formula' && item.name === formulaName
+                    // 先在中藥庫中尋找對應的項目（優先匹配中藥材，再匹配方劑）
+                    let foundItem = herbLibrary.find(item => 
+                        item.type === 'herb' && item.name === itemName
                     );
                     
-                    if (formula) {
+                    if (foundItem) {
+                        // 找到中藥材
                         const prescriptionItem = {
-                            id: formula.id,
-                            type: 'formula',
-                            name: formula.name,
+                            id: foundItem.id,
+                            type: 'herb',
+                            name: foundItem.name,
+                            dosage: foundItem.dosage || '6g',
                             customDosage: dosage,
-                            composition: formula.composition,
-                            effects: formula.effects
+                            effects: foundItem.effects
                         };
                         selectedPrescriptionItems.push(prescriptionItem);
                     } else {
-                        // 如果在中藥庫中找不到，創建一個臨時項目
-                        const prescriptionItem = {
-                            id: Date.now() + Math.random(), // 臨時ID
-                            type: 'formula',
-                            name: formulaName,
-                            customDosage: dosage,
-                            composition: '（從上次處方載入）',
-                            effects: '（從上次處方載入）'
-                        };
-                        selectedPrescriptionItems.push(prescriptionItem);
-                    }
-                    i++;
-                    continue;
-                }
-                
-                // 檢查是否為中藥材格式（藥材名 劑量g）
-                const herbMatch = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)g$/);
-                if (herbMatch) {
-                    const herbName = herbMatch[1].trim();
-                    const dosage = herbMatch[2];
-                    
-                    // 在中藥庫中尋找對應的中藥材
-                    const herb = herbLibrary.find(item => 
-                        item.type === 'herb' && item.name === herbName
-                    );
-                    
-                    if (herb) {
-                        const prescriptionItem = {
-                            id: herb.id,
-                            type: 'herb',
-                            name: herb.name,
-                            dosage: herb.dosage || '6g',
-                            customDosage: dosage,
-                            effects: herb.effects
-                        };
-                        selectedPrescriptionItems.push(prescriptionItem);
-                    } else {
-                        // 如果在中藥庫中找不到，創建一個臨時項目
-                        const prescriptionItem = {
-                            id: Date.now() + Math.random(), // 臨時ID
-                            type: 'herb',
-                            name: herbName,
-                            dosage: `${dosage}g`,
-                            customDosage: dosage,
-                            effects: '（從上次處方載入）'
-                        };
-                        selectedPrescriptionItems.push(prescriptionItem);
+                        // 沒找到中藥材，尋找方劑
+                        foundItem = herbLibrary.find(item => 
+                            item.type === 'formula' && item.name === itemName
+                        );
+                        
+                        if (foundItem) {
+                            // 找到方劑
+                            const prescriptionItem = {
+                                id: foundItem.id,
+                                type: 'formula',
+                                name: foundItem.name,
+                                customDosage: dosage,
+                                composition: foundItem.composition,
+                                effects: foundItem.effects
+                            };
+                            selectedPrescriptionItems.push(prescriptionItem);
+                        } else {
+                            // 都沒找到，根據常見方劑名稱特徵智能判斷類型
+                            const isLikelyFormula = isFormulaName(itemName);
+                            
+                            const prescriptionItem = {
+                                id: Date.now() + Math.random(), // 臨時ID
+                                type: isLikelyFormula ? 'formula' : 'herb',
+                                name: itemName,
+                                customDosage: dosage,
+                                effects: '（從上次處方載入）'
+                            };
+                            
+                            if (isLikelyFormula) {
+                                prescriptionItem.composition = '（從上次處方載入）';
+                            } else {
+                                prescriptionItem.dosage = `${dosage}g`;
+                            }
+                            
+                            selectedPrescriptionItems.push(prescriptionItem);
+                        }
                     }
                 }
                 
                 i++;
             }
+        }
+        
+        // 判斷是否為方劑名稱的輔助函數
+        function isFormulaName(name) {
+            // 常見方劑名稱特徵
+            const formulaKeywords = [
+                '湯', '散', '丸', '膏', '飲', '丹', '煎', '方', '劑',
+                '四君子', '六君子', '八珍', '十全', '補中益氣', '逍遙',
+                '甘麥大棗', '小柴胡', '大柴胡', '半夏瀉心', '黃連解毒',
+                '清熱解毒', '銀翹', '桑菊', '麻黃', '桂枝', '葛根',
+                '白虎', '承氣', '理中', '真武', '苓桂', '五苓'
+            ];
+            
+            return formulaKeywords.some(keyword => name.includes(keyword));
         }
         
 
@@ -6891,6 +6980,24 @@
             return doctorRole;
         }
         
+        // 獲取醫師註冊編號
+        function getDoctorRegistrationNumber(doctorRole) {
+            if (!doctorRole) return null;
+            
+            // 如果是舊的固定值，返回預設註冊編號
+            if (doctorRole === 'doctor') {
+                return 'CM001234';
+            }
+            
+            // 尋找對應的醫師用戶
+            const doctorUser = users.find(u => u.username === doctorRole);
+            if (doctorUser && doctorUser.position === '醫師') {
+                return doctorUser.registrationNumber || null;
+            }
+            
+            return null;
+        }
+        
         // 用戶管理功能
         let editingUserId = null;
         let currentUserFilter = 'all';
@@ -6942,7 +7049,7 @@
             if (filteredUsers.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                        <td colspan="8" class="px-4 py-8 text-center text-gray-500">
                             ${searchTerm ? '沒有找到符合條件的用戶' : '尚無用戶資料'}
                         </td>
                     </tr>
@@ -6963,6 +7070,7 @@
                     <td class="px-4 py-3 text-sm text-gray-900 font-medium">${user.username}</td>
                     <td class="px-4 py-3 text-sm text-gray-900">${user.name}</td>
                     <td class="px-4 py-3 text-sm text-gray-600">${user.position || '未設定'}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${user.position === '醫師' ? (user.registrationNumber || '未設定') : '-'}</td>
                     <td class="px-4 py-3 text-sm text-gray-900">${user.email || '未設定'}</td>
                     <td class="px-4 py-3">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
@@ -7001,10 +7109,27 @@
         }
         
         function clearUserForm() {
-            ['userName', 'userPassword', 'userDisplayName', 'userPosition', 'userEmail', 'userPhone'].forEach(id => {
+            ['userName', 'userPassword', 'userDisplayName', 'userPosition', 'userEmail', 'userPhone', 'userRegistrationNumber'].forEach(id => {
                 document.getElementById(id).value = '';
             });
             document.getElementById('userActive').checked = true;
+            
+            // 隱藏註冊編號欄位
+            document.getElementById('registrationNumberField').classList.add('hidden');
+        }
+        
+        // 切換註冊編號欄位顯示
+        function toggleRegistrationNumberField() {
+            const positionSelect = document.getElementById('userPosition');
+            const registrationField = document.getElementById('registrationNumberField');
+            
+            if (positionSelect.value === '醫師') {
+                registrationField.classList.remove('hidden');
+            } else {
+                registrationField.classList.add('hidden');
+                // 清空註冊編號欄位
+                document.getElementById('userRegistrationNumber').value = '';
+            }
         }
         
         function editUser(id) {
@@ -7021,7 +7146,11 @@
             document.getElementById('userPosition').value = user.position || '';
             document.getElementById('userEmail').value = user.email || '';
             document.getElementById('userPhone').value = user.phone || '';
+            document.getElementById('userRegistrationNumber').value = user.registrationNumber || '';
             document.getElementById('userActive').checked = user.active !== false;
+            
+            // 根據職位顯示或隱藏註冊編號欄位
+            toggleRegistrationNumberField();
             
             document.getElementById('addUserModal').classList.remove('hidden');
         }
@@ -7033,11 +7162,18 @@
             const position = document.getElementById('userPosition').value.trim();
             const email = document.getElementById('userEmail').value.trim();
             const phone = document.getElementById('userPhone').value.trim();
+            const registrationNumber = document.getElementById('userRegistrationNumber').value.trim();
             const active = document.getElementById('userActive').checked;
             
             // 驗證必填欄位
             if (!username || !name || !position) {
                 showToast('請填寫必要資料（帳號、姓名、職位）！', 'error');
+                return;
+            }
+            
+            // 醫師職位必須填寫註冊編號
+            if (position === '醫師' && !registrationNumber) {
+                showToast('醫師職位必須填寫中醫註冊編號！', 'error');
                 return;
             }
             
@@ -7088,6 +7224,7 @@
                 users[userIndex].username = username;
                 users[userIndex].name = name;
                 users[userIndex].position = position;
+                users[userIndex].registrationNumber = position === '醫師' ? registrationNumber : null;
                 users[userIndex].email = email;
                 users[userIndex].phone = phone;
                 users[userIndex].active = active;
@@ -7117,6 +7254,7 @@
                     password: password,
                     name: name,
                     position: position,
+                    registrationNumber: position === '醫師' ? registrationNumber : null,
                     email: email,
                     phone: phone,
                     active: active,
@@ -7203,5 +7341,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'969f05d0776fe6ae',t:'MTc1NDMyMDY1OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96a54ab030996e49',t:'MTc1NDM4NjM5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
