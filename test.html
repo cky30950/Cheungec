@@ -1283,8 +1283,8 @@
         // 診所設定
         let clinicSettings = JSON.parse(localStorage.getItem('clinicSettings') || '{}');
         if (!clinicSettings.chineseName) {
-            clinicSettings.chineseName = '123456';
-            clinicSettings.englishName = '123456 Clinic';
+            clinicSettings.chineseName = '123456789';
+            clinicSettings.englishName = '123456789 Clinic';
             clinicSettings.businessHours = '週一至週五 09:00-18:00';
             clinicSettings.phone = '(852) 2345-6789';
             clinicSettings.address = '香港中環皇后大道中123號';
@@ -4278,8 +4278,8 @@
                     <div class="receipt-container">
                         <!-- 診所標題 -->
                         <div class="clinic-header">
-                            <div class="clinic-name">${clinicSettings.chineseName || '123456'}</div>
-                            <div class="clinic-subtitle">${clinicSettings.englishName || '123456 Clinic'}</div>
+                            <div class="clinic-name">${clinicSettings.chineseName || '123456789'}</div>
+                            <div class="clinic-subtitle">${clinicSettings.englishName || '123456789 Clinic'}</div>
                             <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                         </div>
                         
@@ -4681,8 +4681,8 @@
                         <div class="content">
                             <!-- 診所標題 -->
                             <div class="clinic-header">
-                                <div class="clinic-name">${clinicSettings.chineseName || '123456'}</div>
-                                <div class="clinic-subtitle">${clinicSettings.englishName || '123456 Clinic'}</div>
+                                <div class="clinic-name">${clinicSettings.chineseName || '123456789'}</div>
+                                <div class="clinic-subtitle">${clinicSettings.englishName || '123456789 Clinic'}</div>
                                 <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                             </div>
                             
@@ -5000,8 +5000,8 @@
                         <div class="content">
                             <!-- 診所標題 -->
                             <div class="clinic-header">
-                                <div class="clinic-name">${clinicSettings.chineseName || '123456'}</div>
-                                <div class="clinic-subtitle">${clinicSettings.englishName || '123456 Clinic'}</div>
+                                <div class="clinic-name">${clinicSettings.chineseName || '123456789'}</div>
+                                <div class="clinic-subtitle">${clinicSettings.englishName || '123456789 Clinic'}</div>
                                 <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                             </div>
                             
@@ -5435,40 +5435,40 @@
             const englishNameSpan = document.getElementById('displayEnglishName');
             
             if (chineseNameSpan) {
-                chineseNameSpan.textContent = clinicSettings.chineseName || '123456';
+                chineseNameSpan.textContent = clinicSettings.chineseName || '123456789';
             }
             if (englishNameSpan) {
-                englishNameSpan.textContent = clinicSettings.englishName || '123456 Clinic';
+                englishNameSpan.textContent = clinicSettings.englishName || '123456789 Clinic';
             }
             
             // 更新登入頁面的診所名稱
             const loginTitle = document.getElementById('loginTitle');
             const loginEnglishTitle = document.getElementById('loginEnglishTitle');
             if (loginTitle) {
-                loginTitle.textContent = clinicSettings.chineseName || '123456';
+                loginTitle.textContent = clinicSettings.chineseName || '123456789';
             }
             if (loginEnglishTitle) {
-                loginEnglishTitle.textContent = clinicSettings.englishName || '123456 Clinic';
+                loginEnglishTitle.textContent = clinicSettings.englishName || '123456789 Clinic';
             }
             
             // 更新主頁面的診所名稱
             const systemTitle = document.getElementById('systemTitle');
             const systemEnglishTitle = document.getElementById('systemEnglishTitle');
             if (systemTitle) {
-                systemTitle.textContent = clinicSettings.chineseName || '123456';
+                systemTitle.textContent = clinicSettings.chineseName || '123456789';
             }
             if (systemEnglishTitle) {
-                systemEnglishTitle.textContent = clinicSettings.englishName || '123456 Clinic';
+                systemEnglishTitle.textContent = clinicSettings.englishName || '123456789 Clinic';
             }
             
             // 更新歡迎頁面的診所名稱
             const welcomeTitle = document.getElementById('welcomeTitle');
             const welcomeEnglishTitle = document.getElementById('welcomeEnglishTitle');
             if (welcomeTitle) {
-                welcomeTitle.textContent = `歡迎使用${clinicSettings.chineseName || '123456'}`;
+                welcomeTitle.textContent = `歡迎使用${clinicSettings.chineseName || '123456789'}`;
             }
             if (welcomeEnglishTitle) {
-                welcomeTitle.textContent = `Welcome to ${clinicSettings.englishName || '123456 Clinic'}`;
+                welcomeTitle.textContent = `Welcome to ${clinicSettings.englishName || '123456789 Clinic'}`;
             }
         }
 
@@ -7556,5 +7556,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96a58cc7c3b1dd9c',t:'MTc1NDM4OTEwMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96a64690b65ce2e7',t:'MTc1NDM5NjcxMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
