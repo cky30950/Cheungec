@@ -416,6 +416,16 @@
                             
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <span class="mr-2">👨‍⚕️</span>掛號醫師 *
+                                </label>
+                                <select id="appointmentDoctor" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <option value="">請選擇醫師</option>
+                                    <!-- 醫師選項會動態載入 -->
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
                                     <span class="mr-2">⏰</span>掛號時間
                                 </label>
                                 <input type="datetime-local" id="appointmentDateTime" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
@@ -460,6 +470,7 @@
                                     <tr>
                                         <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">序號</th>
                                         <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">病人姓名</th>
+                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">掛號醫師</th>
                                         <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">掛號時間</th>
                                         <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">主訴症狀</th>
                                         <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">狀態</th>
@@ -1487,7 +1498,7 @@
                 instructions: '注意休息，避免情緒激動，定期監測血壓，飲食清淡少鹽',
                 followUpDate: '2024-03-01T09:00',
                 date: new Date('2024-02-23T10:30').toISOString(),
-                doctor: 'doctor',
+                doctor: 'drzhang',
                 status: 'completed'
             },
             {
@@ -1506,7 +1517,7 @@
                 instructions: '睡前避免使用電子產品，保持規律作息，可適當進行放鬆運動',
                 followUpDate: '2024-03-05T14:00',
                 date: new Date('2024-02-25T14:15').toISOString(),
-                doctor: 'doctor',
+                doctor: 'drzhang',
                 status: 'completed'
             },
             {
@@ -1525,7 +1536,7 @@
                 instructions: '規律飲食，細嚼慢嚥，避免生冷辛辣食物，保持心情愉快',
                 followUpDate: '2024-03-10T10:30',
                 date: new Date('2024-02-26T10:45').toISOString(),
-                doctor: 'doctor',
+                doctor: 'drzhang',
                 status: 'completed'
             }
         ];
@@ -1536,7 +1547,78 @@
             localStorage.setItem('consultations', JSON.stringify(consultations));
         }
         
+        // 預設掛號記錄
+        const defaultAppointments = [
+            {
+                id: 3001,
+                patientId: 1001,
+                appointmentTime: new Date('2024-02-23T10:00').toISOString(),
+                appointmentDoctor: 'drzhang',
+                chiefComplaint: '頭痛頭暈，血壓偏高',
+                status: 'completed',
+                createdAt: new Date('2024-02-22T15:30').toISOString(),
+                createdBy: 'nurse_amy',
+                arrivedAt: new Date('2024-02-23T09:55').toISOString(),
+                confirmedBy: 'nurse_amy',
+                consultationStartTime: new Date('2024-02-23T10:30').toISOString(),
+                consultingDoctor: 'drzhang',
+                completedAt: new Date('2024-02-23T11:15').toISOString(),
+                consultationId: 2001,
+                completedBy: 'drzhang'
+            },
+            {
+                id: 3002,
+                patientId: 1002,
+                appointmentTime: new Date('2024-02-25T14:00').toISOString(),
+                appointmentDoctor: 'drzhang',
+                chiefComplaint: '失眠多夢，入睡困難',
+                status: 'completed',
+                createdAt: new Date('2024-02-24T10:20').toISOString(),
+                createdBy: 'nurse_amy',
+                arrivedAt: new Date('2024-02-25T13:50').toISOString(),
+                confirmedBy: 'nurse_amy',
+                consultationStartTime: new Date('2024-02-25T14:15').toISOString(),
+                consultingDoctor: 'drzhang',
+                completedAt: new Date('2024-02-25T15:00').toISOString(),
+                consultationId: 2002,
+                completedBy: 'drzhang'
+            },
+            {
+                id: 3003,
+                patientId: 1003,
+                appointmentTime: new Date('2024-02-26T10:30').toISOString(),
+                appointmentDoctor: 'drzhang',
+                chiefComplaint: '胃脘脹痛，食後加重',
+                status: 'completed',
+                createdAt: new Date('2024-02-25T16:45').toISOString(),
+                createdBy: 'nurse_amy',
+                arrivedAt: new Date('2024-02-26T10:25').toISOString(),
+                confirmedBy: 'nurse_amy',
+                consultationStartTime: new Date('2024-02-26T10:45').toISOString(),
+                consultingDoctor: 'drzhang',
+                completedAt: new Date('2024-02-26T11:30').toISOString(),
+                consultationId: 2003,
+                completedBy: 'drzhang'
+            }
+        ];
+
         let appointments = JSON.parse(localStorage.getItem('appointments') || '[]');
+        if (appointments.length === 0) {
+            appointments = defaultAppointments;
+            localStorage.setItem('appointments', JSON.stringify(appointments));
+        } else {
+            // 為舊資料補充醫師欄位
+            let needsUpdate = false;
+            appointments.forEach(appointment => {
+                if (!appointment.appointmentDoctor) {
+                    appointment.appointmentDoctor = 'drzhang'; // 預設為張醫師
+                    needsUpdate = true;
+                }
+            });
+            if (needsUpdate) {
+                localStorage.setItem('appointments', JSON.stringify(appointments));
+            }
+        }
 
         // 預設中藥材資料
         const defaultHerbs = [
@@ -2518,6 +2600,9 @@
                 </div>
             `;
             
+            // 載入醫師選項
+            loadDoctorOptions();
+            
             // 設置預設掛號時間為當前時間（加5分鐘避免時間過期）
             const now = new Date();
             now.setMinutes(now.getMinutes() + 5); // 加5分鐘
@@ -2534,6 +2619,35 @@
             document.getElementById('registrationModal').classList.remove('hidden');
         }
         
+        // 載入醫師選項
+        function loadDoctorOptions() {
+            const doctorSelect = document.getElementById('appointmentDoctor');
+            
+            // 獲取所有啟用的醫師用戶
+            const doctors = users.filter(user => 
+                user.active && user.position === '醫師'
+            );
+            
+            // 清空現有選項（保留預設選項）
+            doctorSelect.innerHTML = '<option value="">請選擇醫師</option>';
+            
+            // 添加醫師選項
+            doctors.forEach(doctor => {
+                const option = document.createElement('option');
+                option.value = doctor.username;
+                option.textContent = `${doctor.name}醫師`;
+                if (doctor.registrationNumber) {
+                    option.textContent += ` (${doctor.registrationNumber})`;
+                }
+                doctorSelect.appendChild(option);
+            });
+            
+            // 如果當前用戶是醫師，預設選擇自己
+            if (currentUserData && currentUserData.position === '醫師') {
+                doctorSelect.value = currentUserData.username;
+            }
+        }
+        
         // 關閉掛號彈窗
         function closeRegistrationModal() {
             document.getElementById('registrationModal').classList.add('hidden');
@@ -2543,6 +2657,7 @@
         
         // 清空掛號表單
         function clearRegistrationForm() {
+            document.getElementById('appointmentDoctor').value = '';
             document.getElementById('quickChiefComplaint').value = '';
         }
         
@@ -2554,10 +2669,28 @@
             }
             
             const appointmentDateTime = document.getElementById('appointmentDateTime').value;
+            const appointmentDoctor = document.getElementById('appointmentDoctor').value;
             const chiefComplaint = document.getElementById('quickChiefComplaint').value.trim();
             
             if (!appointmentDateTime) {
                 showToast('請選擇掛號時間！', 'error');
+                return;
+            }
+            
+            if (!appointmentDoctor) {
+                showToast('請選擇掛號醫師！', 'error');
+                return;
+            }
+            
+            // 驗證選擇的醫師是否存在且啟用
+            const selectedDoctor = users.find(user => 
+                user.username === appointmentDoctor && 
+                user.active && 
+                user.position === '醫師'
+            );
+            
+            if (!selectedDoctor) {
+                showToast('選擇的醫師無效，請重新選擇！', 'error');
                 return;
             }
             
@@ -2574,6 +2707,7 @@
                 id: Date.now(),
                 patientId: selectedPatientForRegistration.id,
                 appointmentTime: selectedTime.toISOString(),
+                appointmentDoctor: appointmentDoctor,
                 chiefComplaint: chiefComplaint || '無特殊主訴',
                 status: 'registered', // registered, waiting, consulting, completed
                 createdAt: new Date().toISOString(),
@@ -2583,28 +2717,65 @@
             appointments.push(appointment);
             localStorage.setItem('appointments', JSON.stringify(appointments));
             
-            showToast(`${selectedPatientForRegistration.name} 掛號成功！`, 'success');
+            showToast(`${selectedPatientForRegistration.name} 已掛號給 ${selectedDoctor.name}醫師！`, 'success');
             
             closeRegistrationModal();
             clearPatientSearch();
             loadTodayAppointments();
         }
         
+        // 每日自動清空掛號列表
+        function clearOldAppointments() {
+            const today = new Date().toDateString();
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayString = yesterday.toDateString();
+            
+            // 移除昨天及更早的掛號記錄
+            const originalLength = appointments.length;
+            appointments = appointments.filter(apt => {
+                const appointmentDate = new Date(apt.appointmentTime).toDateString();
+                return appointmentDate >= today; // 只保留今天及以後的掛號
+            });
+            
+            // 如果有清除記錄，保存到本地儲存
+            if (appointments.length < originalLength) {
+                localStorage.setItem('appointments', JSON.stringify(appointments));
+                console.log(`已清除 ${originalLength - appointments.length} 筆過期掛號記錄`);
+            }
+        }
+
         // 載入今日掛號列表
         function loadTodayAppointments() {
+            // 先清空過期掛號
+            clearOldAppointments();
+            
             const today = new Date().toDateString();
-            const todayAppointments = appointments.filter(apt => 
+            let todayAppointments = appointments.filter(apt => 
                 new Date(apt.appointmentTime).toDateString() === today
-            ).sort((a, b) => new Date(a.appointmentTime) - new Date(b.appointmentTime));
+            );
+            
+            // 如果當前用戶是醫師，只顯示掛給自己的病人
+            if (currentUserData && currentUserData.position === '醫師') {
+                todayAppointments = todayAppointments.filter(apt => 
+                    apt.appointmentDoctor === currentUserData.username
+                );
+            }
+            
+            // 按時間排序
+            todayAppointments.sort((a, b) => new Date(a.appointmentTime) - new Date(b.appointmentTime));
             
             const tbody = document.getElementById('todayAppointmentsList');
             document.getElementById('todayTotal').textContent = todayAppointments.length;
             
             if (todayAppointments.length === 0) {
+                const message = currentUserData && currentUserData.position === '醫師' 
+                    ? '今日暫無掛給您的病人' 
+                    : '今日暫無掛號記錄';
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
-                            今日暫無掛號記錄
+                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                            ${message}
                         </td>
                     </tr>
                 `;
@@ -2615,6 +2786,10 @@
                 const patient = patients.find(p => p.id === appointment.patientId);
                 if (!patient) return '';
                 
+                // 獲取掛號醫師資訊
+                const appointmentDoctor = users.find(u => u.username === appointment.appointmentDoctor);
+                const doctorName = appointmentDoctor ? `${appointmentDoctor.name}醫師` : '未指定醫師';
+                
                 const statusInfo = getStatusInfo(appointment.status);
                 const operationButtons = getOperationButtons(appointment);
                 
@@ -2624,6 +2799,9 @@
                         <td class="px-4 py-3 text-sm font-medium text-gray-900">
                             ${patient.name}
                             <div class="text-xs text-gray-500">${patient.patientNumber}</div>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-900">
+                            <div class="font-medium text-blue-600">${doctorName}</div>
                         </td>
                         <td class="px-4 py-3 text-sm text-gray-900">
                             ${new Date(appointment.appointmentTime).toLocaleString('zh-TW', {
@@ -2676,6 +2854,15 @@
             
             const isCurrentConsulting = appointment.status === 'consulting';
             
+            // 檢查當前用戶是否為該掛號的醫師
+            const isAppointmentDoctor = currentUserData && 
+                currentUserData.position === '醫師' && 
+                appointment.appointmentDoctor === currentUserData.username;
+            
+            // 檢查當前用戶是否為管理員或護理師（可以進行管理操作）
+            const canManage = currentUserData && 
+                (currentUserData.position === '診所管理' || currentUserData.position === '護理師');
+            
             // 所有狀態都可以查看診症記錄
             buttons.push(`<button onclick="viewPatientMedicalHistory(${appointment.patientId})" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition duration-200">診症記錄</button>`);
             
@@ -2695,24 +2882,34 @@
             switch (appointment.status) {
                 case 'registered':
                     if (isDisabled) {
-                        buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>確認到達</span>`);
-                        buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>移除掛號</span>`);
+                        if (canManage) {
+                            buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>確認到達</span>`);
+                            buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>移除掛號</span>`);
+                        }
                     } else {
-                        buttons.push(`<button onclick="confirmPatientArrival(${appointment.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs transition duration-200">確認到達</button>`);
-                        buttons.push(`<button onclick="removeAppointment(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">移除掛號</button>`);
+                        if (canManage) {
+                            buttons.push(`<button onclick="confirmPatientArrival(${appointment.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs transition duration-200">確認到達</button>`);
+                            buttons.push(`<button onclick="removeAppointment(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">移除掛號</button>`);
+                        }
                     }
                     break;
                     
                 case 'waiting':
                     if (isDisabled) {
-                        buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>開始診症</span>`);
+                        if (isAppointmentDoctor) {
+                            buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>開始診症</span>`);
+                        }
                     } else {
-                        buttons.push(`<button onclick="startConsultation(${appointment.id})" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition duration-200">開始診症</button>`);
+                        if (isAppointmentDoctor) {
+                            buttons.push(`<button onclick="startConsultation(${appointment.id})" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition duration-200">開始診症</button>`);
+                        }
                     }
                     break;
                     
                 case 'consulting':
-                    buttons.push(`<button onclick="continueConsultation(${appointment.id})" class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs transition duration-200">繼續診症</button>`);
+                    if (isAppointmentDoctor) {
+                        buttons.push(`<button onclick="continueConsultation(${appointment.id})" class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs transition duration-200">繼續診症</button>`);
+                    }
                     break;
                     
                 case 'completed':
@@ -2722,11 +2919,19 @@
                     buttons.push(`<button onclick="printSickLeaveFromAppointment(${appointment.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition duration-200">病假證明</button>`);
                     
                     if (isDisabled) {
-                        buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>修改病歷</span>`);
-                        buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>撤回診症</span>`);
+                        if (isAppointmentDoctor) {
+                            buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>修改病歷</span>`);
+                        }
+                        if (canManage) {
+                            buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>撤回診症</span>`);
+                        }
                     } else {
-                        buttons.push(`<button onclick="editMedicalRecord(${appointment.id})" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs transition duration-200">修改病歷</button>`);
-                        buttons.push(`<button onclick="withdrawConsultation(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">撤回診症</button>`);
+                        if (isAppointmentDoctor) {
+                            buttons.push(`<button onclick="editMedicalRecord(${appointment.id})" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs transition duration-200">修改病歷</button>`);
+                        }
+                        if (canManage) {
+                            buttons.push(`<button onclick="withdrawConsultation(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">撤回診症</button>`);
+                        }
                     }
                     break;
                     
@@ -2860,6 +3065,12 @@
                 return;
             }
             
+            // 檢查當前用戶是否為該掛號的醫師
+            if (!currentUserData || currentUserData.position !== '醫師' || appointment.appointmentDoctor !== currentUserData.username) {
+                showToast('只有該掛號的醫師才能開始診症！', 'error');
+                return;
+            }
+            
             // 詳細狀態檢查和診斷
             console.log(`開始診症狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}`);
             
@@ -2881,10 +3092,11 @@
                 showToast(`${patient.name} 已自動確認到達`, 'info');
             }
             
-            // 檢查是否已有其他病人在診症中
+            // 檢查是否已有其他病人在診症中（只檢查同一醫師的病人）
             const consultingAppointment = appointments.find(apt => 
                 apt.status === 'consulting' && 
                 apt.id !== appointmentId &&
+                apt.appointmentDoctor === currentUserData.username &&
                 new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
             );
             
@@ -2892,7 +3104,7 @@
                 const consultingPatient = patients.find(p => p.id === consultingAppointment.patientId);
                 const consultingPatientName = consultingPatient ? consultingPatient.name : '未知病人';
                 
-                if (confirm(`目前 ${consultingPatientName} 正在診症中。\n\n是否要結束該病人的診症並開始為 ${patient.name} 診症？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`)) {
+                if (confirm(`您目前正在為 ${consultingPatientName} 診症。\n\n是否要結束該病人的診症並開始為 ${patient.name} 診症？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`)) {
                     // 結束當前診症的病人
                     consultingAppointment.status = 'waiting';
                     delete consultingAppointment.consultationStartTime;
@@ -4066,8 +4278,8 @@
                     <div class="receipt-container">
                         <!-- 診所標題 -->
                         <div class="clinic-header">
-                            <div class="clinic-name">${clinicSettings.chineseName || '中醫診所'}</div>
-                            <div class="clinic-subtitle">${clinicSettings.englishName || 'Traditional Chinese Medicine Clinic'}</div>
+                            <div class="clinic-name">${clinicSettings.chineseName || '123456'}</div>
+                            <div class="clinic-subtitle">${clinicSettings.englishName || '123456 Clinic'}</div>
                             <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                         </div>
                         
@@ -4469,8 +4681,8 @@
                         <div class="content">
                             <!-- 診所標題 -->
                             <div class="clinic-header">
-                                <div class="clinic-name">${clinicSettings.chineseName || '中醫診所'}</div>
-                                <div class="clinic-subtitle">${clinicSettings.englishName || 'Traditional Chinese Medicine Clinic'}</div>
+                                <div class="clinic-name">${clinicSettings.chineseName || '123456'}</div>
+                                <div class="clinic-subtitle">${clinicSettings.englishName || '123456 Clinic'}</div>
                                 <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                             </div>
                             
@@ -4788,8 +5000,8 @@
                         <div class="content">
                             <!-- 診所標題 -->
                             <div class="clinic-header">
-                                <div class="clinic-name">${clinicSettings.chineseName || '中醫診所'}</div>
-                                <div class="clinic-subtitle">${clinicSettings.englishName || 'Traditional Chinese Medicine Clinic'}</div>
+                                <div class="clinic-name">${clinicSettings.chineseName || '123456'}</div>
+                                <div class="clinic-subtitle">${clinicSettings.englishName || '123456 Clinic'}</div>
                                 <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                             </div>
                             
@@ -7329,6 +7541,9 @@
 
         // 初始化系統
         document.addEventListener('DOMContentLoaded', function() {
+            // 系統啟動時清空過期掛號
+            clearOldAppointments();
+            
             updateStatistics();
             updateClinicSettingsDisplay();
             
@@ -7341,5 +7556,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96a54ab030996e49',t:'MTc1NDM4NjM5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96a58cc7c3b1dd9c',t:'MTc1NDM4OTEwMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
