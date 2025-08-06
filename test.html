@@ -1223,8 +1223,13 @@
                         </div>
                     </div>
                 </div>
+                
+            <!-- 財務報表 -->
+            <div id="financialReports" class="hidden bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">財務報表</h2>
+                <!-- 報表內容將在此處動態載入 -->
             </div>
-        </div>
+        </div> <!-- 這個 div 結束了 mainSystem 區域 -->
     </div>
 
     <!-- 診所資料修改彈窗 -->
@@ -2150,7 +2155,8 @@
                 herbLibrary: { title: '中藥庫管理', icon: '🌿', description: '管理中藥材及方劑資料' },
                 billingManagement: { title: '收費項目管理', icon: '💰', description: '管理診療費用及收費項目' },
                 userManagement: { title: '診所用戶管理', icon: '👤', description: '管理診所用戶帳號及權限' },
-                systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' }
+                systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' },
+                financialReports: { title: '財務報表', icon: '📊', description: '查看診所的財務統計與分析' }
             };
             
             allPermissions.forEach(permission => {
@@ -2190,6 +2196,11 @@
                 loadBillingManagement();
             } else if (sectionId === 'userManagement') {
                 loadUserManagement();
+            } else if (sectionId === 'systemManagement') { // 找到 systemManagement 的分支
+                updateStatistics(); // 呼叫現有的統計更新函數
+                updateClinicSettingsDisplay(); // 呼叫現有的診所設定顯示更新函數
+            } else if (sectionId === 'financialReports') { // 新增的判斷分支
+                loadFinancialReports(); // 呼叫新的函數
             }
         }
 
@@ -7562,6 +7573,43 @@
                 }, 100);
             }
         });
+        // 財務報表功能 (簡化版)
+        function loadFinancialReports() {
+                const reportsContainer = document.getElementById('financialReports');
+                if (!reportsContainer) return;
+
+                // 清空現有內容 (除了標題)
+                reportsContainer.innerHTML = '<h2 class="text-2xl font-bold text-gray-800 mb-6">財務報表</h2>';
+
+                // 獲取已完成的診症記錄
+                const completedConsultations = consultations.filter(consultation => consultation.status === 'completed');
+
+                // 顯示總診症數
+                reportsContainer.innerHTML += `<p class="text-gray-600 mb-2">總診症次數：<span class="font-semibold text-blue-600">${completedConsultations.length}</span></p>`;
+
+                // 計算預估總收入
+                let totalRevenue = 0;
+                completedConsultations.forEach(consultation => {
+                    if (consultation.billingItems) {
+                        // 簡單解析 billingItems 字串並累加總費用
+                        const lines = consultation.billingItems.split('\n');
+                        lines.forEach(line => {
+                            if (line.includes('總費用：$')) {
+                                const match = line.match(/總費用：\$(\d+)/);
+                                if (match && match[1]) {
+                                    totalRevenue += parseInt(match[1]);
+                                }
+                            }
+                        });
+                    }
+                });
+
+                // 顯示預估總收入
+                reportsContainer.innerHTML += `<p class="text-gray-600">預估總收入：<span class="font-semibold text-green-600">$${totalRevenue}</span></p>`;
+
+                // TODO: 可以根據需要添加更多簡單的統計信息
+            }
+
     </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96abf25724ae0514',t:'MTc1NDQ1NjE3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
