@@ -1223,6 +1223,10 @@
                         </div>
                     </div>
                 </div>
+            <!-- 財務報表 -->
+            <div id="financialReport" class="hidden bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">財務報表</h2>
+                <!-- 財務報表內容將在這裡添加 -->
             </div>
         </div>
     </div>
@@ -2047,7 +2051,7 @@
         }
 
         // 所有用戶都有完整權限
-        const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'systemManagement'];
+        const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'systemManagement', 'financialReport']; // 新增 financialReport
 
         // 主要登入功能
         function attemptMainLogin() {
@@ -2151,6 +2155,7 @@
                 billingManagement: { title: '收費項目管理', icon: '💰', description: '管理診療費用及收費項目' },
                 userManagement: { title: '診所用戶管理', icon: '👤', description: '管理診所用戶帳號及權限' },
                 systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' }
+                financialReport: { title: '財務報表', icon: '📊', description: '查看診所財務統計及報表' } // 新增的財務報表項目
             };
             
             allPermissions.forEach(permission => {
@@ -2190,6 +2195,8 @@
                 loadBillingManagement();
             } else if (sectionId === 'userManagement') {
                 loadUserManagement();
+            } else if (sectionId === 'financialReport') { // 新增財務報表頁面切換邏輯
+                loadFinancialReport(); // 呼叫載入財務報表的函數
             }
         }
 
@@ -7544,6 +7551,61 @@
             }
         }
 
+// ====== 財務報表功能 ======
+
+function loadFinancialReport() {
+            console.log('載入財務報表'); // 用於確認函數是否執行
+
+            // 計算總診症次數
+            const totalConsultations = consultations.length;
+
+            // 計算總收入
+            let totalRevenue = 0;
+
+            consultations.forEach(consultation => {
+                if (consultation.billingItems) {
+                    const billingLines = consultation.billingItems.split('\\n');
+                    billingLines.forEach(line => {
+                        line = line.trim();
+                        if (line.includes('總費用')) {
+                            const match = line.match(/\\$(\\d+)/);
+                            if (match && match[1]) {
+                                totalRevenue += parseInt(match[1]);
+                            }
+                        }
+                    });
+                }
+            });
+
+            // 在網頁上顯示結果
+            const financialReportSection = document.getElementById('financialReport');
+
+            // 清空現有的內容（只保留標題）
+            financialReportSection.innerHTML = `
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">財務報表</h2>
+                <!-- 財務報表內容將在這裡添加 -->
+            `;
+
+            // 添加顯示總數和總收入的內容
+            const reportContentHtml = `
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-blue-50 rounded-lg p-6 text-center">
+                            <div class="text-2xl font-bold text-blue-600">${totalConsultations}</div>
+                            <div class="text-sm text-blue-800">總診症次數</div>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-6 text-center">
+                            <div class="text-2xl font-bold text-green-600">HK$ ${totalRevenue.toLocaleString()}</div>
+                            <div class="text-sm text-green-800">總收入</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            financialReportSection.innerHTML += reportContentHtml;
+        }
+
+        // ... (這裡是你之前已經存在的其他 JavaScript 函數的程式碼) ...
 
 
         // 初始化系統
