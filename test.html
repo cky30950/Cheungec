@@ -68,8 +68,8 @@
         <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
             <div class="text-center mb-8">
                 <div class="text-4xl mb-4">🏥</div>
-                <h1 id="loginTitle" class="text-2xl font-bold text-gray-800 mb-2">中醫診所</h1>
-                <p id="loginEnglishTitle" class="text-sm text-gray-500 mb-3">Traditional Chinese Medicine Clinic</p>
+                <h1 id="loginTitle" class="text-2xl font-bold text-gray-800 mb-2">12334</h1>
+                <p id="loginEnglishTitle" class="text-sm text-gray-500 mb-3">12334 Clinic</p>
                 <p class="text-gray-600">請輸入您的帳號密碼登入</p>
             </div>
             
@@ -167,8 +167,8 @@
                         </button>
                         <span class="text-2xl mr-3">🏥</span>
                         <div>
-                            <h1 id="systemTitle" class="text-xl font-bold text-gray-800">中醫診所</h1>
-                            <p id="systemEnglishTitle" class="text-xs text-gray-500">Traditional Chinese Medicine Clinic</p>
+                            <h1 id="systemTitle" class="text-xl font-bold text-gray-800">12334</h1>
+                            <p id="systemEnglishTitle" class="text-xs text-gray-500">12334 Clinic</p>
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -186,8 +186,8 @@
             <!-- 歡迎頁面 -->
             <div id="welcomePage" class="text-center py-16">
                 <div class="text-6xl mb-6">🏥</div>
-                <h2 id="welcomeTitle" class="text-3xl font-bold text-gray-800 mb-2">歡迎使用中醫診所</h2>
-                <p id="welcomeEnglishTitle" class="text-lg text-gray-500 mb-4">Welcome to Traditional Chinese Medicine Clinic</p>
+                <h2 id="welcomeTitle" class="text-3xl font-bold text-gray-800 mb-2">歡迎使用12334</h2>
+                <p id="welcomeEnglishTitle" class="text-lg text-gray-500 mb-4">Welcome to 12334 Clinic</p>
                 <p class="text-gray-600 text-lg mb-8">請點擊左上角選單按鈕開始使用系統功能</p>
                 <div class="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto">
                     <h3 class="text-xl font-semibold mb-4">系統功能概覽</h3>
@@ -211,11 +211,6 @@
                             <div class="text-2xl mb-2">⚙️</div>
                             <div class="font-semibold">系統管理</div>
                             <div class="text-gray-600 mt-1">統計資料、備份匯出</div>
-                        </div>
-                        <div class="text-center p-4 bg-red-50 rounded-lg">
-                            <div class="text-2xl mb-2">⚙️</div>
-                            <div class="font-semibold">財務報表</div>
-                            <div class="text-gray-600 mt-1">查看報表</div>
                         </div>
                     </div>
                 </div>
@@ -1178,7 +1173,7 @@
             <!-- 系統管理 -->
             <div id="systemManagement" class="hidden bg-white rounded-xl shadow-lg p-6">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6">系統管理</h2>
-
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="bg-gray-50 rounded-lg p-6">
                         <h3 class="text-lg font-semibold mb-4">診所統計</h3>
@@ -1203,8 +1198,8 @@
                         <div class="space-y-3">
                             <div class="text-center py-4" id="clinicSettingsDisplay">
                                 <div class="text-sm text-gray-700 mb-3">
-                                    <div class="font-medium">診所中文名稱：<span id="displayChineseName">中醫診所</span></div>
-                                    <div class="text-gray-600 mt-1">診所英文名稱：<span id="displayEnglishName">Traditional Chinese Medicine Clinic</span></div>
+                                    <div class="font-medium">診所中文名稱：<span id="displayChineseName">12334</span></div>
+                                    <div class="text-gray-600 mt-1">診所英文名稱：<span id="displayEnglishName">12334 Clinic</span></div>
                                 </div>
                                 <button onclick="showClinicSettingsModal()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-200">
                                     診所資料修改
@@ -1228,10 +1223,6 @@
                         </div>
                     </div>
                 </div>
-            <!-- 財務報表 -->
-            <div id="financialReport" class="hidden bg-white rounded-xl shadow-lg p-6">
-                <h2 class="text-2xl font-bold text-gray-800 mb-6">財務報表</h2>
-                <!-- 財務報表內容將在這裡添加 -->
             </div>
         </div>
     </div>
@@ -1292,8 +1283,8 @@
         // 診所設定
         let clinicSettings = JSON.parse(localStorage.getItem('clinicSettings') || '{}');
         if (!clinicSettings.chineseName) {
-            clinicSettings.chineseName = '123456789';
-            clinicSettings.englishName = '123456789 Clinic';
+            clinicSettings.chineseName = '12334';
+            clinicSettings.englishName = '12334 Clinic';
             clinicSettings.businessHours = '週一至週五 09:00-18:00';
             clinicSettings.phone = '(852) 2345-6789';
             clinicSettings.address = '香港中環皇后大道中123號';
@@ -2056,8 +2047,7 @@
         }
 
         // 所有用戶都有完整權限
-        const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'systemManagement', 'financialReport']; // 新增 financialReport
-
+        const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'systemManagement'];
 
         // 主要登入功能
         function attemptMainLogin() {
@@ -2160,10 +2150,8 @@
                 herbLibrary: { title: '中藥庫管理', icon: '🌿', description: '管理中藥材及方劑資料' },
                 billingManagement: { title: '收費項目管理', icon: '💰', description: '管理診療費用及收費項目' },
                 userManagement: { title: '診所用戶管理', icon: '👤', description: '管理診所用戶帳號及權限' },
-                systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' },
-                financialReport: { title: '財務報表', icon: '📊', description: '查看診所財務統計及報表' } 
+                systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' }
             };
-
             
             allPermissions.forEach(permission => {
                 const item = menuItems[permission];
@@ -2202,10 +2190,7 @@
                 loadBillingManagement();
             } else if (sectionId === 'userManagement') {
                 loadUserManagement();
-            } else if (sectionId === 'financialReport') { // 新增財務報表頁面切換邏輯
-                loadFinancialReport(); // 呼叫載入財務報表的函數
             }
-
         }
 
         // 隱藏所有區域
@@ -2878,6 +2863,9 @@
             const canManage = currentUserData && 
                 (currentUserData.position === '診所管理' || currentUserData.position === '護理師');
             
+            // 檢查當前用戶是否可以確認到達（管理員、護理師或該掛號的醫師）
+            const canConfirmArrival = canManage || isAppointmentDoctor;
+            
             // 所有狀態都可以查看診症記錄
             buttons.push(`<button onclick="viewPatientMedicalHistory(${appointment.patientId})" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition duration-200">診症記錄</button>`);
             
@@ -2897,13 +2885,17 @@
             switch (appointment.status) {
                 case 'registered':
                     if (isDisabled) {
-                        if (canManage) {
+                        if (canConfirmArrival) {
                             buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>確認到達</span>`);
+                        }
+                        if (canManage) {
                             buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>移除掛號</span>`);
                         }
                     } else {
-                        if (canManage) {
+                        if (canConfirmArrival) {
                             buttons.push(`<button onclick="confirmPatientArrival(${appointment.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs transition duration-200">確認到達</button>`);
+                        }
+                        if (canManage) {
                             buttons.push(`<button onclick="removeAppointment(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">移除掛號</button>`);
                         }
                     }
@@ -4293,8 +4285,8 @@
                     <div class="receipt-container">
                         <!-- 診所標題 -->
                         <div class="clinic-header">
-                            <div class="clinic-name">${clinicSettings.chineseName || '123456789'}</div>
-                            <div class="clinic-subtitle">${clinicSettings.englishName || '123456789 Clinic'}</div>
+                            <div class="clinic-name">${clinicSettings.chineseName || '12334'}</div>
+                            <div class="clinic-subtitle">${clinicSettings.englishName || '12334 Clinic'}</div>
                             <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                         </div>
                         
@@ -4696,8 +4688,8 @@
                         <div class="content">
                             <!-- 診所標題 -->
                             <div class="clinic-header">
-                                <div class="clinic-name">${clinicSettings.chineseName || '123456789'}</div>
-                                <div class="clinic-subtitle">${clinicSettings.englishName || '123456789 Clinic'}</div>
+                                <div class="clinic-name">${clinicSettings.chineseName || '1233455'}</div>
+                                <div class="clinic-subtitle">${clinicSettings.englishName || '1233455 Clinic'}</div>
                                 <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                             </div>
                             
@@ -5015,8 +5007,8 @@
                         <div class="content">
                             <!-- 診所標題 -->
                             <div class="clinic-header">
-                                <div class="clinic-name">${clinicSettings.chineseName || '123456789'}</div>
-                                <div class="clinic-subtitle">${clinicSettings.englishName || '123456789 Clinic'}</div>
+                                <div class="clinic-name">${clinicSettings.chineseName || '1233455'}</div>
+                                <div class="clinic-subtitle">${clinicSettings.englishName || '1233455 Clinic'}</div>
                                 <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                             </div>
                             
@@ -5450,40 +5442,40 @@
             const englishNameSpan = document.getElementById('displayEnglishName');
             
             if (chineseNameSpan) {
-                chineseNameSpan.textContent = clinicSettings.chineseName || '123456789';
+                chineseNameSpan.textContent = clinicSettings.chineseName || '1233455';
             }
             if (englishNameSpan) {
-                englishNameSpan.textContent = clinicSettings.englishName || '123456789 Clinic';
+                englishNameSpan.textContent = clinicSettings.englishName || '1233455 Clinic';
             }
             
             // 更新登入頁面的診所名稱
             const loginTitle = document.getElementById('loginTitle');
             const loginEnglishTitle = document.getElementById('loginEnglishTitle');
             if (loginTitle) {
-                loginTitle.textContent = clinicSettings.chineseName || '123456789';
+                loginTitle.textContent = clinicSettings.chineseName || '1233455';
             }
             if (loginEnglishTitle) {
-                loginEnglishTitle.textContent = clinicSettings.englishName || '123456789 Clinic';
+                loginEnglishTitle.textContent = clinicSettings.englishName || '1233455 Clinic';
             }
             
             // 更新主頁面的診所名稱
             const systemTitle = document.getElementById('systemTitle');
             const systemEnglishTitle = document.getElementById('systemEnglishTitle');
             if (systemTitle) {
-                systemTitle.textContent = clinicSettings.chineseName || '123456789';
+                systemTitle.textContent = clinicSettings.chineseName || '1233455';
             }
             if (systemEnglishTitle) {
-                systemEnglishTitle.textContent = clinicSettings.englishName || '123456789 Clinic';
+                systemEnglishTitle.textContent = clinicSettings.englishName || '1233455 Clinic';
             }
             
             // 更新歡迎頁面的診所名稱
             const welcomeTitle = document.getElementById('welcomeTitle');
             const welcomeEnglishTitle = document.getElementById('welcomeEnglishTitle');
             if (welcomeTitle) {
-                welcomeTitle.textContent = `歡迎使用${clinicSettings.chineseName || '123456789'}`;
+                welcomeTitle.textContent = `歡迎使用${clinicSettings.chineseName || '1233455'}`;
             }
             if (welcomeEnglishTitle) {
-                welcomeTitle.textContent = `Welcome to ${clinicSettings.englishName || '123456789 Clinic'}`;
+                welcomeEnglishTitle.textContent = `Welcome to ${clinicSettings.englishName || '1233455 Clinic'}`;
             }
         }
 
@@ -7552,81 +7544,7 @@
             }
         }
 
-        // ====== 財務報表功能 ======
 
-        // 這個函數會在點擊側邊選單的「財務報表」時被呼叫
-        function loadFinancialReport() {
-            // 首先，我們需要在控制台輸出一個訊息，確認這個函數被執行了
-            console.log('載入財務報表');
-
-            // 在這裡，我們將會編寫程式碼來：
-            // 1. 從現有的診症記錄 (consultations 陣列) 中讀取數據。
-            // 2. 計算總收入或其他你感興趣的財務指標。
-            // 3. 將計算結果顯示在網頁上的財務報表區塊 (#financialReport)。
-
-            // 由於你目前沒有編碼基礎，我們先從最簡單的部分開始：
-            // 顯示所有診症記錄的總數和總收入。
-
-            // 1. 計算總診症次數
-            const totalConsultations = consultations.length;
-
-            // 2. 計算總收入
-            let totalRevenue = 0;
-
-            // 遍歷每一條診症記錄
-            consultations.forEach(consultation => {
-                // 檢查這條記錄是否有收費項目
-                if (consultation.billingItems) {
-                    // 收費項目是文字格式，我們需要解析它
-                    const billingLines = consultation.billingItems.split('\\n');
-
-                    billingLines.forEach(line => {
-                        line = line.trim();
-                        // 尋找包含「總費用」的行，提取金額
-                        if (line.includes('總費用')) {
-                            const match = line.match(/\\$(\\d+)/); // 使用正則表達式提取數字
-                            if (match && match[1]) {
-                                totalRevenue += parseInt(match[1]); // 將提取到的金額轉換為數字並加到總收入
-                            }
-                        }
-                    });
-                }
-            });
-
-            // 3. 在網頁上顯示結果
-            // 我們需要找到之前在步驟 3 添加的財務報表區塊 (#financialReport)
-            const financialReportSection = document.getElementById('financialReport');
-
-            // 清空現有的內容（只保留標題）
-            financialReportSection.innerHTML = `
-                <h2 class="text-2xl font-bold text-gray-800 mb-6">財務報表</h2>
-                <!-- 財務報表內容將在這裡添加 -->
-            `; // 重新設置 HTML，保留標題
-
-            // 添加顯示總數和總收入的內容
-            const reportContentHtml = `
-                <div class="bg-white rounded-xl shadow-lg p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="bg-blue-50 rounded-lg p-6 text-center">
-                            <div class="text-2xl font-bold text-blue-600">${totalConsultations}</div>
-                            <div class="text-sm text-blue-800">總診症次數</div>
-                        </div>
-                        <div class="bg-green-50 rounded-lg p-6 text-center">
-                            <div class="text-2xl font-bold text-green-600">HK$ ${totalRevenue.toLocaleString()}</div>
-                            <div class="text-sm text-green-800">總收入</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            // 將生成的 HTML 添加到財務報表區塊中
-            financialReportSection.innerHTML += reportContentHtml;
-
-
-            // 你可以在這裡添加更多的程式碼來計算和顯示其他財務指標，
-            // 例如按日期範圍、按收費項目類別等進行統計。
-
-        }
 
         // 初始化系統
         document.addEventListener('DOMContentLoaded', function() {
@@ -7645,5 +7563,5 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96a64690b65ce2e7',t:'MTc1NDM5NjcxMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96abf25724ae0514',t:'MTc1NDQ1NjE3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
