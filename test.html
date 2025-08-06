@@ -2497,6 +2497,61 @@
             document.getElementById('patientDetailModal').classList.add('hidden');
         }
 
+// ====== 財務報表功能 ======
+
+function loadFinancialReport() {
+            console.log('載入財務報表'); // 用於確認函數是否執行
+
+            // 計算總診症次數
+            const totalConsultations = consultations.length;
+
+            // 計算總收入
+            let totalRevenue = 0;
+
+            consultations.forEach(consultation => {
+                if (consultation.billingItems) {
+                    const billingLines = consultation.billingItems.split('\\n');
+                    billingLines.forEach(line => {
+                        line = line.trim();
+                        if (line.includes('總費用')) {
+                            const match = line.match(/\\$(\\d+)/);
+                            if (match && match[1]) {
+                                totalRevenue += parseInt(match[1]);
+                            }
+                        }
+                    });
+                }
+            });
+
+            // 在網頁上顯示結果
+            const financialReportSection = document.getElementById('financialReport');
+
+            // 清空現有的內容（只保留標題）
+            financialReportSection.innerHTML = `
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">財務報表</h2>
+                <!-- 財務報表內容將在這裡添加 -->
+            `;
+
+            // 添加顯示總數和總收入的內容
+            const reportContentHtml = `
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-blue-50 rounded-lg p-6 text-center">
+                            <div class="text-2xl font-bold text-blue-600">${totalConsultations}</div>
+                            <div class="text-sm text-blue-800">總診症次數</div>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-6 text-center">
+                            <div class="text-2xl font-bold text-green-600">HK$ ${totalRevenue.toLocaleString()}</div>
+                            <div class="text-sm text-green-800">總收入</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            financialReportSection.innerHTML += reportContentHtml;
+        }
+
+        // ... (這裡是你之前已經存在的其他 JavaScript 函數的程式碼) ...
 
 
 
@@ -7549,58 +7604,6 @@
                 displayUsers();
                 showToast(`用戶「${user.name}」已刪除！`, 'success');
             }
-        }
-
-        function loadFinancialReport() {
-            console.log('載入財務報表'); // 用於確認函數是否執行
-
-            // 計算總診症次數
-            const totalConsultations = consultations.length;
-
-            // 計算總收入
-            let totalRevenue = 0;
-
-            consultations.forEach(consultation => {
-                if (consultation.billingItems) {
-                    const billingLines = consultation.billingItems.split('\\n');
-                    billingLines.forEach(line => {
-                        line = line.trim();
-                        if (line.includes('總費用')) {
-                            const match = line.match(/\\$(\\d+)/);
-                            if (match && match[1]) {
-                                totalRevenue += parseInt(match[1]);
-                            }
-                        }
-                    });
-                }
-            });
-
-            // 在網頁上顯示結果
-            const financialReportSection = document.getElementById('financialReport');
-
-            // 清空現有的內容（只保留標題）
-            financialReportSection.innerHTML = `
-                <h2 class="text-2xl font-bold text-gray-800 mb-6">財務報表</h2>
-                <!-- 財務報表內容將在這裡添加 -->
-            `;
-
-            // 添加顯示總數和總收入的內容
-            const reportContentHtml = `
-                <div class="bg-white rounded-xl shadow-lg p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="bg-blue-50 rounded-lg p-6 text-center">
-                            <div class="text-2xl font-bold text-blue-600">${totalConsultations}</div>
-                            <div class="text-sm text-blue-800">總診症次數</div>
-                        </div>
-                        <div class="bg-green-50 rounded-lg p-6 text-center">
-                            <div class="text-2xl font-bold text-green-600">HK$ ${totalRevenue.toLocaleString()}</div>
-                            <div class="text-sm text-green-800">總收入</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            financialReportSection.innerHTML += reportContentHtml;
         }
 
         // 初始化系統
