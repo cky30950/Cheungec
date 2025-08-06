@@ -212,6 +212,11 @@
                             <div class="font-semibold">系統管理</div>
                             <div class="text-gray-600 mt-1">統計資料、備份匯出</div>
                         </div>
+                        <div class="text-center p-4 bg-red-50 rounded-lg">
+                            <div class="text-2xl mb-2">⚙️</div>
+                            <div class="font-semibold">財務報表</div>
+                            <div class="text-gray-600 mt-1">查看報表</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1173,7 +1178,7 @@
             <!-- 系統管理 -->
             <div id="systemManagement" class="hidden bg-white rounded-xl shadow-lg p-6">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6">系統管理</h2>
-                
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="bg-gray-50 rounded-lg p-6">
                         <h3 class="text-lg font-semibold mb-4">診所統計</h3>
@@ -1223,6 +1228,10 @@
                         </div>
                     </div>
                 </div>
+            <!-- 財務報表 -->
+            <div id="financialReport" class="hidden bg-white rounded-xl shadow-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">財務報表</h2>
+                <!-- 財務報表內容將在這裡添加 -->
             </div>
         </div>
     </div>
@@ -2047,7 +2056,8 @@
         }
 
         // 所有用戶都有完整權限
-        const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'systemManagement'];
+        const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'systemManagement', 'financialReport']; // 新增 financialReport
+
 
         // 主要登入功能
         function attemptMainLogin() {
@@ -2150,8 +2160,10 @@
                 herbLibrary: { title: '中藥庫管理', icon: '🌿', description: '管理中藥材及方劑資料' },
                 billingManagement: { title: '收費項目管理', icon: '💰', description: '管理診療費用及收費項目' },
                 userManagement: { title: '診所用戶管理', icon: '👤', description: '管理診所用戶帳號及權限' },
-                systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' }
+                systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' },
+                financialReport: { title: '財務報表', icon: '📊', description: '查看診所財務統計及報表' } 
             };
+
             
             allPermissions.forEach(permission => {
                 const item = menuItems[permission];
@@ -2190,7 +2202,10 @@
                 loadBillingManagement();
             } else if (sectionId === 'userManagement') {
                 loadUserManagement();
+            } else if (sectionId === 'financialReport') { // 新增財務報表頁面切換邏輯
+                loadFinancialReport(); // 呼叫載入財務報表的函數
             }
+
         }
 
         // 隱藏所有區域
@@ -7537,7 +7552,81 @@
             }
         }
 
+        // ====== 財務報表功能 ======
 
+        // 這個函數會在點擊側邊選單的「財務報表」時被呼叫
+        function loadFinancialReport() {
+            // 首先，我們需要在控制台輸出一個訊息，確認這個函數被執行了
+            console.log('載入財務報表');
+
+            // 在這裡，我們將會編寫程式碼來：
+            // 1. 從現有的診症記錄 (consultations 陣列) 中讀取數據。
+            // 2. 計算總收入或其他你感興趣的財務指標。
+            // 3. 將計算結果顯示在網頁上的財務報表區塊 (#financialReport)。
+
+            // 由於你目前沒有編碼基礎，我們先從最簡單的部分開始：
+            // 顯示所有診症記錄的總數和總收入。
+
+            // 1. 計算總診症次數
+            const totalConsultations = consultations.length;
+
+            // 2. 計算總收入
+            let totalRevenue = 0;
+
+            // 遍歷每一條診症記錄
+            consultations.forEach(consultation => {
+                // 檢查這條記錄是否有收費項目
+                if (consultation.billingItems) {
+                    // 收費項目是文字格式，我們需要解析它
+                    const billingLines = consultation.billingItems.split('\\n');
+
+                    billingLines.forEach(line => {
+                        line = line.trim();
+                        // 尋找包含「總費用」的行，提取金額
+                        if (line.includes('總費用')) {
+                            const match = line.match(/\\$(\\d+)/); // 使用正則表達式提取數字
+                            if (match && match[1]) {
+                                totalRevenue += parseInt(match[1]); // 將提取到的金額轉換為數字並加到總收入
+                            }
+                        }
+                    });
+                }
+            });
+
+            // 3. 在網頁上顯示結果
+            // 我們需要找到之前在步驟 3 添加的財務報表區塊 (#financialReport)
+            const financialReportSection = document.getElementById('financialReport');
+
+            // 清空現有的內容（只保留標題）
+            financialReportSection.innerHTML = `
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">財務報表</h2>
+                <!-- 財務報表內容將在這裡添加 -->
+            `; // 重新設置 HTML，保留標題
+
+            // 添加顯示總數和總收入的內容
+            const reportContentHtml = `
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-blue-50 rounded-lg p-6 text-center">
+                            <div class="text-2xl font-bold text-blue-600">${totalConsultations}</div>
+                            <div class="text-sm text-blue-800">總診症次數</div>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-6 text-center">
+                            <div class="text-2xl font-bold text-green-600">HK$ ${totalRevenue.toLocaleString()}</div>
+                            <div class="text-sm text-green-800">總收入</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // 將生成的 HTML 添加到財務報表區塊中
+            financialReportSection.innerHTML += reportContentHtml;
+
+
+            // 你可以在這裡添加更多的程式碼來計算和顯示其他財務指標，
+            // 例如按日期範圍、按收費項目類別等進行統計。
+
+        }
 
         // 初始化系統
         document.addEventListener('DOMContentLoaded', function() {
