@@ -6873,36 +6873,6 @@
             const item = billingItems.find(b => b.id === itemId);
             if (!item) return;
             
-            // 如果是套票項目，顯示購買確認彈窗
-            if (item.category === 'package') {
-                showPackagePurchaseModal(item);
-                return;
-            }
-            
-            // 一般收費項目的處理
-            const existingIndex = selectedBillingItems.findIndex(b => b.id === itemId);
-            if (existingIndex !== -1) {
-                selectedBillingItems[existingIndex].quantity += 1;
-            } else {
-                const billingItem = {
-                    id: itemId,
-                    name: item.name,
-                    category: item.category,
-                    price: item.price,
-                    unit: item.unit,
-                    description: item.description,
-                    quantity: 1
-                };
-                selectedBillingItems.push(billingItem);
-            }
-            
-            updateBillingDisplay();
-            clearBillingSearch();
-            showToast(`已添加收費項目：${item.name}`, 'success');
-        }
-            const item = billingItems.find(b => b.id === itemId);
-            if (!item) return;
-            
             // 檢查是否已經添加過
             const existingIndex = selectedBillingItems.findIndex(b => b.id === itemId);
             if (existingIndex !== -1) {
