@@ -1,0 +1,3755 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仁心中醫診所 - 傳承千年智慧，守護現代健康</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+        
+        .hero-gradient {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #06b6d4 100%);
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .fade-in {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s ease;
+        }
+        
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .nav-link {
+            position: relative;
+            transition: color 0.3s ease;
+        }
+        
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -5px;
+            left: 50%;
+            background-color: #3b82f6;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-link:hover::after {
+            width: 100%;
+            left: 0;
+        }
+        
+        .floating-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .testimonial-card {
+            background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- 導航欄 -->
+    <nav class="bg-white shadow-lg fixed w-full top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <div class="text-2xl font-bold text-blue-600">🏥 仁心中醫診所</div>
+                </div>
+                <div class="hidden md:flex md:items-center md:space-x-8">
+                    <a href="#home" class="nav-link text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium">首頁</a>
+                    <a href="#about" class="nav-link text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium">關於我們</a>
+                    <a href="#services" class="nav-link text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium">診療項目</a>
+                    <a href="#doctors" class="nav-link text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium">醫師團隊</a>
+                    <a href="#gallery" class="nav-link text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium">診所環境</a>
+                    <a href="#posters" class="nav-link text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium">宣傳畫報</a>
+                    <a href="#news" class="nav-link text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium">最新消息</a>
+                    <a href="#contact" class="nav-link text-gray-700 hover:text-blue-600 px-3 py-2 text-sm font-medium">聯絡我們</a>
+                    <div class="relative">
+                        <button id="admin-menu-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition duration-300 flex items-center">
+                            ⚙️ 管理
+                            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+                        <div id="admin-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border hidden z-50">
+                            <a id="backend-link" href="#" target="_blank" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
+                                🖥️ 後台管理
+                                <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                </svg>
+                            </a>
+                            <button id="login-btn" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                🔐 系統設置
+                            </button>
+                            <button id="logout-btn" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-b-lg hidden">
+                                🚪 登出
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="md:hidden">
+                    <button id="mobile-menu-btn" class="text-gray-700 hover:text-blue-600">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- 手機版選單 -->
+        <div id="mobile-menu" class="md:hidden hidden bg-white border-t">
+            <div class="px-2 pt-2 pb-3 space-y-1">
+                <a href="#home" class="block px-3 py-2 text-gray-700 hover:text-blue-600">首頁</a>
+                <a href="#about" class="block px-3 py-2 text-gray-700 hover:text-blue-600">關於我們</a>
+                <a href="#services" class="block px-3 py-2 text-gray-700 hover:text-blue-600">診療項目</a>
+                <a href="#doctors" class="block px-3 py-2 text-gray-700 hover:text-blue-600">醫師團隊</a>
+                <a href="#gallery" class="block px-3 py-2 text-gray-700 hover:text-blue-600">診所環境</a>
+                <a href="#posters" class="block px-3 py-2 text-gray-700 hover:text-blue-600">宣傳畫報</a>
+                <a href="#news" class="block px-3 py-2 text-gray-700 hover:text-blue-600">最新消息</a>
+                <a href="#contact" class="block px-3 py-2 text-gray-700 hover:text-blue-600">聯絡我們</a>
+                <button id="mobile-admin-btn" class="block w-full text-left px-3 py-2 text-blue-600 hover:text-blue-800 font-medium">
+                    ⚙️ 系統管理
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主視覺區 -->
+    <section id="home" class="hero-gradient text-white pt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <div class="fade-in">
+                    <h1 class="text-4xl md:text-6xl font-bold mb-6">
+                        傳承千年智慧<br>
+                        <span class="text-cyan-300">守護現代健康</span>
+                    </h1>
+                    <p class="text-xl mb-8 text-blue-100">
+                        結合傳統中醫精髓與現代醫學技術，為您提供全方位的健康照護服務。
+                        專業醫師團隊，用心呵護每一位患者的健康。
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button onclick="scrollToSection('contact')" class="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-blue-50 transition duration-300">
+                            立即預約
+                        </button>
+                        <button onclick="scrollToSection('services')" class="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-blue-600 transition duration-300">
+                            了解更多
+                        </button>
+                    </div>
+                </div>
+                <div class="fade-in">
+                    <div class="bg-white/10 backdrop-blur-sm rounded-2xl p-8">
+                        <h3 class="text-2xl font-bold mb-6 text-center">診所資訊</h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center">
+                                <span class="text-2xl mr-3">📍</span>
+                                <span>台北市中正區健康路123號</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-2xl mr-3">📞</span>
+                                <span>(02) 2345-6789</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-2xl mr-3">🕒</span>
+                                <span>週一至週六 09:00-21:00</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-2xl mr-3">🚇</span>
+                                <span>捷運中正紀念堂站 2號出口</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 宣傳畫報 -->
+    <section id="posters" class="py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="mb-8 fade-in"></div>
+
+            <!-- 宣傳畫報滑動容器 -->
+            <div class="relative fade-in">
+                <!-- 左右滑動按鈕 (隱藏) -->
+                <button id="posters-prev" class="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-white shadow-lg rounded-full p-3 hover:bg-gray-50 transition duration-300 hidden">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </button>
+                <button id="posters-next" class="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-white shadow-lg rounded-full p-3 hover:bg-gray-50 transition duration-300 hidden">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+
+                <!-- 滑動區域 -->
+                <div class="overflow-hidden">
+                    <div id="posters-container" class="flex transition-transform duration-500 ease-in-out">
+                        <!-- 畫報將動態生成 -->
+                    </div>
+                </div>
+
+                <!-- 指示點 -->
+                <div id="posters-dots" class="flex justify-center mt-6 space-x-2">
+                    <!-- 指示點將動態生成 -->
+                </div>
+            </div>
+
+            <!-- 畫報查看模態框 -->
+            <div id="poster-modal" class="fixed inset-0 bg-black bg-opacity-75 z-50 hidden flex items-center justify-center p-4">
+                <div class="relative max-w-4xl max-h-full">
+                    <button id="close-poster-modal" class="absolute top-4 right-4 text-white hover:text-gray-300 z-10">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                    <img id="modal-poster" src="" alt="" class="max-w-full max-h-full object-contain rounded-lg">
+                    <div id="modal-poster-info" class="absolute bottom-4 left-4 right-4 text-white text-center bg-black bg-opacity-50 rounded p-4">
+                        <h3 id="modal-poster-title" class="text-xl font-bold mb-2"></h3>
+                        <p id="modal-poster-description" class="text-sm"></p>
+                        <div id="modal-poster-dates" class="text-xs mt-2 opacity-75"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 關於我們 -->
+    <section id="about" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16 fade-in">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">關於仁心中醫</h2>
+                <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                    成立於1985年，三十多年來致力於中醫藥的傳承與創新，
+                    結合現代科學驗證，為患者提供最優質的醫療服務。
+                </p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+                <div class="text-center fade-in card-hover bg-blue-50 p-8 rounded-xl">
+                    <div class="text-5xl mb-4">🏆</div>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-4">專業認證</h3>
+                    <p class="text-gray-600">
+                        所有醫師均具備國家中醫師執照，
+                        並持續接受專業進修訓練
+                    </p>
+                </div>
+                <div class="text-center fade-in card-hover bg-green-50 p-8 rounded-xl">
+                    <div class="text-5xl mb-4">🌿</div>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-4">天然療法</h3>
+                    <p class="text-gray-600">
+                        採用純天然中藥材，
+                        嚴格把關藥材品質與安全性
+                    </p>
+                </div>
+                <div class="text-center fade-in card-hover bg-purple-50 p-8 rounded-xl">
+                    <div class="text-5xl mb-4">❤️</div>
+                    <h3 class="text-2xl font-bold text-gray-900 mb-4">用心服務</h3>
+                    <p class="text-gray-600">
+                        以患者為中心，提供個人化的
+                        診療方案與貼心照護
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl p-8 md:p-12 fade-in">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
+                    <div>
+                        <div class="text-4xl font-bold mb-2">38+</div>
+                        <div class="text-blue-200">年專業經驗</div>
+                    </div>
+                    <div>
+                        <div class="text-4xl font-bold mb-2">15</div>
+                        <div class="text-blue-200">位專業醫師</div>
+                    </div>
+                    <div>
+                        <div class="text-4xl font-bold mb-2">50,000+</div>
+                        <div class="text-blue-200">位滿意患者</div>
+                    </div>
+                    <div>
+                        <div class="text-4xl font-bold mb-2">98%</div>
+                        <div class="text-blue-200">患者推薦率</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 診療項目 -->
+    <section id="services" class="py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16 fade-in">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">診療項目</h2>
+                <p class="text-xl text-gray-600">
+                    提供全方位中醫診療服務，針對不同症狀制定個人化治療方案
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="bg-white rounded-xl shadow-lg p-6 card-hover fade-in">
+                    <div class="text-4xl mb-4">🫁</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">內科調理</h3>
+                    <p class="text-gray-600 mb-4">
+                        感冒、咳嗽、氣喘、胃腸疾病、
+                        高血壓、糖尿病等慢性病調理
+                    </p>
+                    <ul class="text-sm text-gray-500 space-y-1">
+                        <li>• 呼吸系統疾病</li>
+                        <li>• 消化系統調理</li>
+                        <li>• 心血管保健</li>
+                        <li>• 新陳代謝調節</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-6 card-hover fade-in">
+                    <div class="text-4xl mb-4">🦴</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">骨傷科</h3>
+                    <p class="text-gray-600 mb-4">
+                        運動傷害、關節疼痛、腰酸背痛、
+                        頸椎病、骨質疏鬆等治療
+                    </p>
+                    <ul class="text-sm text-gray-500 space-y-1">
+                        <li>• 運動傷害復健</li>
+                        <li>• 關節炎治療</li>
+                        <li>• 脊椎保健</li>
+                        <li>• 筋骨調理</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-6 card-hover fade-in">
+                    <div class="text-4xl mb-4">👩</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">婦科調理</h3>
+                    <p class="text-gray-600 mb-4">
+                        月經不調、更年期症候群、
+                        不孕症調理、產後調養
+                    </p>
+                    <ul class="text-sm text-gray-500 space-y-1">
+                        <li>• 月經週期調理</li>
+                        <li>• 更年期保健</li>
+                        <li>• 孕前調養</li>
+                        <li>• 產後護理</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-6 card-hover fade-in">
+                    <div class="text-4xl mb-4">👶</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">小兒科</h3>
+                    <p class="text-gray-600 mb-4">
+                        小兒感冒、過敏體質調理、
+                        生長發育、注意力不集中
+                    </p>
+                    <ul class="text-sm text-gray-500 space-y-1">
+                        <li>• 過敏性疾病</li>
+                        <li>• 生長發育調理</li>
+                        <li>• 免疫力提升</li>
+                        <li>• 學習專注力</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-6 card-hover fade-in">
+                    <div class="text-4xl mb-4">🧘</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">針灸推拿</h3>
+                    <p class="text-gray-600 mb-4">
+                        傳統針灸、電針、推拿按摩、
+                        拔罐、刮痧等物理治療
+                    </p>
+                    <ul class="text-sm text-gray-500 space-y-1">
+                        <li>• 傳統針灸治療</li>
+                        <li>• 推拿按摩</li>
+                        <li>• 拔罐刮痧</li>
+                        <li>• 穴位敷貼</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-6 card-hover fade-in">
+                    <div class="text-4xl mb-4">💆</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">美容養生</h3>
+                    <p class="text-gray-600 mb-4">
+                        中醫美容、減重調理、
+                        抗衰老、體質改善
+                    </p>
+                    <ul class="text-sm text-gray-500 space-y-1">
+                        <li>• 中醫美容護膚</li>
+                        <li>• 健康減重</li>
+                        <li>• 抗衰老調理</li>
+                        <li>• 體質調養</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 醫師團隊 -->
+    <section id="doctors" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16 fade-in">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">醫師團隊</h2>
+                <p class="text-xl text-gray-600">
+                    經驗豐富的專業醫師團隊，為您的健康把關
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl p-6 card-hover fade-in">
+                    <div class="text-center">
+                        <div class="w-24 h-24 bg-blue-600 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold">
+                            王
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-2">王志明 院長</h3>
+                        <p class="text-blue-600 font-semibold mb-3">中醫內科 / 針灸科</p>
+                        <div class="text-sm text-gray-600 space-y-1 mb-4">
+                            <p>• 中國醫藥大學中醫學系</p>
+                            <p>• 30年臨床經驗</p>
+                            <p>• 中醫內科專科醫師</p>
+                            <p>• 針灸專科醫師</p>
+                        </div>
+                        <p class="text-sm text-gray-700">
+                            專精於慢性病調理、針灸治療，
+                            擅長結合現代醫學診斷與傳統中醫治療
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl p-6 card-hover fade-in">
+                    <div class="text-center">
+                        <div class="w-24 h-24 bg-green-600 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold">
+                            李
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-2">李美華 醫師</h3>
+                        <p class="text-green-600 font-semibold mb-3">婦科 / 小兒科</p>
+                        <div class="text-sm text-gray-600 space-y-1 mb-4">
+                            <p>• 台北醫學大學中醫學系</p>
+                            <p>• 25年臨床經驗</p>
+                            <p>• 中醫婦科專科醫師</p>
+                            <p>• 小兒科專科醫師</p>
+                        </div>
+                        <p class="text-sm text-gray-700">
+                            專精於婦科調理、小兒體質改善，
+                            對於不孕症治療有豐富經驗
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-purple-50 to-violet-100 rounded-xl p-6 card-hover fade-in">
+                    <div class="text-center">
+                        <div class="w-24 h-24 bg-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold">
+                            陳
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-2">陳建宏 醫師</h3>
+                        <p class="text-purple-600 font-semibold mb-3">骨傷科 / 推拿科</p>
+                        <div class="text-sm text-gray-600 space-y-1 mb-4">
+                            <p>• 長庚大學中醫學系</p>
+                            <p>• 20年臨床經驗</p>
+                            <p>• 中醫骨傷科專科醫師</p>
+                            <p>• 推拿專科醫師</p>
+                        </div>
+                        <p class="text-sm text-gray-700">
+                            專精於運動傷害、脊椎疾病治療，
+                            結合推拿手法與現代復健概念
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-orange-50 to-amber-100 rounded-xl p-6 card-hover fade-in">
+                    <div class="text-center">
+                        <div class="w-24 h-24 bg-orange-600 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold">
+                            張
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-2">張雅芳 醫師</h3>
+                        <p class="text-orange-600 font-semibold mb-3">皮膚科 / 美容科</p>
+                        <div class="text-sm text-gray-600 space-y-1 mb-4">
+                            <p>• 義守大學中醫學系</p>
+                            <p>• 15年臨床經驗</p>
+                            <p>• 中醫皮膚科專科醫師</p>
+                            <p>• 美容醫學認證</p>
+                        </div>
+                        <p class="text-sm text-gray-700">
+                            專精於皮膚疾病、中醫美容，
+                            擅長體質調理與抗衰老治療
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-teal-50 to-cyan-100 rounded-xl p-6 card-hover fade-in">
+                    <div class="text-center">
+                        <div class="w-24 h-24 bg-teal-600 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold">
+                            林
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-2">林志強 醫師</h3>
+                        <p class="text-teal-600 font-semibold mb-3">腫瘤科 / 免疫科</p>
+                        <div class="text-sm text-gray-600 space-y-1 mb-4">
+                            <p>• 慈濟大學中醫學系</p>
+                            <p>• 18年臨床經驗</p>
+                            <p>• 中醫腫瘤科專科醫師</p>
+                            <p>• 免疫調節專長</p>
+                        </div>
+                        <p class="text-sm text-gray-700">
+                            專精於腫瘤輔助治療、免疫調節，
+                            致力於提升患者生活品質
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-rose-50 to-pink-100 rounded-xl p-6 card-hover fade-in">
+                    <div class="text-center">
+                        <div class="w-24 h-24 bg-rose-600 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold">
+                            黃
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-2">黃淑惠 醫師</h3>
+                        <p class="text-rose-600 font-semibold mb-3">精神科 / 睡眠科</p>
+                        <div class="text-sm text-gray-600 space-y-1 mb-4">
+                            <p>• 中山醫學大學中醫學系</p>
+                            <p>• 12年臨床經驗</p>
+                            <p>• 中醫精神科專科醫師</p>
+                            <p>• 睡眠醫學認證</p>
+                        </div>
+                        <p class="text-sm text-gray-700">
+                            專精於情緒調理、睡眠障礙治療，
+                            擅長壓力管理與心理健康維護
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 診所環境展示 -->
+    <section id="gallery" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16 fade-in">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">診所環境</h2>
+                <p class="text-xl text-gray-600">
+                    舒適溫馨的就診環境，專業完善的醫療設備
+                </p>
+            </div>
+
+            <!-- 滑動容器 -->
+            <div class="relative fade-in">
+                <!-- 左右滑動按鈕 -->
+                <button id="gallery-prev" class="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-white shadow-lg rounded-full p-3 hover:bg-gray-50 transition duration-300">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </button>
+                <button id="gallery-next" class="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-white shadow-lg rounded-full p-3 hover:bg-gray-50 transition duration-300">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+
+                <!-- 滑動區域 -->
+                <div class="overflow-hidden mx-12">
+                    <div id="gallery-container" class="flex transition-transform duration-500 ease-in-out">
+                        <!-- 圖片將動態生成 -->
+                    </div>
+                </div>
+
+                <!-- 指示點 -->
+                <div id="gallery-dots" class="flex justify-center mt-6 space-x-2">
+                    <!-- 指示點將動態生成 -->
+                </div>
+            </div>
+
+            <!-- 圖片查看模態框 -->
+            <div id="image-modal" class="fixed inset-0 bg-black bg-opacity-75 z-50 hidden flex items-center justify-center p-4">
+                <div class="relative max-w-4xl max-h-full">
+                    <button id="close-image-modal" class="absolute top-4 right-4 text-white hover:text-gray-300 z-10">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                    <img id="modal-image" src="" alt="" class="max-w-full max-h-full object-contain rounded-lg">
+                    <div id="modal-caption" class="absolute bottom-4 left-4 right-4 text-white text-center bg-black bg-opacity-50 rounded p-2"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+
+    <!-- 患者見證 -->
+    <section class="py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16 fade-in">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">患者見證</h2>
+                <p class="text-xl text-gray-600">
+                    真實患者分享，見證中醫的神奇療效
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="testimonial-card rounded-xl p-6 shadow-lg fade-in">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                            陳
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-900">陳小姐</h4>
+                            <p class="text-sm text-gray-600">35歲 / 上班族</p>
+                        </div>
+                    </div>
+                    <div class="text-yellow-400 mb-3">⭐⭐⭐⭐⭐</div>
+                    <p class="text-gray-700 mb-4">
+                        "長期失眠困擾我多年，看了很多醫生都沒有改善。
+                        來到仁心中醫後，黃醫師的調理讓我重新找回好眠，
+                        現在精神狀態比以前好太多了！"
+                    </p>
+                    <p class="text-sm text-gray-500">治療項目：失眠調理</p>
+                </div>
+
+                <div class="testimonial-card rounded-xl p-6 shadow-lg fade-in">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                            王
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-900">王先生</h4>
+                            <p class="text-sm text-gray-600">42歲 / 工程師</p>
+                        </div>
+                    </div>
+                    <div class="text-yellow-400 mb-3">⭐⭐⭐⭐⭐</div>
+                    <p class="text-gray-700 mb-4">
+                        "腰椎間盤突出讓我痛苦不堪，陳醫師的針灸和推拿治療
+                        真的很有效！現在不僅疼痛減輕了，
+                        整個人的活動能力也恢復了。"
+                    </p>
+                    <p class="text-sm text-gray-500">治療項目：腰椎疾病</p>
+                </div>
+
+                <div class="testimonial-card rounded-xl p-6 shadow-lg fade-in">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                            李
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-900">李太太</h4>
+                            <p class="text-sm text-gray-600">38歲 / 家庭主婦</p>
+                        </div>
+                    </div>
+                    <div class="text-yellow-400 mb-3">⭐⭐⭐⭐⭐</div>
+                    <p class="text-gray-700 mb-4">
+                        "備孕兩年都沒有消息，經朋友介紹來找李醫師調理體質。
+                        經過半年的治療，現在已經懷孕三個月了！
+                        真的很感謝李醫師的專業。"
+                    </p>
+                    <p class="text-sm text-gray-500">治療項目：不孕症調理</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 最新消息 -->
+    <section id="news" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16 fade-in">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">最新消息</h2>
+                <p class="text-xl text-gray-600">
+                    掌握最新健康資訊與診所動態
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <article class="bg-white rounded-xl shadow-lg overflow-hidden card-hover fade-in">
+                    <div class="h-48 bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                        <span class="text-6xl">🏥</span>
+                    </div>
+                    <div class="p-6">
+                        <div class="text-sm text-blue-600 font-semibold mb-2">診所公告</div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-3">
+                            春節期間門診時間調整公告
+                        </h3>
+                        <p class="text-gray-600 mb-4">
+                            農曆春節期間（2/8-2/16）門診時間將有所調整，
+                            請患者提前預約，避免久候...
+                        </p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500">2024/01/15</span>
+                            <button class="text-blue-600 hover:text-blue-800 font-semibold">閱讀更多</button>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="bg-white rounded-xl shadow-lg overflow-hidden card-hover fade-in">
+                    <div class="h-48 bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
+                        <span class="text-6xl">🌿</span>
+                    </div>
+                    <div class="p-6">
+                        <div class="text-sm text-green-600 font-semibold mb-2">健康資訊</div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-3">
+                            冬季養生：如何用中醫調理增強免疫力
+                        </h3>
+                        <p class="text-gray-600 mb-4">
+                            冬季是養腎的最佳時機，透過適當的中藥調理
+                            和生活作息調整，可以有效提升身體免疫力...
+                        </p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500">2024/01/10</span>
+                            <button class="text-green-600 hover:text-green-800 font-semibold">閱讀更多</button>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="bg-white rounded-xl shadow-lg overflow-hidden card-hover fade-in">
+                    <div class="h-48 bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
+                        <span class="text-6xl">🎯</span>
+                    </div>
+                    <div class="p-6">
+                        <div class="text-sm text-purple-600 font-semibold mb-2">活動訊息</div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-3">
+                            免費健康講座：中醫養生保健
+                        </h3>
+                        <p class="text-gray-600 mb-4">
+                            本診所將於2月份舉辦免費健康講座，
+                            由王院長親自主講中醫養生保健知識...
+                        </p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500">2024/01/08</span>
+                            <button class="text-purple-600 hover:text-purple-800 font-semibold">閱讀更多</button>
+                        </div>
+                    </div>
+                </article>
+            </div>
+
+            <div class="text-center mt-12 fade-in">
+                <button class="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-300">
+                    查看更多消息
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 聯絡我們 -->
+    <section id="contact" class="py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16 fade-in">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">聯絡我們</h2>
+                <p class="text-xl text-gray-600">
+                    歡迎預約諮詢，我們將竭誠為您服務
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <!-- 聯絡資訊 -->
+                <div class="fade-in">
+                    <div class="bg-white rounded-xl shadow-lg p-8">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-6">診所資訊</h3>
+                        
+                        <div class="space-y-6">
+                            <div class="flex items-start">
+                                <div class="text-2xl mr-4">📍</div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-1">地址</h4>
+                                    <p class="text-gray-600">台北市中正區健康路123號1-3樓</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="text-2xl mr-4">📞</div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-1">電話</h4>
+                                    <p class="text-gray-600">(02) 2345-6789</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="text-2xl mr-4">📧</div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-1">電子信箱</h4>
+                                    <p class="text-gray-600">info@renxin-tcm.com.tw</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="text-2xl mr-4">🕒</div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-1">門診時間</h4>
+                                    <div class="text-gray-600 space-y-1">
+                                        <p>週一至週五：09:00-12:00, 14:00-17:00, 18:00-21:00</p>
+                                        <p>週六：09:00-12:00, 14:00-17:00</p>
+                                        <p>週日：休診</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="text-2xl mr-4">🚇</div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 mb-1">交通資訊</h4>
+                                    <div class="text-gray-600 space-y-1">
+                                        <p>捷運：中正紀念堂站2號出口，步行3分鐘</p>
+                                        <p>公車：15, 18, 236, 295路線</p>
+                                        <p>停車：診所附近有多個付費停車場</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 預約表單 -->
+                <div class="fade-in">
+                    <div class="bg-white rounded-xl shadow-lg p-8">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-6">線上預約</h3>
+                        <p class="text-sm text-gray-600 mb-6">
+                            ⚠️ 此為示範表單，實際預約請致電診所
+                        </p>
+                        
+                        <form class="space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">姓名 *</label>
+                                    <input type="text" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請輸入您的姓名">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">電話 *</label>
+                                    <input type="tel" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請輸入聯絡電話">
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">電子信箱</label>
+                                <input type="email" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請輸入電子信箱">
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">希望預約醫師</label>
+                                    <select class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                        <option>請選擇醫師</option>
+                                        <option>王志明 院長</option>
+                                        <option>李美華 醫師</option>
+                                        <option>陳建宏 醫師</option>
+                                        <option>張雅芳 醫師</option>
+                                        <option>林志強 醫師</option>
+                                        <option>黃淑惠 醫師</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">希望預約日期</label>
+                                    <input type="date" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">症狀描述</label>
+                                <textarea rows="4" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請簡述您的症狀或需求"></textarea>
+                            </div>
+                            
+                            <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-300">
+                                提交預約申請
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 頁尾 -->
+    <footer class="bg-gray-900 text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <div class="text-2xl font-bold mb-4">🏥 仁心中醫診所</div>
+                    <p class="text-gray-400 mb-4">
+                        傳承千年智慧，守護現代健康。
+                        專業中醫團隊，用心呵護每一位患者。
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-gray-400 hover:text-white transition duration-300">📘</a>
+                        <a href="#" class="text-gray-400 hover:text-white transition duration-300">📷</a>
+                        <a href="#" class="text-gray-400 hover:text-white transition duration-300">🐦</a>
+                        <a href="#" class="text-gray-400 hover:text-white transition duration-300">📺</a>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="text-lg font-semibold mb-4">診療項目</h4>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#" class="hover:text-white transition duration-300">內科調理</a></li>
+                        <li><a href="#" class="hover:text-white transition duration-300">骨傷科</a></li>
+                        <li><a href="#" class="hover:text-white transition duration-300">婦科調理</a></li>
+                        <li><a href="#" class="hover:text-white transition duration-300">小兒科</a></li>
+                        <li><a href="#" class="hover:text-white transition duration-300">針灸推拿</a></li>
+                        <li><a href="#" class="hover:text-white transition duration-300">美容養生</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="text-lg font-semibold mb-4">快速連結</h4>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="#about" class="hover:text-white transition duration-300">關於我們</a></li>
+                        <li><a href="#doctors" class="hover:text-white transition duration-300">醫師團隊</a></li>
+                        <li><a href="#news" class="hover:text-white transition duration-300">最新消息</a></li>
+                        <li><a href="#contact" class="hover:text-white transition duration-300">聯絡我們</a></li>
+                        <li><a href="#" class="hover:text-white transition duration-300">健康資訊</a></li>
+                        <li><a href="#" class="hover:text-white transition duration-300">線上掛號</a></li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h4 class="text-lg font-semibold mb-4">聯絡資訊</h4>
+                    <div class="space-y-2 text-gray-400">
+                        <p>📍 台北市中正區健康路123號</p>
+                        <p>📞 (02) 2345-6789</p>
+                        <p>📧 info@renxin-tcm.com.tw</p>
+                        <p>🕒 週一至週六 09:00-21:00</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+                <p>&copy; 2024 仁心中醫診所. 版權所有. | 隱私政策 | 服務條款</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 浮動預約按鈕 -->
+    <div class="floating-btn">
+        <button onclick="scrollToSection('contact')" class="bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition duration-300">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+            </svg>
+        </button>
+    </div>
+
+
+
+    <!-- 登入對話框 -->
+    <div id="login-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900">管理員登入</h2>
+                        <button id="close-login" class="text-gray-500 hover:text-gray-700">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <form id="login-form" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">帳號</label>
+                            <input type="text" id="username" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="請輸入管理員帳號">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">密碼</label>
+                            <input type="password" id="password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="請輸入密碼">
+                        </div>
+                        
+                        <div id="login-error" class="text-red-600 text-sm hidden">帳號或密碼錯誤</div>
+                        
+                        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-300">
+                            登入
+                        </button>
+                    </form>
+                    
+                    <div class="mt-4 text-xs text-gray-500 text-center">
+                        預設帳號：admin / 密碼：123456
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 系統設置面板 -->
+    <div id="settings-panel" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+                    <h2 class="text-2xl font-bold text-gray-900">系統設置</h2>
+                    <button id="close-settings" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <!-- 設置分頁 -->
+                    <div class="border-b mb-6">
+                        <nav class="flex flex-wrap gap-4">
+                            <button class="settings-tab active py-2 px-1 border-b-2 border-blue-600 text-blue-600 font-medium" data-tab="basic">基本設置</button>
+                            <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="appearance">外觀設置</button>
+                            <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="content">內容管理</button>
+                            <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="services">診療項目</button>
+                            <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="doctors">醫師團隊</button>
+                            <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="news">最新消息</button>
+                            <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="testimonials">患者見證</button>
+                            <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="gallery">診所環境</button>
+                            <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="footer">頁尾設置</button>
+                            <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="posters">宣傳畫報</button>
+                            <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="seo">SEO設置</button>
+                        </nav>
+                    </div>
+
+                    <!-- 基本設置分頁 -->
+                    <div id="basic-tab" class="settings-content">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div class="space-y-6">
+                                <h3 class="text-lg font-semibold text-gray-900 border-b pb-2">基本設置</h3>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">診所名稱</label>
+                                <input type="text" id="clinic-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="仁心中醫診所">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">主標題</label>
+                                <input type="text" id="main-title" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="傳承千年智慧">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">副標題</label>
+                                <input type="text" id="sub-title" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="守護現代健康">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">診所地址</label>
+                                <input type="text" id="clinic-address" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="台北市中正區健康路123號">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">聯絡電話</label>
+                                <input type="text" id="clinic-phone" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="(02) 2345-6789">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">電子信箱</label>
+                                <input type="email" id="clinic-email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="info@renxin-tcm.com.tw">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">後台管理連結</label>
+                                <input type="url" id="backend-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="https://admin.example.com">
+                                <p class="text-xs text-gray-500 mt-1">設定後台管理系統的網址，留空則隱藏按鈕</p>
+                            </div>
+                            </div>
+                            
+                            <div class="space-y-6">
+                                <h3 class="text-lg font-semibold text-gray-900 border-b pb-2">聯絡資訊</h3>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">營業時間</label>
+                                    <textarea id="business-hours" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">週一至週六 09:00-21:00</textarea>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">交通資訊</label>
+                                    <textarea id="transport-info" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">捷運中正紀念堂站 2號出口</textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 外觀設置分頁 -->
+                    <div id="appearance-tab" class="settings-content hidden">
+                        <div class="space-y-6">
+                            <h3 class="text-lg font-semibold text-gray-900 border-b pb-2">外觀設置</h3>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">網站風格主題</label>
+                                <select id="theme-style" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="modern">現代風格 (預設)</option>
+                                    <option value="traditional">傳統中醫風格</option>
+                                    <option value="minimalist">極簡風格</option>
+                                    <option value="warm">溫馨風格</option>
+                                    <option value="professional">專業醫療風格</option>
+                                    <option value="nature">自然養生風格</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">主色調</label>
+                                <select id="primary-color" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="blue">藍色 (預設)</option>
+                                    <option value="green">綠色</option>
+                                    <option value="purple">紫色</option>
+                                    <option value="red">紅色</option>
+                                    <option value="indigo">靛藍色</option>
+                                    <option value="teal">青綠色</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">字體大小</label>
+                                <select id="font-size" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="small">小</option>
+                                    <option value="normal" selected>標準</option>
+                                    <option value="large">大</option>
+                                    <option value="xl">特大</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">圓角程度</label>
+                                <select id="border-radius" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="none">無圓角</option>
+                                    <option value="small">小圓角</option>
+                                    <option value="normal" selected>標準圓角</option>
+                                    <option value="large">大圓角</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">陰影效果</label>
+                                <select id="shadow-level" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="none">無陰影</option>
+                                    <option value="small">淺陰影</option>
+                                    <option value="normal" selected>標準陰影</option>
+                                    <option value="large">深陰影</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">動畫效果</label>
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="enable-animations" class="mr-2" checked>
+                                    <span class="text-sm text-gray-600">啟用動畫效果</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 內容管理分頁 -->
+                    <div id="content-tab" class="settings-content hidden">
+                        <div class="space-y-6">
+                            <h3 class="text-lg font-semibold text-gray-900 border-b pb-2">內容管理</h3>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">關於我們 - 描述</label>
+                                    <textarea id="about-description" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">成立於1985年，三十多年來致力於中醫藥的傳承與創新，結合現代科學驗證，為患者提供最優質的醫療服務。</textarea>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">主視覺區 - 描述文字</label>
+                                    <textarea id="hero-description" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">結合傳統中醫精髓與現代醫學技術，為您提供全方位的健康照護服務。專業醫師團隊，用心呵護每一位患者的健康。</textarea>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">統計數據 - 經驗年數</label>
+                                    <input type="number" id="experience-years" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="38">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">統計數據 - 醫師人數</label>
+                                    <input type="number" id="doctors-count" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="15">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">統計數據 - 患者人數</label>
+                                    <input type="text" id="patients-count" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="50,000+">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">統計數據 - 推薦率</label>
+                                    <input type="text" id="recommendation-rate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="98%">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 診療項目管理分頁 -->
+                    <div id="services-tab" class="settings-content hidden">
+                        <div class="space-y-6">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-semibold text-gray-900">診療項目管理</h3>
+                                <button id="add-service" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">
+                                    新增項目
+                                </button>
+                            </div>
+                            
+                            <div id="services-list" class="space-y-4">
+                                <!-- 診療項目將動態生成 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 最新消息管理分頁 -->
+                    <div id="news-tab" class="settings-content hidden">
+                        <div class="space-y-6">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-semibold text-gray-900">最新消息管理</h3>
+                                <button id="add-news" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">
+                                    新增消息
+                                </button>
+                            </div>
+                            
+                            <div id="news-list" class="space-y-4">
+                                <!-- 消息項目將動態生成 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 醫師團隊管理分頁 -->
+                    <div id="doctors-tab" class="settings-content hidden">
+                        <div class="space-y-6">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-semibold text-gray-900">醫師團隊管理</h3>
+                                <button id="add-doctor" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">
+                                    新增醫師
+                                </button>
+                            </div>
+                            
+                            <div id="doctors-list" class="space-y-4">
+                                <!-- 醫師項目將動態生成 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 患者見證管理分頁 -->
+                    <div id="testimonials-tab" class="settings-content hidden">
+                        <div class="space-y-6">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-semibold text-gray-900">患者見證管理</h3>
+                                <button id="add-testimonial" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">
+                                    新增見證
+                                </button>
+                            </div>
+                            
+                            <div id="testimonials-list" class="space-y-4">
+                                <!-- 患者見證將動態生成 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 診所環境管理分頁 -->
+                    <div id="gallery-tab" class="settings-content hidden">
+                        <div class="space-y-6">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-semibold text-gray-900">診所環境管理</h3>
+                                <div class="space-x-2">
+                                    <input type="file" id="gallery-file-input" accept="image/*" multiple style="display: none;">
+                                    <button id="upload-images" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-300">
+                                        上傳圖片
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div class="flex items-start">
+                                    <div class="text-blue-600 mr-3">ℹ️</div>
+                                    <div class="text-sm text-blue-800">
+                                        <p class="font-semibold mb-1">上傳說明：</p>
+                                        <ul class="space-y-1">
+                                            <li>• 支援 JPG、PNG、GIF 格式</li>
+                                            <li>• 建議圖片尺寸：800x600 像素以上</li>
+                                            <li>• 單張圖片大小不超過 5MB</li>
+                                            <li>• 可一次選擇多張圖片上傳</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="gallery-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <!-- 圖片項目將動態生成 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 頁尾設置分頁 -->
+                    <div id="footer-tab" class="settings-content hidden">
+                        <div class="space-y-6">
+                            <h3 class="text-lg font-semibold text-gray-900 border-b pb-2">頁尾設置</h3>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">診所簡介</label>
+                                    <textarea id="footer-description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">傳承千年智慧，守護現代健康。專業中醫團隊，用心呵護每一位患者。</textarea>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">版權資訊</label>
+                                    <input type="text" id="copyright-text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="2024 仁心中醫診所. 版權所有.">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Facebook 連結</label>
+                                    <input type="url" id="facebook-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="https://facebook.com/...">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Instagram 連結</label>
+                                    <input type="url" id="instagram-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="https://instagram.com/...">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">LINE 官方帳號</label>
+                                    <input type="text" id="line-id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="@clinic123">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">YouTube 頻道</label>
+                                    <input type="url" id="youtube-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="https://youtube.com/...">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 宣傳畫報管理分頁 -->
+                    <div id="posters-tab" class="settings-content hidden">
+                        <div class="space-y-6">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-semibold text-gray-900">宣傳畫報管理</h3>
+                                <div class="space-x-2">
+                                    <input type="file" id="posters-file-input" accept="image/*" multiple style="display: none;">
+                                    <button id="upload-posters" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-300">
+                                        上傳畫報
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                <div class="flex items-start">
+                                    <div class="text-green-600 mr-3">📢</div>
+                                    <div class="text-sm text-green-800">
+                                        <p class="font-semibold mb-1">宣傳畫報說明：</p>
+                                        <ul class="space-y-1">
+                                            <li>• 支援 JPG、PNG、GIF 格式</li>
+                                            <li>• 建議圖片尺寸：1200x800 像素以上</li>
+                                            <li>• 單張圖片大小不超過 10MB</li>
+                                            <li>• 適合用於活動宣傳、健康資訊等</li>
+                                            <li>• 可一次選擇多張圖片上傳</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="posters-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <!-- 畫報項目將動態生成 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SEO設置分頁 -->
+                    <div id="seo-tab" class="settings-content hidden">
+                        <div class="space-y-6">
+                            <h3 class="text-lg font-semibold text-gray-900 border-b pb-2">SEO設置</h3>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">網站標題</label>
+                                    <input type="text" id="site-title" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="仁心中醫診所 - 傳承千年智慧，守護現代健康">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">網站描述</label>
+                                    <textarea id="site-description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">專業中醫診所，提供內科、骨傷科、婦科、小兒科等全方位中醫診療服務。結合傳統中醫與現代醫學，為您的健康把關。</textarea>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">關鍵字</label>
+                                    <input type="text" id="site-keywords" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="中醫診所,針灸,推拿,中藥,內科,骨傷科,婦科,小兒科">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Google Analytics ID</label>
+                                    <input type="text" id="ga-id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="GA-XXXXXXXXX-X">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Facebook Pixel ID</label>
+                                    <input type="text" id="fb-pixel-id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="123456789012345">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 操作按鈕 -->
+                    <div class="mt-8 flex justify-between">
+                        <div class="space-x-4">
+                            <button id="save-settings" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-300">
+                                保存設置
+                            </button>
+                            <button id="reset-settings" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition duration-300">
+                                重置為預設
+                            </button>
+                        </div>
+                        <div class="space-x-4">
+                            <button id="export-settings" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-300">
+                                匯出設置
+                            </button>
+                            <button id="import-settings" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition duration-300">
+                                匯入設置
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 隱藏的檔案輸入 -->
+                    <input type="file" id="import-file" accept=".json" style="display: none;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 隱私政策彈出視窗 -->
+    <div id="privacy-policy-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+                    <h2 id="privacy-policy-title" class="text-2xl font-bold text-gray-900">隱私政策</h2>
+                    <button id="close-privacy-modal" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="p-6">
+                    <div id="privacy-policy-content" class="prose max-w-none text-gray-700 whitespace-pre-line">
+                        <!-- 隱私政策內容將動態載入 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 服務條款彈出視窗 -->
+    <div id="terms-of-service-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+                    <h2 id="terms-of-service-title" class="text-2xl font-bold text-gray-900">服務條款</h2>
+                    <button id="close-terms-modal" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="p-6">
+                    <div id="terms-of-service-content" class="prose max-w-none text-gray-700 whitespace-pre-line">
+                        <!-- 服務條款內容將動態載入 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 平滑滾動功能
+        function scrollToSection(sectionId) {
+            const element = document.getElementById(sectionId);
+            if (element) {
+                element.scrollIntoView({ 
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        }
+
+        // 手機版選單切換
+        document.getElementById('mobile-menu-btn').addEventListener('click', function() {
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // 滾動動畫效果
+        function handleScrollAnimation() {
+            const elements = document.querySelectorAll('.fade-in');
+            elements.forEach(element => {
+                const elementTop = element.getBoundingClientRect().top;
+                const elementVisible = 150;
+                
+                if (elementTop < window.innerHeight - elementVisible) {
+                    element.classList.add('visible');
+                }
+            });
+        }
+
+        // 導航欄背景變化
+        function handleNavbarScroll() {
+            const navbar = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                navbar.classList.add('shadow-lg');
+            } else {
+                navbar.classList.remove('shadow-lg');
+            }
+        }
+
+        // 表單提交處理
+        document.querySelector('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('感謝您的預約申請！我們將盡快與您聯繫確認預約時間。\n\n實際預約請致電：(02) 2345-6789');
+        });
+
+        // 導航連結點擊處理
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                scrollToSection(targetId);
+                
+                // 關閉手機版選單
+                const mobileMenu = document.getElementById('mobile-menu');
+                mobileMenu.classList.add('hidden');
+            });
+        });
+
+        // 滾動事件監聽
+        window.addEventListener('scroll', function() {
+            handleScrollAnimation();
+            handleNavbarScroll();
+        });
+
+        // 頁面載入完成後執行
+        window.addEventListener('load', function() {
+            handleScrollAnimation();
+        });
+
+        // 新聞文章點擊處理
+        document.querySelectorAll('article button').forEach(button => {
+            button.addEventListener('click', function() {
+                alert('此為示範網站，實際文章內容請至診所官網查看。');
+            });
+        });
+
+        // 管理功能
+        const adminMenuBtn = document.getElementById('admin-menu-btn');
+        const adminDropdown = document.getElementById('admin-dropdown');
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const loginModal = document.getElementById('login-modal');
+        const closeLogin = document.getElementById('close-login');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const settingsPanel = document.getElementById('settings-panel');
+        const closeSettings = document.getElementById('close-settings');
+        const saveSettings = document.getElementById('save-settings');
+        const resetSettings = document.getElementById('reset-settings');
+        const exportSettings = document.getElementById('export-settings');
+        const importSettings = document.getElementById('import-settings');
+        const importFile = document.getElementById('import-file');
+
+        // 登入狀態
+        let isLoggedIn = false;
+
+        // 預設設置
+        const defaultSettings = {
+            clinicName: '仁心中醫診所',
+            mainTitle: '傳承千年智慧',
+            subTitle: '守護現代健康',
+            clinicAddress: '台北市中正區健康路123號',
+            clinicPhone: '(02) 2345-6789',
+            clinicEmail: 'info@renxin-tcm.com.tw',
+            backendUrl: '',
+            themeStyle: 'modern',
+            primaryColor: 'blue',
+            fontSize: 'normal',
+            borderRadius: 'normal',
+            shadowLevel: 'normal',
+            enableAnimations: true,
+            aboutDescription: '成立於1985年，三十多年來致力於中醫藥的傳承與創新，結合現代科學驗證，為患者提供最優質的醫療服務。',
+            heroDescription: '結合傳統中醫精髓與現代醫學技術，為您提供全方位的健康照護服務。專業醫師團隊，用心呵護每一位患者的健康。',
+            businessHours: '週一至週六 09:00-21:00',
+            transportInfo: '捷運中正紀念堂站 2號出口',
+            experienceYears: 38,
+            doctorsCount: 15,
+            patientsCount: '50,000+',
+            recommendationRate: '98%',
+            footerDescription: '傳承千年智慧，守護現代健康。專業中醫團隊，用心呵護每一位患者。',
+            copyrightText: '2024 仁心中醫診所. 版權所有.',
+            facebookUrl: '',
+            instagramUrl: '',
+            lineId: '',
+            youtubeUrl: '',
+            siteTitle: '仁心中醫診所 - 傳承千年智慧，守護現代健康',
+            siteDescription: '專業中醫診所，提供內科、骨傷科、婦科、小兒科等全方位中醫診療服務。結合傳統中醫與現代醫學，為您的健康把關。',
+            siteKeywords: '中醫診所,針灸,推拿,中藥,內科,骨傷科,婦科,小兒科',
+            gaId: '',
+            fbPixelId: '',
+            privacyPolicy: `本診所重視您的隱私權，特制定本隱私政策說明本診所如何蒐集、處理及利用您的個人資料。
+
+一、個人資料的蒐集
+本診所基於醫療服務之目的，可能蒐集您的姓名、身分證字號、聯絡方式、病歷資料等個人資料。
+
+二、個人資料的利用
+您的個人資料僅用於醫療服務、預約掛號、健康諮詢等相關用途，不會用於其他商業目的。
+
+三、個人資料的保護
+本診所採取適當的安全措施保護您的個人資料，防止未經授權的存取、使用或洩露。
+
+四、個人資料的查詢與更正
+您有權查詢、更正或刪除您的個人資料，請聯絡本診所辦理。
+
+五、隱私政策的修改
+本診所保留修改本隱私政策的權利，修改後將公告於網站上。
+
+如有任何疑問，請聯絡本診所：(02) 2345-6789`,
+            termsOfService: `歡迎使用仁心中醫診所的服務，使用本服務前請詳閱以下條款：
+
+一、服務內容
+本診所提供中醫診療、健康諮詢、預約掛號等服務。
+
+二、使用者責任
+1. 提供真實、準確的個人資料
+2. 遵守預約時間，如需取消請提前通知
+3. 配合醫師指示進行治療
+
+三、服務限制
+1. 本網站僅供參考，不能取代實際醫療診斷
+2. 緊急情況請直接就醫或撥打119
+3. 本診所保留拒絕服務的權利
+
+四、免責聲明
+本診所對於因使用本服務而產生的任何直接或間接損失不負責任。
+
+五、智慧財產權
+本網站所有內容均受著作權法保護，未經同意不得轉載。
+
+六、條款修改
+本診所保留修改服務條款的權利，修改後將公告於網站上。
+
+七、準據法
+本條款適用中華民國法律，如有爭議以台灣台北地方法院為管轄法院。`,
+            privacyLinkText: '隱私政策',
+            termsLinkText: '服務條款',
+            news: [
+                {
+                    id: 1,
+                    title: '春節期間門診時間調整公告',
+                    category: '診所公告',
+                    content: '農曆春節期間（2/8-2/16）門診時間將有所調整，請患者提前預約，避免久候...',
+                    date: '2024/01/15',
+                    icon: '🏥'
+                },
+                {
+                    id: 2,
+                    title: '冬季養生：如何用中醫調理增強免疫力',
+                    category: '健康資訊',
+                    content: '冬季是養腎的最佳時機，透過適當的中藥調理和生活作息調整，可以有效提升身體免疫力...',
+                    date: '2024/01/10',
+                    icon: '🌿'
+                },
+                {
+                    id: 3,
+                    title: '免費健康講座：中醫養生保健',
+                    category: '活動訊息',
+                    content: '本診所將於2月份舉辦免費健康講座，由王院長親自主講中醫養生保健知識...',
+                    date: '2024/01/08',
+                    icon: '🎯'
+                }
+            ],
+            doctors: [
+                {
+                    id: 1,
+                    name: '王志明',
+                    title: '院長',
+                    specialty: '中醫內科 / 針灸科',
+                    education: '中國醫藥大學中醫學系',
+                    experience: '30年臨床經驗',
+                    certifications: ['中醫內科專科醫師', '針灸專科醫師'],
+                    description: '專精於慢性病調理、針灸治療，擅長結合現代醫學診斷與傳統中醫治療',
+                    color: 'blue'
+                },
+                {
+                    id: 2,
+                    name: '李美華',
+                    title: '醫師',
+                    specialty: '婦科 / 小兒科',
+                    education: '台北醫學大學中醫學系',
+                    experience: '25年臨床經驗',
+                    certifications: ['中醫婦科專科醫師', '小兒科專科醫師'],
+                    description: '專精於婦科調理、小兒體質改善，對於不孕症治療有豐富經驗',
+                    color: 'green'
+                },
+                {
+                    id: 3,
+                    name: '陳建宏',
+                    title: '醫師',
+                    specialty: '骨傷科 / 推拿科',
+                    education: '長庚大學中醫學系',
+                    experience: '20年臨床經驗',
+                    certifications: ['中醫骨傷科專科醫師', '推拿專科醫師'],
+                    description: '專精於運動傷害、脊椎疾病治療，結合推拿手法與現代復健概念',
+                    color: 'purple'
+                }
+            ],
+            services: [
+                {
+                    id: 1,
+                    title: '內科調理',
+                    icon: '🫁',
+                    description: '感冒、咳嗽、氣喘、胃腸疾病、高血壓、糖尿病等慢性病調理',
+                    features: ['呼吸系統疾病', '消化系統調理', '心血管保健', '新陳代謝調節']
+                },
+                {
+                    id: 2,
+                    title: '骨傷科',
+                    icon: '🦴',
+                    description: '運動傷害、關節疼痛、腰酸背痛、頸椎病、骨質疏鬆等治療',
+                    features: ['運動傷害復健', '關節炎治療', '脊椎保健', '筋骨調理']
+                },
+                {
+                    id: 3,
+                    title: '婦科調理',
+                    icon: '👩',
+                    description: '月經不調、更年期症候群、不孕症調理、產後調養',
+                    features: ['月經週期調理', '更年期保健', '孕前調養', '產後護理']
+                },
+                {
+                    id: 4,
+                    title: '小兒科',
+                    icon: '👶',
+                    description: '小兒感冒、過敏體質調理、生長發育、注意力不集中',
+                    features: ['過敏性疾病', '生長發育調理', '免疫力提升', '學習專注力']
+                },
+                {
+                    id: 5,
+                    title: '針灸推拿',
+                    icon: '🧘',
+                    description: '傳統針灸、電針、推拿按摩、拔罐、刮痧等物理治療',
+                    features: ['傳統針灸治療', '推拿按摩', '拔罐刮痧', '穴位敷貼']
+                },
+                {
+                    id: 6,
+                    title: '美容養生',
+                    icon: '💆',
+                    description: '中醫美容、減重調理、抗衰老、體質改善',
+                    features: ['中醫美容護膚', '健康減重', '抗衰老調理', '體質調養']
+                }
+            ],
+            testimonials: [
+                {
+                    id: 1,
+                    name: '陳小姐',
+                    age: 35,
+                    occupation: '上班族',
+                    rating: 5,
+                    content: '長期失眠困擾我多年，看了很多醫生都沒有改善。來到仁心中醫後，黃醫師的調理讓我重新找回好眠，現在精神狀態比以前好太多了！',
+                    treatment: '失眠調理',
+                    color: 'blue'
+                },
+                {
+                    id: 2,
+                    name: '王先生',
+                    age: 42,
+                    occupation: '工程師',
+                    rating: 5,
+                    content: '腰椎間盤突出讓我痛苦不堪，陳醫師的針灸和推拿治療真的很有效！現在不僅疼痛減輕了，整個人的活動能力也恢復了。',
+                    treatment: '腰椎疾病',
+                    color: 'green'
+                },
+                {
+                    id: 3,
+                    name: '李太太',
+                    age: 38,
+                    occupation: '家庭主婦',
+                    rating: 5,
+                    content: '備孕兩年都沒有消息，經朋友介紹來找李醫師調理體質。經過半年的治療，現在已經懷孕三個月了！真的很感謝李醫師的專業。',
+                    treatment: '不孕症調理',
+                    color: 'purple'
+                }
+            ],
+            posters: [
+                {
+                    id: 1,
+                    title: '春季養生保健講座',
+                    description: '邀請您參加免費健康講座，了解春季養生秘訣',
+                    image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjYwMCIgdmlld0JveD0iMCAwIDQwMCA2MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iNjAwIiBmaWxsPSJsaW5lYXItZ3JhZGllbnQoMTM1ZGVnLCAjMTBCOTgxIDAlLCAjMzRENDk5IDEwMCUpIi8+CjxyZWN0IHg9IjIwIiB5PSI1MCIgd2lkdGg9IjM2MCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNGRkZGRkYiIHJ4PSIyMCIvPgo8dGV4dCB4PSIyMDAiIHk9IjE1MCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjI4IiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iIzEwQjk4MSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+🌸 春季養生講座</dGV4dD4KPHN2ZyB4PSIxNzUiIHk9IjIwMCIgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjMTBCOTgxIj4KICA8Y2lyY2xlIGN4PSIyNSIgY3k9IjI1IiByPSIyMCIgZmlsbD0iIzEwQjk4MSIvPgo8L3N2Zz4KPC9zdmc+',
+                    category: '健康講座',
+                    startDate: '2024-03-15',
+                    endDate: '2024-04-15',
+                    isActive: true
+                },
+                {
+                    id: 2,
+                    title: '中醫減重調理方案',
+                    description: '專業中醫師為您量身打造健康減重計劃',
+                    image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjYwMCIgdmlld0JveD0iMCAwIDQwMCA2MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iNjAwIiBmaWxsPSJsaW5lYXItZ3JhZGllbnQoMTM1ZGVnLCAjRjU5RTBCIDAlLCAjRUY0NDQ0IDEwMCUpIi8+CjxyZWN0IHg9IjIwIiB5PSI1MCIgd2lkdGg9IjM2MCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNGRkZGRkYiIHJ4PSIyMCIvPgo8dGV4dCB4PSIyMDAiIHk9IjE1MCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iI0Y1OUUwQiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+💪 中醫減重方案</dGV4dD4KPHN2ZyB4PSIxNzUiIHk9IjIwMCIgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjRjU5RTBCIj4KICA8Y2lyY2xlIGN4PSIyNSIgY3k9IjI1IiByPSIyMCIgZmlsbD0iI0Y1OUUwQiIvPgo8L3N2Zz4KPC9zdmc+',
+                    category: '減重調理',
+                    startDate: '2024-02-01',
+                    endDate: '2024-12-31',
+                    isActive: true
+                },
+                {
+                    id: 3,
+                    title: '冬季進補養生指南',
+                    description: '中醫師教您如何正確進補，增強體質過寒冬',
+                    image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjYwMCIgdmlld0JveD0iMCAwIDQwMCA2MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iNjAwIiBmaWxsPSJsaW5lYXItZ3JhZGllbnQoMTM1ZGVnLCAjODMzQUY5IDAlLCAjM0I4MkY2IDEwMCUpIi8+CjxyZWN0IHg9IjIwIiB5PSI1MCIgd2lkdGg9IjM2MCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNGRkZGRkYiIHJ4PSIyMCIvPgo8dGV4dCB4PSIyMDAiIHk9IjE1MCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjI0IiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iIzgzM0FGOSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+❄️ 冬季進補指南</dGV4dD4KPHN2ZyB4PSIxNzUiIHk9IjIwMCIgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjODMzQUY5Ij4KICA8Y2lyY2xlIGN4PSIyNSIgY3k9IjI1IiByPSIyMCIgZmlsbD0iIzgzM0FGOSIvPgo8L3N2Zz4KPC9zdmc+',
+                    category: '養生指南',
+                    startDate: '2023-12-01',
+                    endDate: '2024-02-29',
+                    isActive: false
+                }
+            ],
+            gallery: [
+                {
+                    id: 1,
+                    title: '診所大廳',
+                    description: '寬敞明亮的候診大廳，提供舒適的等候環境',
+                    image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxyZWN0IHg9IjUwIiB5PSI1MCIgd2lkdGg9IjMwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNFNUU3RUIiLz4KPHN2ZyB4PSIxNzUiIHk9IjEyNSIgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjOUI5QkEwIj4KICA8cGF0aCBkPSJNMjUgMTBMMzUgMjBIMzBWMzVIMjBWMjBIMTVMMjUgMTBaIi8+Cjwvc3ZnPgo8L3N2Zz4K',
+                    category: '候診區'
+                },
+                {
+                    id: 2,
+                    title: '診療室',
+                    description: '專業的診療設備，提供精確的診斷服務',
+                    image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRUNGREY1Ii8+CjxyZWN0IHg9IjEwMCIgeT0iMTAwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI0Q5RjJFNiIvPgo8Y2lyY2xlIGN4PSIyMDAiIGN5PSIxNTAiIHI9IjIwIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo=',
+                    category: '診療區'
+                },
+                {
+                    id: 3,
+                    title: '中藥房',
+                    description: '嚴選優質中藥材，確保藥材品質與療效',
+                    image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRkVGM0UyIi8+CjxyZWN0IHg9IjUwIiB5PSI1MCIgd2lkdGg9IjMwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNGRUY3RUQiLz4KPHN2ZyB4PSIxNzUiIHk9IjEyNSIgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjRjU5RTBCIj4KICA8cGF0aCBkPSJNMjUgMTBMMzUgMjBIMzBWMzVIMjBWMjBIMTVMMjUgMTBaIi8+Cjwvc3ZnPgo8L3N2Zz4K',
+                    category: '藥房'
+                },
+                {
+                    id: 4,
+                    title: '針灸治療室',
+                    description: '安靜舒適的針灸環境，專業的治療空間',
+                    image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRkFGNUZGIi8+CjxyZWN0IHg9IjEwMCIgeT0iMTAwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI0Y5RjVGRiIvPgo8Y2lyY2xlIGN4PSIyMDAiIGN5PSIxNTAiIHI9IjIwIiBmaWxsPSIjODMzQUY5Ii8+Cjwvc3ZnPgo=',
+                    category: '治療區'
+                },
+                {
+                    id: 5,
+                    title: '推拿按摩室',
+                    description: '專業推拿按摩設備，舒緩筋骨疲勞',
+                    image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRkVGMkY0Ii8+CjxyZWN0IHg9IjEwMCIgeT0iMTAwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI0ZERjJGOCIvPgo8Y2lyY2xlIGN4PSIyMDAiIGN5PSIxNTAiIHI9IjIwIiBmaWxsPSIjRUM0ODk5Ii8+Cjwvc3ZnPgo=',
+                    category: '治療區'
+                },
+                {
+                    id: 6,
+                    title: '休息區',
+                    description: '治療後的休息空間，讓患者充分放鬆',
+                    image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjBGREZBIi8+CjxyZWN0IHg9IjEwMCIgeT0iMTAwIiB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI0VDRkRGNSIvPgo8Y2lyY2xlIGN4PSIyMDAiIGN5PSIxNTAiIHI9IjIwIiBmaWxsPSIjMDZCNkQ0Ii8+Cjwvc3ZnPgo=',
+                    category: '休息區'
+                }
+            ]
+        };
+
+        // 載入設置
+        function loadSettings() {
+            const saved = localStorage.getItem('clinicSettings');
+            if (saved) {
+                const settings = JSON.parse(saved);
+                // 確保包含所有必要屬性
+                return { ...defaultSettings, ...settings };
+            }
+            return { ...defaultSettings };
+        }
+
+        // 保存設置
+        function saveSettingsToStorage(settings) {
+            localStorage.setItem('clinicSettings', JSON.stringify(settings));
+        }
+
+        // 應用設置到頁面
+        function applySettings(settings) {
+            // 更新診所名稱
+            document.querySelectorAll('.text-2xl.font-bold').forEach(el => {
+                if (el.textContent.includes('🏥') || el.textContent.includes('仁心中醫診所')) {
+                    el.innerHTML = `🏥 ${settings.clinicName}`;
+                }
+            });
+
+            // 更新主標題
+            const mainTitleEl = document.querySelector('h1');
+            if (mainTitleEl) {
+                mainTitleEl.innerHTML = `${settings.mainTitle}<br><span class="text-cyan-300">${settings.subTitle}</span>`;
+            }
+
+            // 更新主視覺區描述
+            const heroDescEl = document.querySelector('.text-xl.mb-8.text-blue-100');
+            if (heroDescEl) {
+                heroDescEl.textContent = settings.heroDescription;
+            }
+
+            // 更新關於我們描述
+            const aboutDescEl = document.querySelector('#about .text-xl.text-gray-600.max-w-3xl.mx-auto');
+            if (aboutDescEl) {
+                aboutDescEl.textContent = settings.aboutDescription;
+            }
+
+            // 更新聯絡資訊 - 地址
+            document.querySelectorAll('span').forEach(el => {
+                if (el.textContent.includes('台北市中正區健康路123號')) {
+                    el.textContent = settings.clinicAddress;
+                }
+                if (el.textContent.includes('(02) 2345-6789')) {
+                    el.textContent = settings.clinicPhone;
+                }
+                if (el.textContent.includes('週一至週六 09:00-21:00')) {
+                    el.textContent = settings.businessHours;
+                }
+                if (el.textContent.includes('捷運中正紀念堂站 2號出口')) {
+                    el.textContent = settings.transportInfo;
+                }
+            });
+
+            // 更新聯絡資訊 - 詳細資訊
+            document.querySelectorAll('p').forEach(el => {
+                if (el.textContent.includes('台北市中正區健康路123號1-3樓')) {
+                    el.textContent = settings.clinicAddress + '1-3樓';
+                }
+                if (el.textContent.includes('info@renxin-tcm.com.tw')) {
+                    el.textContent = settings.clinicEmail;
+                }
+            });
+
+            // 更新營業時間詳細資訊
+            const businessHoursDetail = document.querySelector('.text-gray-600.space-y-1');
+            if (businessHoursDetail) {
+                businessHoursDetail.innerHTML = `
+                    <p>${settings.businessHours}</p>
+                    <p>週日：休診</p>
+                `;
+            }
+
+            // 更新交通資訊詳細
+            const transportDetail = document.querySelectorAll('.text-gray-600.space-y-1')[1];
+            if (transportDetail) {
+                transportDetail.innerHTML = `
+                    <p>捷運：${settings.transportInfo}，步行3分鐘</p>
+                    <p>公車：15, 18, 236, 295路線</p>
+                    <p>停車：診所附近有多個付費停車場</p>
+                `;
+            }
+
+            // 更新統計數據
+            const statsContainer = document.querySelector('.grid.grid-cols-1.md\\:grid-cols-4');
+            if (statsContainer) {
+                statsContainer.innerHTML = `
+                    <div>
+                        <div class="text-4xl font-bold mb-2">${settings.experienceYears}+</div>
+                        <div class="text-blue-200">年專業經驗</div>
+                    </div>
+                    <div>
+                        <div class="text-4xl font-bold mb-2">${settings.doctorsCount}</div>
+                        <div class="text-blue-200">位專業醫師</div>
+                    </div>
+                    <div>
+                        <div class="text-4xl font-bold mb-2">${settings.patientsCount}</div>
+                        <div class="text-blue-200">位滿意患者</div>
+                    </div>
+                    <div>
+                        <div class="text-4xl font-bold mb-2">${settings.recommendationRate}</div>
+                        <div class="text-blue-200">患者推薦率</div>
+                    </div>
+                `;
+            }
+
+            // 更新頁尾
+            const footerDescription = document.querySelector('footer p');
+            if (footerDescription) {
+                footerDescription.textContent = settings.footerDescription;
+            }
+
+            const copyrightEl = document.querySelector('footer .text-center.text-gray-400 p');
+            if (copyrightEl) {
+                copyrightEl.innerHTML = `&copy; ${settings.copyrightText} | <a href="#" id="privacy-policy-link" class="hover:text-white transition duration-300">${settings.privacyLinkText}</a> | <a href="#" id="terms-of-service-link" class="hover:text-white transition duration-300">${settings.termsLinkText}</a>`;
+            }
+
+            // 更新法律條款連結事件
+            updateLegalLinksEvents(settings);
+
+            // 更新網站標題
+            document.title = settings.siteTitle;
+
+            // 更新後台管理連結
+            updateBackendLink(settings.backendUrl);
+
+            // 更新最新消息
+            if (settings.news) {
+                updateNewsSection(settings.news);
+            }
+
+            // 更新醫師團隊
+            if (settings.doctors) {
+                updateDoctorsSection(settings.doctors);
+            }
+
+            // 更新診療項目
+            if (settings.services) {
+                updateServicesSection(settings.services);
+            }
+
+            // 更新患者見證
+            if (settings.testimonials) {
+                updateTestimonialsSection(settings.testimonials);
+            }
+
+            // 更新診所環境
+            if (settings.gallery) {
+                updateGallerySection(settings.gallery);
+            }
+
+            // 更新宣傳畫報
+            if (settings.posters) {
+                updatePostersSection(settings.posters);
+            }
+
+            // 應用視覺設置
+            applyThemeStyle(settings.themeStyle);
+            applyColorTheme(settings.primaryColor);
+            applyFontSize(settings.fontSize);
+            applyBorderRadius(settings.borderRadius);
+            applyShadowLevel(settings.shadowLevel);
+            applyAnimations(settings.enableAnimations);
+        }
+
+        // 更新後台管理連結
+        function updateBackendLink(backendUrl) {
+            const backendLink = document.getElementById('backend-link');
+            
+            if (backendUrl && backendUrl.trim() !== '') {
+                // 顯示連結並設定網址
+                backendLink.href = backendUrl;
+                backendLink.style.display = 'flex';
+            } else {
+                // 隱藏連結
+                backendLink.style.display = 'none';
+            }
+        }
+
+        // 更新最新消息區塊
+        function updateNewsSection(newsList) {
+            const newsContainer = document.querySelector('#news .grid');
+            if (!newsContainer) return;
+
+            newsContainer.innerHTML = '';
+            
+            newsList.slice(0, 3).forEach(news => {
+                const colorMap = {
+                    '診所公告': 'blue',
+                    '健康資訊': 'green', 
+                    '活動訊息': 'purple'
+                };
+                const color = colorMap[news.category] || 'blue';
+                
+                const article = document.createElement('article');
+                article.className = 'bg-white rounded-xl shadow-lg overflow-hidden card-hover fade-in';
+                article.innerHTML = `
+                    <div class="h-48 bg-gradient-to-br from-${color}-400 to-${color}-600 flex items-center justify-center">
+                        <span class="text-6xl">${news.icon}</span>
+                    </div>
+                    <div class="p-6">
+                        <div class="text-sm text-${color}-600 font-semibold mb-2">${news.category}</div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-3">${news.title}</h3>
+                        <p class="text-gray-600 mb-4">${news.content}</p>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500">${news.date}</span>
+                            <button class="text-${color}-600 hover:text-${color}-800 font-semibold">閱讀更多</button>
+                        </div>
+                    </div>
+                `;
+                newsContainer.appendChild(article);
+            });
+        }
+
+        // 更新醫師團隊區塊
+        function updateDoctorsSection(doctorsList) {
+            const doctorsContainer = document.querySelector('#doctors .grid');
+            if (!doctorsContainer) return;
+
+            doctorsContainer.innerHTML = '';
+            
+            doctorsList.forEach(doctor => {
+                const doctorCard = document.createElement('div');
+                doctorCard.className = `bg-gradient-to-br from-${doctor.color}-50 to-${doctor.color}-100 rounded-xl p-6 card-hover fade-in`;
+                doctorCard.innerHTML = `
+                    <div class="text-center">
+                        <div class="w-24 h-24 bg-${doctor.color}-600 rounded-full mx-auto mb-4 flex items-center justify-center text-white text-3xl font-bold">
+                            ${doctor.name.charAt(0)}
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-2">${doctor.name} ${doctor.title}</h3>
+                        <p class="text-${doctor.color}-600 font-semibold mb-3">${doctor.specialty}</p>
+                        <div class="text-sm text-gray-600 space-y-1 mb-4">
+                            <p>• ${doctor.education}</p>
+                            <p>• ${doctor.experience}</p>
+                            ${doctor.certifications.map(cert => `<p>• ${cert}</p>`).join('')}
+                        </div>
+                        <p class="text-sm text-gray-700">${doctor.description}</p>
+                    </div>
+                `;
+                doctorsContainer.appendChild(doctorCard);
+            });
+        }
+
+        // 更新診療項目區塊
+        function updateServicesSection(servicesList) {
+            const servicesContainer = document.querySelector('#services .grid');
+            if (!servicesContainer) return;
+
+            servicesContainer.innerHTML = '';
+            
+            servicesList.forEach(service => {
+                const serviceCard = document.createElement('div');
+                serviceCard.className = 'bg-white rounded-xl shadow-lg p-6 card-hover fade-in';
+                serviceCard.innerHTML = `
+                    <div class="text-4xl mb-4">${service.icon}</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">${service.title}</h3>
+                    <p class="text-gray-600 mb-4">${service.description}</p>
+                    <ul class="text-sm text-gray-500 space-y-1">
+                        ${service.features.map(feature => `<li>• ${feature}</li>`).join('')}
+                    </ul>
+                `;
+                servicesContainer.appendChild(serviceCard);
+            });
+        }
+
+        // 更新患者見證區塊
+        function updateTestimonialsSection(testimonialsList) {
+            const testimonialsContainer = document.querySelector('.py-20.bg-gray-50 .grid');
+            if (!testimonialsContainer) return;
+
+            testimonialsContainer.innerHTML = '';
+            
+            testimonialsList.forEach(testimonial => {
+                const testimonialCard = document.createElement('div');
+                testimonialCard.className = 'testimonial-card rounded-xl p-6 shadow-lg fade-in';
+                testimonialCard.innerHTML = `
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 bg-${testimonial.color}-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                            ${testimonial.name.charAt(0)}
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-gray-900">${testimonial.name}</h4>
+                            <p class="text-sm text-gray-600">${testimonial.age}歲 / ${testimonial.occupation}</p>
+                        </div>
+                    </div>
+                    <div class="text-yellow-400 mb-3">${'⭐'.repeat(testimonial.rating)}</div>
+                    <p class="text-gray-700 mb-4">"${testimonial.content}"</p>
+                    <p class="text-sm text-gray-500">治療項目：${testimonial.treatment}</p>
+                `;
+                testimonialsContainer.appendChild(testimonialCard);
+            });
+        }
+
+        // 應用主題風格
+        function applyThemeStyle(theme) {
+            // 移除之前的主題樣式
+            const existingThemeStyle = document.getElementById('theme-style-css');
+            if (existingThemeStyle) {
+                existingThemeStyle.remove();
+            }
+
+            const style = document.createElement('style');
+            style.id = 'theme-style-css';
+            
+            switch(theme) {
+                case 'traditional':
+                    style.textContent = `
+                        body { font-family: 'Noto Serif TC', serif !important; }
+                        .hero-gradient { 
+                            background: linear-gradient(135deg, #8B4513 0%, #CD853F 50%, #DAA520 100%) !important; 
+                        }
+                        .card-hover { 
+                            border: 2px solid #CD853F !important;
+                            background: linear-gradient(145deg, #FFF8DC 0%, #F5F5DC 100%) !important;
+                        }
+                        .bg-white { background: #FFF8DC !important; }
+                        .bg-gray-50 { background: #F5F5DC !important; }
+                        h1, h2, h3, h4 { color: #8B4513 !important; }
+                        .text-blue-600 { color: #8B4513 !important; }
+                        .bg-blue-600 { background: #8B4513 !important; }
+                        .hover\\:bg-blue-700:hover { background: #654321 !important; }
+                        .border-blue-600 { border-color: #8B4513 !important; }
+                    `;
+                    break;
+                    
+                case 'minimalist':
+                    style.textContent = `
+                        body { font-family: 'Inter', sans-serif !important; }
+                        .hero-gradient { 
+                            background: linear-gradient(135deg, #000000 0%, #333333 100%) !important; 
+                        }
+                        .card-hover { 
+                            border: 1px solid #E5E5E5 !important;
+                            background: #FFFFFF !important;
+                            box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+                        }
+                        .bg-gray-50 { background: #FAFAFA !important; }
+                        h1, h2, h3, h4 { font-weight: 300 !important; }
+                        .text-blue-600 { color: #000000 !important; }
+                        .bg-blue-600 { background: #000000 !important; }
+                        .hover\\:bg-blue-700:hover { background: #333333 !important; }
+                        .border-blue-600 { border-color: #000000 !important; }
+                        .rounded-xl, .rounded-lg { border-radius: 4px !important; }
+                    `;
+                    break;
+                    
+                case 'warm':
+                    style.textContent = `
+                        body { font-family: 'Noto Sans TC', sans-serif !important; }
+                        .hero-gradient { 
+                            background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 50%, #FF6B9D 100%) !important; 
+                        }
+                        .card-hover { 
+                            background: linear-gradient(145deg, #FFF5F5 0%, #FED7D7 100%) !important;
+                            border: 2px solid #FEB2B2 !important;
+                        }
+                        .bg-white { background: #FFF5F5 !important; }
+                        .bg-gray-50 { background: #FED7D7 !important; }
+                        .text-blue-600 { color: #E53E3E !important; }
+                        .bg-blue-600 { background: #E53E3E !important; }
+                        .hover\\:bg-blue-700:hover { background: #C53030 !important; }
+                        .border-blue-600 { border-color: #E53E3E !important; }
+                        .rounded-xl, .rounded-lg { border-radius: 20px !important; }
+                    `;
+                    break;
+                    
+                case 'professional':
+                    style.textContent = `
+                        body { font-family: 'Arial', sans-serif !important; }
+                        .hero-gradient { 
+                            background: linear-gradient(135deg, #2C5282 0%, #2A69AC 50%, #3182CE 100%) !important; 
+                        }
+                        .card-hover { 
+                            background: #FFFFFF !important;
+                            border: 1px solid #CBD5E0 !important;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+                        }
+                        .bg-gray-50 { background: #F7FAFC !important; }
+                        h1, h2, h3, h4 { font-weight: 600 !important; }
+                        .text-blue-600 { color: #2C5282 !important; }
+                        .bg-blue-600 { background: #2C5282 !important; }
+                        .hover\\:bg-blue-700:hover { background: #2A4365 !important; }
+                        .border-blue-600 { border-color: #2C5282 !important; }
+                        .rounded-xl, .rounded-lg { border-radius: 8px !important; }
+                    `;
+                    break;
+                    
+                case 'nature':
+                    style.textContent = `
+                        body { font-family: 'Noto Sans TC', sans-serif !important; }
+                        .hero-gradient { 
+                            background: linear-gradient(135deg, #22543D 0%, #38A169 50%, #68D391 100%) !important; 
+                        }
+                        .card-hover { 
+                            background: linear-gradient(145deg, #F0FFF4 0%, #C6F6D5 100%) !important;
+                            border: 2px solid #9AE6B4 !important;
+                        }
+                        .bg-white { background: #F0FFF4 !important; }
+                        .bg-gray-50 { background: #C6F6D5 !important; }
+                        .text-blue-600 { color: #22543D !important; }
+                        .bg-blue-600 { background: #22543D !important; }
+                        .hover\\:bg-blue-700:hover { background: #1A202C !important; }
+                        .border-blue-600 { border-color: #22543D !important; }
+                        .rounded-xl, .rounded-lg { border-radius: 25px !important; }
+                        body::before {
+                            content: '';
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                            background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="leaf" patternUnits="userSpaceOnUse" width="20" height="20"><circle cx="10" cy="10" r="1" fill="%23C6F6D5" opacity="0.3"/></pattern></defs><rect width="100" height="100" fill="url(%23leaf)"/></svg>');
+                            pointer-events: none;
+                            z-index: -1;
+                        }
+                    `;
+                    break;
+                    
+                default: // modern
+                    style.textContent = `
+                        /* 現代風格 - 保持原有樣式 */
+                    `;
+                    break;
+            }
+            
+            document.head.appendChild(style);
+        }
+
+        // 應用顏色主題
+        function applyColorTheme(color) {
+            const colorMap = {
+                blue: { primary: 'blue-600', hover: 'blue-700', light: 'blue-50' },
+                green: { primary: 'green-600', hover: 'green-700', light: 'green-50' },
+                purple: { primary: 'purple-600', hover: 'purple-700', light: 'purple-50' },
+                red: { primary: 'red-600', hover: 'red-700', light: 'red-50' },
+                indigo: { primary: 'indigo-600', hover: 'indigo-700', light: 'indigo-50' },
+                teal: { primary: 'teal-600', hover: 'teal-700', light: 'teal-50' }
+            };
+
+            const colors = colorMap[color];
+            if (!colors) return;
+
+            // 更新主要按鈕顏色
+            document.querySelectorAll('.bg-blue-600').forEach(el => {
+                el.className = el.className.replace('bg-blue-600', `bg-${colors.primary}`);
+            });
+            
+            document.querySelectorAll('.hover\\:bg-blue-700').forEach(el => {
+                el.className = el.className.replace('hover:bg-blue-700', `hover:bg-${colors.hover}`);
+            });
+
+            // 更新文字顏色
+            document.querySelectorAll('.text-blue-600').forEach(el => {
+                el.className = el.className.replace('text-blue-600', `text-${colors.primary}`);
+            });
+        }
+
+        // 應用字體大小
+        function applyFontSize(size) {
+            const sizeMap = {
+                small: '0.9',
+                normal: '1',
+                large: '1.1',
+                xl: '1.2'
+            };
+            
+            document.body.style.fontSize = `${sizeMap[size]}rem`;
+        }
+
+        // 應用圓角設置
+        function applyBorderRadius(radius) {
+            const radiusMap = {
+                none: '0',
+                small: '0.25rem',
+                normal: '0.5rem',
+                large: '1rem'
+            };
+
+            const style = document.createElement('style');
+            style.textContent = `
+                .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-full {
+                    border-radius: ${radiusMap[radius]} !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // 應用陰影設置
+        function applyShadowLevel(level) {
+            const shadowMap = {
+                none: 'none',
+                small: '0 1px 3px rgba(0,0,0,0.1)',
+                normal: '0 4px 6px rgba(0,0,0,0.1)',
+                large: '0 10px 25px rgba(0,0,0,0.15)'
+            };
+
+            const style = document.createElement('style');
+            style.textContent = `
+                .shadow-lg, .shadow-2xl {
+                    box-shadow: ${shadowMap[level]} !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // 應用動畫設置
+        function applyAnimations(enabled) {
+            if (!enabled) {
+                const style = document.createElement('style');
+                style.textContent = `
+                    *, *::before, *::after {
+                        animation-duration: 0s !important;
+                        transition-duration: 0s !important;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+
+        // 更新設置面板的值
+        function updateSettingsPanel(settings) {
+            document.getElementById('clinic-name').value = settings.clinicName;
+            document.getElementById('main-title').value = settings.mainTitle;
+            document.getElementById('sub-title').value = settings.subTitle;
+            document.getElementById('clinic-address').value = settings.clinicAddress;
+            document.getElementById('clinic-phone').value = settings.clinicPhone;
+            document.getElementById('clinic-email').value = settings.clinicEmail;
+            document.getElementById('backend-url').value = settings.backendUrl || '';
+            document.getElementById('theme-style').value = settings.themeStyle;
+            document.getElementById('primary-color').value = settings.primaryColor;
+            document.getElementById('font-size').value = settings.fontSize;
+            document.getElementById('border-radius').value = settings.borderRadius;
+            document.getElementById('shadow-level').value = settings.shadowLevel;
+            document.getElementById('enable-animations').checked = settings.enableAnimations;
+            document.getElementById('about-description').value = settings.aboutDescription;
+            document.getElementById('hero-description').value = settings.heroDescription;
+            document.getElementById('business-hours').value = settings.businessHours;
+            document.getElementById('transport-info').value = settings.transportInfo;
+            document.getElementById('experience-years').value = settings.experienceYears;
+            document.getElementById('doctors-count').value = settings.doctorsCount;
+            document.getElementById('patients-count').value = settings.patientsCount;
+            document.getElementById('recommendation-rate').value = settings.recommendationRate;
+            document.getElementById('footer-description').value = settings.footerDescription;
+            document.getElementById('copyright-text').value = settings.copyrightText;
+            document.getElementById('facebook-url').value = settings.facebookUrl;
+            document.getElementById('instagram-url').value = settings.instagramUrl;
+            document.getElementById('line-id').value = settings.lineId;
+            document.getElementById('youtube-url').value = settings.youtubeUrl;
+            document.getElementById('site-title').value = settings.siteTitle;
+            document.getElementById('site-description').value = settings.siteDescription;
+            document.getElementById('site-keywords').value = settings.siteKeywords;
+            document.getElementById('ga-id').value = settings.gaId;
+            document.getElementById('fb-pixel-id').value = settings.fbPixelId;
+            document.getElementById('privacy-policy').value = settings.privacyPolicy;
+            document.getElementById('terms-of-service').value = settings.termsOfService;
+            document.getElementById('privacy-link-text').value = settings.privacyLinkText;
+            document.getElementById('terms-link-text').value = settings.termsLinkText;
+        }
+
+        // 從設置面板獲取值
+        function getSettingsFromPanel() {
+            const currentSettings = loadSettings();
+            return {
+                ...currentSettings,
+                clinicName: document.getElementById('clinic-name').value,
+                mainTitle: document.getElementById('main-title').value,
+                subTitle: document.getElementById('sub-title').value,
+                clinicAddress: document.getElementById('clinic-address').value,
+                clinicPhone: document.getElementById('clinic-phone').value,
+                clinicEmail: document.getElementById('clinic-email').value,
+                backendUrl: document.getElementById('backend-url').value,
+                themeStyle: document.getElementById('theme-style').value,
+                primaryColor: document.getElementById('primary-color').value,
+                fontSize: document.getElementById('font-size').value,
+                borderRadius: document.getElementById('border-radius').value,
+                shadowLevel: document.getElementById('shadow-level').value,
+                enableAnimations: document.getElementById('enable-animations').checked,
+                aboutDescription: document.getElementById('about-description').value,
+                heroDescription: document.getElementById('hero-description').value,
+                businessHours: document.getElementById('business-hours').value,
+                transportInfo: document.getElementById('transport-info').value,
+                experienceYears: parseInt(document.getElementById('experience-years').value),
+                doctorsCount: parseInt(document.getElementById('doctors-count').value),
+                patientsCount: document.getElementById('patients-count').value,
+                recommendationRate: document.getElementById('recommendation-rate').value,
+                footerDescription: document.getElementById('footer-description').value,
+                copyrightText: document.getElementById('copyright-text').value,
+                facebookUrl: document.getElementById('facebook-url').value,
+                instagramUrl: document.getElementById('instagram-url').value,
+                lineId: document.getElementById('line-id').value,
+                youtubeUrl: document.getElementById('youtube-url').value,
+                siteTitle: document.getElementById('site-title').value,
+                siteDescription: document.getElementById('site-description').value,
+                siteKeywords: document.getElementById('site-keywords').value,
+                gaId: document.getElementById('ga-id').value,
+                fbPixelId: document.getElementById('fb-pixel-id').value,
+                privacyPolicy: document.getElementById('privacy-policy').value,
+                termsOfService: document.getElementById('terms-of-service').value,
+                privacyLinkText: document.getElementById('privacy-link-text').value,
+                termsLinkText: document.getElementById('terms-link-text').value
+            };
+        }
+
+        // 管理選單功能
+        adminMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            adminDropdown.classList.toggle('hidden');
+        });
+
+        // 手機版管理按鈕
+        document.getElementById('mobile-admin-btn').addEventListener('click', () => {
+            // 顯示管理選單
+            adminDropdown.classList.toggle('hidden');
+            // 關閉手機版選單
+            document.getElementById('mobile-menu').classList.add('hidden');
+        });
+
+        // 點擊其他地方關閉選單
+        document.addEventListener('click', () => {
+            adminDropdown.classList.add('hidden');
+        });
+
+        // 登入功能
+        loginBtn.addEventListener('click', () => {
+            if (isLoggedIn) {
+                settingsPanel.classList.remove('hidden');
+                const settings = loadSettings();
+                updateSettingsPanel(settings);
+                renderNewsList(settings.news);
+                renderDoctorsList(settings.doctors);
+                renderServicesList(settings.services);
+                renderTestimonialsList(settings.testimonials);
+                renderGalleryList(settings.gallery);
+                renderPostersList(settings.posters);
+            } else {
+                loginModal.classList.remove('hidden');
+            }
+            adminDropdown.classList.add('hidden');
+        });
+
+        closeLogin.addEventListener('click', () => {
+            loginModal.classList.add('hidden');
+            loginError.classList.add('hidden');
+        });
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (username === 'admin' && password === '123456') {
+                isLoggedIn = true;
+                loginModal.classList.add('hidden');
+                loginError.classList.add('hidden');
+                loginBtn.textContent = '系統設置';
+                logoutBtn.classList.remove('hidden');
+                
+                // 開啟設置面板
+                settingsPanel.classList.remove('hidden');
+                const settings = loadSettings();
+                updateSettingsPanel(settings);
+                renderNewsList(settings.news);
+                renderDoctorsList(settings.doctors);
+                renderServicesList(settings.services);
+                renderTestimonialsList(settings.testimonials);
+                renderGalleryList(settings.gallery);
+                renderPostersList(settings.posters);
+            } else {
+                loginError.classList.remove('hidden');
+            }
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            isLoggedIn = false;
+            loginBtn.textContent = '系統設置';
+            logoutBtn.classList.add('hidden');
+            adminDropdown.classList.add('hidden');
+        });
+
+        // 設置面板分頁功能
+        document.querySelectorAll('.settings-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.dataset.tab;
+                
+                // 更新分頁按鈕狀態
+                document.querySelectorAll('.settings-tab').forEach(t => {
+                    t.classList.remove('active', 'border-blue-600', 'text-blue-600');
+                    t.classList.add('border-transparent', 'text-gray-500');
+                });
+                tab.classList.add('active', 'border-blue-600', 'text-blue-600');
+                tab.classList.remove('border-transparent', 'text-gray-500');
+                
+                // 顯示對應內容
+                document.querySelectorAll('.settings-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(`${targetTab}-tab`).classList.remove('hidden');
+            });
+        });
+
+        // 主題風格即時預覽
+        document.getElementById('theme-style').addEventListener('change', function() {
+            applyThemeStyle(this.value);
+        });
+
+        // 主色調即時預覽
+        document.getElementById('primary-color').addEventListener('change', function() {
+            applyColorTheme(this.value);
+        });
+
+        // 事件監聽器
+
+        closeSettings.addEventListener('click', () => {
+            settingsPanel.classList.add('hidden');
+        });
+
+        settingsPanel.addEventListener('click', (e) => {
+            if (e.target === settingsPanel) {
+                settingsPanel.classList.add('hidden');
+            }
+        });
+
+        saveSettings.addEventListener('click', () => {
+            const settings = getSettingsFromPanel();
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            // 重新渲染管理列表
+            renderNewsList(settings.news);
+            renderDoctorsList(settings.doctors);
+            renderPostersList(settings.posters);
+            alert('設置已保存並應用！');
+        });
+
+        resetSettings.addEventListener('click', () => {
+            if (confirm('確定要重置為預設設置嗎？')) {
+                const resetSettings = { ...defaultSettings };
+                saveSettingsToStorage(resetSettings);
+                updateSettingsPanel(resetSettings);
+                applySettings(resetSettings);
+                renderNewsList(resetSettings.news);
+                renderDoctorsList(resetSettings.doctors);
+                renderPostersList(resetSettings.posters);
+                alert('已重置為預設設置！');
+            }
+        });
+
+        exportSettings.addEventListener('click', () => {
+            const settings = getSettingsFromPanel();
+            const dataStr = JSON.stringify(settings, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'clinic-settings.json';
+            link.click();
+            URL.revokeObjectURL(url);
+        });
+
+        importSettings.addEventListener('click', () => {
+            importFile.click();
+        });
+
+        importFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const settings = JSON.parse(e.target.result);
+                        updateSettingsPanel(settings);
+                        alert('設置已匯入！請點擊保存設置來應用。');
+                    } catch (error) {
+                        alert('檔案格式錯誤！');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // 新聞管理功能
+        function renderNewsList(newsList) {
+            const newsListContainer = document.getElementById('news-list');
+            newsListContainer.innerHTML = '';
+            
+            newsList.forEach(news => {
+                const newsItem = document.createElement('div');
+                newsItem.className = 'bg-gray-50 p-4 rounded-lg';
+                newsItem.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center mb-2">
+                                <span class="text-2xl mr-2">${news.icon}</span>
+                                <span class="text-sm text-blue-600 font-semibold">${news.category}</span>
+                                <span class="text-sm text-gray-500 ml-4">${news.date}</span>
+                            </div>
+                            <h4 class="font-bold text-gray-900 mb-2">${news.title}</h4>
+                            <p class="text-gray-600 text-sm">${news.content}</p>
+                        </div>
+                        <div class="flex space-x-2 ml-4">
+                            <button onclick="editNews(${news.id})" class="text-blue-600 hover:text-blue-800 text-sm">編輯</button>
+                            <button onclick="deleteNews(${news.id})" class="text-red-600 hover:text-red-800 text-sm">刪除</button>
+                        </div>
+                    </div>
+                `;
+                newsListContainer.appendChild(newsItem);
+            });
+        }
+
+        function editNews(id) {
+            const settings = loadSettings();
+            const news = settings.news.find(n => n.id === id);
+            if (!news) return;
+
+            const newTitle = prompt('標題:', news.title);
+            if (newTitle === null) return;
+            
+            const newCategory = prompt('分類:', news.category);
+            if (newCategory === null) return;
+            
+            const newContent = prompt('內容:', news.content);
+            if (newContent === null) return;
+
+            news.title = newTitle;
+            news.category = newCategory;
+            news.content = newContent;
+            news.date = new Date().toLocaleDateString('zh-TW');
+
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderNewsList(settings.news);
+        }
+
+        function deleteNews(id) {
+            if (!confirm('確定要刪除這則消息嗎？')) return;
+            
+            const settings = loadSettings();
+            settings.news = settings.news.filter(n => n.id !== id);
+            
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderNewsList(settings.news);
+        }
+
+        document.getElementById('add-news').addEventListener('click', () => {
+            const title = prompt('請輸入標題:');
+            if (!title) return;
+            
+            const category = prompt('請輸入分類:');
+            if (!category) return;
+            
+            const content = prompt('請輸入內容:');
+            if (!content) return;
+
+            const settings = loadSettings();
+            const newId = Math.max(...settings.news.map(n => n.id)) + 1;
+            
+            settings.news.unshift({
+                id: newId,
+                title,
+                category,
+                content,
+                date: new Date().toLocaleDateString('zh-TW'),
+                icon: '📢'
+            });
+
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderNewsList(settings.news);
+        });
+
+        // 醫師管理功能
+        function renderDoctorsList(doctorsList) {
+            const doctorsListContainer = document.getElementById('doctors-list');
+            doctorsListContainer.innerHTML = '';
+            
+            doctorsList.forEach(doctor => {
+                const doctorItem = document.createElement('div');
+                doctorItem.className = 'bg-gray-50 p-4 rounded-lg';
+                doctorItem.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center mb-2">
+                                <div class="w-12 h-12 bg-${doctor.color}-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
+                                    ${doctor.name.charAt(0)}
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-900">${doctor.name} ${doctor.title}</h4>
+                                    <p class="text-${doctor.color}-600 font-semibold text-sm">${doctor.specialty}</p>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <p>• ${doctor.education}</p>
+                                <p>• ${doctor.experience}</p>
+                                <p>• ${doctor.certifications.join('、')}</p>
+                            </div>
+                            <p class="text-sm text-gray-700 mt-2">${doctor.description}</p>
+                        </div>
+                        <div class="flex space-x-2 ml-4">
+                            <button onclick="editDoctor(${doctor.id})" class="text-blue-600 hover:text-blue-800 text-sm">編輯</button>
+                            <button onclick="deleteDoctor(${doctor.id})" class="text-red-600 hover:text-red-800 text-sm">刪除</button>
+                        </div>
+                    </div>
+                `;
+                doctorsListContainer.appendChild(doctorItem);
+            });
+        }
+
+        function editDoctor(id) {
+            const settings = loadSettings();
+            const doctor = settings.doctors.find(d => d.id === id);
+            if (!doctor) return;
+
+            const newName = prompt('姓名:', doctor.name);
+            if (newName === null) return;
+            
+            const newTitle = prompt('職稱:', doctor.title);
+            if (newTitle === null) return;
+            
+            const newSpecialty = prompt('專科:', doctor.specialty);
+            if (newSpecialty === null) return;
+            
+            const newDescription = prompt('簡介:', doctor.description);
+            if (newDescription === null) return;
+
+            doctor.name = newName;
+            doctor.title = newTitle;
+            doctor.specialty = newSpecialty;
+            doctor.description = newDescription;
+
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderDoctorsList(settings.doctors);
+        }
+
+        function deleteDoctor(id) {
+            if (!confirm('確定要刪除這位醫師嗎？')) return;
+            
+            const settings = loadSettings();
+            settings.doctors = settings.doctors.filter(d => d.id !== id);
+            
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderDoctorsList(settings.doctors);
+        }
+
+        document.getElementById('add-doctor').addEventListener('click', () => {
+            const name = prompt('請輸入醫師姓名:');
+            if (!name) return;
+            
+            const title = prompt('請輸入職稱:');
+            if (!title) return;
+            
+            const specialty = prompt('請輸入專科:');
+            if (!specialty) return;
+            
+            const description = prompt('請輸入簡介:');
+            if (!description) return;
+
+            const settings = loadSettings();
+            const newId = Math.max(...settings.doctors.map(d => d.id)) + 1;
+            
+            settings.doctors.push({
+                id: newId,
+                name,
+                title,
+                specialty,
+                education: '醫學院中醫學系',
+                experience: '多年臨床經驗',
+                certifications: ['中醫師執照'],
+                description,
+                color: 'blue'
+            });
+
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderDoctorsList(settings.doctors);
+        });
+
+        // 診療項目管理功能
+        function renderServicesList(servicesList) {
+            const servicesListContainer = document.getElementById('services-list');
+            servicesListContainer.innerHTML = '';
+            
+            servicesList.forEach(service => {
+                const serviceItem = document.createElement('div');
+                serviceItem.className = 'bg-gray-50 p-4 rounded-lg';
+                serviceItem.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center mb-2">
+                                <span class="text-2xl mr-2">${service.icon}</span>
+                                <h4 class="font-bold text-gray-900">${service.title}</h4>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-2">${service.description}</p>
+                            <div class="text-xs text-gray-500">
+                                ${service.features.map(feature => `<span class="inline-block bg-gray-200 rounded px-2 py-1 mr-1 mb-1">${feature}</span>`).join('')}
+                            </div>
+                        </div>
+                        <div class="flex space-x-2 ml-4">
+                            <button onclick="editService(${service.id})" class="text-blue-600 hover:text-blue-800 text-sm">編輯</button>
+                            <button onclick="deleteService(${service.id})" class="text-red-600 hover:text-red-800 text-sm">刪除</button>
+                        </div>
+                    </div>
+                `;
+                servicesListContainer.appendChild(serviceItem);
+            });
+        }
+
+        function editService(id) {
+            const settings = loadSettings();
+            const service = settings.services.find(s => s.id === id);
+            if (!service) return;
+
+            const newTitle = prompt('項目名稱:', service.title);
+            if (newTitle === null) return;
+            
+            const newIcon = prompt('圖示:', service.icon);
+            if (newIcon === null) return;
+            
+            const newDescription = prompt('描述:', service.description);
+            if (newDescription === null) return;
+            
+            const newFeatures = prompt('特色項目 (用逗號分隔):', service.features.join(', '));
+            if (newFeatures === null) return;
+
+            service.title = newTitle;
+            service.icon = newIcon;
+            service.description = newDescription;
+            service.features = newFeatures.split(',').map(f => f.trim());
+
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderServicesList(settings.services);
+        }
+
+        function deleteService(id) {
+            if (!confirm('確定要刪除這個診療項目嗎？')) return;
+            
+            const settings = loadSettings();
+            settings.services = settings.services.filter(s => s.id !== id);
+            
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderServicesList(settings.services);
+        }
+
+        document.getElementById('add-service').addEventListener('click', () => {
+            const title = prompt('請輸入項目名稱:');
+            if (!title) return;
+            
+            const icon = prompt('請輸入圖示:');
+            if (!icon) return;
+            
+            const description = prompt('請輸入描述:');
+            if (!description) return;
+            
+            const features = prompt('請輸入特色項目 (用逗號分隔):');
+            if (!features) return;
+
+            const settings = loadSettings();
+            const newId = Math.max(...settings.services.map(s => s.id)) + 1;
+            
+            settings.services.push({
+                id: newId,
+                title,
+                icon,
+                description,
+                features: features.split(',').map(f => f.trim())
+            });
+
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderServicesList(settings.services);
+        });
+
+        // 患者見證管理功能
+        function renderTestimonialsList(testimonialsList) {
+            const testimonialsListContainer = document.getElementById('testimonials-list');
+            testimonialsListContainer.innerHTML = '';
+            
+            testimonialsList.forEach(testimonial => {
+                const testimonialItem = document.createElement('div');
+                testimonialItem.className = 'bg-gray-50 p-4 rounded-lg';
+                testimonialItem.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center mb-2">
+                                <div class="w-10 h-10 bg-${testimonial.color}-600 rounded-full flex items-center justify-center text-white font-bold mr-3">
+                                    ${testimonial.name.charAt(0)}
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-900">${testimonial.name}</h4>
+                                    <p class="text-sm text-gray-600">${testimonial.age}歲 / ${testimonial.occupation}</p>
+                                </div>
+                            </div>
+                            <div class="text-yellow-400 mb-2">${'⭐'.repeat(testimonial.rating)}</div>
+                            <p class="text-gray-700 text-sm mb-2">"${testimonial.content}"</p>
+                            <p class="text-xs text-gray-500">治療項目：${testimonial.treatment}</p>
+                        </div>
+                        <div class="flex space-x-2 ml-4">
+                            <button onclick="editTestimonial(${testimonial.id})" class="text-blue-600 hover:text-blue-800 text-sm">編輯</button>
+                            <button onclick="deleteTestimonial(${testimonial.id})" class="text-red-600 hover:text-red-800 text-sm">刪除</button>
+                        </div>
+                    </div>
+                `;
+                testimonialsListContainer.appendChild(testimonialItem);
+            });
+        }
+
+        function editTestimonial(id) {
+            const settings = loadSettings();
+            const testimonial = settings.testimonials.find(t => t.id === id);
+            if (!testimonial) return;
+
+            const newName = prompt('患者姓名:', testimonial.name);
+            if (newName === null) return;
+            
+            const newAge = prompt('年齡:', testimonial.age);
+            if (newAge === null) return;
+            
+            const newOccupation = prompt('職業:', testimonial.occupation);
+            if (newOccupation === null) return;
+            
+            const newContent = prompt('見證內容:', testimonial.content);
+            if (newContent === null) return;
+            
+            const newTreatment = prompt('治療項目:', testimonial.treatment);
+            if (newTreatment === null) return;
+
+            testimonial.name = newName;
+            testimonial.age = parseInt(newAge);
+            testimonial.occupation = newOccupation;
+            testimonial.content = newContent;
+            testimonial.treatment = newTreatment;
+
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderTestimonialsList(settings.testimonials);
+        }
+
+        function deleteTestimonial(id) {
+            if (!confirm('確定要刪除這則患者見證嗎？')) return;
+            
+            const settings = loadSettings();
+            settings.testimonials = settings.testimonials.filter(t => t.id !== id);
+            
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderTestimonialsList(settings.testimonials);
+        }
+
+        document.getElementById('add-testimonial').addEventListener('click', () => {
+            const name = prompt('請輸入患者姓名:');
+            if (!name) return;
+            
+            const age = prompt('請輸入年齡:');
+            if (!age) return;
+            
+            const occupation = prompt('請輸入職業:');
+            if (!occupation) return;
+            
+            const content = prompt('請輸入見證內容:');
+            if (!content) return;
+            
+            const treatment = prompt('請輸入治療項目:');
+            if (!treatment) return;
+
+            const settings = loadSettings();
+            const newId = Math.max(...settings.testimonials.map(t => t.id)) + 1;
+            const colors = ['blue', 'green', 'purple', 'orange', 'teal', 'rose'];
+            
+            settings.testimonials.push({
+                id: newId,
+                name,
+                age: parseInt(age),
+                occupation,
+                rating: 5,
+                content,
+                treatment,
+                color: colors[Math.floor(Math.random() * colors.length)]
+            });
+
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderTestimonialsList(settings.testimonials);
+        });
+
+        // 滑動相關變數
+        let currentSlide = 0;
+        let galleryData = [];
+
+        // 更新診所環境區塊
+        function updateGallerySection(galleryList) {
+            const galleryContainer = document.getElementById('gallery-container');
+            const galleryDots = document.getElementById('gallery-dots');
+            if (!galleryContainer || !galleryDots) return;
+
+            galleryData = galleryList;
+            galleryContainer.innerHTML = '';
+            galleryDots.innerHTML = '';
+            currentSlide = 0;
+            
+            galleryList.forEach((item, index) => {
+                // 創建滑動項目
+                const galleryItem = document.createElement('div');
+                galleryItem.className = 'flex-shrink-0 w-full px-4';
+                galleryItem.innerHTML = `
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden card-hover cursor-pointer mx-auto max-w-2xl">
+                        <div class="relative h-80 overflow-hidden">
+                            <img src="${item.image}" alt="${item.title}" class="w-full h-full object-cover transition-transform duration-300 hover:scale-105">
+                            <div class="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                                ${item.category}
+                            </div>
+                        </div>
+                        <div class="p-6">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-3">${item.title}</h3>
+                            <p class="text-gray-600">${item.description}</p>
+                        </div>
+                    </div>
+                `;
+                
+                // 點擊圖片放大查看
+                galleryItem.addEventListener('click', () => {
+                    showImageModal(item.image, item.title, item.description);
+                });
+                
+                galleryContainer.appendChild(galleryItem);
+
+                // 創建指示點
+                const dot = document.createElement('button');
+                dot.className = `w-3 h-3 rounded-full transition-colors duration-300 ${index === 0 ? 'bg-blue-600' : 'bg-gray-300'}`;
+                dot.addEventListener('click', () => goToSlide(index));
+                galleryDots.appendChild(dot);
+            });
+
+            // 初始化滑動位置
+            updateSlidePosition();
+        }
+
+        // 滑動到指定位置
+        function goToSlide(index) {
+            currentSlide = index;
+            updateSlidePosition();
+            updateDots();
+        }
+
+        // 更新滑動位置
+        function updateSlidePosition() {
+            const galleryContainer = document.getElementById('gallery-container');
+            if (galleryContainer) {
+                galleryContainer.style.transform = `translateX(-${currentSlide * 100}%)`;
+            }
+        }
+
+        // 更新指示點
+        function updateDots() {
+            const dots = document.querySelectorAll('#gallery-dots button');
+            dots.forEach((dot, index) => {
+                if (index === currentSlide) {
+                    dot.className = 'w-3 h-3 rounded-full transition-colors duration-300 bg-blue-600';
+                } else {
+                    dot.className = 'w-3 h-3 rounded-full transition-colors duration-300 bg-gray-300';
+                }
+            });
+        }
+
+        // 上一張
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+            } else {
+                currentSlide = galleryData.length - 1;
+            }
+            updateSlidePosition();
+            updateDots();
+        }
+
+        // 下一張
+        function nextSlide() {
+            if (currentSlide < galleryData.length - 1) {
+                currentSlide++;
+            } else {
+                currentSlide = 0;
+            }
+            updateSlidePosition();
+            updateDots();
+        }
+
+        // 滑動按鈕事件監聽
+        document.getElementById('gallery-prev').addEventListener('click', prevSlide);
+        document.getElementById('gallery-next').addEventListener('click', nextSlide);
+
+        // 自動播放功能
+        let autoPlayInterval;
+        
+        function startAutoPlay() {
+            autoPlayInterval = setInterval(nextSlide, 5000); // 每5秒自動切換
+        }
+
+        function stopAutoPlay() {
+            if (autoPlayInterval) {
+                clearInterval(autoPlayInterval);
+            }
+        }
+
+        // 滑鼠懸停時停止自動播放
+        document.getElementById('gallery').addEventListener('mouseenter', stopAutoPlay);
+        document.getElementById('gallery').addEventListener('mouseleave', startAutoPlay);
+
+        // 觸控滑動支援
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.getElementById('gallery-container').addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+
+        document.getElementById('gallery-container').addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        });
+
+        function handleSwipe() {
+            const swipeThreshold = 50;
+            const diff = touchStartX - touchEndX;
+            
+            if (Math.abs(diff) > swipeThreshold) {
+                if (diff > 0) {
+                    nextSlide(); // 向左滑動，顯示下一張
+                } else {
+                    prevSlide(); // 向右滑動，顯示上一張
+                }
+            }
+        }
+
+        // 顯示圖片模態框
+        function showImageModal(imageSrc, title, description) {
+            const modal = document.getElementById('image-modal');
+            const modalImage = document.getElementById('modal-image');
+            const modalCaption = document.getElementById('modal-caption');
+            
+            modalImage.src = imageSrc;
+            modalImage.alt = title;
+            modalCaption.innerHTML = `<strong>${title}</strong><br>${description}`;
+            modal.classList.remove('hidden');
+        }
+
+        // 關閉圖片模態框
+        document.getElementById('close-image-modal').addEventListener('click', () => {
+            document.getElementById('image-modal').classList.add('hidden');
+        });
+
+        document.getElementById('image-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('image-modal').classList.add('hidden');
+            }
+        });
+
+        // 圖片管理功能
+        function renderGalleryList(galleryList) {
+            const galleryListContainer = document.getElementById('gallery-list');
+            galleryListContainer.innerHTML = '';
+            
+            galleryList.forEach(item => {
+                const galleryItem = document.createElement('div');
+                galleryItem.className = 'bg-white rounded-lg shadow-md overflow-hidden';
+                galleryItem.innerHTML = `
+                    <div class="relative">
+                        <img src="${item.image}" alt="${item.title}" class="w-full h-32 object-cover">
+                        <div class="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs">
+                            ${item.category}
+                        </div>
+                    </div>
+                    <div class="p-3">
+                        <h4 class="font-bold text-gray-900 text-sm mb-1">${item.title}</h4>
+                        <p class="text-gray-600 text-xs mb-2">${item.description}</p>
+                        <div class="flex justify-between">
+                            <button onclick="editGalleryItem(${item.id})" class="text-blue-600 hover:text-blue-800 text-xs">編輯</button>
+                            <button onclick="deleteGalleryItem(${item.id})" class="text-red-600 hover:text-red-800 text-xs">刪除</button>
+                        </div>
+                    </div>
+                `;
+                galleryListContainer.appendChild(galleryItem);
+            });
+        }
+
+        function editGalleryItem(id) {
+            const settings = loadSettings();
+            const item = settings.gallery.find(g => g.id === id);
+            if (!item) return;
+
+            const newTitle = prompt('標題:', item.title);
+            if (newTitle === null) return;
+            
+            const newCategory = prompt('分類:', item.category);
+            if (newCategory === null) return;
+            
+            const newDescription = prompt('描述:', item.description);
+            if (newDescription === null) return;
+
+            item.title = newTitle;
+            item.category = newCategory;
+            item.description = newDescription;
+
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderGalleryList(settings.gallery);
+        }
+
+        function deleteGalleryItem(id) {
+            if (!confirm('確定要刪除這張圖片嗎？')) return;
+            
+            const settings = loadSettings();
+            settings.gallery = settings.gallery.filter(g => g.id !== id);
+            
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderGalleryList(settings.gallery);
+        }
+
+        // 上傳圖片功能
+        document.getElementById('upload-images').addEventListener('click', () => {
+            document.getElementById('gallery-file-input').click();
+        });
+
+        document.getElementById('gallery-file-input').addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            files.forEach(file => {
+                // 檢查檔案類型
+                if (!file.type.startsWith('image/')) {
+                    alert(`檔案 ${file.name} 不是有效的圖片格式`);
+                    return;
+                }
+
+                // 檢查檔案大小 (5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert(`檔案 ${file.name} 超過 5MB 大小限制`);
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const settings = loadSettings();
+                    const newId = Math.max(...settings.gallery.map(g => g.id), 0) + 1;
+                    
+                    const title = prompt(`請輸入圖片標題 (${file.name}):`);
+                    if (!title) return;
+                    
+                    const category = prompt('請輸入分類:') || '其他';
+                    const description = prompt('請輸入描述:') || '';
+
+                    settings.gallery.push({
+                        id: newId,
+                        title,
+                        description,
+                        image: e.target.result,
+                        category
+                    });
+
+                    saveSettingsToStorage(settings);
+                    applySettings(settings);
+                    renderGalleryList(settings.gallery);
+                };
+                reader.readAsDataURL(file);
+            });
+
+            // 清空檔案輸入
+            e.target.value = '';
+        });
+
+        // 更新法律條款連結事件
+        function updateLegalLinksEvents(settings) {
+            // 隱私政策連結
+            const privacyLink = document.getElementById('privacy-policy-link');
+            if (privacyLink) {
+                privacyLink.onclick = (e) => {
+                    e.preventDefault();
+                    showPrivacyPolicyModal(settings);
+                };
+            }
+
+            // 服務條款連結
+            const termsLink = document.getElementById('terms-of-service-link');
+            if (termsLink) {
+                termsLink.onclick = (e) => {
+                    e.preventDefault();
+                    showTermsOfServiceModal(settings);
+                };
+            }
+        }
+
+        // 顯示隱私政策彈出視窗
+        function showPrivacyPolicyModal(settings) {
+            const modal = document.getElementById('privacy-policy-modal');
+            const title = document.getElementById('privacy-policy-title');
+            const content = document.getElementById('privacy-policy-content');
+            
+            title.textContent = settings.privacyLinkText;
+            content.textContent = settings.privacyPolicy;
+            modal.classList.remove('hidden');
+        }
+
+        // 顯示服務條款彈出視窗
+        function showTermsOfServiceModal(settings) {
+            const modal = document.getElementById('terms-of-service-modal');
+            const title = document.getElementById('terms-of-service-title');
+            const content = document.getElementById('terms-of-service-content');
+            
+            title.textContent = settings.termsLinkText;
+            content.textContent = settings.termsOfService;
+            modal.classList.remove('hidden');
+        }
+
+        // 關閉隱私政策彈出視窗
+        document.getElementById('close-privacy-modal').addEventListener('click', () => {
+            document.getElementById('privacy-policy-modal').classList.add('hidden');
+        });
+
+        document.getElementById('privacy-policy-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('privacy-policy-modal').classList.add('hidden');
+            }
+        });
+
+        // 關閉服務條款彈出視窗
+        document.getElementById('close-terms-modal').addEventListener('click', () => {
+            document.getElementById('terms-of-service-modal').classList.add('hidden');
+        });
+
+        document.getElementById('terms-of-service-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('terms-of-service-modal').classList.add('hidden');
+            }
+        });
+
+        // 宣傳畫報相關變數
+        let currentPosterSlide = 0;
+        let postersData = [];
+
+        // 更新宣傳畫報區塊
+        function updatePostersSection(postersList) {
+            const postersContainer = document.getElementById('posters-container');
+            const postersDots = document.getElementById('posters-dots');
+            if (!postersContainer || !postersDots) return;
+
+            postersData = postersList.filter(poster => poster.isActive); // 只顯示啟用的畫報
+            postersContainer.innerHTML = '';
+            postersDots.innerHTML = '';
+            currentPosterSlide = 0;
+            
+            postersData.forEach((poster, index) => {
+                // 創建滑動項目
+                const posterItem = document.createElement('div');
+                posterItem.className = 'flex-shrink-0 w-full px-4';
+                
+                // 檢查是否在有效期內
+                const now = new Date();
+                const startDate = new Date(poster.startDate);
+                const endDate = new Date(poster.endDate);
+                const isValid = now >= startDate && now <= endDate;
+                
+                posterItem.innerHTML = `
+                    <div class="bg-white rounded-xl shadow-lg overflow-hidden card-hover cursor-pointer mx-auto w-full relative">
+                        ${!isValid ? '<div class="absolute top-0 left-0 right-0 bottom-0 bg-gray-900 bg-opacity-50 z-10 flex items-center justify-center"><span class="text-white font-bold text-lg">已過期</span></div>' : ''}
+                        <div class="relative">
+                            <img src="${poster.image}" alt="${poster.title}" class="w-full h-96 object-cover transition-transform duration-300 hover:scale-105">
+                            <div class="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                                ${poster.category}
+                            </div>
+                            ${isValid ? '<div class="absolute top-4 left-4 bg-green-600 text-white px-3 py-1 rounded-full text-xs font-semibold">進行中</div>' : ''}
+                        </div>
+                        <div class="p-6">
+                            <h3 class="text-xl font-bold text-gray-900 mb-3">${poster.title}</h3>
+                            <p class="text-gray-600 mb-4">${poster.description}</p>
+                            <div class="text-sm text-gray-500">
+                                <p>活動期間：${poster.startDate} ~ ${poster.endDate}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // 點擊畫報放大查看
+                posterItem.addEventListener('click', () => {
+                    showPosterModal(poster);
+                });
+                
+                postersContainer.appendChild(posterItem);
+
+                // 創建指示點
+                const dot = document.createElement('button');
+                dot.className = `w-3 h-3 rounded-full transition-colors duration-300 ${index === 0 ? 'bg-blue-600' : 'bg-gray-300'}`;
+                dot.addEventListener('click', () => goToPosterSlide(index));
+                postersDots.appendChild(dot);
+            });
+
+            // 初始化滑動位置
+            updatePosterSlidePosition();
+        }
+
+        // 滑動到指定畫報位置
+        function goToPosterSlide(index) {
+            currentPosterSlide = index;
+            updatePosterSlidePosition();
+            updatePosterDots();
+        }
+
+        // 更新畫報滑動位置
+        function updatePosterSlidePosition() {
+            const postersContainer = document.getElementById('posters-container');
+            if (postersContainer) {
+                postersContainer.style.transform = `translateX(-${currentPosterSlide * 100}%)`;
+            }
+        }
+
+        // 更新畫報指示點
+        function updatePosterDots() {
+            const dots = document.querySelectorAll('#posters-dots button');
+            dots.forEach((dot, index) => {
+                if (index === currentPosterSlide) {
+                    dot.className = 'w-3 h-3 rounded-full transition-colors duration-300 bg-blue-600';
+                } else {
+                    dot.className = 'w-3 h-3 rounded-full transition-colors duration-300 bg-gray-300';
+                }
+            });
+        }
+
+        // 上一張畫報
+        function prevPosterSlide() {
+            if (currentPosterSlide > 0) {
+                currentPosterSlide--;
+            } else {
+                currentPosterSlide = postersData.length - 1;
+            }
+            updatePosterSlidePosition();
+            updatePosterDots();
+        }
+
+        // 下一張畫報
+        function nextPosterSlide() {
+            if (currentPosterSlide < postersData.length - 1) {
+                currentPosterSlide++;
+            } else {
+                currentPosterSlide = 0;
+            }
+            updatePosterSlidePosition();
+            updatePosterDots();
+        }
+
+        // 畫報滑動按鈕事件監聽
+        document.getElementById('posters-prev').addEventListener('click', prevPosterSlide);
+        document.getElementById('posters-next').addEventListener('click', nextPosterSlide);
+
+        // 顯示畫報模態框
+        function showPosterModal(poster) {
+            const modal = document.getElementById('poster-modal');
+            const modalPoster = document.getElementById('modal-poster');
+            const modalTitle = document.getElementById('modal-poster-title');
+            const modalDescription = document.getElementById('modal-poster-description');
+            const modalDates = document.getElementById('modal-poster-dates');
+            
+            modalPoster.src = poster.image;
+            modalPoster.alt = poster.title;
+            modalTitle.textContent = poster.title;
+            modalDescription.textContent = poster.description;
+            modalDates.textContent = `活動期間：${poster.startDate} ~ ${poster.endDate} | 分類：${poster.category}`;
+            modal.classList.remove('hidden');
+        }
+
+        // 關閉畫報模態框
+        document.getElementById('close-poster-modal').addEventListener('click', () => {
+            document.getElementById('poster-modal').classList.add('hidden');
+        });
+
+        document.getElementById('poster-modal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('poster-modal').classList.add('hidden');
+            }
+        });
+
+        // 畫報管理功能
+        function renderPostersList(postersList) {
+            const postersListContainer = document.getElementById('posters-list');
+            postersListContainer.innerHTML = '';
+            
+            postersList.forEach(poster => {
+                const posterItem = document.createElement('div');
+                posterItem.className = 'bg-white rounded-lg shadow-md overflow-hidden';
+                
+                // 檢查是否在有效期內
+                const now = new Date();
+                const startDate = new Date(poster.startDate);
+                const endDate = new Date(poster.endDate);
+                const isValid = now >= startDate && now <= endDate;
+                const statusColor = poster.isActive ? (isValid ? 'green' : 'orange') : 'red';
+                const statusText = poster.isActive ? (isValid ? '進行中' : '已過期') : '已停用';
+                
+                posterItem.innerHTML = `
+                    <div class="relative">
+                        <img src="${poster.image}" alt="${poster.title}" class="w-full h-32 object-cover">
+                        <div class="absolute top-2 right-2 bg-blue-600 text-white px-2 py-1 rounded text-xs">
+                            ${poster.category}
+                        </div>
+                        <div class="absolute top-2 left-2 bg-${statusColor}-600 text-white px-2 py-1 rounded text-xs">
+                            ${statusText}
+                        </div>
+                    </div>
+                    <div class="p-3">
+                        <h4 class="font-bold text-gray-900 text-sm mb-1">${poster.title}</h4>
+                        <p class="text-gray-600 text-xs mb-2">${poster.description}</p>
+                        <div class="text-xs text-gray-500 mb-2">
+                            <p>期間：${poster.startDate} ~ ${poster.endDate}</p>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center space-x-2">
+                                <button onclick="togglePosterStatus(${poster.id})" class="text-${poster.isActive ? 'orange' : 'green'}-600 hover:text-${poster.isActive ? 'orange' : 'green'}-800 text-xs">
+                                    ${poster.isActive ? '停用' : '啟用'}
+                                </button>
+                                <button onclick="editPoster(${poster.id})" class="text-blue-600 hover:text-blue-800 text-xs">編輯</button>
+                            </div>
+                            <button onclick="deletePoster(${poster.id})" class="text-red-600 hover:text-red-800 text-xs">刪除</button>
+                        </div>
+                    </div>
+                `;
+                postersListContainer.appendChild(posterItem);
+            });
+        }
+
+        function editPoster(id) {
+            const settings = loadSettings();
+            const poster = settings.posters.find(p => p.id === id);
+            if (!poster) return;
+
+            const newTitle = prompt('標題:', poster.title);
+            if (newTitle === null) return;
+            
+            const newCategory = prompt('分類:', poster.category);
+            if (newCategory === null) return;
+            
+            const newDescription = prompt('描述:', poster.description);
+            if (newDescription === null) return;
+            
+            const newStartDate = prompt('開始日期 (YYYY-MM-DD):', poster.startDate);
+            if (newStartDate === null) return;
+            
+            const newEndDate = prompt('結束日期 (YYYY-MM-DD):', poster.endDate);
+            if (newEndDate === null) return;
+
+            poster.title = newTitle;
+            poster.category = newCategory;
+            poster.description = newDescription;
+            poster.startDate = newStartDate;
+            poster.endDate = newEndDate;
+
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderPostersList(settings.posters);
+        }
+
+        function togglePosterStatus(id) {
+            const settings = loadSettings();
+            const poster = settings.posters.find(p => p.id === id);
+            if (!poster) return;
+
+            poster.isActive = !poster.isActive;
+
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderPostersList(settings.posters);
+        }
+
+        function deletePoster(id) {
+            if (!confirm('確定要刪除這張宣傳畫報嗎？')) return;
+            
+            const settings = loadSettings();
+            settings.posters = settings.posters.filter(p => p.id !== id);
+            
+            saveSettingsToStorage(settings);
+            applySettings(settings);
+            renderPostersList(settings.posters);
+        }
+
+        // 上傳畫報功能
+        document.getElementById('upload-posters').addEventListener('click', () => {
+            document.getElementById('posters-file-input').click();
+        });
+
+        document.getElementById('posters-file-input').addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            files.forEach(file => {
+                // 檢查檔案類型
+                if (!file.type.startsWith('image/')) {
+                    alert(`檔案 ${file.name} 不是有效的圖片格式`);
+                    return;
+                }
+
+                // 檢查檔案大小 (10MB)
+                if (file.size > 10 * 1024 * 1024) {
+                    alert(`檔案 ${file.name} 超過 10MB 大小限制`);
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const settings = loadSettings();
+                    const newId = Math.max(...settings.posters.map(p => p.id), 0) + 1;
+                    
+                    const title = prompt(`請輸入畫報標題 (${file.name}):`);
+                    if (!title) return;
+                    
+                    const category = prompt('請輸入分類:') || '一般宣傳';
+                    const description = prompt('請輸入描述:') || '';
+                    const startDate = prompt('請輸入開始日期 (YYYY-MM-DD):', new Date().toISOString().split('T')[0]);
+                    if (!startDate) return;
+                    
+                    const endDate = prompt('請輸入結束日期 (YYYY-MM-DD):', new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]);
+                    if (!endDate) return;
+
+                    settings.posters.push({
+                        id: newId,
+                        title,
+                        description,
+                        image: e.target.result,
+                        category,
+                        startDate,
+                        endDate,
+                        isActive: true
+                    });
+
+                    saveSettingsToStorage(settings);
+                    applySettings(settings);
+                    renderPostersList(settings.posters);
+                };
+                reader.readAsDataURL(file);
+            });
+
+            // 清空檔案輸入
+            e.target.value = '';
+        });
+
+        // 宣傳畫報自動播放功能
+        let posterAutoPlayInterval;
+        
+        function startPosterAutoPlay() {
+            posterAutoPlayInterval = setInterval(nextPosterSlide, 4000); // 每4秒自動切換
+        }
+
+        function stopPosterAutoPlay() {
+            if (posterAutoPlayInterval) {
+                clearInterval(posterAutoPlayInterval);
+            }
+        }
+
+        // 滑鼠懸停時停止宣傳畫報自動播放
+        document.getElementById('posters').addEventListener('mouseenter', stopPosterAutoPlay);
+        document.getElementById('posters').addEventListener('mouseleave', startPosterAutoPlay);
+
+        // 宣傳畫報觸控滑動支援
+        let posterTouchStartX = 0;
+        let posterTouchEndX = 0;
+
+        document.getElementById('posters-container').addEventListener('touchstart', (e) => {
+            posterTouchStartX = e.changedTouches[0].screenX;
+        });
+
+        document.getElementById('posters-container').addEventListener('touchend', (e) => {
+            posterTouchEndX = e.changedTouches[0].screenX;
+            handlePosterSwipe();
+        });
+
+        function handlePosterSwipe() {
+            const swipeThreshold = 50;
+            const diff = posterTouchStartX - posterTouchEndX;
+            
+            if (Math.abs(diff) > swipeThreshold) {
+                if (diff > 0) {
+                    nextPosterSlide(); // 向左滑動，顯示下一張
+                } else {
+                    prevPosterSlide(); // 向右滑動，顯示上一張
+                }
+            }
+        }
+
+        // 頁面載入時應用設置
+        window.addEventListener('load', () => {
+            const settings = loadSettings();
+            applySettings(settings);
+            // 啟動自動播放
+            setTimeout(() => {
+                startAutoPlay(); // 診所環境自動播放
+                startPosterAutoPlay(); // 宣傳畫報自動播放
+            }, 2000); // 延遲2秒後開始自動播放
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96b4a1a444140723',t:'MTc1NDU0NzI0Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
