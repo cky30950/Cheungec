@@ -2402,16 +2402,6 @@
 
         // 初始化用戶資料
         let users = JSON.parse(localStorage.getItem('users') || '[]');
-        // 套票相關資料結構
-        let packageProducts = JSON.parse(localStorage.getItem('packageProducts') || '[]');
-        let patientPackages = JSON.parse(localStorage.getItem('patientPackages') || '[]');
-        let packageUsageRecords = JSON.parse(localStorage.getItem('packageUsageRecords') || '[]');
-        
-        // 初始化套票商品
-        if (packageProducts.length === 0) {
-            packageProducts = billingItems.filter(item => item.category === 'package');
-            localStorage.setItem('packageProducts', JSON.stringify(packageProducts));
-        }
         if (users.length === 0) {
             users = defaultUsers;
             localStorage.setItem('users', JSON.stringify(users));
