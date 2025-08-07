@@ -480,44 +480,35 @@
     <section id="posters" class="py-20 bg-gray-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16 fade-in">
-                <h2 class="text-4xl font-bold text-gray-900 mb-4">宣傳畫報</h2>
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">健康宣傳畫報</h2>
+                <p class="text-xl text-gray-600">
+                    分享中醫養生知識，傳播健康生活理念
+                </p>
             </div>
 
             <!-- 宣傳畫報輪播 -->
-            <div class="relative bg-white rounded-2xl shadow-xl overflow-hidden fade-in">
-                <!-- 主要顯示區域 -->
-                <div class="relative h-96 md:h-[500px]">
-                    <div id="posters-carousel" class="flex transition-transform duration-500 ease-in-out h-full">
-                        <!-- 畫報項目將由 JavaScript 動態生成 -->
+            <div class="relative">
+                <div id="posters-carousel" class="overflow-hidden rounded-2xl">
+                    <div id="posters-slides" class="flex transition-transform duration-500 ease-in-out">
+                        <!-- 畫報幻燈片將由 JavaScript 動態生成 -->
                     </div>
-                    
-                    <!-- 左右箭頭 -->
-                    <button id="posters-prev" class="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full hover:bg-opacity-70 transition duration-300 z-10">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                        </svg>
-                    </button>
-                    <button id="posters-next" class="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full hover:bg-opacity-70 transition duration-300 z-10">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                        </svg>
-                    </button>
                 </div>
                 
-                <!-- 縮圖導航 -->
-                <div class="bg-gray-100 p-4">
-                    <div class="flex justify-center space-x-2 overflow-x-auto">
-                        <div id="posters-thumbnails" class="flex space-x-2">
-                            <!-- 縮圖將由 JavaScript 動態生成 -->
-                        </div>
-                    </div>
-                    
-                    <!-- 圖片資訊 -->
-                    <div class="text-center mt-4">
-                        <h3 id="posters-title" class="text-lg font-bold text-gray-900 mb-1">載入中...</h3>
-                        <p id="posters-description" class="text-gray-600 text-sm mb-2">請稍候...</p>
-                        <span id="posters-counter" class="text-xs text-gray-500">1 / 6</span>
-                    </div>
+                <!-- 輪播控制按鈕 -->
+                <button id="posters-prev" class="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg transition duration-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </button>
+                <button id="posters-next" class="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg transition duration-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+                
+                <!-- 輪播指示器 -->
+                <div id="posters-indicators" class="flex justify-center mt-6 space-x-2">
+                    <!-- 指示器將由 JavaScript 動態生成 -->
                 </div>
             </div>
         </div>
@@ -701,40 +692,28 @@
             </div>
 
             <!-- 診所環境輪播 -->
-            <div class="relative bg-white rounded-2xl shadow-xl overflow-hidden fade-in">
-                <!-- 主要顯示區域 -->
-                <div class="relative h-96 md:h-[500px]">
-                    <div id="gallery-carousel" class="flex transition-transform duration-500 ease-in-out h-full">
-                        <!-- 環境項目將由 JavaScript 動態生成 -->
+            <div class="relative">
+                <div id="gallery-carousel" class="overflow-hidden rounded-2xl">
+                    <div id="gallery-slides" class="flex transition-transform duration-500 ease-in-out">
+                        <!-- 環境圖片將由 JavaScript 動態生成 -->
                     </div>
-                    
-                    <!-- 左右箭頭 -->
-                    <button id="gallery-prev" class="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full hover:bg-opacity-70 transition duration-300 z-10">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-                        </svg>
-                    </button>
-                    <button id="gallery-next" class="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full hover:bg-opacity-70 transition duration-300 z-10">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                        </svg>
-                    </button>
                 </div>
                 
+                <!-- 輪播控制按鈕 -->
+                <button id="gallery-prev" class="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg transition duration-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                </button>
+                <button id="gallery-next" class="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 p-3 rounded-full shadow-lg transition duration-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+                
                 <!-- 縮圖導航 -->
-                <div class="bg-gray-100 p-4">
-                    <div class="flex justify-center space-x-2 overflow-x-auto">
-                        <div id="gallery-thumbnails" class="flex space-x-2">
-                            <!-- 縮圖將由 JavaScript 動態生成 -->
-                        </div>
-                    </div>
-                    
-                    <!-- 圖片資訊 -->
-                    <div class="text-center mt-4">
-                        <h3 id="gallery-title" class="text-lg font-bold text-gray-900 mb-1">載入中...</h3>
-                        <p id="gallery-description" class="text-gray-600 text-sm mb-2">請稍候...</p>
-                        <span id="gallery-counter" class="text-xs text-gray-500">1 / 6</span>
-                    </div>
+                <div id="gallery-thumbnails" class="flex justify-center mt-6 space-x-4 overflow-x-auto pb-2">
+                    <!-- 縮圖將由 JavaScript 動態生成 -->
                 </div>
             </div>
         </div>
@@ -1064,6 +1043,105 @@
         </div>
     </div>
 
+    <!-- 醫師編輯對話框 -->
+    <div id="doctor-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+                    <h2 id="doctor-modal-title" class="text-2xl font-bold text-gray-900">編輯醫師資料</h2>
+                    <button id="close-doctor-modal" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <form id="doctor-form" class="space-y-6">
+                        <!-- 醫師照片上傳區 -->
+                        <div class="text-center">
+                            <div class="mb-4">
+                                <div id="doctor-photo-preview" class="w-32 h-32 mx-auto rounded-full overflow-hidden border-4 border-gray-200 bg-gray-100 flex items-center justify-center">
+                                    <span id="doctor-photo-placeholder" class="text-4xl font-bold text-gray-400">👤</span>
+                                    <img id="doctor-photo-img" class="w-full h-full object-cover hidden" alt="醫師照片">
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">醫師照片</label>
+                                    <div class="flex flex-col space-y-2">
+                                        <input type="file" id="doctor-photo-file" accept="image/*" class="hidden">
+                                        <button type="button" id="upload-photo-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">
+                                            📷 選擇照片
+                                        </button>
+                                        <div class="text-xs text-gray-500">
+                                            支援 JPG、PNG 格式，建議尺寸 300x300 像素
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="text-center">
+                                    <span class="text-sm text-gray-500">或</span>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">照片網址</label>
+                                    <input type="url" id="doctor-photo-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="https://example.com/photo.jpg">
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        可直接輸入網路圖片網址
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 基本資料 -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">姓名 *</label>
+                                <input type="text" id="doctor-name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">職稱</label>
+                                <input type="text" id="doctor-title" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="主治醫師">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">專長</label>
+                            <input type="text" id="doctor-specialty" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="內科、針灸">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">經驗</label>
+                            <input type="text" id="doctor-experience" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="20年臨床經驗">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">學歷</label>
+                            <input type="text" id="doctor-education" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="中國醫藥大學中醫學系">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">簡介</label>
+                            <textarea id="doctor-description" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="請輸入醫師簡介..."></textarea>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-4">
+                            <button type="button" id="cancel-doctor" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-300">
+                                取消
+                            </button>
+                            <button type="submit" id="save-doctor" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-300 flex items-center">
+                                <span id="save-doctor-text">保存</span>
+                                <div id="save-doctor-loading" class="loading ml-2 hidden"></div>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 系統設置面板 -->
     <div id="settings-panel" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
         <div class="flex items-center justify-center min-h-screen p-4">
@@ -1088,6 +1166,8 @@
                             <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="appointments">預約管理</button>
                             <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="style">樣式設置</button>
                             <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="testimonials">見證管理</button>
+                            <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="gallery">環境管理</button>
+                            <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="posters">畫報管理</button>
                             <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="sync">資料同步</button>
                             <button class="settings-tab py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700" data-tab="legal">法律條款</button>
                         </nav>
@@ -1340,6 +1420,22 @@
                                 </button>
                             </div>
                             
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                                <div class="flex items-start">
+                                    <div class="text-blue-600 mr-3">👨‍⚕️</div>
+                                    <div>
+                                        <h4 class="font-semibold text-blue-800 mb-2">醫師照片上傳說明</h4>
+                                        <div class="text-sm text-blue-700 space-y-1">
+                                            <p>• 支援兩種上傳方式：本地檔案上傳或網路圖片網址</p>
+                                            <p>• 建議照片尺寸：300x300 像素，格式：JPG、PNG</p>
+                                            <p>• 檔案大小限制：5MB 以內</p>
+                                            <p>• 照片將顯示為圓形頭像，建議使用正方形照片</p>
+                                            <p>• 如未上傳照片，將顯示醫師姓名縮寫</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <div id="doctors-management" class="space-y-4">
                                 <!-- 醫師管理列表將動態生成 -->
                             </div>
@@ -1490,6 +1586,68 @@
                             
                             <div id="testimonials-management" class="space-y-4">
                                 <!-- 見證管理列表將動態生成 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 診所環境管理分頁 -->
+                    <div id="gallery-tab" class="settings-content hidden">
+                        <div class="space-y-6">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-semibold text-gray-900">診所環境管理</h3>
+                                <button id="add-gallery-item" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">
+                                    新增環境圖片
+                                </button>
+                            </div>
+                            
+                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                                <div class="flex items-start">
+                                    <div class="text-yellow-600 mr-3">💡</div>
+                                    <div>
+                                        <h4 class="font-semibold text-yellow-800 mb-2">圖片上傳說明</h4>
+                                        <div class="text-sm text-yellow-700 space-y-1">
+                                            <p>• 目前系統使用圖示和漸層背景來展示診所環境</p>
+                                            <p>• 您可以選擇不同的圖示和背景顏色來代表各個區域</p>
+                                            <p>• 未來版本將支援實際圖片上傳功能</p>
+                                            <p>• 建議圖片尺寸：1200x800 像素，格式：JPG/PNG</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="gallery-management" class="space-y-4">
+                                <!-- 環境管理列表將動態生成 -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 宣傳畫報管理分頁 -->
+                    <div id="posters-tab" class="settings-content hidden">
+                        <div class="space-y-6">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-semibold text-gray-900">宣傳畫報管理</h3>
+                                <button id="add-poster-item" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">
+                                    新增畫報
+                                </button>
+                            </div>
+                            
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                                <div class="flex items-start">
+                                    <div class="text-blue-600 mr-3">📋</div>
+                                    <div>
+                                        <h4 class="font-semibold text-blue-800 mb-2">畫報設計說明</h4>
+                                        <div class="text-sm text-blue-700 space-y-1">
+                                            <p>• 宣傳畫報用於展示中醫養生知識和健康資訊</p>
+                                            <p>• 每個畫報包含標題、副標題、圖示和內容要點</p>
+                                            <p>• 可選擇不同的背景顏色和圖示來美化畫報</p>
+                                            <p>• 內容要點建議控制在4-6個，每個要點簡潔明瞭</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="posters-management" class="space-y-4">
+                                <!-- 畫報管理列表將動態生成 -->
                             </div>
                         </div>
                     </div>
@@ -1744,6 +1902,22 @@
                     }
                     renderNews();
 
+                    // 載入診所環境和宣傳畫報資料
+                    if (firebaseSettings.galleryImages) {
+                        galleryImages = firebaseSettings.galleryImages;
+                    } else {
+                        galleryImages = getDefaultGalleryImages();
+                    }
+                    
+                    if (firebaseSettings.postersData) {
+                        postersData = firebaseSettings.postersData;
+                    } else {
+                        postersData = getDefaultPostersData();
+                    }
+                    
+                    renderGallery();
+                    renderPosters();
+
                 } catch (error) {
                     console.error('載入 Firebase 設置失敗，使用預設設置:', error);
                     const defaultSettings = getDefaultSettings();
@@ -1763,8 +1937,12 @@
                 applySettings(defaultSettings);
                 currentDoctors = getDefaultDoctors();
                 currentNews = getDefaultNews();
+                galleryImages = getDefaultGalleryImages();
+                postersData = getDefaultPostersData();
                 renderDoctors();
                 renderNews();
+                renderGallery();
+                renderPosters();
             }
 
             // 初始化事件監聽器
@@ -1790,7 +1968,8 @@
                     specialty: '內科、針灸',
                     experience: '30年臨床經驗',
                     education: '中國醫藥大學中醫學系',
-                    description: '專精於內科疾病治療，擅長運用針灸療法治療各種慢性疾病。'
+                    description: '專精於內科疾病治療，擅長運用針灸療法治療各種慢性疾病。',
+                    photo: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=300&h=300&fit=crop&crop=face'
                 },
                 {
                     name: '李美華',
@@ -1798,7 +1977,8 @@
                     specialty: '婦科、兒科',
                     experience: '25年臨床經驗',
                     education: '長庚大學中醫學系',
-                    description: '專門治療婦科疾病及小兒科疾病，深受患者信賴。'
+                    description: '專門治療婦科疾病及小兒科疾病，深受患者信賴。',
+                    photo: 'https://images.unsplash.com/photo-1594824475317-d0444e6e4b6b?w=300&h=300&fit=crop&crop=face'
                 },
                 {
                     name: '陳建宏',
@@ -1806,7 +1986,8 @@
                     specialty: '骨傷科、推拿',
                     experience: '20年臨床經驗',
                     education: '義守大學中醫學系',
-                    description: '專精於骨傷科治療，結合推拿手法，療效顯著。'
+                    description: '專精於骨傷科治療，結合推拿手法，療效顯著。',
+                    photo: 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=300&h=300&fit=crop&crop=face'
                 },
                 {
                     name: '張雅芳',
@@ -1814,7 +1995,8 @@
                     specialty: '皮膚科、美容',
                     experience: '15年臨床經驗',
                     education: '慈濟大學中醫學系',
-                    description: '專門治療皮膚疾病，並提供中醫美容調理服務。'
+                    description: '專門治療皮膚疾病，並提供中醫美容調理服務。',
+                    photo: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=300&h=300&fit=crop&crop=face'
                 },
                 {
                     name: '林志強',
@@ -1822,7 +2004,8 @@
                     specialty: '腫瘤科、免疫',
                     experience: '18年臨床經驗',
                     education: '中山醫學大學中醫學系',
-                    description: '專精於腫瘤輔助治療及免疫系統調理。'
+                    description: '專精於腫瘤輔助治療及免疫系統調理。',
+                    photo: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=300&h=300&fit=crop&crop=face'
                 },
                 {
                     name: '黃淑惠',
@@ -1830,7 +2013,8 @@
                     specialty: '精神科、睡眠',
                     experience: '12年臨床經驗',
                     education: '台北醫學大學中醫學系',
-                    description: '專門治療失眠、焦慮等精神相關疾病。'
+                    description: '專門治療失眠、焦慮等精神相關疾病。',
+                    photo: 'https://images.unsplash.com/photo-1594824475317-d0444e6e4b6b?w=300&h=300&fit=crop&crop=face'
                 }
             ];
         }
@@ -2052,11 +2236,16 @@
                 const doctorCard = document.createElement('div');
                 doctorCard.className = 'bg-white rounded-xl shadow-lg p-8 card-hover fade-in';
                 
+                // 決定顯示照片還是姓名縮寫
+                const photoDisplay = doctor.photo ? 
+                    `<img src="${doctor.photo}" alt="${doctor.name}" class="w-24 h-24 rounded-full object-cover mx-auto mb-4 border-4 border-blue-100">` :
+                    `<div class="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl font-bold text-blue-600">${doctor.name.charAt(0)}</span>
+                    </div>`;
+                
                 doctorCard.innerHTML = `
                     <div class="text-center mb-6">
-                        <div class="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <span class="text-2xl font-bold text-blue-600">${doctor.name.charAt(0)}</span>
-                        </div>
+                        ${photoDisplay}
                         <h3 class="text-xl font-bold text-gray-900">${doctor.name}</h3>
                         <p class="text-blue-600 font-medium">${doctor.title}</p>
                     </div>
@@ -2116,175 +2305,177 @@
             });
         }
 
-        // 渲染診所環境輪播
+        // 渲染診所環境
         function renderGallery() {
-            const carousel = document.getElementById('gallery-carousel');
-            const thumbnails = document.getElementById('gallery-thumbnails');
+            const slidesContainer = document.getElementById('gallery-slides');
+            const thumbnailsContainer = document.getElementById('gallery-thumbnails');
             
-            if (!carousel || !thumbnails) return;
+            if (!slidesContainer || !thumbnailsContainer) return;
             
-            // 清空現有內容
-            carousel.innerHTML = '';
-            thumbnails.innerHTML = '';
-            
-            // 生成輪播項目
-            galleryImages.forEach((image, index) => {
-                // 主要輪播項目
-                const carouselItem = document.createElement('div');
-                carouselItem.className = 'w-full flex-shrink-0 flex items-center justify-center bg-gradient-to-br ' + image.bgColor;
-                carouselItem.innerHTML = `
-                    <div class="text-center">
-                        <div class="text-6xl mb-4">${image.icon}</div>
-                        <h3 class="text-2xl font-bold text-gray-800 mb-2">${image.title}</h3>
-                        <p class="text-gray-600 max-w-md mx-auto">${image.description}</p>
-                    </div>
-                `;
-                carousel.appendChild(carouselItem);
-                
-                // 縮圖
-                const thumbnail = document.createElement('button');
-                thumbnail.className = `w-16 h-16 rounded-lg bg-gradient-to-br ${image.bgColor} flex items-center justify-center text-2xl hover:scale-105 transition-transform duration-200 ${index === 0 ? 'ring-2 ring-blue-500' : ''}`;
-                thumbnail.innerHTML = image.icon;
-                thumbnail.onclick = () => goToGallerySlide(index);
-                thumbnails.appendChild(thumbnail);
-            });
-            
-            updateGalleryInfo();
-        }
+            slidesContainer.innerHTML = '';
+            thumbnailsContainer.innerHTML = '';
 
-        // 渲染宣傳畫報輪播
-        function renderPosters() {
-            const carousel = document.getElementById('posters-carousel');
-            const thumbnails = document.getElementById('posters-thumbnails');
-            
-            if (!carousel || !thumbnails) return;
-            
-            // 清空現有內容
-            carousel.innerHTML = '';
-            thumbnails.innerHTML = '';
-            
-            // 生成輪播項目
-            postersData.forEach((poster, index) => {
-                // 主要輪播項目
-                const carouselItem = document.createElement('div');
-                carouselItem.className = 'w-full flex-shrink-0 bg-gradient-to-br ' + poster.bgColor + ' p-8 flex items-center justify-center';
-                carouselItem.innerHTML = `
-                    <div class="text-center max-w-md">
-                        <div class="text-6xl mb-6">${poster.icon}</div>
-                        <h3 class="text-2xl font-bold text-gray-900 mb-4">${poster.title}</h3>
-                        <p class="text-lg font-semibold text-gray-700 mb-6">${poster.subtitle}</p>
-                        <div class="space-y-2">
-                            ${poster.content.map(item => `<p class="text-gray-600">• ${item}</p>`).join('')}
+            galleryImages.forEach((image, index) => {
+                // 創建幻燈片
+                const slide = document.createElement('div');
+                slide.className = 'w-full flex-shrink-0 relative';
+                slide.innerHTML = `
+                    <div class="aspect-video bg-gradient-to-br ${image.bgColor} rounded-xl overflow-hidden shadow-lg">
+                        <div class="h-full flex flex-col items-center justify-center p-8 text-center">
+                            <div class="text-6xl mb-4">${image.icon}</div>
+                            <h3 class="text-2xl font-bold text-gray-800 mb-2">${image.title}</h3>
+                            <p class="text-gray-600 max-w-md">${image.description}</p>
                         </div>
                     </div>
                 `;
-                carousel.appendChild(carouselItem);
-                
-                // 縮圖
+                slidesContainer.appendChild(slide);
+
+                // 創建縮圖
                 const thumbnail = document.createElement('button');
-                thumbnail.className = `w-16 h-16 rounded-lg bg-gradient-to-br ${poster.bgColor} flex items-center justify-center text-2xl hover:scale-105 transition-transform duration-200 ${index === 0 ? 'ring-2 ring-blue-500' : ''}`;
-                thumbnail.innerHTML = poster.icon;
-                thumbnail.onclick = () => goToPostersSlide(index);
-                thumbnails.appendChild(thumbnail);
+                thumbnail.className = `w-20 h-20 rounded-lg overflow-hidden shadow-md transition duration-300 ${index === currentGalleryIndex ? 'ring-4 ring-blue-500' : 'opacity-70 hover:opacity-100'}`;
+                thumbnail.innerHTML = `
+                    <div class="w-full h-full bg-gradient-to-br ${image.bgColor} flex items-center justify-center">
+                        <span class="text-2xl">${image.icon}</span>
+                    </div>
+                `;
+                thumbnail.addEventListener('click', () => showGallerySlide(index));
+                thumbnailsContainer.appendChild(thumbnail);
             });
+
+            // 設置輪播控制
+            setupGalleryControls();
+        }
+
+        // 渲染宣傳畫報
+        function renderPosters() {
+            const slidesContainer = document.getElementById('posters-slides');
+            const indicatorsContainer = document.getElementById('posters-indicators');
             
-            updatePostersInfo();
+            if (!slidesContainer || !indicatorsContainer) return;
+            
+            slidesContainer.innerHTML = '';
+            indicatorsContainer.innerHTML = '';
+
+            postersData.forEach((poster, index) => {
+                // 創建畫報幻燈片
+                const slide = document.createElement('div');
+                slide.className = 'w-full flex-shrink-0 relative';
+                slide.innerHTML = `
+                    <div class="bg-gradient-to-br ${poster.bgColor} rounded-xl p-8 shadow-lg">
+                        <div class="max-w-4xl mx-auto">
+                            <div class="text-center mb-8">
+                                <div class="text-6xl mb-4">${poster.icon}</div>
+                                <h3 class="text-3xl font-bold text-gray-800 mb-2">${poster.title}</h3>
+                                <p class="text-xl text-gray-600">${poster.subtitle}</p>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                ${poster.content.map(item => `
+                                    <div class="bg-white/80 rounded-lg p-4 shadow-sm">
+                                        <div class="flex items-center">
+                                            <div class="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+                                            <span class="text-gray-800 font-medium">${item}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                slidesContainer.appendChild(slide);
+
+                // 創建指示器
+                const indicator = document.createElement('button');
+                indicator.className = `w-3 h-3 rounded-full transition duration-300 ${index === currentPostersIndex ? 'bg-blue-600' : 'bg-gray-300 hover:bg-gray-400'}`;
+                indicator.addEventListener('click', () => showPosterSlide(index));
+                indicatorsContainer.appendChild(indicator);
+            });
+
+            // 設置輪播控制
+            setupPostersControls();
         }
 
         // 診所環境輪播控制
-        function goToGallerySlide(index) {
-            currentGalleryIndex = index;
-            const carousel = document.getElementById('gallery-carousel');
-            if (carousel) {
-                carousel.style.transform = `translateX(-${index * 100}%)`;
+        function setupGalleryControls() {
+            const prevBtn = document.getElementById('gallery-prev');
+            const nextBtn = document.getElementById('gallery-next');
+            
+            if (prevBtn && nextBtn) {
+                prevBtn.addEventListener('click', () => {
+                    currentGalleryIndex = currentGalleryIndex > 0 ? currentGalleryIndex - 1 : galleryImages.length - 1;
+                    showGallerySlide(currentGalleryIndex);
+                });
+                
+                nextBtn.addEventListener('click', () => {
+                    currentGalleryIndex = currentGalleryIndex < galleryImages.length - 1 ? currentGalleryIndex + 1 : 0;
+                    showGallerySlide(currentGalleryIndex);
+                });
             }
-            updateGalleryThumbnails();
-            updateGalleryInfo();
         }
 
-        function nextGallerySlide() {
-            currentGalleryIndex = (currentGalleryIndex + 1) % galleryImages.length;
-            goToGallerySlide(currentGalleryIndex);
-        }
-
-        function prevGallerySlide() {
-            currentGalleryIndex = (currentGalleryIndex - 1 + galleryImages.length) % galleryImages.length;
-            goToGallerySlide(currentGalleryIndex);
-        }
-
-        function updateGalleryThumbnails() {
+        function showGallerySlide(index) {
+            currentGalleryIndex = index;
+            const slidesContainer = document.getElementById('gallery-slides');
             const thumbnails = document.querySelectorAll('#gallery-thumbnails button');
-            thumbnails.forEach((thumb, index) => {
-                if (index === currentGalleryIndex) {
-                    thumb.classList.add('ring-2', 'ring-blue-500');
+            
+            if (slidesContainer) {
+                slidesContainer.style.transform = `translateX(-${index * 100}%)`;
+            }
+            
+            // 更新縮圖狀態
+            thumbnails.forEach((thumb, i) => {
+                if (i === index) {
+                    thumb.classList.add('ring-4', 'ring-blue-500');
+                    thumb.classList.remove('opacity-70');
                 } else {
-                    thumb.classList.remove('ring-2', 'ring-blue-500');
+                    thumb.classList.remove('ring-4', 'ring-blue-500');
+                    thumb.classList.add('opacity-70');
                 }
             });
-        }
-
-        function updateGalleryInfo() {
-            const titleElement = document.getElementById('gallery-title');
-            const descElement = document.getElementById('gallery-description');
-            const counterElement = document.getElementById('gallery-counter');
-            
-            if (titleElement && galleryImages[currentGalleryIndex]) {
-                titleElement.textContent = galleryImages[currentGalleryIndex].title;
-            }
-            if (descElement && galleryImages[currentGalleryIndex]) {
-                descElement.textContent = galleryImages[currentGalleryIndex].description;
-            }
-            if (counterElement) {
-                counterElement.textContent = `${currentGalleryIndex + 1} / ${galleryImages.length}`;
-            }
         }
 
         // 宣傳畫報輪播控制
-        function goToPostersSlide(index) {
-            currentPostersIndex = index;
-            const carousel = document.getElementById('posters-carousel');
-            if (carousel) {
-                carousel.style.transform = `translateX(-${index * 100}%)`;
+        function setupPostersControls() {
+            const prevBtn = document.getElementById('posters-prev');
+            const nextBtn = document.getElementById('posters-next');
+            
+            if (prevBtn && nextBtn) {
+                prevBtn.addEventListener('click', () => {
+                    currentPostersIndex = currentPostersIndex > 0 ? currentPostersIndex - 1 : postersData.length - 1;
+                    showPosterSlide(currentPostersIndex);
+                });
+                
+                nextBtn.addEventListener('click', () => {
+                    currentPostersIndex = currentPostersIndex < postersData.length - 1 ? currentPostersIndex + 1 : 0;
+                    showPosterSlide(currentPostersIndex);
+                });
             }
-            updatePostersThumbnails();
-            updatePostersInfo();
+            
+            // 自動輪播
+            setInterval(() => {
+                currentPostersIndex = currentPostersIndex < postersData.length - 1 ? currentPostersIndex + 1 : 0;
+                showPosterSlide(currentPostersIndex);
+            }, 5000);
         }
 
-        function nextPostersSlide() {
-            currentPostersIndex = (currentPostersIndex + 1) % postersData.length;
-            goToPostersSlide(currentPostersIndex);
-        }
-
-        function prevPostersSlide() {
-            currentPostersIndex = (currentPostersIndex - 1 + postersData.length) % postersData.length;
-            goToPostersSlide(currentPostersIndex);
-        }
-
-        function updatePostersThumbnails() {
-            const thumbnails = document.querySelectorAll('#posters-thumbnails button');
-            thumbnails.forEach((thumb, index) => {
-                if (index === currentPostersIndex) {
-                    thumb.classList.add('ring-2', 'ring-blue-500');
+        function showPosterSlide(index) {
+            currentPostersIndex = index;
+            const slidesContainer = document.getElementById('posters-slides');
+            const indicators = document.querySelectorAll('#posters-indicators button');
+            
+            if (slidesContainer) {
+                slidesContainer.style.transform = `translateX(-${index * 100}%)`;
+            }
+            
+            // 更新指示器狀態
+            indicators.forEach((indicator, i) => {
+                if (i === index) {
+                    indicator.classList.add('bg-blue-600');
+                    indicator.classList.remove('bg-gray-300');
                 } else {
-                    thumb.classList.remove('ring-2', 'ring-blue-500');
+                    indicator.classList.remove('bg-blue-600');
+                    indicator.classList.add('bg-gray-300');
                 }
             });
-        }
-
-        function updatePostersInfo() {
-            const titleElement = document.getElementById('posters-title');
-            const descElement = document.getElementById('posters-description');
-            const counterElement = document.getElementById('posters-counter');
-            
-            if (titleElement && postersData[currentPostersIndex]) {
-                titleElement.textContent = postersData[currentPostersIndex].title;
-            }
-            if (descElement && postersData[currentPostersIndex]) {
-                descElement.textContent = postersData[currentPostersIndex].subtitle;
-            }
-            if (counterElement) {
-                counterElement.textContent = `${currentPostersIndex + 1} / ${postersData.length}`;
-            }
         }
 
         // 初始化事件監聽器
@@ -2342,6 +2533,60 @@
             // 關閉設置面板
             closeSettings.addEventListener('click', () => {
                 settingsPanel.classList.add('hidden');
+            });
+
+            // 醫師對話框事件監聽器
+            const doctorModal = document.getElementById('doctor-modal');
+            const closeDoctorModal = document.getElementById('close-doctor-modal');
+            const cancelDoctor = document.getElementById('cancel-doctor');
+            const doctorForm = document.getElementById('doctor-form');
+            const uploadPhotoBtn = document.getElementById('upload-photo-btn');
+            const doctorPhotoFile = document.getElementById('doctor-photo-file');
+            const doctorPhotoUrl = document.getElementById('doctor-photo-url');
+
+            // 關閉醫師對話框
+            closeDoctorModal.addEventListener('click', () => {
+                doctorModal.classList.add('hidden');
+            });
+
+            cancelDoctor.addEventListener('click', () => {
+                doctorModal.classList.add('hidden');
+            });
+
+            // 點擊背景關閉對話框
+            doctorModal.addEventListener('click', (e) => {
+                if (e.target === doctorModal) {
+                    doctorModal.classList.add('hidden');
+                }
+            });
+
+            // 照片上傳按鈕
+            uploadPhotoBtn.addEventListener('click', () => {
+                doctorPhotoFile.click();
+            });
+
+            // 檔案選擇處理
+            doctorPhotoFile.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    handlePhotoUpload(file);
+                }
+            });
+
+            // 照片網址輸入處理
+            doctorPhotoUrl.addEventListener('input', (e) => {
+                const url = e.target.value.trim();
+                if (url) {
+                    showPhotoPreview(url);
+                } else {
+                    clearPhotoPreview();
+                }
+            });
+
+            // 醫師表單提交
+            doctorForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await saveDoctorData();
             });
 
             // 登入表單提交
@@ -2408,6 +2653,10 @@
                         renderNewsManagement();
                     } else if (targetTab === 'testimonials') {
                         renderTestimonialsManagement();
+                    } else if (targetTab === 'gallery') {
+                        renderGalleryManagement();
+                    } else if (targetTab === 'posters') {
+                        renderPostersManagement();
                     }
                 });
             });
@@ -2447,6 +2696,16 @@
                 addNewTestimonial();
             });
 
+            // 新增診所環境
+            document.getElementById('add-gallery-item').addEventListener('click', () => {
+                addNewGalleryItem();
+            });
+
+            // 新增宣傳畫報
+            document.getElementById('add-poster-item').addEventListener('click', () => {
+                addNewPosterItem();
+            });
+
             // 套用樣式變更
             document.getElementById('apply-style-changes').addEventListener('click', async () => {
                 await applyStyleChanges();
@@ -2457,24 +2716,7 @@
                 await applyLegalChanges();
             });
 
-            // 診所環境輪播控制
-            document.getElementById('gallery-prev').addEventListener('click', prevGallerySlide);
-            document.getElementById('gallery-next').addEventListener('click', nextGallerySlide);
 
-            // 宣傳畫報輪播控制
-            document.getElementById('posters-prev').addEventListener('click', prevPostersSlide);
-            document.getElementById('posters-next').addEventListener('click', nextPostersSlide);
-
-            // 鍵盤控制
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'ArrowLeft') {
-                    prevGallerySlide();
-                    prevPostersSlide();
-                } else if (e.key === 'ArrowRight') {
-                    nextGallerySlide();
-                    nextPostersSlide();
-                }
-            });
 
             // 法律條款連結
             document.getElementById('privacy-link').addEventListener('click', () => {
@@ -2504,15 +2746,26 @@
                 const doctorItem = document.createElement('div');
                 doctorItem.className = 'bg-gray-50 p-4 rounded-lg';
                 
+                // 決定顯示照片還是姓名縮寫
+                const photoDisplay = doctor.photo ? 
+                    `<img src="${doctor.photo}" alt="${doctor.name}" class="w-16 h-16 rounded-full object-cover border-2 border-blue-100">` :
+                    `<div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center border-2 border-blue-200">
+                        <span class="text-lg font-bold text-blue-600">${doctor.name.charAt(0)}</span>
+                    </div>`;
+                
                 doctorItem.innerHTML = `
                     <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <h4 class="font-bold text-gray-900 mb-2">${doctor.name} - ${doctor.title}</h4>
-                            <div class="text-sm text-gray-600 space-y-1">
-                                <p><strong>專長:</strong> ${doctor.specialty}</p>
-                                <p><strong>經驗:</strong> ${doctor.experience}</p>
-                                <p><strong>學歷:</strong> ${doctor.education}</p>
-                                <p><strong>簡介:</strong> ${doctor.description}</p>
+                        <div class="flex items-start space-x-4">
+                            ${photoDisplay}
+                            <div class="flex-1">
+                                <h4 class="font-bold text-gray-900 mb-2">${doctor.name} - ${doctor.title}</h4>
+                                <div class="text-sm text-gray-600 space-y-1">
+                                    <p><strong>專長:</strong> ${doctor.specialty}</p>
+                                    <p><strong>經驗:</strong> ${doctor.experience}</p>
+                                    <p><strong>學歷:</strong> ${doctor.education}</p>
+                                    <p><strong>簡介:</strong> ${doctor.description}</p>
+                                    ${doctor.photo ? `<p><strong>照片:</strong> <span class="text-xs text-blue-600">已上傳</span></p>` : '<p><strong>照片:</strong> <span class="text-xs text-gray-400">未上傳</span></p>'}
+                                </div>
                             </div>
                         </div>
                         <div class="flex flex-col space-y-2 ml-4">
@@ -2560,64 +2813,154 @@
             });
         }
 
+        // 全域變數
+        let currentEditingDoctorIndex = -1;
+
         // 新增醫師
         function addNewDoctor() {
-            const name = prompt('請輸入醫師姓名:');
-            if (!name) return;
-            
-            const title = prompt('請輸入職稱:') || '主治醫師';
-            const specialty = prompt('請輸入專長:') || '';
-            const experience = prompt('請輸入經驗:') || '';
-            const education = prompt('請輸入學歷:') || '';
-            const description = prompt('請輸入簡介:') || '';
-
-            const newDoctor = {
-                name,
-                title,
-                specialty,
-                experience,
-                education,
-                description
-            };
-
-            currentDoctors.push(newDoctor);
-            renderDoctors();
-            renderDoctorsManagement();
-            
-            // 保存到 Firebase
-            if (window.FirebaseManager) {
-                window.FirebaseManager.saveDoctors(currentDoctors);
-            }
+            currentEditingDoctorIndex = -1;
+            document.getElementById('doctor-modal-title').textContent = '新增醫師';
+            clearDoctorForm();
+            document.getElementById('doctor-modal').classList.remove('hidden');
         }
 
         // 編輯醫師
         function editDoctor(index) {
+            currentEditingDoctorIndex = index;
             const doctor = currentDoctors[index];
             
-            const name = prompt('請輸入醫師姓名:', doctor.name);
-            if (!name) return;
+            document.getElementById('doctor-modal-title').textContent = '編輯醫師資料';
             
-            const title = prompt('請輸入職稱:', doctor.title);
-            const specialty = prompt('請輸入專長:', doctor.specialty);
-            const experience = prompt('請輸入經驗:', doctor.experience);
-            const education = prompt('請輸入學歷:', doctor.education);
-            const description = prompt('請輸入簡介:', doctor.description);
+            // 填入現有資料
+            document.getElementById('doctor-name').value = doctor.name || '';
+            document.getElementById('doctor-title').value = doctor.title || '';
+            document.getElementById('doctor-specialty').value = doctor.specialty || '';
+            document.getElementById('doctor-experience').value = doctor.experience || '';
+            document.getElementById('doctor-education').value = doctor.education || '';
+            document.getElementById('doctor-description').value = doctor.description || '';
+            document.getElementById('doctor-photo-url').value = doctor.photo || '';
+            
+            // 顯示照片預覽
+            if (doctor.photo) {
+                showPhotoPreview(doctor.photo);
+            } else {
+                clearPhotoPreview();
+            }
+            
+            document.getElementById('doctor-modal').classList.remove('hidden');
+        }
 
-            currentDoctors[index] = {
-                name,
-                title: title || doctor.title,
-                specialty: specialty || doctor.specialty,
-                experience: experience || doctor.experience,
-                education: education || doctor.education,
-                description: description || doctor.description
+        // 清空醫師表單
+        function clearDoctorForm() {
+            document.getElementById('doctor-form').reset();
+            clearPhotoPreview();
+        }
+
+        // 顯示照片預覽
+        function showPhotoPreview(photoUrl) {
+            const placeholder = document.getElementById('doctor-photo-placeholder');
+            const img = document.getElementById('doctor-photo-img');
+            
+            img.src = photoUrl;
+            img.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+            
+            // 處理圖片載入錯誤
+            img.onerror = function() {
+                clearPhotoPreview();
             };
+        }
 
-            renderDoctors();
-            renderDoctorsManagement();
+        // 清空照片預覽
+        function clearPhotoPreview() {
+            const placeholder = document.getElementById('doctor-photo-placeholder');
+            const img = document.getElementById('doctor-photo-img');
             
-            // 保存到 Firebase
-            if (window.FirebaseManager) {
-                window.FirebaseManager.saveDoctors(currentDoctors);
+            img.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+            img.src = '';
+        }
+
+        // 處理檔案上傳
+        function handlePhotoUpload(file) {
+            if (!file) return;
+            
+            // 檢查檔案類型
+            if (!file.type.startsWith('image/')) {
+                alert('請選擇圖片檔案！');
+                return;
+            }
+            
+            // 檢查檔案大小（限制 5MB）
+            if (file.size > 5 * 1024 * 1024) {
+                alert('圖片檔案不能超過 5MB！');
+                return;
+            }
+            
+            // 使用 FileReader 讀取檔案
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const photoUrl = e.target.result;
+                document.getElementById('doctor-photo-url').value = photoUrl;
+                showPhotoPreview(photoUrl);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 保存醫師資料
+        async function saveDoctorData() {
+            const saveText = document.getElementById('save-doctor-text');
+            const saveLoading = document.getElementById('save-doctor-loading');
+            
+            saveText.textContent = '保存中...';
+            saveLoading.classList.remove('hidden');
+            
+            try {
+                const doctorData = {
+                    name: document.getElementById('doctor-name').value.trim(),
+                    title: document.getElementById('doctor-title').value.trim() || '主治醫師',
+                    specialty: document.getElementById('doctor-specialty').value.trim(),
+                    experience: document.getElementById('doctor-experience').value.trim(),
+                    education: document.getElementById('doctor-education').value.trim(),
+                    description: document.getElementById('doctor-description').value.trim(),
+                    photo: document.getElementById('doctor-photo-url').value.trim()
+                };
+                
+                // 驗證必填欄位
+                if (!doctorData.name) {
+                    alert('請輸入醫師姓名！');
+                    return;
+                }
+                
+                // 新增或更新醫師
+                if (currentEditingDoctorIndex === -1) {
+                    // 新增醫師
+                    currentDoctors.push(doctorData);
+                } else {
+                    // 更新醫師
+                    currentDoctors[currentEditingDoctorIndex] = doctorData;
+                }
+                
+                // 重新渲染
+                renderDoctors();
+                renderDoctorsManagement();
+                
+                // 保存到 Firebase
+                if (window.FirebaseManager) {
+                    await window.FirebaseManager.saveDoctors(currentDoctors);
+                }
+                
+                // 關閉對話框
+                document.getElementById('doctor-modal').classList.add('hidden');
+                
+                alert('醫師資料已保存！');
+                
+            } catch (error) {
+                console.error('保存醫師資料失敗:', error);
+                alert('保存醫師資料時發生錯誤：' + error.message);
+            } finally {
+                saveText.textContent = '保存';
+                saveLoading.classList.add('hidden');
             }
         }
 
@@ -3186,6 +3529,17 @@
                     currentNews = news;
                     renderNews();
                 }
+
+                // 重新載入診所環境和宣傳畫報
+                if (firebaseSettings.galleryImages) {
+                    galleryImages = firebaseSettings.galleryImages;
+                    renderGallery();
+                }
+                
+                if (firebaseSettings.postersData) {
+                    postersData = firebaseSettings.postersData;
+                    renderPosters();
+                }
                 
                 syncStatus.textContent = '重新載入完成！頁面已更新為最新的 Firebase 資料。';
                 syncStatus.className = 'p-4 rounded-lg bg-green-50 text-sm text-green-600';
@@ -3304,6 +3658,212 @@
         // 預設免責聲明內容
         function getDefaultDisclaimerContent() {
             return document.getElementById('disclaimer-content').value;
+        }
+
+        // 渲染診所環境管理
+        function renderGalleryManagement() {
+            const container = document.getElementById('gallery-management');
+            container.innerHTML = '';
+
+            galleryImages.forEach((image, index) => {
+                const galleryItem = document.createElement('div');
+                galleryItem.className = 'bg-gray-50 p-4 rounded-lg';
+                
+                galleryItem.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-start space-x-4">
+                            <div class="w-16 h-16 rounded-lg overflow-hidden bg-gray-200">
+                                <img src="${image.imageUrl}" alt="${image.title}" class="w-full h-full object-cover">
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-gray-900 mb-2">${image.title}</h4>
+                                <div class="text-xs text-gray-500">
+                                    <span class="bg-gray-200 px-2 py-1 rounded">圖片: ${image.imageUrl}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col space-y-2 ml-4">
+                            <button onclick="editGalleryItem(${index})" class="text-blue-600 hover:text-blue-800 text-sm">編輯</button>
+                            <button onclick="deleteGalleryItem(${index})" class="text-red-600 hover:text-red-800 text-sm">刪除</button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(galleryItem);
+            });
+        }
+
+        // 渲染宣傳畫報管理
+        function renderPostersManagement() {
+            const container = document.getElementById('posters-management');
+            container.innerHTML = '';
+
+            postersData.forEach((poster, index) => {
+                const posterItem = document.createElement('div');
+                posterItem.className = 'bg-gray-50 p-4 rounded-lg';
+                
+                posterItem.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-start space-x-4">
+                            <div class="w-16 h-16 rounded-lg overflow-hidden bg-gray-200">
+                                <img src="${poster.imageUrl}" alt="${poster.title}" class="w-full h-full object-cover">
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-gray-900 mb-2">${poster.title}</h4>
+                                <div class="text-xs text-gray-500">
+                                    <span class="bg-gray-200 px-2 py-1 rounded">圖片: ${poster.imageUrl}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col space-y-2 ml-4">
+                            <button onclick="editPosterItem(${index})" class="text-blue-600 hover:text-blue-800 text-sm">編輯</button>
+                            <button onclick="deletePosterItem(${index})" class="text-red-600 hover:text-red-800 text-sm">刪除</button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(posterItem);
+            });
+        }
+
+        // 新增診所環境項目
+        function addNewGalleryItem() {
+            const title = prompt('請輸入環境名稱（例如：診療室、候診區）:');
+            if (!title) return;
+            
+            const imageUrl = prompt('請輸入圖片網址:') || 'https://via.placeholder.com/800x600/3B82F6/FFFFFF?text=' + encodeURIComponent(title);
+
+            const newGalleryItem = {
+                title,
+                imageUrl
+            };
+
+            galleryImages.push(newGalleryItem);
+            renderGallery();
+            renderGalleryManagement();
+            
+            // 保存到 Firebase
+            saveGalleryToFirebase();
+        }
+
+        // 編輯診所環境項目
+        function editGalleryItem(index) {
+            const item = galleryImages[index];
+            
+            const title = prompt('請輸入環境名稱:', item.title);
+            if (!title) return;
+            
+            const imageUrl = prompt('請輸入圖片網址:', item.imageUrl);
+
+            galleryImages[index] = {
+                title,
+                imageUrl: imageUrl || item.imageUrl
+            };
+
+            renderGallery();
+            renderGalleryManagement();
+            
+            // 保存到 Firebase
+            saveGalleryToFirebase();
+        }
+
+        // 刪除診所環境項目
+        function deleteGalleryItem(index) {
+            if (confirm('確定要刪除這個環境項目嗎？')) {
+                galleryImages.splice(index, 1);
+                renderGallery();
+                renderGalleryManagement();
+                
+                // 保存到 Firebase
+                saveGalleryToFirebase();
+            }
+        }
+
+        // 新增宣傳畫報項目
+        function addNewPosterItem() {
+            const title = prompt('請輸入畫報標題（例如：春季養生、夏季養心）:');
+            if (!title) return;
+            
+            const imageUrl = prompt('請輸入圖片網址:') || 'https://via.placeholder.com/800x600/3B82F6/FFFFFF?text=' + encodeURIComponent(title);
+
+            const newPosterItem = {
+                title,
+                imageUrl
+            };
+
+            postersData.push(newPosterItem);
+            renderPosters();
+            renderPostersManagement();
+            
+            // 保存到 Firebase
+            savePostersToFirebase();
+        }
+
+        // 編輯宣傳畫報項目
+        function editPosterItem(index) {
+            const item = postersData[index];
+            
+            const title = prompt('請輸入畫報標題:', item.title);
+            if (!title) return;
+            
+            const imageUrl = prompt('請輸入圖片網址:', item.imageUrl);
+
+            postersData[index] = {
+                title,
+                imageUrl: imageUrl || item.imageUrl
+            };
+
+            renderPosters();
+            renderPostersManagement();
+            
+            // 保存到 Firebase
+            savePostersToFirebase();
+        }
+
+        // 刪除宣傳畫報項目
+        function deletePosterItem(index) {
+            if (confirm('確定要刪除這個畫報嗎？')) {
+                postersData.splice(index, 1);
+                renderPosters();
+                renderPostersManagement();
+                
+                // 保存到 Firebase
+                savePostersToFirebase();
+            }
+        }
+
+        // 保存診所環境到 Firebase
+        async function saveGalleryToFirebase() {
+            if (window.FirebaseManager) {
+                try {
+                    const currentSettings = await window.FirebaseManager.loadSettings() || {};
+                    const updatedSettings = {
+                        ...currentSettings,
+                        galleryImages,
+                        updatedAt: new Date()
+                    };
+                    await window.FirebaseManager.saveSettings(updatedSettings);
+                    console.log('診所環境已保存到 Firebase');
+                } catch (error) {
+                    console.error('保存診所環境失敗:', error);
+                }
+            }
+        }
+
+        // 保存宣傳畫報到 Firebase
+        async function savePostersToFirebase() {
+            if (window.FirebaseManager) {
+                try {
+                    const currentSettings = await window.FirebaseManager.loadSettings() || {};
+                    const updatedSettings = {
+                        ...currentSettings,
+                        postersData,
+                        updatedAt: new Date()
+                    };
+                    await window.FirebaseManager.saveSettings(updatedSettings);
+                    console.log('宣傳畫報已保存到 Firebase');
+                } catch (error) {
+                    console.error('保存宣傳畫報失敗:', error);
+                }
+            }
         }
 
         // 平滑滾動功能
@@ -3697,5 +4257,5 @@
             });
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96b60eb66257704b',t:'MTc1NDU2MjE5NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96b64159828f095a',t:'MTc1NDU2NDI2OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
