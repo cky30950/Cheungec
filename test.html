@@ -977,14 +977,14 @@
                         <button onclick="filterBillingItems('treatment')" id="billing-filter-treatment" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
                             治療費
                         </button>
-                        <button onclick="filterBillingItems('package')" id="billing-filter-package" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
-                            套票項目
-                        </button>
                         <button onclick="filterBillingItems('other')" id="billing-filter-other" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
                             其他
                         </button>
                         <button onclick="filterBillingItems('discount')" id="billing-filter-discount" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
                             折扣項目
+                        </button>
+                        <button onclick="filterBillingItems('package')" id="billing-filter-package" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
+                            套票項目
                         </button>
                     </div>
                 </div>
@@ -1010,9 +1010,9 @@
                                         <option value="consultation">診療費</option>
                                         <option value="medicine">藥費</option>
                                         <option value="treatment">治療費</option>
-                                        <option value="package">套票項目</option>
                                         <option value="other">其他</option>
                                         <option value="discount">折扣項目</option>
+                                        <option value="package">套票項目</option>
                                     </select>
                                 </div>
                                 <div>
@@ -6826,9 +6826,9 @@
                 consultation: 'bg-blue-50 hover:bg-blue-100 border-blue-200',
                 medicine: 'bg-green-50 hover:bg-green-100 border-green-200',
                 treatment: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
-                package: 'bg-purple-50 hover:bg-purple-100 border-purple-200',
                 other: 'bg-gray-50 hover:bg-gray-100 border-gray-200',
-                discount: 'bg-red-50 hover:bg-red-100 border-red-200'
+                discount: 'bg-red-50 hover:bg-red-100 border-red-200',
+                package: 'bg-purple-50 hover:bg-purple-100 border-purple-200'
             };
             return colors[category] || colors.other;
         }
@@ -8041,10 +8041,10 @@
                 return 'medicine';
             } else if (itemName.includes('針灸') || itemName.includes('推拿') || itemName.includes('拔罐') || itemName.includes('刮痧') || itemName.includes('艾灸')) {
                 return 'treatment';
-            } else if (itemName.includes('套票') || itemName.includes('套餐') || itemName.includes('療程') || itemName.includes('方案')) {
-                return 'package';
             } else if (itemName.includes('折扣') || itemName.includes('優惠')) {
                 return 'discount';
+            } else if (itemName.includes('套票') || itemName.includes('套餐') || itemName.includes('療程') || itemName.includes('方案')) {
+                return 'package';
             } else {
                 return 'other';
             }
