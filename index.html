@@ -2301,6 +2301,9 @@
 
             // 初始化事件監聽器
             initializeEventListeners();
+            
+            // 設置後台管理按鈕事件
+            setupBackendLinkEvents();
         }
 
         // 預設設置
@@ -2592,6 +2595,9 @@
                     document.getElementById('backend-new-tab').checked = settings.backendNewTab !== false;
                 }
             }
+            
+            // 確保後台管理按鈕事件監聽器正常工作
+            setupBackendLinkEvents();
         }
 
         // 更新後台管理連結
@@ -2608,6 +2614,31 @@
             } else {
                 // 沒有設定網址，隱藏按鈕
                 backendLink.classList.add('hidden');
+            }
+        }
+
+        // 設置後台管理按鈕事件監聽器
+        function setupBackendLinkEvents() {
+            const backendLink = document.getElementById('backend-link');
+            if (backendLink) {
+                // 移除舊的事件監聽器（如果有的話）
+                const newBackendLink = backendLink.cloneNode(true);
+                backendLink.parentNode.replaceChild(newBackendLink, backendLink);
+                
+                // 添加點擊事件監聽器
+                newBackendLink.addEventListener('click', function(e) {
+                    const url = this.href;
+                    if (url && url !== '#' && url !== window.location.href) {
+                        // 有效的網址，允許正常跳轉
+                        console.log('跳轉到後台管理:', url);
+                        return true;
+                    } else {
+                        // 無效的網址，阻止跳轉並提示
+                        e.preventDefault();
+                        alert('後台管理網址尚未設定，請先在系統設置中配置後台管理網址。');
+                        return false;
+                    }
+                });
             }
         }
 
@@ -4019,6 +4050,9 @@
                     backendText: contentChanges.backendText,
                     backendNewTab: contentChanges.backendNewTab
                 });
+                
+                // 重新設置後台管理按鈕事件
+                setupBackendLinkEvents();
 
                 // 更新聯絡資訊
                 const emailElements = document.querySelectorAll('span, p');
@@ -5048,8 +5082,8 @@
 
         // 更新按鈕顏色
         function updateButtonColors(theme) {
-            // 主要按鈕
-            const primaryButtons = document.querySelectorAll('.bg-blue-600');
+            // 主要按鈕（排除管理按鈕）
+            const primaryButtons = document.querySelectorAll('.bg-blue-600:not(#admin-menu-btn)');
             primaryButtons.forEach(btn => {
                 btn.style.backgroundColor = theme.primary;
                 btn.style.borderColor = theme.primary;
@@ -5065,6 +5099,21 @@
                     newBtn.style.backgroundColor = theme.primary;
                 });
             });
+            
+            // 管理按鈕特殊處理
+            const adminMenuBtn = document.getElementById('admin-menu-btn');
+            if (adminMenuBtn) {
+                adminMenuBtn.style.backgroundColor = theme.primary;
+                adminMenuBtn.style.borderColor = theme.primary;
+                
+                // 保持原有的事件監聽器，只更新樣式
+                adminMenuBtn.addEventListener('mouseenter', () => {
+                    adminMenuBtn.style.backgroundColor = adjustBrightness(theme.primary, -20);
+                });
+                adminMenuBtn.addEventListener('mouseleave', () => {
+                    adminMenuBtn.style.backgroundColor = theme.primary;
+                });
+            }
             
             // 浮動按鈕
             const floatingBtn = document.querySelector('.floating-btn');
@@ -5255,5 +5304,5 @@
             });
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96b66fc4b3142416',t:'MTc1NDU2NjE3MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96b6791014b52416',t:'MTc1NDU2NjU1MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
