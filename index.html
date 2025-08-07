@@ -1653,12 +1653,7 @@
                                 </div>
                             </div>
 
-                            <div class="flex justify-end">
-                                <button id="apply-content-changes" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-300 flex items-center">
-                                    <span>套用內容變更</span>
-                                    <div id="apply-content-loading" class="loading ml-2 hidden"></div>
-                                </button>
-                            </div>
+
                         </div>
                     </div>
 
@@ -2179,12 +2174,7 @@
                                 </div>
                             </div>
 
-                            <div class="flex justify-end">
-                                <button id="apply-legal-changes" class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition duration-300 flex items-center">
-                                    <span>套用法律條款變更</span>
-                                    <div id="apply-legal-loading" class="loading ml-2 hidden"></div>
-                                </button>
-                            </div>
+
                         </div>
                     </div>
                     
@@ -3252,10 +3242,7 @@
                 await reloadFromFirebase();
             });
 
-            // 套用內容變更
-            document.getElementById('apply-content-changes').addEventListener('click', async () => {
-                await applyContentChanges();
-            });
+
 
             // 新增醫師
             document.getElementById('add-doctor').addEventListener('click', () => {
@@ -3287,10 +3274,7 @@
                 await applyStyleChanges();
             });
 
-            // 套用法律條款變更
-            document.getElementById('apply-legal-changes').addEventListener('click', async () => {
-                await applyLegalChanges();
-            });
+
 
 
 
@@ -3826,41 +3810,14 @@
             saveLoading.classList.remove('hidden');
             
             try {
+                // 收集所有設置資料
                 const settings = {
+                    // 基本設置
                     clinicName: document.getElementById('clinic-name').value,
                     clinicAddress: document.getElementById('clinic-address').value,
-                    clinicPhone: document.getElementById('clinic-phone').value
-                };
-
-                // 保存到 Firebase
-                if (window.FirebaseManager) {
-                    const success = await window.FirebaseManager.saveSettings(settings);
-                    if (success) {
-                        // 應用設置到頁面
-                        applySettings(settings);
-                        alert('設置已保存到 Firebase！');
-                    } else {
-                        throw new Error('保存到 Firebase 失敗');
-                    }
-                } else {
-                    throw new Error('Firebase 未連接');
-                }
-            } catch (error) {
-                console.error('保存設置失敗:', error);
-                alert('保存設置時發生錯誤：' + error.message);
-            } finally {
-                saveLoading.classList.add('hidden');
-            }
-        }
-
-        // 套用內容變更
-        async function applyContentChanges() {
-            const applyContentLoading = document.getElementById('apply-content-loading');
-            applyContentLoading.classList.remove('hidden');
-            
-            try {
-                // 收集所有內容變更
-                const contentChanges = {
+                    clinicPhone: document.getElementById('clinic-phone').value,
+                    
+                    // 內容編輯
                     heroTitle: document.getElementById('hero-title').value,
                     heroSubtitle: document.getElementById('hero-subtitle').value,
                     heroDescription: document.getElementById('hero-description').value,
@@ -3893,217 +3850,46 @@
                     floatingBtnText: document.getElementById('floating-btn-text').value,
                     backendUrl: document.getElementById('backend-url').value,
                     backendText: document.getElementById('backend-text').value,
-                    backendNewTab: document.getElementById('backend-new-tab').checked
+                    backendNewTab: document.getElementById('backend-new-tab').checked,
+                    
+                    // 法律條款
+                    privacyTitle: document.getElementById('privacy-title').value,
+                    privacyContent: document.getElementById('privacy-content').value,
+                    termsTitle: document.getElementById('terms-title').value,
+                    termsContent: document.getElementById('terms-content').value,
+                    disclaimerTitle: document.getElementById('disclaimer-title').value,
+                    disclaimerContent: document.getElementById('disclaimer-content').value,
+                    
+                    // 診所環境和宣傳畫報
+                    galleryImages: galleryImages,
+                    postersData: postersData,
+                    
+                    // 更新時間
+                    updatedAt: new Date()
                 };
-
-                // 更新主視覺區
-                const heroTitleElement = document.querySelector('#home h1');
-                if (heroTitleElement) {
-                    heroTitleElement.innerHTML = `${contentChanges.heroTitle}<br><span class="text-cyan-300">${contentChanges.heroSubtitle}</span>`;
-                }
-
-                const heroDescElement = document.querySelector('#home p.text-xl');
-                if (heroDescElement) {
-                    heroDescElement.textContent = contentChanges.heroDescription;
-                }
-
-                // 更新主視覺區按鈕
-                const heroBtn1 = document.querySelector('#home button:first-of-type');
-                if (heroBtn1) {
-                    heroBtn1.textContent = contentChanges.heroBtn1;
-                }
-
-                const heroBtn2 = document.querySelector('#home button:last-of-type');
-                if (heroBtn2) {
-                    heroBtn2.textContent = contentChanges.heroBtn2;
-                }
-
-                // 更新關於我們
-                const aboutTitleElement = document.querySelector('#about h2');
-                if (aboutTitleElement) {
-                    aboutTitleElement.textContent = contentChanges.aboutTitle;
-                }
-
-                const aboutDescElement = document.querySelector('#about .text-center p.text-xl');
-                if (aboutDescElement) {
-                    aboutDescElement.textContent = contentChanges.aboutDescription;
-                }
-
-                const missionTitleElement = document.querySelector('#about h3');
-                if (missionTitleElement) {
-                    missionTitleElement.textContent = contentChanges.missionTitle;
-                }
-
-                // 更新診療項目
-                const servicesTitleElement = document.querySelector('#services h2');
-                if (servicesTitleElement) {
-                    servicesTitleElement.textContent = contentChanges.servicesTitle;
-                }
-
-                const servicesDescElement = document.querySelector('#services .text-center p.text-xl');
-                if (servicesDescElement) {
-                    servicesDescElement.textContent = contentChanges.servicesDescription;
-                }
-
-                // 更新醫師團隊
-                const doctorsTitleElement = document.querySelector('#doctors h2');
-                if (doctorsTitleElement) {
-                    doctorsTitleElement.textContent = contentChanges.doctorsTitle;
-                }
-
-                const doctorsDescElement = document.querySelector('#doctors .text-center p.text-xl');
-                if (doctorsDescElement) {
-                    doctorsDescElement.textContent = contentChanges.doctorsDescription;
-                }
-
-                // 更新診所環境
-                const galleryTitleElement = document.querySelector('#gallery h2');
-                if (galleryTitleElement) {
-                    galleryTitleElement.textContent = contentChanges.galleryTitle;
-                }
-
-                const galleryDescElement = document.querySelector('#gallery .text-center p.text-xl');
-                if (galleryDescElement) {
-                    galleryDescElement.textContent = contentChanges.galleryDescription;
-                }
-
-                // 更新宣傳畫報
-                const postersTitleElement = document.querySelector('#posters h2');
-                if (postersTitleElement) {
-                    postersTitleElement.textContent = contentChanges.postersTitle;
-                }
-
-                const postersDescElement = document.querySelector('#posters .text-center p.text-xl');
-                if (postersDescElement) {
-                    postersDescElement.textContent = contentChanges.postersDescription;
-                }
-
-                // 更新最新消息
-                const newsTitleElement = document.querySelector('#news h2');
-                if (newsTitleElement) {
-                    newsTitleElement.textContent = contentChanges.newsTitle;
-                }
-
-                const newsDescElement = document.querySelector('#news .text-center p.text-xl');
-                if (newsDescElement) {
-                    newsDescElement.textContent = contentChanges.newsDescription;
-                }
-
-                // 更新患者見證
-                const testimonialsTitleElements = document.querySelectorAll('h2');
-                testimonialsTitleElements.forEach(el => {
-                    if (el.textContent.includes('患者見證')) {
-                        el.textContent = contentChanges.testimonialsTitle;
-                    }
-                });
-
-                const testimonialsDescElements = document.querySelectorAll('p.text-xl');
-                testimonialsDescElements.forEach(el => {
-                    if (el.textContent.includes('真實的治療經驗分享')) {
-                        el.textContent = contentChanges.testimonialsDescription;
-                    }
-                });
-
-                // 更新聯絡我們
-                const contactTitleElement = document.querySelector('#contact h2');
-                if (contactTitleElement) {
-                    contactTitleElement.textContent = contentChanges.contactTitle;
-                }
-
-                const contactDescElement = document.querySelector('#contact .text-center p.text-xl');
-                if (contactDescElement) {
-                    contactDescElement.textContent = contentChanges.contactDescription;
-                }
-
-                // 更新預約表單標題
-                const appointmentFormTitleElement = document.querySelector('#contact h3');
-                if (appointmentFormTitleElement && appointmentFormTitleElement.textContent.includes('線上預約')) {
-                    appointmentFormTitleElement.textContent = contentChanges.appointmentFormTitle;
-                }
-
-                // 更新預約按鈕
-                const appointmentBtnElement = document.querySelector('#submit-appointment #submit-text');
-                if (appointmentBtnElement) {
-                    appointmentBtnElement.textContent = contentChanges.appointmentBtnText;
-                }
-
-                // 更新頁尾
-                const footerSloganElement = document.querySelector('footer p');
-                if (footerSloganElement && footerSloganElement.textContent.includes('傳承千年智慧')) {
-                    footerSloganElement.textContent = contentChanges.footerSlogan;
-                }
-
-                const footerCopyrightElement = document.querySelector('footer .text-center p');
-                if (footerCopyrightElement && footerCopyrightElement.textContent.includes('©')) {
-                    footerCopyrightElement.textContent = contentChanges.footerCopyright;
-                }
-
-                // 更新浮動按鈕
-                const floatingBtnElement = document.querySelector('.floating-btn');
-                if (floatingBtnElement) {
-                    floatingBtnElement.textContent = contentChanges.floatingBtnText;
-                }
-
-                // 更新後台管理按鈕
-                updateBackendLink({
-                    backendUrl: contentChanges.backendUrl,
-                    backendText: contentChanges.backendText,
-                    backendNewTab: contentChanges.backendNewTab
-                });
-                
-                // 重新設置後台管理按鈕事件
-                setupBackendLinkEvents();
-
-                // 更新聯絡資訊
-                const emailElements = document.querySelectorAll('span, p');
-                emailElements.forEach(el => {
-                    if (el.textContent.includes('info@renxin-tcm.com.tw')) {
-                        el.textContent = contentChanges.clinicEmail;
-                    }
-                });
-
-                // 更新門診時間
-                const hoursElements = document.querySelectorAll('.text-gray-600, .text-gray-400');
-                hoursElements.forEach(el => {
-                    if (el.textContent.includes('週一至週五') || el.textContent.includes('週一至週六')) {
-                        const lines = contentChanges.clinicHours.split('\n');
-                        if (lines.length >= 3) {
-                            el.innerHTML = lines.map(line => `<p>${line}</p>`).join('');
-                        }
-                    }
-                });
-
-                // 更新交通資訊
-                const transportElements = document.querySelectorAll('.text-gray-600');
-                transportElements.forEach(el => {
-                    if (el.textContent.includes('捷運：中正紀念堂站')) {
-                        const lines = contentChanges.clinicTransport.split('\n');
-                        if (lines.length >= 3) {
-                            el.innerHTML = lines.map(line => `<p>${line}</p>`).join('');
-                        }
-                    }
-                });
 
                 // 保存到 Firebase
                 if (window.FirebaseManager) {
-                    const currentSettings = await window.FirebaseManager.loadSettings() || {};
-                    const updatedSettings = {
-                        ...currentSettings,
-                        ...contentChanges,
-                        updatedAt: new Date()
-                    };
-                    await window.FirebaseManager.saveSettings(updatedSettings);
+                    const success = await window.FirebaseManager.saveSettings(settings);
+                    if (success) {
+                        // 應用設置到頁面
+                        applySettings(settings);
+                        alert('所有設置已保存到 Firebase！');
+                    } else {
+                        throw new Error('保存到 Firebase 失敗');
+                    }
+                } else {
+                    throw new Error('Firebase 未連接');
                 }
-
-                alert('內容變更已套用到網頁！');
-                
             } catch (error) {
-                console.error('套用內容變更失敗:', error);
-                alert('套用內容變更時發生錯誤：' + error.message);
+                console.error('保存設置失敗:', error);
+                alert('保存設置時發生錯誤：' + error.message);
             } finally {
-                applyContentLoading.classList.add('hidden');
+                saveLoading.classList.add('hidden');
             }
         }
+
+
 
         // 重新載入 Firebase 資料
         async function reloadFromFirebase() {
@@ -4200,41 +3986,7 @@
             }
         }
 
-        // 套用法律條款變更
-        async function applyLegalChanges() {
-            const applyLegalLoading = document.getElementById('apply-legal-loading');
-            applyLegalLoading.classList.remove('hidden');
-            
-            try {
-                const legalChanges = {
-                    privacyTitle: document.getElementById('privacy-title').value,
-                    privacyContent: document.getElementById('privacy-content').value,
-                    termsTitle: document.getElementById('terms-title').value,
-                    termsContent: document.getElementById('terms-content').value,
-                    disclaimerTitle: document.getElementById('disclaimer-title').value,
-                    disclaimerContent: document.getElementById('disclaimer-content').value
-                };
 
-                // 保存到 Firebase
-                if (window.FirebaseManager) {
-                    const currentSettings = await window.FirebaseManager.loadSettings() || {};
-                    const updatedSettings = {
-                        ...currentSettings,
-                        ...legalChanges,
-                        updatedAt: new Date()
-                    };
-                    await window.FirebaseManager.saveSettings(updatedSettings);
-                }
-
-                alert('法律條款變更已保存！');
-                
-            } catch (error) {
-                console.error('套用法律條款變更失敗:', error);
-                alert('套用法律條款變更時發生錯誤：' + error.message);
-            } finally {
-                applyLegalLoading.classList.add('hidden');
-            }
-        }
 
         // 顯示法律條款彈出視窗
         async function showLegalModal(type) {
@@ -5304,5 +5056,5 @@
             });
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96b6791014b52416',t:'MTc1NDU2NjU1MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96b69e5005f58b24',t:'MTc1NDU2ODA3Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
