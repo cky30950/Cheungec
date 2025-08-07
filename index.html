@@ -1043,6 +1043,233 @@
         </div>
     </div>
 
+    <!-- 診所環境編輯對話框 -->
+    <div id="gallery-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+                    <h2 id="gallery-modal-title" class="text-2xl font-bold text-gray-900">編輯診所環境</h2>
+                    <button id="close-gallery-modal" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <form id="gallery-form" class="space-y-6">
+                        <!-- 環境圖片上傳區 -->
+                        <div class="text-center">
+                            <div class="mb-4">
+                                <div id="gallery-image-preview" class="w-48 h-32 mx-auto rounded-lg overflow-hidden border-4 border-gray-200 bg-gray-100 flex items-center justify-center">
+                                    <span id="gallery-image-placeholder" class="text-4xl">🏥</span>
+                                    <img id="gallery-image-img" class="w-full h-full object-cover hidden" alt="環境圖片">
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">環境圖片</label>
+                                    <div class="flex flex-col space-y-2">
+                                        <input type="file" id="gallery-image-file" accept="image/*" class="hidden">
+                                        <button type="button" id="upload-gallery-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">
+                                            📷 選擇圖片
+                                        </button>
+                                        <div class="text-xs text-gray-500">
+                                            支援 JPG、PNG 格式，建議尺寸 800x600 像素
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="text-center">
+                                    <span class="text-sm text-gray-500">或</span>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">圖片網址</label>
+                                    <input type="url" id="gallery-image-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="https://example.com/image.jpg">
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        可直接輸入網路圖片網址
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 基本資料 -->
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">環境名稱 *</label>
+                                <input type="text" id="gallery-title" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="例如：診療室、候診區">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">環境描述</label>
+                                <textarea id="gallery-description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="請描述這個環境的特色..."></textarea>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">代表圖示</label>
+                                <input type="text" id="gallery-icon" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="🏥" maxlength="2">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    當沒有上傳圖片時會顯示此圖示
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">背景顏色</label>
+                                <select id="gallery-bg-color" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="from-blue-100 to-blue-200">藍色</option>
+                                    <option value="from-green-100 to-green-200">綠色</option>
+                                    <option value="from-purple-100 to-purple-200">紫色</option>
+                                    <option value="from-yellow-100 to-yellow-200">黃色</option>
+                                    <option value="from-red-100 to-red-200">紅色</option>
+                                    <option value="from-indigo-100 to-indigo-200">靛色</option>
+                                    <option value="from-pink-100 to-pink-200">粉色</option>
+                                    <option value="from-gray-100 to-gray-200">灰色</option>
+                                </select>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    當沒有上傳圖片時的背景顏色
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-4">
+                            <button type="button" id="cancel-gallery" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-300">
+                                取消
+                            </button>
+                            <button type="submit" id="save-gallery" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-300 flex items-center">
+                                <span id="save-gallery-text">保存</span>
+                                <div id="save-gallery-loading" class="loading ml-2 hidden"></div>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 宣傳畫報編輯對話框 -->
+    <div id="poster-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+                    <h2 id="poster-modal-title" class="text-2xl font-bold text-gray-900">編輯宣傳畫報</h2>
+                    <button id="close-poster-modal" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="p-6">
+                    <form id="poster-form" class="space-y-6">
+                        <!-- 畫報圖片上傳區 -->
+                        <div class="text-center">
+                            <div class="mb-4">
+                                <div id="poster-image-preview" class="w-48 h-32 mx-auto rounded-lg overflow-hidden border-4 border-gray-200 bg-gray-100 flex items-center justify-center">
+                                    <span id="poster-image-placeholder" class="text-4xl">📋</span>
+                                    <img id="poster-image-img" class="w-full h-full object-cover hidden" alt="畫報圖片">
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">畫報圖片</label>
+                                    <div class="flex flex-col space-y-2">
+                                        <input type="file" id="poster-image-file" accept="image/*" class="hidden">
+                                        <button type="button" id="upload-poster-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">
+                                            📷 選擇圖片
+                                        </button>
+                                        <div class="text-xs text-gray-500">
+                                            支援 JPG、PNG 格式，建議尺寸 800x600 像素
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="text-center">
+                                    <span class="text-sm text-gray-500">或</span>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">圖片網址</label>
+                                    <input type="url" id="poster-image-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="https://example.com/image.jpg">
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        可直接輸入網路圖片網址
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 基本資料 -->
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">畫報標題 *</label>
+                                    <input type="text" id="poster-title" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="例如：春季養生">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">副標題</label>
+                                    <input type="text" id="poster-subtitle" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="例如：春季養肝正當時">
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">代表圖示</label>
+                                <input type="text" id="poster-icon" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="🍃" maxlength="2">
+                                <div class="text-xs text-gray-500 mt-1">
+                                    當沒有上傳圖片時會顯示此圖示
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">背景顏色</label>
+                                <select id="poster-bg-color" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="from-blue-50 to-blue-100">藍色</option>
+                                    <option value="from-green-50 to-green-100">綠色</option>
+                                    <option value="from-purple-50 to-purple-100">紫色</option>
+                                    <option value="from-yellow-50 to-yellow-100">黃色</option>
+                                    <option value="from-red-50 to-red-100">紅色</option>
+                                    <option value="from-indigo-50 to-indigo-100">靛色</option>
+                                    <option value="from-pink-50 to-pink-100">粉色</option>
+                                    <option value="from-gray-50 to-gray-100">灰色</option>
+                                </select>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    當沒有上傳圖片時的背景顏色
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">內容要點</label>
+                                <div id="poster-content-list" class="space-y-2 mb-3">
+                                    <!-- 內容要點將動態生成 -->
+                                </div>
+                                <div class="flex space-x-2">
+                                    <input type="text" id="new-content-point" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="輸入新的內容要點">
+                                    <button type="button" id="add-content-point" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-300">
+                                        新增
+                                    </button>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">
+                                    建議新增 4-6 個要點，每個要點簡潔明瞭
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-4">
+                            <button type="button" id="cancel-poster" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition duration-300">
+                                取消
+                            </button>
+                            <button type="submit" id="save-poster" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-300 flex items-center">
+                                <span id="save-poster-text">保存</span>
+                                <div id="save-poster-loading" class="loading ml-2 hidden"></div>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 醫師編輯對話框 -->
     <div id="doctor-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
         <div class="flex items-center justify-center min-h-screen p-4">
@@ -2319,25 +2546,38 @@
                 // 創建幻燈片
                 const slide = document.createElement('div');
                 slide.className = 'w-full flex-shrink-0 relative';
-                slide.innerHTML = `
-                    <div class="aspect-video bg-gradient-to-br ${image.bgColor} rounded-xl overflow-hidden shadow-lg">
+                
+                // 決定顯示圖片還是圖示
+                const slideContent = image.imageUrl ? 
+                    `<div class="aspect-video rounded-xl overflow-hidden shadow-lg">
+                        <img src="${image.imageUrl}" alt="${image.title}" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black bg-opacity-40 flex flex-col items-center justify-center p-8 text-center">
+                            <h3 class="text-3xl font-bold text-white mb-2">${image.title}</h3>
+                            <p class="text-white text-lg max-w-md">${image.description}</p>
+                        </div>
+                    </div>` :
+                    `<div class="aspect-video bg-gradient-to-br ${image.bgColor} rounded-xl overflow-hidden shadow-lg">
                         <div class="h-full flex flex-col items-center justify-center p-8 text-center">
                             <div class="text-6xl mb-4">${image.icon}</div>
                             <h3 class="text-2xl font-bold text-gray-800 mb-2">${image.title}</h3>
                             <p class="text-gray-600 max-w-md">${image.description}</p>
                         </div>
-                    </div>
-                `;
+                    </div>`;
+                
+                slide.innerHTML = slideContent;
                 slidesContainer.appendChild(slide);
 
                 // 創建縮圖
                 const thumbnail = document.createElement('button');
                 thumbnail.className = `w-20 h-20 rounded-lg overflow-hidden shadow-md transition duration-300 ${index === currentGalleryIndex ? 'ring-4 ring-blue-500' : 'opacity-70 hover:opacity-100'}`;
-                thumbnail.innerHTML = `
-                    <div class="w-full h-full bg-gradient-to-br ${image.bgColor} flex items-center justify-center">
+                
+                const thumbnailContent = image.imageUrl ?
+                    `<img src="${image.imageUrl}" alt="${image.title}" class="w-full h-full object-cover">` :
+                    `<div class="w-full h-full bg-gradient-to-br ${image.bgColor} flex items-center justify-center">
                         <span class="text-2xl">${image.icon}</span>
-                    </div>
-                `;
+                    </div>`;
+                
+                thumbnail.innerHTML = thumbnailContent;
                 thumbnail.addEventListener('click', () => showGallerySlide(index));
                 thumbnailsContainer.appendChild(thumbnail);
             });
@@ -2360,8 +2600,33 @@
                 // 創建畫報幻燈片
                 const slide = document.createElement('div');
                 slide.className = 'w-full flex-shrink-0 relative';
-                slide.innerHTML = `
-                    <div class="bg-gradient-to-br ${poster.bgColor} rounded-xl p-8 shadow-lg">
+                
+                // 決定顯示圖片還是圖示背景
+                const slideContent = poster.imageUrl ?
+                    `<div class="rounded-xl overflow-hidden shadow-lg relative">
+                        <img src="${poster.imageUrl}" alt="${poster.title}" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black bg-opacity-50">
+                            <div class="h-full flex flex-col justify-center p-8">
+                                <div class="max-w-4xl mx-auto text-white">
+                                    <div class="text-center mb-8">
+                                        <h3 class="text-4xl font-bold mb-2">${poster.title}</h3>
+                                        <p class="text-xl">${poster.subtitle}</p>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        ${(poster.content || []).map(item => `
+                                            <div class="bg-white/90 rounded-lg p-4 shadow-sm">
+                                                <div class="flex items-center">
+                                                    <div class="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+                                                    <span class="text-gray-800 font-medium">${item}</span>
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>` :
+                    `<div class="bg-gradient-to-br ${poster.bgColor} rounded-xl p-8 shadow-lg">
                         <div class="max-w-4xl mx-auto">
                             <div class="text-center mb-8">
                                 <div class="text-6xl mb-4">${poster.icon}</div>
@@ -2369,7 +2634,7 @@
                                 <p class="text-xl text-gray-600">${poster.subtitle}</p>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                ${poster.content.map(item => `
+                                ${(poster.content || []).map(item => `
                                     <div class="bg-white/80 rounded-lg p-4 shadow-sm">
                                         <div class="flex items-center">
                                             <div class="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
@@ -2379,8 +2644,9 @@
                                 `).join('')}
                             </div>
                         </div>
-                    </div>
-                `;
+                    </div>`;
+                
+                slide.innerHTML = slideContent;
                 slidesContainer.appendChild(slide);
 
                 // 創建指示器
@@ -2535,6 +2801,25 @@
                 settingsPanel.classList.add('hidden');
             });
 
+            // 診所環境對話框事件監聽器
+            const galleryModal = document.getElementById('gallery-modal');
+            const closeGalleryModal = document.getElementById('close-gallery-modal');
+            const cancelGallery = document.getElementById('cancel-gallery');
+            const galleryForm = document.getElementById('gallery-form');
+            const uploadGalleryBtn = document.getElementById('upload-gallery-btn');
+            const galleryImageFile = document.getElementById('gallery-image-file');
+            const galleryImageUrl = document.getElementById('gallery-image-url');
+
+            // 宣傳畫報對話框事件監聽器
+            const posterModal = document.getElementById('poster-modal');
+            const closePosterModal = document.getElementById('close-poster-modal');
+            const cancelPoster = document.getElementById('cancel-poster');
+            const posterForm = document.getElementById('poster-form');
+            const uploadPosterBtn = document.getElementById('upload-poster-btn');
+            const posterImageFile = document.getElementById('poster-image-file');
+            const posterImageUrl = document.getElementById('poster-image-url');
+            const addContentPointBtn = document.getElementById('add-content-point');
+
             // 醫師對話框事件監聽器
             const doctorModal = document.getElementById('doctor-modal');
             const closeDoctorModal = document.getElementById('close-doctor-modal');
@@ -2543,6 +2828,109 @@
             const uploadPhotoBtn = document.getElementById('upload-photo-btn');
             const doctorPhotoFile = document.getElementById('doctor-photo-file');
             const doctorPhotoUrl = document.getElementById('doctor-photo-url');
+
+            // 關閉診所環境對話框
+            closeGalleryModal.addEventListener('click', () => {
+                galleryModal.classList.add('hidden');
+            });
+
+            cancelGallery.addEventListener('click', () => {
+                galleryModal.classList.add('hidden');
+            });
+
+            // 點擊背景關閉診所環境對話框
+            galleryModal.addEventListener('click', (e) => {
+                if (e.target === galleryModal) {
+                    galleryModal.classList.add('hidden');
+                }
+            });
+
+            // 診所環境圖片上傳按鈕
+            uploadGalleryBtn.addEventListener('click', () => {
+                galleryImageFile.click();
+            });
+
+            // 診所環境檔案選擇處理
+            galleryImageFile.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    handleGalleryImageUpload(file);
+                }
+            });
+
+            // 診所環境圖片網址輸入處理
+            galleryImageUrl.addEventListener('input', (e) => {
+                const url = e.target.value.trim();
+                if (url) {
+                    showGalleryImagePreview(url);
+                } else {
+                    clearGalleryImagePreview();
+                }
+            });
+
+            // 診所環境表單提交
+            galleryForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await saveGalleryData();
+            });
+
+            // 關閉宣傳畫報對話框
+            closePosterModal.addEventListener('click', () => {
+                posterModal.classList.add('hidden');
+            });
+
+            cancelPoster.addEventListener('click', () => {
+                posterModal.classList.add('hidden');
+            });
+
+            // 點擊背景關閉宣傳畫報對話框
+            posterModal.addEventListener('click', (e) => {
+                if (e.target === posterModal) {
+                    posterModal.classList.add('hidden');
+                }
+            });
+
+            // 宣傳畫報圖片上傳按鈕
+            uploadPosterBtn.addEventListener('click', () => {
+                posterImageFile.click();
+            });
+
+            // 宣傳畫報檔案選擇處理
+            posterImageFile.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    handlePosterImageUpload(file);
+                }
+            });
+
+            // 宣傳畫報圖片網址輸入處理
+            posterImageUrl.addEventListener('input', (e) => {
+                const url = e.target.value.trim();
+                if (url) {
+                    showPosterImagePreview(url);
+                } else {
+                    clearPosterImagePreview();
+                }
+            });
+
+            // 新增內容要點按鈕
+            addContentPointBtn.addEventListener('click', () => {
+                addPosterContentPoint();
+            });
+
+            // 按 Enter 鍵新增內容要點
+            document.getElementById('new-content-point').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addPosterContentPoint();
+                }
+            });
+
+            // 宣傳畫報表單提交
+            posterForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await savePosterData();
+            });
 
             // 關閉醫師對話框
             closeDoctorModal.addEventListener('click', () => {
@@ -3669,16 +4057,27 @@
                 const galleryItem = document.createElement('div');
                 galleryItem.className = 'bg-gray-50 p-4 rounded-lg';
                 
+                // 決定顯示圖片還是圖示
+                const imageDisplay = image.imageUrl ? 
+                    `<img src="${image.imageUrl}" alt="${image.title}" class="w-full h-full object-cover">` :
+                    `<div class="w-full h-full bg-gradient-to-br ${image.bgColor} flex items-center justify-center">
+                        <span class="text-2xl">${image.icon}</span>
+                    </div>`;
+                
                 galleryItem.innerHTML = `
                     <div class="flex justify-between items-start">
                         <div class="flex items-start space-x-4">
                             <div class="w-16 h-16 rounded-lg overflow-hidden bg-gray-200">
-                                <img src="${image.imageUrl}" alt="${image.title}" class="w-full h-full object-cover">
+                                ${imageDisplay}
                             </div>
                             <div class="flex-1">
                                 <h4 class="font-bold text-gray-900 mb-2">${image.title}</h4>
-                                <div class="text-xs text-gray-500">
-                                    <span class="bg-gray-200 px-2 py-1 rounded">圖片: ${image.imageUrl}</span>
+                                <p class="text-sm text-gray-600 mb-2">${image.description}</p>
+                                <div class="text-xs text-gray-500 space-y-1">
+                                    ${image.imageUrl ? 
+                                        `<div><span class="bg-green-100 text-green-800 px-2 py-1 rounded">已上傳圖片</span></div>` :
+                                        `<div><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">使用圖示: ${image.icon}</span></div>`
+                                    }
                                 </div>
                             </div>
                         </div>
@@ -3701,16 +4100,28 @@
                 const posterItem = document.createElement('div');
                 posterItem.className = 'bg-gray-50 p-4 rounded-lg';
                 
+                // 決定顯示圖片還是圖示
+                const imageDisplay = poster.imageUrl ? 
+                    `<img src="${poster.imageUrl}" alt="${poster.title}" class="w-full h-full object-cover">` :
+                    `<div class="w-full h-full bg-gradient-to-br ${poster.bgColor} flex items-center justify-center">
+                        <span class="text-2xl">${poster.icon}</span>
+                    </div>`;
+                
                 posterItem.innerHTML = `
                     <div class="flex justify-between items-start">
                         <div class="flex items-start space-x-4">
                             <div class="w-16 h-16 rounded-lg overflow-hidden bg-gray-200">
-                                <img src="${poster.imageUrl}" alt="${poster.title}" class="w-full h-full object-cover">
+                                ${imageDisplay}
                             </div>
                             <div class="flex-1">
                                 <h4 class="font-bold text-gray-900 mb-2">${poster.title}</h4>
-                                <div class="text-xs text-gray-500">
-                                    <span class="bg-gray-200 px-2 py-1 rounded">圖片: ${poster.imageUrl}</span>
+                                <p class="text-sm text-gray-600 mb-2">${poster.subtitle}</p>
+                                <div class="text-xs text-gray-500 space-y-1">
+                                    ${poster.imageUrl ? 
+                                        `<div><span class="bg-green-100 text-green-800 px-2 py-1 rounded">已上傳圖片</span></div>` :
+                                        `<div><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">使用圖示: ${poster.icon}</span></div>`
+                                    }
+                                    <div class="text-xs text-gray-400">內容要點: ${poster.content ? poster.content.length : 0} 項</div>
                                 </div>
                             </div>
                         </div>
@@ -3724,45 +4135,150 @@
             });
         }
 
+        // 全域變數
+        let currentEditingGalleryIndex = -1;
+        let currentEditingPosterIndex = -1;
+
         // 新增診所環境項目
         function addNewGalleryItem() {
-            const title = prompt('請輸入環境名稱（例如：診療室、候診區）:');
-            if (!title) return;
-            
-            const imageUrl = prompt('請輸入圖片網址:') || 'https://via.placeholder.com/800x600/3B82F6/FFFFFF?text=' + encodeURIComponent(title);
-
-            const newGalleryItem = {
-                title,
-                imageUrl
-            };
-
-            galleryImages.push(newGalleryItem);
-            renderGallery();
-            renderGalleryManagement();
-            
-            // 保存到 Firebase
-            saveGalleryToFirebase();
+            currentEditingGalleryIndex = -1;
+            document.getElementById('gallery-modal-title').textContent = '新增診所環境';
+            clearGalleryForm();
+            document.getElementById('gallery-modal').classList.remove('hidden');
         }
 
         // 編輯診所環境項目
         function editGalleryItem(index) {
+            currentEditingGalleryIndex = index;
             const item = galleryImages[index];
             
-            const title = prompt('請輸入環境名稱:', item.title);
-            if (!title) return;
+            document.getElementById('gallery-modal-title').textContent = '編輯診所環境';
             
-            const imageUrl = prompt('請輸入圖片網址:', item.imageUrl);
+            // 填入現有資料
+            document.getElementById('gallery-title').value = item.title || '';
+            document.getElementById('gallery-description').value = item.description || '';
+            document.getElementById('gallery-icon').value = item.icon || '🏥';
+            document.getElementById('gallery-bg-color').value = item.bgColor || 'from-blue-100 to-blue-200';
+            document.getElementById('gallery-image-url').value = item.imageUrl || '';
+            
+            // 顯示圖片預覽
+            if (item.imageUrl) {
+                showGalleryImagePreview(item.imageUrl);
+            } else {
+                clearGalleryImagePreview();
+            }
+            
+            document.getElementById('gallery-modal').classList.remove('hidden');
+        }
 
-            galleryImages[index] = {
-                title,
-                imageUrl: imageUrl || item.imageUrl
+        // 清空診所環境表單
+        function clearGalleryForm() {
+            document.getElementById('gallery-form').reset();
+            clearGalleryImagePreview();
+        }
+
+        // 顯示診所環境圖片預覽
+        function showGalleryImagePreview(imageUrl) {
+            const placeholder = document.getElementById('gallery-image-placeholder');
+            const img = document.getElementById('gallery-image-img');
+            
+            img.src = imageUrl;
+            img.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+            
+            // 處理圖片載入錯誤
+            img.onerror = function() {
+                clearGalleryImagePreview();
             };
+        }
 
-            renderGallery();
-            renderGalleryManagement();
+        // 清空診所環境圖片預覽
+        function clearGalleryImagePreview() {
+            const placeholder = document.getElementById('gallery-image-placeholder');
+            const img = document.getElementById('gallery-image-img');
             
-            // 保存到 Firebase
-            saveGalleryToFirebase();
+            img.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+            img.src = '';
+        }
+
+        // 處理診所環境圖片上傳
+        function handleGalleryImageUpload(file) {
+            if (!file) return;
+            
+            // 檢查檔案類型
+            if (!file.type.startsWith('image/')) {
+                alert('請選擇圖片檔案！');
+                return;
+            }
+            
+            // 檢查檔案大小（限制 5MB）
+            if (file.size > 5 * 1024 * 1024) {
+                alert('圖片檔案不能超過 5MB！');
+                return;
+            }
+            
+            // 使用 FileReader 讀取檔案
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imageUrl = e.target.result;
+                document.getElementById('gallery-image-url').value = imageUrl;
+                showGalleryImagePreview(imageUrl);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 保存診所環境資料
+        async function saveGalleryData() {
+            const saveText = document.getElementById('save-gallery-text');
+            const saveLoading = document.getElementById('save-gallery-loading');
+            
+            saveText.textContent = '保存中...';
+            saveLoading.classList.remove('hidden');
+            
+            try {
+                const galleryData = {
+                    title: document.getElementById('gallery-title').value.trim(),
+                    description: document.getElementById('gallery-description').value.trim(),
+                    icon: document.getElementById('gallery-icon').value.trim() || '🏥',
+                    bgColor: document.getElementById('gallery-bg-color').value,
+                    imageUrl: document.getElementById('gallery-image-url').value.trim()
+                };
+                
+                // 驗證必填欄位
+                if (!galleryData.title) {
+                    alert('請輸入環境名稱！');
+                    return;
+                }
+                
+                // 新增或更新環境
+                if (currentEditingGalleryIndex === -1) {
+                    // 新增環境
+                    galleryImages.push(galleryData);
+                } else {
+                    // 更新環境
+                    galleryImages[currentEditingGalleryIndex] = galleryData;
+                }
+                
+                // 重新渲染
+                renderGallery();
+                renderGalleryManagement();
+                
+                // 保存到 Firebase
+                await saveGalleryToFirebase();
+                
+                // 關閉對話框
+                document.getElementById('gallery-modal').classList.add('hidden');
+                
+                alert('診所環境已保存！');
+                
+            } catch (error) {
+                console.error('保存診所環境失敗:', error);
+                alert('保存診所環境時發生錯誤：' + error.message);
+            } finally {
+                saveText.textContent = '保存';
+                saveLoading.classList.add('hidden');
+            }
         }
 
         // 刪除診所環境項目
@@ -3779,43 +4295,201 @@
 
         // 新增宣傳畫報項目
         function addNewPosterItem() {
-            const title = prompt('請輸入畫報標題（例如：春季養生、夏季養心）:');
-            if (!title) return;
-            
-            const imageUrl = prompt('請輸入圖片網址:') || 'https://via.placeholder.com/800x600/3B82F6/FFFFFF?text=' + encodeURIComponent(title);
-
-            const newPosterItem = {
-                title,
-                imageUrl
-            };
-
-            postersData.push(newPosterItem);
-            renderPosters();
-            renderPostersManagement();
-            
-            // 保存到 Firebase
-            savePostersToFirebase();
+            currentEditingPosterIndex = -1;
+            document.getElementById('poster-modal-title').textContent = '新增宣傳畫報';
+            clearPosterForm();
+            document.getElementById('poster-modal').classList.remove('hidden');
         }
 
         // 編輯宣傳畫報項目
         function editPosterItem(index) {
+            currentEditingPosterIndex = index;
             const item = postersData[index];
             
-            const title = prompt('請輸入畫報標題:', item.title);
-            if (!title) return;
+            document.getElementById('poster-modal-title').textContent = '編輯宣傳畫報';
             
-            const imageUrl = prompt('請輸入圖片網址:', item.imageUrl);
+            // 填入現有資料
+            document.getElementById('poster-title').value = item.title || '';
+            document.getElementById('poster-subtitle').value = item.subtitle || '';
+            document.getElementById('poster-icon').value = item.icon || '📋';
+            document.getElementById('poster-bg-color').value = item.bgColor || 'from-blue-50 to-blue-100';
+            document.getElementById('poster-image-url').value = item.imageUrl || '';
+            
+            // 顯示圖片預覽
+            if (item.imageUrl) {
+                showPosterImagePreview(item.imageUrl);
+            } else {
+                clearPosterImagePreview();
+            }
+            
+            // 載入內容要點
+            renderPosterContentList(item.content || []);
+            
+            document.getElementById('poster-modal').classList.remove('hidden');
+        }
 
-            postersData[index] = {
-                title,
-                imageUrl: imageUrl || item.imageUrl
+        // 清空宣傳畫報表單
+        function clearPosterForm() {
+            document.getElementById('poster-form').reset();
+            clearPosterImagePreview();
+            renderPosterContentList([]);
+        }
+
+        // 顯示宣傳畫報圖片預覽
+        function showPosterImagePreview(imageUrl) {
+            const placeholder = document.getElementById('poster-image-placeholder');
+            const img = document.getElementById('poster-image-img');
+            
+            img.src = imageUrl;
+            img.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+            
+            // 處理圖片載入錯誤
+            img.onerror = function() {
+                clearPosterImagePreview();
             };
+        }
 
-            renderPosters();
-            renderPostersManagement();
+        // 清空宣傳畫報圖片預覽
+        function clearPosterImagePreview() {
+            const placeholder = document.getElementById('poster-image-placeholder');
+            const img = document.getElementById('poster-image-img');
             
-            // 保存到 Firebase
-            savePostersToFirebase();
+            img.classList.add('hidden');
+            placeholder.classList.remove('hidden');
+            img.src = '';
+        }
+
+        // 處理宣傳畫報圖片上傳
+        function handlePosterImageUpload(file) {
+            if (!file) return;
+            
+            // 檢查檔案類型
+            if (!file.type.startsWith('image/')) {
+                alert('請選擇圖片檔案！');
+                return;
+            }
+            
+            // 檢查檔案大小（限制 5MB）
+            if (file.size > 5 * 1024 * 1024) {
+                alert('圖片檔案不能超過 5MB！');
+                return;
+            }
+            
+            // 使用 FileReader 讀取檔案
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const imageUrl = e.target.result;
+                document.getElementById('poster-image-url').value = imageUrl;
+                showPosterImagePreview(imageUrl);
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 渲染畫報內容要點列表
+        function renderPosterContentList(contentArray) {
+            const container = document.getElementById('poster-content-list');
+            container.innerHTML = '';
+            
+            contentArray.forEach((content, index) => {
+                const contentItem = document.createElement('div');
+                contentItem.className = 'flex items-center space-x-2 bg-gray-100 p-2 rounded';
+                contentItem.innerHTML = `
+                    <span class="flex-1 text-sm">${content}</span>
+                    <button type="button" onclick="removePosterContentPoint(${index})" class="text-red-600 hover:text-red-800 text-sm">
+                        刪除
+                    </button>
+                `;
+                container.appendChild(contentItem);
+            });
+        }
+
+        // 新增畫報內容要點
+        function addPosterContentPoint() {
+            const input = document.getElementById('new-content-point');
+            const content = input.value.trim();
+            
+            if (!content) {
+                alert('請輸入內容要點！');
+                return;
+            }
+            
+            // 獲取當前內容列表
+            const currentContent = getCurrentPosterContent();
+            currentContent.push(content);
+            
+            // 重新渲染列表
+            renderPosterContentList(currentContent);
+            
+            // 清空輸入框
+            input.value = '';
+        }
+
+        // 移除畫報內容要點
+        function removePosterContentPoint(index) {
+            const currentContent = getCurrentPosterContent();
+            currentContent.splice(index, 1);
+            renderPosterContentList(currentContent);
+        }
+
+        // 獲取當前畫報內容
+        function getCurrentPosterContent() {
+            const contentItems = document.querySelectorAll('#poster-content-list .flex span');
+            return Array.from(contentItems).map(item => item.textContent);
+        }
+
+        // 保存宣傳畫報資料
+        async function savePosterData() {
+            const saveText = document.getElementById('save-poster-text');
+            const saveLoading = document.getElementById('save-poster-loading');
+            
+            saveText.textContent = '保存中...';
+            saveLoading.classList.remove('hidden');
+            
+            try {
+                const posterData = {
+                    title: document.getElementById('poster-title').value.trim(),
+                    subtitle: document.getElementById('poster-subtitle').value.trim(),
+                    icon: document.getElementById('poster-icon').value.trim() || '📋',
+                    bgColor: document.getElementById('poster-bg-color').value,
+                    imageUrl: document.getElementById('poster-image-url').value.trim(),
+                    content: getCurrentPosterContent()
+                };
+                
+                // 驗證必填欄位
+                if (!posterData.title) {
+                    alert('請輸入畫報標題！');
+                    return;
+                }
+                
+                // 新增或更新畫報
+                if (currentEditingPosterIndex === -1) {
+                    // 新增畫報
+                    postersData.push(posterData);
+                } else {
+                    // 更新畫報
+                    postersData[currentEditingPosterIndex] = posterData;
+                }
+                
+                // 重新渲染
+                renderPosters();
+                renderPostersManagement();
+                
+                // 保存到 Firebase
+                await savePostersToFirebase();
+                
+                // 關閉對話框
+                document.getElementById('poster-modal').classList.add('hidden');
+                
+                alert('宣傳畫報已保存！');
+                
+            } catch (error) {
+                console.error('保存宣傳畫報失敗:', error);
+                alert('保存宣傳畫報時發生錯誤：' + error.message);
+            } finally {
+                saveText.textContent = '保存';
+                saveLoading.classList.add('hidden');
+            }
         }
 
         // 刪除宣傳畫報項目
@@ -4257,5 +4931,5 @@
             });
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96b64159828f095a',t:'MTc1NDU2NDI2OS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96b64b76446d11e1',t:'MTc1NDU2NDY4My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
