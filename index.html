@@ -385,8 +385,8 @@
                             </svg>
                         </button>
                         <div id="admin-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border hidden z-50">
-                            <a id="backend-link" href="#" target="_blank" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center">
-                                🖥️ 後台管理
+                            <a id="backend-link" href="#" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center hidden">
+                                <span id="backend-link-text">🖥️ 後台管理</span>
                                 <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
                                 </svg>
@@ -985,7 +985,7 @@
     </button>
 
     <!-- 法律條款彈出視窗 -->
-    <div id="legal-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+    <div id="legal-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[9996] hidden">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                 <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
@@ -1007,7 +1007,7 @@
     </div>
 
     <!-- 登入對話框 -->
-    <div id="login-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+    <div id="login-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[9997] hidden">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-xl shadow-2xl max-w-md w-full">
                 <div class="p-6">
@@ -1044,7 +1044,7 @@
     </div>
 
     <!-- 診所環境編輯對話框 -->
-    <div id="gallery-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+    <div id="gallery-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[9999] hidden">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
@@ -1149,7 +1149,7 @@
     </div>
 
     <!-- 宣傳畫報編輯對話框 -->
-    <div id="poster-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+    <div id="poster-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[9999] hidden">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
@@ -1271,7 +1271,7 @@
     </div>
 
     <!-- 醫師編輯對話框 -->
-    <div id="doctor-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+    <div id="doctor-modal" class="fixed inset-0 bg-black bg-opacity-50 z-[9999] hidden">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
@@ -1370,7 +1370,7 @@
     </div>
 
     <!-- 系統設置面板 -->
-    <div id="settings-panel" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+    <div id="settings-panel" class="fixed inset-0 bg-black bg-opacity-50 z-[9998] hidden">
         <div class="flex items-center justify-center min-h-screen p-4">
             <div class="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
                 <div class="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
@@ -1617,6 +1617,31 @@
                                 </div>
                             </div>
 
+                            <!-- 後台管理設置 -->
+                            <div class="bg-gray-50 p-6 rounded-lg">
+                                <h4 class="text-md font-semibold text-gray-800 mb-4">🖥️ 後台管理設置</h4>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">後台管理網址</label>
+                                        <input type="url" id="backend-url" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="https://your-backend-admin.com" value="">
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            設定後台管理系統的網址，留空則隱藏此按鈕
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">後台管理按鈕文字</label>
+                                        <input type="text" id="backend-text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" value="🖥️ 後台管理">
+                                        <div class="text-xs text-gray-500 mt-1">
+                                            自訂後台管理按鈕顯示的文字
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="backend-new-tab" class="mr-2">
+                                        <label for="backend-new-tab" class="text-sm text-gray-700">在新分頁開啟後台管理</label>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- 浮動按鈕編輯 -->
                             <div class="bg-gray-50 p-6 rounded-lg">
                                 <h4 class="text-md font-semibold text-gray-800 mb-4">🎈 浮動按鈕</h4>
@@ -1707,9 +1732,107 @@
                         <div class="space-y-6">
                             <h3 class="text-lg font-semibold text-gray-900 border-b pb-2">樣式設置</h3>
                             
-                            <!-- 主題顏色設置 -->
+                            <!-- 主題風格選擇 -->
                             <div class="bg-gray-50 p-6 rounded-lg">
-                                <h4 class="text-md font-semibold text-gray-800 mb-4">🎨 主題顏色</h4>
+                                <h4 class="text-md font-semibold text-gray-800 mb-4">🎨 主題風格選擇</h4>
+                                <div class="mb-4">
+                                    <p class="text-sm text-gray-600 mb-3">選擇一個預設主題風格，或使用下方的自訂顏色</p>
+                                    <div class="text-sm font-medium text-gray-700 mb-2">
+                                        目前主題：<span id="current-theme-name" class="text-blue-600">經典藍色</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                                    <!-- 經典藍色主題 -->
+                                    <div class="theme-option border-2 border-blue-400 rounded-lg p-4 cursor-pointer hover:shadow-md transition-all duration-200" data-theme="classic" onclick="selectTheme('classic')">
+                                        <div class="flex items-center space-x-3 mb-3">
+                                            <div class="w-6 h-6 rounded-full" style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #06b6d4 100%);"></div>
+                                            <span class="font-medium text-gray-800">經典藍色</span>
+                                        </div>
+                                        <div class="flex space-x-1">
+                                            <div class="w-4 h-4 rounded bg-blue-600"></div>
+                                            <div class="w-4 h-4 rounded bg-blue-500"></div>
+                                            <div class="w-4 h-4 rounded bg-cyan-500"></div>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-2">專業醫療風格</p>
+                                    </div>
+                                    
+                                    <!-- 自然綠色主題 -->
+                                    <div class="theme-option border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-all duration-200" data-theme="nature" onclick="selectTheme('nature')">
+                                        <div class="flex items-center space-x-3 mb-3">
+                                            <div class="w-6 h-6 rounded-full" style="background: linear-gradient(135deg, #064e3b 0%, #059669 50%, #10b981 100%);"></div>
+                                            <span class="font-medium text-gray-800">自然綠色</span>
+                                        </div>
+                                        <div class="flex space-x-1">
+                                            <div class="w-4 h-4 rounded bg-green-600"></div>
+                                            <div class="w-4 h-4 rounded bg-green-500"></div>
+                                            <div class="w-4 h-4 rounded bg-emerald-500"></div>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-2">健康自然風格</p>
+                                    </div>
+                                    
+                                    <!-- 優雅紫色主題 -->
+                                    <div class="theme-option border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-all duration-200" data-theme="elegant" onclick="selectTheme('elegant')">
+                                        <div class="flex items-center space-x-3 mb-3">
+                                            <div class="w-6 h-6 rounded-full" style="background: linear-gradient(135deg, #581c87 0%, #7c3aed 50%, #a855f7 100%);"></div>
+                                            <span class="font-medium text-gray-800">優雅紫色</span>
+                                        </div>
+                                        <div class="flex space-x-1">
+                                            <div class="w-4 h-4 rounded bg-purple-600"></div>
+                                            <div class="w-4 h-4 rounded bg-purple-500"></div>
+                                            <div class="w-4 h-4 rounded bg-violet-500"></div>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-2">高雅精緻風格</p>
+                                    </div>
+                                    
+                                    <!-- 溫馨橙色主題 -->
+                                    <div class="theme-option border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-all duration-200" data-theme="warm" onclick="selectTheme('warm')">
+                                        <div class="flex items-center space-x-3 mb-3">
+                                            <div class="w-6 h-6 rounded-full" style="background: linear-gradient(135deg, #c2410c 0%, #ea580c 50%, #f97316 100%);"></div>
+                                            <span class="font-medium text-gray-800">溫馨橙色</span>
+                                        </div>
+                                        <div class="flex space-x-1">
+                                            <div class="w-4 h-4 rounded bg-orange-600"></div>
+                                            <div class="w-4 h-4 rounded bg-orange-500"></div>
+                                            <div class="w-4 h-4 rounded bg-amber-500"></div>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-2">溫暖親切風格</p>
+                                    </div>
+                                    
+                                    <!-- 現代灰色主題 -->
+                                    <div class="theme-option border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-all duration-200" data-theme="modern" onclick="selectTheme('modern')">
+                                        <div class="flex items-center space-x-3 mb-3">
+                                            <div class="w-6 h-6 rounded-full" style="background: linear-gradient(135deg, #374151 0%, #4b5563 50%, #6b7280 100%);"></div>
+                                            <span class="font-medium text-gray-800">現代灰色</span>
+                                        </div>
+                                        <div class="flex space-x-1">
+                                            <div class="w-4 h-4 rounded bg-gray-600"></div>
+                                            <div class="w-4 h-4 rounded bg-gray-500"></div>
+                                            <div class="w-4 h-4 rounded bg-slate-500"></div>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-2">簡約現代風格</p>
+                                    </div>
+                                    
+                                    <!-- 活力紅色主題 -->
+                                    <div class="theme-option border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-all duration-200" data-theme="vibrant" onclick="selectTheme('vibrant')">
+                                        <div class="flex items-center space-x-3 mb-3">
+                                            <div class="w-6 h-6 rounded-full" style="background: linear-gradient(135deg, #991b1b 0%, #dc2626 50%, #ef4444 100%);"></div>
+                                            <span class="font-medium text-gray-800">活力紅色</span>
+                                        </div>
+                                        <div class="flex space-x-1">
+                                            <div class="w-4 h-4 rounded bg-red-600"></div>
+                                            <div class="w-4 h-4 rounded bg-red-500"></div>
+                                            <div class="w-4 h-4 rounded bg-rose-500"></div>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-2">充滿活力風格</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 自訂主題顏色設置 -->
+                            <div class="bg-gray-50 p-6 rounded-lg">
+                                <h4 class="text-md font-semibold text-gray-800 mb-4">🎨 自訂主題顏色</h4>
+                                <p class="text-sm text-gray-600 mb-4">如果預設主題不符合需求，可以自訂顏色</p>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-2">主要顏色</label>
@@ -1827,16 +1950,17 @@
                                 </button>
                             </div>
                             
-                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
                                 <div class="flex items-start">
-                                    <div class="text-yellow-600 mr-3">💡</div>
+                                    <div class="text-green-600 mr-3">✅</div>
                                     <div>
-                                        <h4 class="font-semibold text-yellow-800 mb-2">圖片上傳說明</h4>
-                                        <div class="text-sm text-yellow-700 space-y-1">
-                                            <p>• 目前系統使用圖示和漸層背景來展示診所環境</p>
-                                            <p>• 您可以選擇不同的圖示和背景顏色來代表各個區域</p>
-                                            <p>• 未來版本將支援實際圖片上傳功能</p>
-                                            <p>• 建議圖片尺寸：1200x800 像素，格式：JPG/PNG</p>
+                                        <h4 class="font-semibold text-green-800 mb-2">診所環境圖片上傳功能</h4>
+                                        <div class="text-sm text-green-700 space-y-1">
+                                            <p>• <strong>雙重上傳方式：</strong>支援本地檔案上傳和網路圖片網址</p>
+                                            <p>• <strong>即時預覽：</strong>上傳後立即顯示環境圖片預覽</p>
+                                            <p>• <strong>智能顯示：</strong>有圖片時顯示圖片背景，無圖片時顯示圖示背景</p>
+                                            <p>• <strong>建議規格：</strong>圖片尺寸 1200x800 像素，格式 JPG/PNG，大小 5MB 以內</p>
+                                            <p>• <strong>回退機制：</strong>無圖片時自動顯示圖示和漸層背景</p>
                                         </div>
                                     </div>
                                 </div>
@@ -1862,12 +1986,14 @@
                                 <div class="flex items-start">
                                     <div class="text-blue-600 mr-3">📋</div>
                                     <div>
-                                        <h4 class="font-semibold text-blue-800 mb-2">畫報設計說明</h4>
+                                        <h4 class="font-semibold text-blue-800 mb-2">宣傳畫報圖片上傳功能</h4>
                                         <div class="text-sm text-blue-700 space-y-1">
-                                            <p>• 宣傳畫報用於展示中醫養生知識和健康資訊</p>
-                                            <p>• 每個畫報包含標題、副標題、圖示和內容要點</p>
-                                            <p>• 可選擇不同的背景顏色和圖示來美化畫報</p>
-                                            <p>• 內容要點建議控制在4-6個，每個要點簡潔明瞭</p>
+                                            <p>• <strong>雙重上傳方式：</strong>支援本地檔案上傳和網路圖片網址</p>
+                                            <p>• <strong>即時預覽：</strong>上傳後立即顯示畫報圖片預覽</p>
+                                            <p>• <strong>內容編輯：</strong>可編輯標題、副標題、內容要點</p>
+                                            <p>• <strong>智能顯示：</strong>有圖片時顯示圖片背景，無圖片時顯示圖示背景</p>
+                                            <p>• <strong>建議規格：</strong>圖片尺寸 800x600 像素，格式 JPG/PNG，大小 5MB 以內</p>
+                                            <p>• <strong>內容管理：</strong>畫報支援動態新增/刪除內容要點</p>
                                         </div>
                                     </div>
                                 </div>
@@ -2083,6 +2209,7 @@
         let currentPostersIndex = 0;
         let galleryImages = [];
         let postersData = [];
+        let currentTheme = 'classic';
 
         // 等待 Firebase 初始化完成
         window.addEventListener('load', async () => {
@@ -2182,7 +2309,10 @@
                 clinicName: '仁心中醫診所',
                 clinicAddress: '台北市中正區健康路123號',
                 clinicPhone: '(02) 2345-6789',
-                clinicEmail: 'info@renxin-tcm.com.tw'
+                clinicEmail: 'info@renxin-tcm.com.tw',
+                backendUrl: '',
+                backendText: '🖥️ 後台管理',
+                backendNewTab: true
             };
         }
 
@@ -2446,11 +2576,38 @@
                 }
             });
 
+            // 更新後台管理按鈕
+            updateBackendLink(settings);
+
             // 更新設置面板的值
             if (document.getElementById('clinic-name')) {
                 document.getElementById('clinic-name').value = settings.clinicName;
                 document.getElementById('clinic-address').value = settings.clinicAddress;
                 document.getElementById('clinic-phone').value = settings.clinicPhone;
+                
+                // 更新後台管理設置
+                if (document.getElementById('backend-url')) {
+                    document.getElementById('backend-url').value = settings.backendUrl || '';
+                    document.getElementById('backend-text').value = settings.backendText || '🖥️ 後台管理';
+                    document.getElementById('backend-new-tab').checked = settings.backendNewTab !== false;
+                }
+            }
+        }
+
+        // 更新後台管理連結
+        function updateBackendLink(settings) {
+            const backendLink = document.getElementById('backend-link');
+            const backendLinkText = document.getElementById('backend-link-text');
+            
+            if (settings.backendUrl && settings.backendUrl.trim()) {
+                // 有設定網址，顯示按鈕
+                backendLink.href = settings.backendUrl;
+                backendLink.target = settings.backendNewTab !== false ? '_blank' : '_self';
+                backendLinkText.textContent = settings.backendText || '🖥️ 後台管理';
+                backendLink.classList.remove('hidden');
+            } else {
+                // 沒有設定網址，隱藏按鈕
+                backendLink.classList.add('hidden');
             }
         }
 
@@ -3130,35 +3287,74 @@
             const container = document.getElementById('doctors-management');
             container.innerHTML = '';
 
+            if (currentDoctors.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <div class="text-4xl mb-4">👨‍⚕️</div>
+                        <p>目前沒有醫師資料</p>
+                        <p class="text-sm mt-2">點擊上方「新增醫師」按鈕開始新增</p>
+                    </div>
+                `;
+                return;
+            }
+
             currentDoctors.forEach((doctor, index) => {
                 const doctorItem = document.createElement('div');
-                doctorItem.className = 'bg-gray-50 p-4 rounded-lg';
+                doctorItem.className = 'bg-white border border-gray-200 p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200';
                 
                 // 決定顯示照片還是姓名縮寫
                 const photoDisplay = doctor.photo ? 
-                    `<img src="${doctor.photo}" alt="${doctor.name}" class="w-16 h-16 rounded-full object-cover border-2 border-blue-100">` :
-                    `<div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center border-2 border-blue-200">
-                        <span class="text-lg font-bold text-blue-600">${doctor.name.charAt(0)}</span>
+                    `<img src="${doctor.photo}" alt="${doctor.name}" class="w-20 h-20 rounded-full object-cover border-4 border-blue-100 shadow-sm">` :
+                    `<div class="w-20 h-20 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center border-4 border-blue-200 shadow-sm">
+                        <span class="text-xl font-bold text-blue-700">${doctor.name.charAt(0)}</span>
                     </div>`;
                 
                 doctorItem.innerHTML = `
                     <div class="flex justify-between items-start">
-                        <div class="flex items-start space-x-4">
+                        <div class="flex items-start space-x-6">
                             ${photoDisplay}
                             <div class="flex-1">
-                                <h4 class="font-bold text-gray-900 mb-2">${doctor.name} - ${doctor.title}</h4>
-                                <div class="text-sm text-gray-600 space-y-1">
-                                    <p><strong>專長:</strong> ${doctor.specialty}</p>
-                                    <p><strong>經驗:</strong> ${doctor.experience}</p>
-                                    <p><strong>學歷:</strong> ${doctor.education}</p>
-                                    <p><strong>簡介:</strong> ${doctor.description}</p>
-                                    ${doctor.photo ? `<p><strong>照片:</strong> <span class="text-xs text-blue-600">已上傳</span></p>` : '<p><strong>照片:</strong> <span class="text-xs text-gray-400">未上傳</span></p>'}
+                                <div class="flex items-center mb-3">
+                                    <h4 class="text-xl font-bold text-gray-900 mr-3">${doctor.name}</h4>
+                                    <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">${doctor.title}</span>
                                 </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-600">
+                                    <div class="flex items-center">
+                                        <span class="text-blue-600 mr-2">🎯</span>
+                                        <span><strong>專長:</strong> ${doctor.specialty || '未設定'}</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <span class="text-green-600 mr-2">📚</span>
+                                        <span><strong>經驗:</strong> ${doctor.experience || '未設定'}</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <span class="text-purple-600 mr-2">🎓</span>
+                                        <span><strong>學歷:</strong> ${doctor.education || '未設定'}</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <span class="text-orange-600 mr-2">📷</span>
+                                        <span><strong>照片:</strong> 
+                                            ${doctor.photo ? 
+                                                '<span class="text-green-600 font-medium">已上傳</span>' : 
+                                                '<span class="text-gray-400">未上傳</span>'
+                                            }
+                                        </span>
+                                    </div>
+                                </div>
+                                ${doctor.description ? `
+                                    <div class="mt-3 p-3 bg-gray-50 rounded-lg">
+                                        <p class="text-sm text-gray-700"><strong>簡介:</strong> ${doctor.description}</p>
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                         <div class="flex flex-col space-y-2 ml-4">
-                            <button onclick="editDoctor(${index})" class="text-blue-600 hover:text-blue-800 text-sm">編輯</button>
-                            <button onclick="deleteDoctor(${index})" class="text-red-600 hover:text-red-800 text-sm">刪除</button>
+                            <button onclick="editDoctor(${index})" class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+                                ✏️ 編輯
+                            </button>
+                            <button onclick="deleteDoctor(${index})" class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+                                🗑️ 刪除
+                            </button>
                         </div>
                     </div>
                 `;
@@ -3285,12 +3481,27 @@
                 return;
             }
             
+            // 顯示上傳進度
+            const uploadBtn = document.getElementById('upload-photo-btn');
+            const originalText = uploadBtn.textContent;
+            uploadBtn.textContent = '上傳中...';
+            uploadBtn.disabled = true;
+            
             // 使用 FileReader 讀取檔案
             const reader = new FileReader();
             reader.onload = function(e) {
                 const photoUrl = e.target.result;
                 document.getElementById('doctor-photo-url').value = photoUrl;
                 showPhotoPreview(photoUrl);
+                
+                // 恢復按鈕狀態
+                uploadBtn.textContent = originalText;
+                uploadBtn.disabled = false;
+            };
+            reader.onerror = function() {
+                alert('圖片讀取失敗，請重試！');
+                uploadBtn.textContent = originalText;
+                uploadBtn.disabled = false;
             };
             reader.readAsDataURL(file);
         }
@@ -3648,7 +3859,10 @@
                     appointmentBtnText: document.getElementById('appointment-btn-text').value,
                     footerSlogan: document.getElementById('footer-slogan').value,
                     footerCopyright: document.getElementById('footer-copyright').value,
-                    floatingBtnText: document.getElementById('floating-btn-text').value
+                    floatingBtnText: document.getElementById('floating-btn-text').value,
+                    backendUrl: document.getElementById('backend-url').value,
+                    backendText: document.getElementById('backend-text').value,
+                    backendNewTab: document.getElementById('backend-new-tab').checked
                 };
 
                 // 更新主視覺區
@@ -3799,6 +4013,13 @@
                     floatingBtnElement.textContent = contentChanges.floatingBtnText;
                 }
 
+                // 更新後台管理按鈕
+                updateBackendLink({
+                    backendUrl: contentChanges.backendUrl,
+                    backendText: contentChanges.backendText,
+                    backendNewTab: contentChanges.backendNewTab
+                });
+
                 // 更新聯絡資訊
                 const emailElements = document.querySelectorAll('span, p');
                 emailElements.forEach(el => {
@@ -3900,6 +4121,11 @@
                             document.getElementById('terms-content').value = firebaseSettings.termsContent || getDefaultTermsContent();
                             document.getElementById('disclaimer-title').value = firebaseSettings.disclaimerTitle || '免責聲明';
                             document.getElementById('disclaimer-content').value = firebaseSettings.disclaimerContent || getDefaultDisclaimerContent();
+                            
+                            // 更新後台管理設置
+                            document.getElementById('backend-url').value = firebaseSettings.backendUrl || '';
+                            document.getElementById('backend-text').value = firebaseSettings.backendText || '🖥️ 後台管理';
+                            document.getElementById('backend-new-tab').checked = firebaseSettings.backendNewTab !== false;
                         }
                     }
                 }
@@ -4053,37 +4279,67 @@
             const container = document.getElementById('gallery-management');
             container.innerHTML = '';
 
+            if (galleryImages.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <div class="text-4xl mb-4">🏥</div>
+                        <p>目前沒有環境圖片</p>
+                        <p class="text-sm mt-2">點擊上方「新增環境圖片」按鈕開始新增</p>
+                    </div>
+                `;
+                return;
+            }
+
             galleryImages.forEach((image, index) => {
                 const galleryItem = document.createElement('div');
-                galleryItem.className = 'bg-gray-50 p-4 rounded-lg';
+                galleryItem.className = 'bg-white border border-gray-200 p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200';
                 
                 // 決定顯示圖片還是圖示
                 const imageDisplay = image.imageUrl ? 
-                    `<img src="${image.imageUrl}" alt="${image.title}" class="w-full h-full object-cover">` :
-                    `<div class="w-full h-full bg-gradient-to-br ${image.bgColor} flex items-center justify-center">
-                        <span class="text-2xl">${image.icon}</span>
+                    `<img src="${image.imageUrl}" alt="${image.title}" class="w-full h-full object-cover rounded-lg">` :
+                    `<div class="w-full h-full bg-gradient-to-br ${image.bgColor} flex items-center justify-center rounded-lg">
+                        <span class="text-3xl">${image.icon}</span>
                     </div>`;
                 
                 galleryItem.innerHTML = `
                     <div class="flex justify-between items-start">
-                        <div class="flex items-start space-x-4">
-                            <div class="w-16 h-16 rounded-lg overflow-hidden bg-gray-200">
+                        <div class="flex items-start space-x-6">
+                            <div class="w-24 h-24 rounded-lg overflow-hidden bg-gray-100 shadow-sm border-2 border-gray-200">
                                 ${imageDisplay}
                             </div>
                             <div class="flex-1">
-                                <h4 class="font-bold text-gray-900 mb-2">${image.title}</h4>
-                                <p class="text-sm text-gray-600 mb-2">${image.description}</p>
-                                <div class="text-xs text-gray-500 space-y-1">
+                                <div class="flex items-center mb-3">
+                                    <h4 class="text-xl font-bold text-gray-900 mr-3">${image.title}</h4>
                                     ${image.imageUrl ? 
-                                        `<div><span class="bg-green-100 text-green-800 px-2 py-1 rounded">已上傳圖片</span></div>` :
-                                        `<div><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">使用圖示: ${image.icon}</span></div>`
+                                        '<span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">已上傳圖片</span>' :
+                                        `<span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">圖示: ${image.icon}</span>`
                                     }
+                                </div>
+                                <p class="text-gray-600 mb-3 leading-relaxed">${image.description}</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-500">
+                                    <div class="flex items-center">
+                                        <span class="text-blue-600 mr-2">🎨</span>
+                                        <span><strong>背景色:</strong> ${image.bgColor.replace('from-', '').replace('to-', '').replace('-100', '').replace('-200', '')}</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <span class="text-purple-600 mr-2">📊</span>
+                                        <span><strong>狀態:</strong> 
+                                            ${image.imageUrl ? 
+                                                '<span class="text-green-600">圖片模式</span>' : 
+                                                '<span class="text-blue-600">圖示模式</span>'
+                                            }
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         <div class="flex flex-col space-y-2 ml-4">
-                            <button onclick="editGalleryItem(${index})" class="text-blue-600 hover:text-blue-800 text-sm">編輯</button>
-                            <button onclick="deleteGalleryItem(${index})" class="text-red-600 hover:text-red-800 text-sm">刪除</button>
+                            <button onclick="editGalleryItem(${index})" class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+                                ✏️ 編輯
+                            </button>
+                            <button onclick="deleteGalleryItem(${index})" class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+                                🗑️ 刪除
+                            </button>
                         </div>
                     </div>
                 `;
@@ -4096,38 +4352,76 @@
             const container = document.getElementById('posters-management');
             container.innerHTML = '';
 
+            if (postersData.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500">
+                        <div class="text-4xl mb-4">📋</div>
+                        <p>目前沒有宣傳畫報</p>
+                        <p class="text-sm mt-2">點擊上方「新增畫報」按鈕開始新增</p>
+                    </div>
+                `;
+                return;
+            }
+
             postersData.forEach((poster, index) => {
                 const posterItem = document.createElement('div');
-                posterItem.className = 'bg-gray-50 p-4 rounded-lg';
+                posterItem.className = 'bg-white border border-gray-200 p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200';
                 
                 // 決定顯示圖片還是圖示
                 const imageDisplay = poster.imageUrl ? 
-                    `<img src="${poster.imageUrl}" alt="${poster.title}" class="w-full h-full object-cover">` :
-                    `<div class="w-full h-full bg-gradient-to-br ${poster.bgColor} flex items-center justify-center">
-                        <span class="text-2xl">${poster.icon}</span>
+                    `<img src="${poster.imageUrl}" alt="${poster.title}" class="w-full h-full object-cover rounded-lg">` :
+                    `<div class="w-full h-full bg-gradient-to-br ${poster.bgColor} flex items-center justify-center rounded-lg">
+                        <span class="text-3xl">${poster.icon}</span>
                     </div>`;
                 
                 posterItem.innerHTML = `
                     <div class="flex justify-between items-start">
-                        <div class="flex items-start space-x-4">
-                            <div class="w-16 h-16 rounded-lg overflow-hidden bg-gray-200">
+                        <div class="flex items-start space-x-6">
+                            <div class="w-24 h-24 rounded-lg overflow-hidden bg-gray-100 shadow-sm border-2 border-gray-200">
                                 ${imageDisplay}
                             </div>
                             <div class="flex-1">
-                                <h4 class="font-bold text-gray-900 mb-2">${poster.title}</h4>
-                                <p class="text-sm text-gray-600 mb-2">${poster.subtitle}</p>
-                                <div class="text-xs text-gray-500 space-y-1">
+                                <div class="flex items-center mb-3">
+                                    <h4 class="text-xl font-bold text-gray-900 mr-3">${poster.title}</h4>
                                     ${poster.imageUrl ? 
-                                        `<div><span class="bg-green-100 text-green-800 px-2 py-1 rounded">已上傳圖片</span></div>` :
-                                        `<div><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">使用圖示: ${poster.icon}</span></div>`
+                                        '<span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">已上傳圖片</span>' :
+                                        `<span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">圖示: ${poster.icon}</span>`
                                     }
-                                    <div class="text-xs text-gray-400">內容要點: ${poster.content ? poster.content.length : 0} 項</div>
                                 </div>
+                                <p class="text-gray-600 mb-3 leading-relaxed">${poster.subtitle}</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-500">
+                                    <div class="flex items-center">
+                                        <span class="text-blue-600 mr-2">📝</span>
+                                        <span><strong>內容要點:</strong> ${poster.content ? poster.content.length : 0} 項</span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <span class="text-purple-600 mr-2">📊</span>
+                                        <span><strong>狀態:</strong> 
+                                            ${poster.imageUrl ? 
+                                                '<span class="text-green-600">圖片模式</span>' : 
+                                                '<span class="text-blue-600">圖示模式</span>'
+                                            }
+                                        </span>
+                                    </div>
+                                </div>
+                                ${poster.content && poster.content.length > 0 ? `
+                                    <div class="mt-3 p-3 bg-gray-50 rounded-lg">
+                                        <p class="text-sm text-gray-700 mb-2"><strong>內容預覽:</strong></p>
+                                        <div class="text-xs text-gray-600 space-y-1">
+                                            ${poster.content.slice(0, 3).map(item => `<div>• ${item}</div>`).join('')}
+                                            ${poster.content.length > 3 ? `<div class="text-gray-400">...還有 ${poster.content.length - 3} 項</div>` : ''}
+                                        </div>
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                         <div class="flex flex-col space-y-2 ml-4">
-                            <button onclick="editPosterItem(${index})" class="text-blue-600 hover:text-blue-800 text-sm">編輯</button>
-                            <button onclick="deletePosterItem(${index})" class="text-red-600 hover:text-red-800 text-sm">刪除</button>
+                            <button onclick="editPosterItem(${index})" class="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+                                ✏️ 編輯
+                            </button>
+                            <button onclick="deletePosterItem(${index})" class="bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200">
+                                🗑️ 刪除
+                            </button>
                         </div>
                     </div>
                 `;
@@ -4218,12 +4512,27 @@
                 return;
             }
             
+            // 顯示上傳進度
+            const uploadBtn = document.getElementById('upload-gallery-btn');
+            const originalText = uploadBtn.textContent;
+            uploadBtn.textContent = '上傳中...';
+            uploadBtn.disabled = true;
+            
             // 使用 FileReader 讀取檔案
             const reader = new FileReader();
             reader.onload = function(e) {
                 const imageUrl = e.target.result;
                 document.getElementById('gallery-image-url').value = imageUrl;
                 showGalleryImagePreview(imageUrl);
+                
+                // 恢復按鈕狀態
+                uploadBtn.textContent = originalText;
+                uploadBtn.disabled = false;
+            };
+            reader.onerror = function() {
+                alert('圖片讀取失敗，請重試！');
+                uploadBtn.textContent = originalText;
+                uploadBtn.disabled = false;
             };
             reader.readAsDataURL(file);
         }
@@ -4376,12 +4685,27 @@
                 return;
             }
             
+            // 顯示上傳進度
+            const uploadBtn = document.getElementById('upload-poster-btn');
+            const originalText = uploadBtn.textContent;
+            uploadBtn.textContent = '上傳中...';
+            uploadBtn.disabled = true;
+            
             // 使用 FileReader 讀取檔案
             const reader = new FileReader();
             reader.onload = function(e) {
                 const imageUrl = e.target.result;
                 document.getElementById('poster-image-url').value = imageUrl;
                 showPosterImagePreview(imageUrl);
+                
+                // 恢復按鈕狀態
+                uploadBtn.textContent = originalText;
+                uploadBtn.disabled = false;
+            };
+            reader.onerror = function() {
+                alert('圖片讀取失敗，請重試！');
+                uploadBtn.textContent = originalText;
+                uploadBtn.disabled = false;
             };
             reader.readAsDataURL(file);
         }
@@ -4931,5 +5255,5 @@
             });
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96b64b76446d11e1',t:'MTc1NDU2NDY4My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96b66fc4b3142416',t:'MTc1NDU2NjE3MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
