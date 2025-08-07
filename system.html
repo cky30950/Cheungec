@@ -983,9 +983,6 @@
                         <button onclick="filterBillingItems('discount')" id="billing-filter-discount" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
                             折扣項目
                         </button>
-                        <button onclick="filterBillingItems('package')" id="billing-filter-package" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
-                            套票項目
-                        </button>
                     </div>
                 </div>
 
@@ -1012,7 +1009,6 @@
                                         <option value="treatment">治療費</option>
                                         <option value="other">其他</option>
                                         <option value="discount">折扣項目</option>
-                                        <option value="package">套票項目</option>
                                     </select>
                                 </div>
                                 <div>
@@ -1172,259 +1168,7 @@
                 </div>
             </div>
 
-<!-- 財務報表 -->
-            <div id="financialReports" class="hidden bg-white rounded-xl shadow-lg p-6">
-                <div class="mb-6">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-2 flex items-center">
-                        <span class="mr-3">📊</span>財務報表
-                    </h2>
-                    <p class="text-gray-600">診所收入分析與財務統計</p>
-                </div>
 
-                <!-- 篩選控制區 -->
-                <div class="bg-gray-50 rounded-lg p-4 mb-6">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">報表類型</label>
-                            <select id="reportType" onchange="generateFinancialReport()" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                <option value="daily">日報表</option>
-                                <option value="weekly">週報表</option>
-                                <option value="monthly" selected>月報表</option>
-                                <option value="yearly">年報表</option>
-                                <option value="custom">自訂期間</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">快速選擇</label>
-                            <select id="quickDate" onchange="setQuickDate()" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                <option value="">請選擇...</option>
-                                <option value="today">今天</option>
-                                <option value="yesterday">昨天</option>
-                                <option value="thisWeek">本週</option>
-                                <option value="lastWeek">上週</option>
-                                <option value="thisMonth">本月</option>
-                                <option value="lastMonth">上月</option>
-                                <option value="thisYear">今年</option>
-                                <option value="lastYear">去年</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">開始日期</label>
-                            <input type="date" id="startDate" onchange="generateFinancialReport()" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">結束日期</label>
-                            <input type="date" id="endDate" onchange="generateFinancialReport()" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">醫師篩選</label>
-                            <select id="doctorFilter" onchange="generateFinancialReport()" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                <option value="">全部醫師</option>
-                            </select>
-                        </div>
-                        
-                        <div class="flex items-end space-x-2">
-                            <button onclick="generateFinancialReport()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition duration-200 flex items-center">
-                                <span class="mr-2">🔄</span>更新報表
-                            </button>
-                            <button onclick="exportFinancialReport()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-200 flex items-center">
-                                <span class="mr-2">📥</span>匯出
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 關鍵指標卡片 -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <div class="bg-gradient-to-r from-green-400 to-green-600 text-white rounded-xl p-6 shadow-lg transform hover:scale-105 transition duration-200">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-green-100 text-sm font-medium">總收入</p>
-                                <h3 id="totalRevenue" class="text-3xl font-bold">$0</h3>
-                                <p id="revenueChange" class="text-green-100 text-sm mt-1">統計期間收入</p>
-                            </div>
-                            <div class="bg-white bg-opacity-20 rounded-full p-3">
-                                <span class="text-2xl">💰</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-gradient-to-r from-blue-400 to-blue-600 text-white rounded-xl p-6 shadow-lg transform hover:scale-105 transition duration-200">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-blue-100 text-sm font-medium">診症人次</p>
-                                <h3 id="totalConsultations" class="text-3xl font-bold">0</h3>
-                                <p id="consultationChange" class="text-blue-100 text-sm mt-1">完成診症次數</p>
-                            </div>
-                            <div class="bg-white bg-opacity-20 rounded-full p-3">
-                                <span class="text-2xl">👥</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-gradient-to-r from-purple-400 to-purple-600 text-white rounded-xl p-6 shadow-lg transform hover:scale-105 transition duration-200">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-purple-100 text-sm font-medium">平均消費</p>
-                                <h3 id="averageRevenue" class="text-3xl font-bold">$0</h3>
-                                <p id="averageChange" class="text-purple-100 text-sm mt-1">每次診症平均</p>
-                            </div>
-                            <div class="bg-white bg-opacity-20 rounded-full p-3">
-                                <span class="text-2xl">📊</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-gradient-to-r from-orange-400 to-orange-600 text-white rounded-xl p-6 shadow-lg transform hover:scale-105 transition duration-200">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-orange-100 text-sm font-medium">活躍醫師</p>
-                                <h3 id="activeDoctors" class="text-3xl font-bold">0</h3>
-                                <p id="doctorChange" class="text-orange-100 text-sm mt-1">有診症的醫師</p>
-                            </div>
-                            <div class="bg-white bg-opacity-20 rounded-full p-3">
-                                <span class="text-2xl">👨‍⚕️</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 詳細報表 -->
-                <div class="bg-white border border-gray-200 rounded-lg">
-                    <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
-                        <div class="flex justify-between items-center">
-                            <h3 class="text-lg font-semibold text-gray-800 flex items-center">
-                                <span class="mr-2">📋</span>詳細財務報表
-                            </h3>
-                            <div class="text-sm text-gray-600">
-                                資料更新時間：<span id="lastUpdateTime">-</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 標籤頁 -->
-                    <div class="border-b border-gray-200">
-                        <nav class="flex space-x-8 px-6" role="tablist">
-                            <button onclick="switchFinancialTab('summary')" id="financialSummaryTab" class="py-4 px-1 border-b-2 border-green-500 text-green-600 font-medium text-sm transition duration-200">
-                                收入摘要
-                            </button>
-                            <button onclick="switchFinancialTab('daily')" id="financialDailyTab" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm transition duration-200">
-                                每日明細
-                            </button>
-                            <button onclick="switchFinancialTab('doctor')" id="financialDoctorTab" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm transition duration-200">
-                                醫師業績
-                            </button>
-                            <button onclick="switchFinancialTab('service')" id="financialServiceTab" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm transition duration-200">
-                                服務分析
-                            </button>
-                        </nav>
-                    </div>
-                    
-                    <!-- 標籤內容 -->
-                    <div class="p-6">
-                        <!-- 收入摘要標籤 -->
-                        <div id="financialSummaryContent" class="financial-tab-content">
-                            <div class="overflow-x-auto">
-                                <table class="w-full">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">項目</th>
-                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">金額</th>
-                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">佔比</th>
-                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">備註</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="financialSummaryTableBody" class="divide-y divide-gray-200">
-                                        <tr>
-                                            <td colspan="4" class="px-4 py-8 text-center text-gray-500">
-                                                請點擊「更新報表」來載入資料
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        
-                        <!-- 每日明細標籤 -->
-                        <div id="financialDailyContent" class="financial-tab-content hidden">
-                            <div class="overflow-x-auto">
-                                <table class="w-full">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">日期</th>
-                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">診症人次</th>
-                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">收入金額</th>
-                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">平均消費</th>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">主要服務</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="financialDailyTableBody" class="divide-y divide-gray-200">
-                                        <tr>
-                                            <td colspan="5" class="px-4 py-8 text-center text-gray-500">
-                                                請點擊「更新報表」來載入資料
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        
-                        <!-- 醫師業績標籤 -->
-                        <div id="financialDoctorContent" class="financial-tab-content hidden">
-                            <div class="overflow-x-auto">
-                                <table class="w-full">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">醫師</th>
-                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">診症人次</th>
-                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">總收入</th>
-                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">平均消費</th>
-                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">佔比</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="financialDoctorTableBody" class="divide-y divide-gray-200">
-                                        <tr>
-                                            <td colspan="5" class="px-4 py-8 text-center text-gray-500">
-                                                請點擊「更新報表」來載入資料
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        
-                        <!-- 服務分析標籤 -->
-                        <div id="financialServiceContent" class="financial-tab-content hidden">
-                            <div class="overflow-x-auto">
-                                <table class="w-full">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">服務類型</th>
-                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">次數</th>
-                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">總金額</th>
-                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">平均單價</th>
-                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">收入佔比</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="financialServiceTableBody" class="divide-y divide-gray-200">
-                                        <tr>
-                                            <td colspan="5" class="px-4 py-8 text-center text-gray-500">
-                                                請點擊「更新報表」來載入資料
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             <!-- 系統管理 -->
             <div id="systemManagement" class="hidden bg-white rounded-xl shadow-lg p-6">
@@ -2244,87 +1988,6 @@
                 description: '節日期間特別優惠88折',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString()
-            },
-            // 套票項目類別
-            {
-                id: 4051,
-                name: '中醫養生套餐',
-                category: 'package',
-                price: 1200,
-                unit: '套',
-                description: '包含：診症1次 + 針灸3次 + 中藥7劑，適合日常保健',
-                active: true,
-                createdAt: new Date('2024-01-01').toISOString()
-            },
-            {
-                id: 4052,
-                name: '針灸療程套票（10次）',
-                category: 'package',
-                price: 800,
-                unit: '套',
-                description: '針灸治療10次套票，單次使用價值$100，套票價$800',
-                active: true,
-                createdAt: new Date('2024-01-01').toISOString()
-            },
-            {
-                id: 4053,
-                name: '推拿按摩套票（5次）',
-                category: 'package',
-                price: 600,
-                unit: '套',
-                description: '推拿按摩5次套票，單次使用價值$150，套票價$600',
-                active: true,
-                createdAt: new Date('2024-01-01').toISOString()
-            },
-            {
-                id: 4054,
-                name: '中醫調理療程',
-                category: 'package',
-                price: 2000,
-                unit: '套',
-                description: '包含：初診1次 + 複診3次 + 針灸8次 + 中藥21劑，3週完整調理',
-                active: true,
-                createdAt: new Date('2024-01-01').toISOString()
-            },
-            {
-                id: 4055,
-                name: '家庭保健套餐',
-                category: 'package',
-                price: 3000,
-                unit: '套',
-                description: '適合3-4人家庭，包含體質分析、養生指導、預防保健諮詢',
-                active: true,
-                createdAt: new Date('2024-01-01').toISOString()
-            },
-            {
-                id: 4056,
-                name: '痛症專項套票',
-                category: 'package',
-                price: 1500,
-                unit: '套',
-                description: '專治各種痛症，包含：診症2次 + 針灸6次 + 推拿4次 + 外用藥膏',
-                active: true,
-                createdAt: new Date('2024-01-01').toISOString()
-            },
-            {
-                id: 4057,
-                name: '月子調理套餐',
-                category: 'package',
-                price: 2500,
-                unit: '套',
-                description: '產後調理專用，包含：診症4次 + 中藥28劑 + 營養指導 + 體質調理',
-                active: true,
-                createdAt: new Date('2024-01-01').toISOString()
-            },
-            {
-                id: 4058,
-                name: '學生健康套票',
-                category: 'package',
-                price: 800,
-                unit: '套',
-                description: '學生專享優惠套票，包含：診症2次 + 針灸3次 + 健康指導',
-                active: true,
-                createdAt: new Date('2024-01-01').toISOString()
             }
         ];
 
@@ -2384,7 +2047,7 @@
         }
 
         // 所有用戶都有完整權限
-        const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'financialReports', 'userManagement', 'systemManagement'];
+        const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'systemManagement'];
 
         // 主要登入功能
         function attemptMainLogin() {
@@ -2487,7 +2150,6 @@
                 herbLibrary: { title: '中藥庫管理', icon: '🌿', description: '管理中藥材及方劑資料' },
                 billingManagement: { title: '收費項目管理', icon: '💰', description: '管理診療費用及收費項目' },
                 userManagement: { title: '診所用戶管理', icon: '👤', description: '管理診所用戶帳號及權限' },
-                financialReports: { title: '財務報表', icon: '📊', description: '收入分析與財務統計' },
                 systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' }
             };
             
@@ -2526,8 +2188,6 @@
                 loadHerbLibrary();
             } else if (sectionId === 'billingManagement') {
                 loadBillingManagement();
-            } else if (sectionId === 'financialReports') {
-                loadFinancialReports();
             } else if (sectionId === 'userManagement') {
                 loadUserManagement();
             }
@@ -2535,7 +2195,7 @@
 
         // 隱藏所有區域
         function hideAllSections() {
-            ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'financialReports', 'systemManagement', 'welcomePage'].forEach(id => {
+            ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'userManagement', 'systemManagement', 'welcomePage'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
         }
@@ -6200,8 +5860,7 @@
                 medicine: { name: '藥費', icon: '💊', items: [] },
                 treatment: { name: '治療費', icon: '🔧', items: [] },
                 other: { name: '其他', icon: '📋', items: [] },
-                discount: { name: '折扣項目', icon: '💸', items: [] },
-                package: { name: '套票項目', icon: '🎫', items: [] }
+                discount: { name: '折扣項目', icon: '💸', items: [] }
             };
             
             filteredItems.forEach(item => {
@@ -6795,8 +6454,7 @@
                     medicine: '藥費',
                     treatment: '治療費',
                     other: '其他',
-                    discount: '折扣項目',
-                    package: '套票項目'
+                    discount: '折扣項目'
                 };
                 const categoryName = categoryNames[item.category] || '未分類';
                 const bgColor = getCategoryBgColor(item.category);
@@ -6828,8 +6486,7 @@
                 medicine: 'bg-green-50 hover:bg-green-100 border-green-200',
                 treatment: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
                 other: 'bg-gray-50 hover:bg-gray-100 border-gray-200',
-                discount: 'bg-red-50 hover:bg-red-100 border-red-200',
-                package: 'bg-purple-50 hover:bg-purple-100 border-purple-200'
+                discount: 'bg-red-50 hover:bg-red-100 border-red-200'
             };
             return colors[category] || colors.other;
         }
@@ -6935,8 +6592,7 @@
                             medicine: '藥費',
                             treatment: '治療費',
                             other: '其他',
-                            discount: '折扣項目',
-                            package: '套票項目'
+                            discount: '折扣項目'
                         };
                         const categoryName = categoryNames[item.category] || '未分類';
                         const bgColor = getCategoryBgColor(item.category);
@@ -7888,504 +7544,7 @@
             }
         }
 
-// 財務報表功能
-        let currentFinancialTabType = 'summary';
-        
-        // 載入財務報表頁面
-        function loadFinancialReports() {
-            // 設置預設日期範圍（本月）
-            const today = new Date();
-            const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-            const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-            
-            document.getElementById('startDate').value = formatFinancialDate(firstDayOfMonth);
-            document.getElementById('endDate').value = formatFinancialDate(lastDayOfMonth);
-            
-            // 載入醫師選項
-            loadFinancialDoctorOptions();
-            
-            // 生成初始報表
-            generateFinancialReport();
-        }
 
-        // 格式化日期為 YYYY-MM-DD
-        function formatFinancialDate(date) {
-            return date.toISOString().split('T')[0];
-        }
-
-        // 載入醫師選項
-        function loadFinancialDoctorOptions() {
-            const doctorSelect = document.getElementById('doctorFilter');
-            const doctors = users.filter(user => 
-                user.active && user.position === '醫師'
-            );
-            
-            // 清空現有選項（保留「全部醫師」）
-            doctorSelect.innerHTML = '<option value="">全部醫師</option>';
-            
-            // 添加醫師選項
-            doctors.forEach(doctor => {
-                const option = document.createElement('option');
-                option.value = doctor.username;
-                option.textContent = `${doctor.name}`;
-                doctorSelect.appendChild(option);
-            });
-        }
-
-        // 快速日期選擇
-        function setQuickDate() {
-            const quickDate = document.getElementById('quickDate').value;
-            const today = new Date();
-            let startDate, endDate;
-
-            switch (quickDate) {
-                case 'today':
-                    startDate = endDate = today;
-                    document.getElementById('reportType').value = 'daily';
-                    break;
-                case 'yesterday':
-                    startDate = endDate = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-                    document.getElementById('reportType').value = 'daily';
-                    break;
-                case 'thisWeek':
-                    const thisWeekStart = new Date(today);
-                    thisWeekStart.setDate(today.getDate() - today.getDay());
-                    startDate = thisWeekStart;
-                    endDate = today;
-                    document.getElementById('reportType').value = 'weekly';
-                    break;
-                case 'lastWeek':
-                    const lastWeekStart = new Date(today);
-                    lastWeekStart.setDate(today.getDate() - today.getDay() - 7);
-                    const lastWeekEnd = new Date(lastWeekStart);
-                    lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
-                    startDate = lastWeekStart;
-                    endDate = lastWeekEnd;
-                    document.getElementById('reportType').value = 'weekly';
-                    break;
-                case 'thisMonth':
-                    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-                    endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-                    document.getElementById('reportType').value = 'monthly';
-                    break;
-                case 'lastMonth':
-                    startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                    endDate = new Date(today.getFullYear(), today.getMonth(), 0);
-                    document.getElementById('reportType').value = 'monthly';
-                    break;
-                case 'thisYear':
-                    startDate = new Date(today.getFullYear(), 0, 1);
-                    endDate = new Date(today.getFullYear(), 11, 31);
-                    document.getElementById('reportType').value = 'yearly';
-                    break;
-                case 'lastYear':
-                    startDate = new Date(today.getFullYear() - 1, 0, 1);
-                    endDate = new Date(today.getFullYear() - 1, 11, 31);
-                    document.getElementById('reportType').value = 'yearly';
-                    break;
-                default:
-                    return;
-            }
-
-            if (startDate && endDate) {
-                document.getElementById('startDate').value = formatFinancialDate(startDate);
-                document.getElementById('endDate').value = formatFinancialDate(endDate);
-                generateFinancialReport();
-            }
-        }
-
-        // 解析收費項目文本
-        function parseFinancialBillingItems(billingText) {
-            const items = [];
-            const lines = billingText.split('\n');
-            let totalAmount = 0;
-
-            lines.forEach(line => {
-                line = line.trim();
-                if (!line || line.includes('小計') || line.includes('總費用')) {
-                    // 提取總費用
-                    if (line.includes('總費用')) {
-                        const match = line.match(/\$(\d+)/);
-                        if (match) {
-                            totalAmount = parseInt(match[1]);
-                        }
-                    }
-                    return;
-                }
-
-                // 解析收費項目格式：項目名 x數量 = $金額 或 項目名 x數量 = -$金額
-                const itemMatch = line.match(/^(.+?)\s+x(\d+)\s+=\s+([\-\$]?\d+)$/);
-                if (itemMatch) {
-                    const itemName = itemMatch[1].trim();
-                    const quantity = parseInt(itemMatch[2]);
-                    const amount = parseInt(itemMatch[3].replace(/[\-\$]/g, ''));
-                    const isDiscount = itemMatch[3].includes('-');
-
-                    items.push({
-                        name: itemName,
-                        quantity: quantity,
-                        unitPrice: Math.abs(amount / quantity),
-                        totalAmount: isDiscount ? -amount : amount,
-                        category: getFinancialCategoryFromItemName(itemName)
-                    });
-                }
-            });
-
-            return { items, totalAmount };
-        }
-
-        // 根據項目名稱推斷類別
-        function getFinancialCategoryFromItemName(itemName) {
-            if (itemName.includes('診金') || itemName.includes('診療') || itemName.includes('複診')) {
-                return 'consultation';
-            } else if (itemName.includes('藥') || itemName.includes('中藥') || itemName.includes('調劑')) {
-                return 'medicine';
-            } else if (itemName.includes('針灸') || itemName.includes('推拿') || itemName.includes('拔罐') || itemName.includes('刮痧') || itemName.includes('艾灸')) {
-                return 'treatment';
-            } else if (itemName.includes('折扣') || itemName.includes('優惠')) {
-                return 'discount';
-            } else if (itemName.includes('套票') || itemName.includes('套餐') || itemName.includes('療程') || itemName.includes('方案')) {
-                return 'package';
-            } else {
-                return 'other';
-            }
-        }
-
-        // 生成財務報表
-        function generateFinancialReport() {
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            const doctorFilter = document.getElementById('doctorFilter').value;
-            const reportType = document.getElementById('reportType').value;
-
-            if (!startDate || !endDate) {
-                showToast('請選擇日期範圍！', 'error');
-                return;
-            }
-
-            // 過濾診症資料
-            const filteredConsultations = filterFinancialConsultations(startDate, endDate, doctorFilter);
-            
-            // 計算統計資料
-            const stats = calculateFinancialStatistics(filteredConsultations);
-            
-            // 更新關鍵指標
-            updateFinancialKeyMetrics(stats);
-            
-            // 更新表格
-            updateFinancialTables(filteredConsultations, stats);
-            
-            // 更新時間
-            document.getElementById('lastUpdateTime').textContent = new Date().toLocaleString('zh-TW');
-            
-            showToast('財務報表已更新！', 'success');
-        }
-
-        // 過濾診症資料
-        function filterFinancialConsultations(startDate, endDate, doctorFilter) {
-            const start = new Date(startDate);
-            const end = new Date(endDate + 'T23:59:59.999Z');
-
-            return consultations.filter(consultation => {
-                const consultationDate = new Date(consultation.date);
-                const dateInRange = consultationDate >= start && consultationDate <= end;
-                const doctorMatch = !doctorFilter || consultation.doctor === doctorFilter;
-                const isCompleted = consultation.status === 'completed';
-
-                return dateInRange && doctorMatch && isCompleted;
-            });
-        }
-
-        // 計算財務統計資料
-        function calculateFinancialStatistics(consultations) {
-            let totalRevenue = 0;
-            let totalConsultations = consultations.length;
-            const doctorStats = {};
-            const serviceStats = {};
-            const dailyStats = {};
-
-            consultations.forEach(consultation => {
-                const parsed = parseFinancialBillingItems(consultation.billingItems || '');
-                const consultationRevenue = parsed.totalAmount;
-                totalRevenue += consultationRevenue;
-
-                // 醫師統計
-                if (!doctorStats[consultation.doctor]) {
-                    doctorStats[consultation.doctor] = {
-                        count: 0,
-                        revenue: 0
-                    };
-                }
-                doctorStats[consultation.doctor].count += 1;
-                doctorStats[consultation.doctor].revenue += consultationRevenue;
-
-                // 服務統計
-                parsed.items.forEach(item => {
-                    if (!serviceStats[item.category]) {
-                        serviceStats[item.category] = {
-                            name: getFinancialCategoryDisplayName(item.category),
-                            count: 0,
-                            revenue: 0,
-                            items: []
-                        };
-                    }
-                    serviceStats[item.category].count += item.quantity;
-                    serviceStats[item.category].revenue += item.totalAmount;
-                    serviceStats[item.category].items.push(item);
-                });
-
-                // 每日統計
-                const dateKey = consultation.date.split('T')[0];
-                if (!dailyStats[dateKey]) {
-                    dailyStats[dateKey] = {
-                        count: 0,
-                        revenue: 0,
-                        services: {}
-                    };
-                }
-                dailyStats[dateKey].count += 1;
-                dailyStats[dateKey].revenue += consultationRevenue;
-            });
-
-            const averageRevenue = totalConsultations > 0 ? totalRevenue / totalConsultations : 0;
-            const activeDoctors = Object.keys(doctorStats).length;
-
-            return {
-                totalRevenue,
-                totalConsultations,
-                averageRevenue,
-                activeDoctors,
-                doctorStats,
-                serviceStats,
-                dailyStats
-            };
-        }
-
-        // 獲取類別顯示名稱
-        function getFinancialCategoryDisplayName(category) {
-            const names = {
-                consultation: '診療費',
-                medicine: '藥費',
-                treatment: '治療費',
-                other: '其他費用',
-                discount: '折扣',
-                package: '套票項目'
-            };
-            return names[category] || category;
-        }
-
-        // 更新關鍵指標
-        function updateFinancialKeyMetrics(stats) {
-            document.getElementById('totalRevenue').textContent = `$${stats.totalRevenue.toLocaleString()}`;
-            document.getElementById('totalConsultations').textContent = stats.totalConsultations.toLocaleString();
-            document.getElementById('averageRevenue').textContent = `$${Math.round(stats.averageRevenue).toLocaleString()}`;
-            document.getElementById('activeDoctors').textContent = stats.activeDoctors;
-        }
-
-        // 更新財務表格
-        function updateFinancialTables(consultations, stats) {
-            updateFinancialSummaryTable(stats);
-            updateFinancialDailyTable(stats.dailyStats);
-            updateFinancialDoctorTable(stats.doctorStats);
-            updateFinancialServiceTable(stats.serviceStats);
-        }
-
-        // 更新收入摘要表格
-        function updateFinancialSummaryTable(stats) {
-            const tbody = document.getElementById('financialSummaryTableBody');
-            const summaryData = [
-                { item: '診療費收入', amount: 0, category: 'consultation' },
-                { item: '藥費收入', amount: 0, category: 'medicine' },
-                { item: '治療費收入', amount: 0, category: 'treatment' },
-                { item: '其他收入', amount: 0, category: 'other' },
-                { item: '套票收入', amount: 0, category: 'package' }
-            ];
-
-            // 計算各類別收入
-            Object.keys(stats.serviceStats).forEach(category => {
-                const stat = stats.serviceStats[category];
-                const summaryItem = summaryData.find(item => item.category === category);
-                if (summaryItem) {
-                    summaryItem.amount = stat.revenue;
-                }
-            });
-
-            const totalRevenue = stats.totalRevenue;
-
-            tbody.innerHTML = summaryData.map(item => {
-                const percentage = totalRevenue > 0 ? ((item.amount / totalRevenue) * 100).toFixed(1) : '0';
-                return `
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 text-sm text-gray-900">${item.item}</td>
-                        <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">$${item.amount.toLocaleString()}</td>
-                        <td class="px-4 py-3 text-sm text-gray-600 text-right">${percentage}%</td>
-                        <td class="px-4 py-3 text-sm text-gray-500 text-right">統計期間</td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        // 更新每日明細表格
-        function updateFinancialDailyTable(dailyStats) {
-            const tbody = document.getElementById('financialDailyTableBody');
-            const sortedDates = Object.keys(dailyStats).sort().reverse();
-
-            if (sortedDates.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">
-                            選定期間內沒有診症記錄
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            tbody.innerHTML = sortedDates.map(date => {
-                const stat = dailyStats[date];
-                const averageDaily = stat.count > 0 ? Math.round(stat.revenue / stat.count) : 0;
-                const formattedDate = new Date(date + 'T00:00:00').toLocaleDateString('zh-TW');
-
-                return `
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 text-sm text-gray-900">${formattedDate}</td>
-                        <td class="px-4 py-3 text-sm text-gray-900 text-right">${stat.count}</td>
-                        <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">$${stat.revenue.toLocaleString()}</td>
-                        <td class="px-4 py-3 text-sm text-gray-600 text-right">$${averageDaily.toLocaleString()}</td>
-                        <td class="px-4 py-3 text-sm text-gray-600">診療、藥費</td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        // 更新醫師業績表格
-        function updateFinancialDoctorTable(doctorStats) {
-            const tbody = document.getElementById('financialDoctorTableBody');
-            const totalRevenue = Object.values(doctorStats).reduce((sum, stat) => sum + stat.revenue, 0);
-
-            if (Object.keys(doctorStats).length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">
-                            選定期間內沒有醫師診症記錄
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            const sortedDoctors = Object.entries(doctorStats).sort(([,a], [,b]) => b.revenue - a.revenue);
-
-            tbody.innerHTML = sortedDoctors.map(([doctorUsername, stat]) => {
-                const percentage = totalRevenue > 0 ? ((stat.revenue / totalRevenue) * 100).toFixed(1) : '0';
-                const average = stat.count > 0 ? Math.round(stat.revenue / stat.count) : 0;
-                const doctorName = getDoctorDisplayName(doctorUsername);
-
-                return `
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 text-sm text-gray-900">${doctorName}</td>
-                        <td class="px-4 py-3 text-sm text-gray-900 text-right">${stat.count}</td>
-                        <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">$${stat.revenue.toLocaleString()}</td>
-                        <td class="px-4 py-3 text-sm text-gray-600 text-right">$${average.toLocaleString()}</td>
-                        <td class="px-4 py-3 text-sm text-gray-600 text-right">${percentage}%</td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        // 更新服務分析表格
-        function updateFinancialServiceTable(serviceStats) {
-            const tbody = document.getElementById('financialServiceTableBody');
-            const totalRevenue = Object.values(serviceStats).reduce((sum, stat) => sum + stat.revenue, 0);
-
-            if (Object.keys(serviceStats).length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">
-                            選定期間內沒有服務記錄
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-
-            const sortedServices = Object.entries(serviceStats).sort(([,a], [,b]) => b.revenue - a.revenue);
-
-            tbody.innerHTML = sortedServices.map(([category, stat]) => {
-                const percentage = totalRevenue > 0 ? ((stat.revenue / totalRevenue) * 100).toFixed(1) : '0';
-                const average = stat.count > 0 ? Math.round(stat.revenue / stat.count) : 0;
-
-                return `
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 text-sm text-gray-900">${stat.name}</td>
-                        <td class="px-4 py-3 text-sm text-gray-900 text-right">${stat.count}</td>
-                        <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">$${stat.revenue.toLocaleString()}</td>
-                        <td class="px-4 py-3 text-sm text-gray-600 text-right">$${average.toLocaleString()}</td>
-                        <td class="px-4 py-3 text-sm text-gray-600 text-right">${percentage}%</td>
-                    </tr>
-                `;
-            }).join('');
-        }
-
-        // 切換財務標籤
-        function switchFinancialTab(tabType) {
-            // 更新標籤按鈕樣式
-            document.querySelectorAll('[role="tablist"] button').forEach(btn => {
-                if (btn.id && btn.id.startsWith('financial')) {
-                    btn.className = 'py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm transition duration-200';
-                }
-            });
-            
-            document.getElementById(`financial${tabType.charAt(0).toUpperCase() + tabType.slice(1)}Tab`).className = 'py-4 px-1 border-b-2 border-green-500 text-green-600 font-medium text-sm transition duration-200';
-
-            // 隱藏所有標籤內容
-            document.querySelectorAll('.financial-tab-content').forEach(content => {
-                content.classList.add('hidden');
-            });
-
-            // 顯示選中的標籤內容
-            document.getElementById(`financial${tabType.charAt(0).toUpperCase() + tabType.slice(1)}Content`).classList.remove('hidden');
-            
-            currentFinancialTabType = tabType;
-        }
-
-        // 匯出財務報表
-        function exportFinancialReport() {
-            const startDate = document.getElementById('startDate').value;
-            const endDate = document.getElementById('endDate').value;
-            const reportType = document.getElementById('reportType').value;
-            
-            // 準備匯出資料
-            const reportData = {
-                reportInfo: {
-                    title: `財務報表 - ${reportType}`,
-                    period: `${startDate} 至 ${endDate}`,
-                    generatedAt: new Date().toLocaleString('zh-TW')
-                },
-                summary: {
-                    totalRevenue: document.getElementById('totalRevenue').textContent,
-                    totalConsultations: document.getElementById('totalConsultations').textContent,
-                    averageRevenue: document.getElementById('averageRevenue').textContent,
-                    activeDoctors: document.getElementById('activeDoctors').textContent
-                }
-            };
-
-            // 轉換為 JSON 字符串
-            const jsonString = JSON.stringify(reportData, null, 2);
-            
-            // 創建下載
-            const blob = new Blob([jsonString], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `財務報表_${startDate}_${endDate}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            showToast('財務報表已匯出！', 'success');
-        }
 
         // 初始化系統
         document.addEventListener('DOMContentLoaded', function() {
