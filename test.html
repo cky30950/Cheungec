@@ -977,6 +977,9 @@
                         <button onclick="filterBillingItems('treatment')" id="billing-filter-treatment" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
                             治療費
                         </button>
+                        <button onclick="filterBillingItems('package')" id="billing-filter-package" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
+                            套票項目
+                        </button>
                         <button onclick="filterBillingItems('other')" id="billing-filter-other" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
                             其他
                         </button>
@@ -1007,6 +1010,7 @@
                                         <option value="consultation">診療費</option>
                                         <option value="medicine">藥費</option>
                                         <option value="treatment">治療費</option>
+                                        <option value="package">套票項目</option>
                                         <option value="other">其他</option>
                                         <option value="discount">折扣項目</option>
                                     </select>
@@ -2238,6 +2242,87 @@
                 price: 0.88, // 88折
                 unit: '',
                 description: '節日期間特別優惠88折',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            // 套票項目類別
+            {
+                id: 4051,
+                name: '中醫養生套餐',
+                category: 'package',
+                price: 1200,
+                unit: '套',
+                description: '包含：診症1次 + 針灸3次 + 中藥7劑，適合日常保健',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4052,
+                name: '針灸療程套票（10次）',
+                category: 'package',
+                price: 800,
+                unit: '套',
+                description: '針灸治療10次套票，單次使用價值$100，套票價$800',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4053,
+                name: '推拿按摩套票（5次）',
+                category: 'package',
+                price: 600,
+                unit: '套',
+                description: '推拿按摩5次套票，單次使用價值$150，套票價$600',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4054,
+                name: '中醫調理療程',
+                category: 'package',
+                price: 2000,
+                unit: '套',
+                description: '包含：初診1次 + 複診3次 + 針灸8次 + 中藥21劑，3週完整調理',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4055,
+                name: '家庭保健套餐',
+                category: 'package',
+                price: 3000,
+                unit: '套',
+                description: '適合3-4人家庭，包含體質分析、養生指導、預防保健諮詢',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4056,
+                name: '痛症專項套票',
+                category: 'package',
+                price: 1500,
+                unit: '套',
+                description: '專治各種痛症，包含：診症2次 + 針灸6次 + 推拿4次 + 外用藥膏',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4057,
+                name: '月子調理套餐',
+                category: 'package',
+                price: 2500,
+                unit: '套',
+                description: '產後調理專用，包含：診症4次 + 中藥28劑 + 營養指導 + 體質調理',
+                active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4058,
+                name: '學生健康套票',
+                category: 'package',
+                price: 800,
+                unit: '套',
+                description: '學生專享優惠套票，包含：診症2次 + 針灸3次 + 健康指導',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString()
             }
@@ -6708,6 +6793,7 @@
                     consultation: '診療費',
                     medicine: '藥費',
                     treatment: '治療費',
+                    package: '套票項目',
                     other: '其他',
                     discount: '折扣項目'
                 };
@@ -6740,6 +6826,7 @@
                 consultation: 'bg-blue-50 hover:bg-blue-100 border-blue-200',
                 medicine: 'bg-green-50 hover:bg-green-100 border-green-200',
                 treatment: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
+                package: 'bg-purple-50 hover:bg-purple-100 border-purple-200',
                 other: 'bg-gray-50 hover:bg-gray-100 border-gray-200',
                 discount: 'bg-red-50 hover:bg-red-100 border-red-200'
             };
@@ -6846,6 +6933,7 @@
                             consultation: '診療費',
                             medicine: '藥費',
                             treatment: '治療費',
+                            package: '套票項目',
                             other: '其他',
                             discount: '折扣項目'
                         };
@@ -7953,6 +8041,8 @@
                 return 'medicine';
             } else if (itemName.includes('針灸') || itemName.includes('推拿') || itemName.includes('拔罐') || itemName.includes('刮痧') || itemName.includes('艾灸')) {
                 return 'treatment';
+            } else if (itemName.includes('套票') || itemName.includes('套餐') || itemName.includes('療程') || itemName.includes('方案')) {
+                return 'package';
             } else if (itemName.includes('折扣') || itemName.includes('優惠')) {
                 return 'discount';
             } else {
@@ -8076,6 +8166,7 @@
                 consultation: '診療費',
                 medicine: '藥費',
                 treatment: '治療費',
+                package: '套票項目',
                 other: '其他費用',
                 discount: '折扣'
             };
