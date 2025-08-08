@@ -68,8 +68,8 @@
         <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
             <div class="text-center mb-8">
                 <div class="text-4xl mb-4">🏥</div>
-                <h1 id="loginTitle" class="text-2xl font-bold text-gray-800 mb-2">12334</h1>
-                <p id="loginEnglishTitle" class="text-sm text-gray-500 mb-3">12334 Clinic</p>
+                <h1 id="loginTitle" class="text-2xl font-bold text-gray-800 mb-2">中醫診所系統</h1>
+                <p id="loginEnglishTitle" class="text-sm text-gray-500 mb-3">中醫診所系統 Clinic</p>
                 <p class="text-gray-600">請輸入您的帳號密碼登入</p>
             </div>
             
@@ -167,8 +167,8 @@
                         </button>
                         <span class="text-2xl mr-3">🏥</span>
                         <div>
-                            <h1 id="systemTitle" class="text-xl font-bold text-gray-800">12334</h1>
-                            <p id="systemEnglishTitle" class="text-xs text-gray-500">12334 Clinic</p>
+                            <h1 id="systemTitle" class="text-xl font-bold text-gray-800">中醫診所系統</h1>
+                            <p id="systemEnglishTitle" class="text-xs text-gray-500">TCM Clinic</p>
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -186,8 +186,8 @@
             <!-- 歡迎頁面 -->
             <div id="welcomePage" class="text-center py-16">
                 <div class="text-6xl mb-6">🏥</div>
-                <h2 id="welcomeTitle" class="text-3xl font-bold text-gray-800 mb-2">歡迎使用12334</h2>
-                <p id="welcomeEnglishTitle" class="text-lg text-gray-500 mb-4">Welcome to 12334 Clinic</p>
+                <h2 id="welcomeTitle" class="text-3xl font-bold text-gray-800 mb-2">歡迎使用中醫診所系統</h2>
+                <p id="welcomeEnglishTitle" class="text-lg text-gray-500 mb-4">Welcome to TCM Clinic</p>
                 <p class="text-gray-600 text-lg mb-8">請點擊左上角選單按鈕開始使用系統功能</p>
                 <div class="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto">
                     <h3 class="text-xl font-semibold mb-4">系統功能概覽</h3>
@@ -1454,8 +1454,8 @@
                         <div class="space-y-3">
                             <div class="text-center py-4" id="clinicSettingsDisplay">
                                 <div class="text-sm text-gray-700 mb-3">
-                                    <div class="font-medium">診所中文名稱：<span id="displayChineseName">12334</span></div>
-                                    <div class="text-gray-600 mt-1">診所英文名稱：<span id="displayEnglishName">12334 Clinic</span></div>
+                                    <div class="font-medium">診所中文名稱：<span id="displayChineseName">中醫診所系統</span></div>
+                                    <div class="text-gray-600 mt-1">診所英文名稱：<span id="displayEnglishName">TCM Clinic</span></div>
                                 </div>
                                 <button onclick="showClinicSettingsModal()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-200">
                                     診所資料修改
@@ -1539,8 +1539,8 @@
         // 診所設定
         let clinicSettings = JSON.parse(localStorage.getItem('clinicSettings') || '{}');
         if (!clinicSettings.chineseName) {
-            clinicSettings.chineseName = '12334';
-            clinicSettings.englishName = '12334 Clinic';
+            clinicSettings.chineseName = '中醫診所系統';
+            clinicSettings.englishName = 'TCM Clinic';
             clinicSettings.businessHours = '週一至週五 09:00-18:00';
             clinicSettings.phone = '(852) 2345-6789';
             clinicSettings.address = '香港中環皇后大道中123號';
@@ -4625,8 +4625,8 @@
                     <div class="receipt-container">
                         <!-- 診所標題 -->
                         <div class="clinic-header">
-                            <div class="clinic-name">${clinicSettings.chineseName || '12334'}</div>
-                            <div class="clinic-subtitle">${clinicSettings.englishName || '12334 Clinic'}</div>
+                            <div class="clinic-name">${clinicSettings.chineseName || '中醫診所系統'}</div>
+                            <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
                             <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                         </div>
                         
@@ -5028,8 +5028,8 @@
                         <div class="content">
                             <!-- 診所標題 -->
                             <div class="clinic-header">
-                                <div class="clinic-name">${clinicSettings.chineseName || '1233455'}</div>
-                                <div class="clinic-subtitle">${clinicSettings.englishName || '1233455 Clinic'}</div>
+                                <div class="clinic-name">${clinicSettings.chineseName || '中醫診所系統'}</div>
+                                <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
                                 <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                             </div>
                             
@@ -5347,8 +5347,8 @@
                         <div class="content">
                             <!-- 診所標題 -->
                             <div class="clinic-header">
-                                <div class="clinic-name">${clinicSettings.chineseName || '1233455'}</div>
-                                <div class="clinic-subtitle">${clinicSettings.englishName || '1233455 Clinic'}</div>
+                                <div class="clinic-name">${clinicSettings.chineseName || '中醫診所系統'}</div>
+                                <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
                                 <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                             </div>
                             
@@ -5782,40 +5782,40 @@
             const englishNameSpan = document.getElementById('displayEnglishName');
             
             if (chineseNameSpan) {
-                chineseNameSpan.textContent = clinicSettings.chineseName || '1233455';
+                chineseNameSpan.textContent = clinicSettings.chineseName || '中醫診所系統';
             }
             if (englishNameSpan) {
-                englishNameSpan.textContent = clinicSettings.englishName || '1233455 Clinic';
+                englishNameSpan.textContent = clinicSettings.englishName || 'TCM Clinic';
             }
             
             // 更新登入頁面的診所名稱
             const loginTitle = document.getElementById('loginTitle');
             const loginEnglishTitle = document.getElementById('loginEnglishTitle');
             if (loginTitle) {
-                loginTitle.textContent = clinicSettings.chineseName || '1233455';
+                loginTitle.textContent = clinicSettings.chineseName || '中醫診所系統';
             }
             if (loginEnglishTitle) {
-                loginEnglishTitle.textContent = clinicSettings.englishName || '1233455 Clinic';
+                loginEnglishTitle.textContent = clinicSettings.englishName || 'TCM Clinic';
             }
             
             // 更新主頁面的診所名稱
             const systemTitle = document.getElementById('systemTitle');
             const systemEnglishTitle = document.getElementById('systemEnglishTitle');
             if (systemTitle) {
-                systemTitle.textContent = clinicSettings.chineseName || '1233455';
+                systemTitle.textContent = clinicSettings.chineseName || '中醫診所系統';
             }
             if (systemEnglishTitle) {
-                systemEnglishTitle.textContent = clinicSettings.englishName || '1233455 Clinic';
+                systemEnglishTitle.textContent = clinicSettings.englishName || 'TCM Clinic';
             }
             
             // 更新歡迎頁面的診所名稱
             const welcomeTitle = document.getElementById('welcomeTitle');
             const welcomeEnglishTitle = document.getElementById('welcomeEnglishTitle');
             if (welcomeTitle) {
-                welcomeTitle.textContent = `歡迎使用${clinicSettings.chineseName || '1233455'}`;
+                welcomeTitle.textContent = `歡迎使用${clinicSettings.chineseName || '中醫診所系統'}`;
             }
             if (welcomeEnglishTitle) {
-                welcomeEnglishTitle.textContent = `Welcome to ${clinicSettings.englishName || '1233455 Clinic'}`;
+                welcomeEnglishTitle.textContent = `Welcome to ${clinicSettings.englishName || 'TCM Clinic'}`;
             }
         }
 
