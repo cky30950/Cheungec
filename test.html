@@ -60,6 +60,19 @@
             flex: 1;
             line-height: 1.4;
         }
+        /* 套票相關樣式 */
+        .package-card {
+            transition: all 0.3s ease;
+        }
+        .package-card:hover {
+            transform: translateY(-2px);
+        }
+        .package-expired {
+            opacity: 0.6;
+        }
+        .package-low-usage {
+            border-left: 4px solid #f59e0b !important;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
@@ -1859,6 +1872,11 @@
         ];
 
         let appointments = JSON.parse(localStorage.getItem('appointments') || '[]');
+        // 套票購買記錄
+        let packagePurchases = JSON.parse(localStorage.getItem('packagePurchases') || '[]');
+
+        // 套票使用記錄
+        let packageUsages = JSON.parse(localStorage.getItem('packageUsages') || '[]');
         if (appointments.length === 0) {
             appointments = defaultAppointments;
             localStorage.setItem('appointments', JSON.stringify(appointments));
@@ -2324,6 +2342,49 @@
                 unit: '套',
                 description: '學生專享優惠套票，包含：診症2次 + 針灸3次 + 健康指導',
                 active: true,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+                        // 套票項目
+            {
+                id: 4051,
+                name: '針灸療程套票（10次）',
+                category: 'package',
+                price: 800,
+                unit: '套',
+                description: '針灸治療10次套票，原價$1000，套票價$800',
+                active: true,
+                totalSessions: 10,
+                validityDays: 90,
+                serviceType: 'treatment',
+                serviceId: 4021,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4052,
+                name: '推拿療程套票（5次）',
+                category: 'package',
+                price: 600,
+                unit: '套',
+                description: '推拿按摩5次套票，原價$750，套票價$600',
+                active: true,
+                totalSessions: 5,
+                validityDays: 60,
+                serviceType: 'treatment',
+                serviceId: 4022,
+                createdAt: new Date('2024-01-01').toISOString()
+            },
+            {
+                id: 4053,
+                name: '診症套票（8次）',
+                category: 'package',
+                price: 1000,
+                unit: '套',
+                description: '診金8次套票，原價$1200，套票價$1000',
+                active: true,
+                totalSessions: 8,
+                validityDays: 120,
+                serviceType: 'consultation',
+                serviceId: 4001,
                 createdAt: new Date('2024-01-01').toISOString()
             }
         ];
@@ -7887,6 +7948,132 @@
                 showToast(`用戶「${user.name}」已刪除！`, 'success');
             }
         }
+
+        // === 套票管理功能 ===
+
+// 購買套票
+function purchasePackage(patientId, billingItemId, quantity = 1) {
+    const billingItem = billingItems.find(item => item.id === billingItemId);
+    if (!billingItem || billingItem.category !== 'package') {
+        showToast('找不到套票項目！', 'error');
+        return;
+    }
+
+    const patient = patients.find(p => p.id === patientId);
+    if (!patient) {
+        showToast('找不到病人資料！', 'error');
+        return;
+    }
+
+    for (let i = 0; i < quantity; i++) {
+        const purchase = {
+            id: Date.now() + i,
+            patientId: patientId,
+            packageId: billingItemId,
+            packageName: billingItem.name,
+            totalSessions: billingItem.totalSessions,
+            remainingSessions: billingItem.totalSessions,
+            purchaseDate: new Date().toISOString(),
+            expiryDate: calculateExpiryDate(billingItem.validityDays),
+            price: billingItem.price,
+            serviceType: billingItem.serviceType,
+            serviceId: billingItem.serviceId,
+            status: 'active' // active, expired, used_up
+        };
+        
+        packagePurchases.push(purchase);
+    }
+    
+    localStorage.setItem('packagePurchases', JSON.stringify(packagePurchases));
+    showToast(`${patient.name} 已購買 ${billingItem.name} x${quantity}`, 'success');
+}
+
+// 計算到期日
+function calculateExpiryDate(validityDays) {
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + validityDays);
+    return expiryDate.toISOString();
+}
+
+// 使用套票
+function usePackage(packagePurchaseId, consultationId) {
+    const purchase = packagePurchases.find(p => p.id === packagePurchaseId);
+    if (!purchase) {
+        showToast('找不到套票記錄！', 'error');
+        return false;
+    }
+
+    if (purchase.status !== 'active') {
+        showToast('套票已失效或用完！', 'warning');
+        return false;
+    }
+
+    if (purchase.remainingSessions <= 0) {
+        showToast('套票次數已用完！', 'warning');
+        purchase.status = 'used_up';
+        localStorage.setItem('packagePurchases', JSON.stringify(packagePurchases));
+        return false;
+    }
+
+    if (new Date(purchase.expiryDate) < new Date()) {
+        showToast('套票已過期！', 'warning');
+        purchase.status = 'expired';
+        localStorage.setItem('packagePurchases', JSON.stringify(packagePurchases));
+        return false;
+    }
+
+    purchase.remainingSessions -= 1;
+    if (purchase.remainingSessions === 0) {
+        purchase.status = 'used_up';
+    }
+
+    const usage = {
+        id: Date.now(),
+        packagePurchaseId: packagePurchaseId,
+        consultationId: consultationId,
+        usedDate: new Date().toISOString(),
+        patientId: purchase.patientId
+    };
+    
+    packageUsages.push(usage);
+    
+    localStorage.setItem('packagePurchases', JSON.stringify(packagePurchases));
+    localStorage.setItem('packageUsages', JSON.stringify(packageUsages));
+    
+    return true;
+}
+
+// 獲取病人的有效套票
+function getPatientActivePackages(patientId) {
+    return packagePurchases.filter(purchase => {
+        return purchase.patientId === patientId &&
+               purchase.status === 'active' &&
+               purchase.remainingSessions > 0 &&
+               new Date(purchase.expiryDate) > new Date();
+    });
+}
+
+// 獲取病人的所有套票
+function getPatientAllPackages(patientId) {
+    return packagePurchases.filter(purchase => purchase.patientId === patientId);
+}
+
+// 更新過期套票狀態
+function updateExpiredPackages() {
+    const now = new Date();
+    let updated = false;
+    
+    packagePurchases.forEach(purchase => {
+        if (purchase.status === 'active' && new Date(purchase.expiryDate) < now) {
+            purchase.status = 'expired';
+            updated = true;
+        }
+    });
+    
+    if (updated) {
+        localStorage.setItem('packagePurchases', JSON.stringify(packagePurchases));
+    }
+}
 
 // 財務報表功能
         let currentFinancialTabType = 'summary';
