@@ -2325,30 +2325,6 @@
                 description: '學生專享優惠套票，包含：診症2次 + 針灸3次 + 健康指導',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString()
-            },
-            {
-                id: 4059,
-                name: '針灸療程套票（10次）',
-                category: 'package',
-                price: 800,
-                sessions: 10,
-                validDays: 90,
-                unit: '套',
-                description: '針灸治療10次套票，優惠價$800，有效期90天',
-                active: true,
-                createdAt: new Date('2024-01-01').toISOString()
-            },
-            {
-                id: 4060,
-                name: '中醫調理套餐（5次）',
-                category: 'package',
-                price: 1200,
-                sessions: 5,
-                validDays: 60,
-                unit: '套',
-                description: '包含診症、針灸、中藥調理的完整套餐',
-                active: true,
-                createdAt: new Date('2024-01-01').toISOString()
             }
         ];
 
@@ -2402,16 +2378,6 @@
 
         // 初始化用戶資料
         let users = JSON.parse(localStorage.getItem('users') || '[]');
-        // 套票相關資料結構
-        let packageProducts = JSON.parse(localStorage.getItem('packageProducts') || '[]');
-        let patientPackages = JSON.parse(localStorage.getItem('patientPackages') || '[]');
-        let packageUsageRecords = JSON.parse(localStorage.getItem('packageUsageRecords') || '[]');
-        
-        // 初始化套票商品
-        if (packageProducts.length === 0) {
-            packageProducts = billingItems.filter(item => item.category === 'package');
-            localStorage.setItem('packageProducts', JSON.stringify(packageProducts));
-        }
         if (users.length === 0) {
             users = defaultUsers;
             localStorage.setItem('users', JSON.stringify(users));
@@ -5529,21 +5495,6 @@
                             </div>
                         </div>
                     </div>
-                <!-- 套票操作彈窗 -->
-    <div id="packageActionModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full">
-            <div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-4 rounded-t-xl">
-                <div class="flex justify-between items-center">
-                    <h3 id="actionModalTitle" class="text-xl font-bold">套票操作</h3>
-                    <button onclick="hidePackageActionModal()" class="text-white hover:text-gray-200 text-2xl">×</button>
-                </div>
-            </div>
-            
-            <div id="actionModalContent" class="p-6">
-                <!-- 動態載入內容 -->
-            </div>
-        </div>
-    </div>
                 </body>
                 </html>
             `;
@@ -6882,39 +6833,9 @@
             };
             return colors[category] || colors.other;
         }
-
+        
         // 添加到收費項目
         function addToBilling(itemId) {
-            const item = billingItems.find(b => b.id === itemId);
-            if (!item) return;
-            
-            // 如果是套票項目，顯示購買確認彈窗
-            if (item.category === 'package') {
-                showPackagePurchaseModal(item);
-                return;
-            }
-            
-            // 一般收費項目的處理
-            const existingIndex = selectedBillingItems.findIndex(b => b.id === itemId);
-            if (existingIndex !== -1) {
-                selectedBillingItems[existingIndex].quantity += 1;
-            } else {
-                const billingItem = {
-                    id: itemId,
-                    name: item.name,
-                    category: item.category,
-                    price: item.price,
-                    unit: item.unit,
-                    description: item.description,
-                    quantity: 1
-                };
-                selectedBillingItems.push(billingItem);
-            }
-            
-            updateBillingDisplay();
-            clearBillingSearch();
-            showToast(`已添加收費項目：${item.name}`, 'success');
-        }
             const item = billingItems.find(b => b.id === itemId);
             if (!item) return;
             
@@ -8464,185 +8385,6 @@
             URL.revokeObjectURL(url);
 
             showToast('財務報表已匯出！', 'success');
-        }
-        // ========== 套票相關函數 ==========
-        
-        // 顯示套票購買確認彈窗
-        function showPackagePurchaseModal(packageItem) {
-            if (!currentConsultingAppointmentId) {
-                showToast('請先開始診症才能銷售套票！', 'error');
-                return;
-            }
-            
-            const appointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
-            if (!appointment) return;
-            
-            const patient = patients.find(p => p.id === appointment.patientId);
-            if (!patient) return;
-            
-            const modalHtml = `
-                <div class="space-y-4">
-                    <div class="bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg p-4">
-                        <h4 class="text-lg font-bold text-purple-800 mb-2">${packageItem.name}</h4>
-                        <div class="grid grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <span class="text-gray-600">套票價格：</span>
-                                <span class="text-2xl font-bold text-green-600">$${packageItem.price}</span>
-                            </div>
-                            <div>
-                                <span class="text-gray-600">包含次數：</span>
-                                <span class="text-xl font-bold text-blue-600">${packageItem.sessions}次</span>
-                                <div class="text-xs text-gray-500">
-                                    平均 $${Math.round(packageItem.price / packageItem.sessions)}/次
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mt-3 text-sm text-gray-700">
-                            <div>📅 有效期：${packageItem.validDays}天</div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <div class="text-sm text-blue-800">
-                            <strong>購買人：</strong>${patient.name} (${patient.patientNumber})
-                        </div>
-                    </div>
-                    
-                    <div class="flex space-x-3 pt-4">
-                        <button onclick="hidePackageActionModal()" 
-                                class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition duration-200">
-                            取消
-                        </button>
-                        <button onclick="confirmPackagePurchase(${packageItem.id})" 
-                                class="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2 px-4 rounded-lg transition duration-200">
-                            確認購買
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.getElementById('actionModalTitle').textContent = '套票購買確認';
-            document.getElementById('actionModalContent').innerHTML = modalHtml;
-            document.getElementById('packageActionModal').classList.remove('hidden');
-        }
-        
-        // 確認套票購買
-        function confirmPackagePurchase(packageId) {
-            const packageItem = billingItems.find(p => p.id === packageId);
-            if (!packageItem) return;
-            
-            const appointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
-            const patient = patients.find(p => p.id === appointment.patientId);
-            
-            // 創建病人套票記錄
-            const patientPackage = {
-                id: 'pp_' + Date.now(),
-                patientId: patient.id,
-                patientName: patient.name,
-                patientNumber: patient.patientNumber,
-                packageId: packageId,
-                packageName: packageItem.name,
-                purchaseDate: new Date().toISOString(),
-                totalSessions: packageItem.sessions,
-                remainingSessions: packageItem.sessions,
-                status: 'active',
-                purchasePrice: packageItem.price,
-                validUntil: new Date(Date.now() + packageItem.validDays * 24 * 60 * 60 * 1000).toISOString(),
-                salesPersonId: currentUserData?.username,
-                salesPersonName: getUserDisplayName(currentUserData)
-            };
-            
-            patientPackages.push(patientPackage);
-            localStorage.setItem('patientPackages', JSON.stringify(patientPackages));
-            
-            // 添加到當前收費項目
-            const existingIndex = selectedBillingItems.findIndex(b => b.id === packageId);
-            if (existingIndex !== -1) {
-                selectedBillingItems[existingIndex].quantity += 1;
-            } else {
-                selectedBillingItems.push({
-                    id: packageId,
-                    name: packageItem.name,
-                    category: packageItem.category,
-                    price: packageItem.price,
-                    unit: packageItem.unit,
-                    description: packageItem.description,
-                    quantity: 1
-                });
-            }
-            
-            updateBillingDisplay();
-            hidePackageActionModal();
-            
-            showToast(`套票「${packageItem.name}」購買成功！有效期${packageItem.validDays}天`, 'success');
-        }
-        
-        // 隱藏套票操作彈窗
-        function hidePackageActionModal() {
-            document.getElementById('packageActionModal').classList.add('hidden');
-        }
-        
-        // 獲取病人可用套票
-        function getPatientAvailablePackages(patientId) {
-            const now = new Date();
-            
-            return patientPackages.filter(record => {
-                if (record.patientId !== patientId) return false;
-                if (record.remainingSessions <= 0) return false;
-                if (record.status !== 'active') return false;
-                
-                // 檢查是否過期
-                const validUntil = new Date(record.validUntil);
-                if (now > validUntil) {
-                    record.status = 'expired';
-                    localStorage.setItem('patientPackages', JSON.stringify(patientPackages));
-                    return false;
-                }
-                
-                return true;
-            });
-        }
-        
-        // 使用套票次數
-        function usePackageSession(patientPackageId, serviceUsed = '診療服務') {
-            const packageRecord = patientPackages.find(p => p.id === patientPackageId);
-            if (!packageRecord || packageRecord.remainingSessions <= 0) {
-                showToast('套票不可用或已用完！', 'error');
-                return false;
-            }
-            
-            // 扣減次數
-            packageRecord.remainingSessions -= 1;
-            
-            // 如果用完，更新狀態
-            if (packageRecord.remainingSessions <= 0) {
-                packageRecord.status = 'used_up';
-            }
-            
-            // 記錄使用明細
-            const usageRecord = {
-                id: 'ur_' + Date.now(),
-                patientPackageId: patientPackageId,
-                patientId: packageRecord.patientId,
-                patientName: packageRecord.patientName,
-                packageName: packageRecord.packageName,
-                usageDate: new Date().toISOString(),
-                serviceUsed: serviceUsed,
-                sessionsUsed: 1,
-                remainingAfterUse: packageRecord.remainingSessions,
-                doctorId: currentUserData?.username,
-                doctorName: getUserDisplayName(currentUserData),
-                consultationId: currentConsultingAppointmentId
-            };
-            
-            packageUsageRecords.push(usageRecord);
-            
-            // 保存資料
-            localStorage.setItem('patientPackages', JSON.stringify(patientPackages));
-            localStorage.setItem('packageUsageRecords', JSON.stringify(packageUsageRecords));
-            
-            showToast(`已使用套票「${packageRecord.packageName}」，剩餘 ${packageRecord.remainingSessions} 次`, 'success');
-            return true;
         }
 
         // 初始化系統
