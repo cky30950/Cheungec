@@ -60,19 +60,6 @@
             flex: 1;
             line-height: 1.4;
         }
-        /* 套票相關樣式 */
-        .package-card {
-            transition: all 0.3s ease;
-        }
-        .package-card:hover {
-            transform: translateY(-2px);
-        }
-        .package-expired {
-            opacity: 0.6;
-        }
-        .package-low-usage {
-            border-left: 4px solid #f59e0b !important;
-        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
@@ -734,6 +721,19 @@
                                     
                                     <!-- 隱藏的文本域用於存儲收費項目 -->
                                     <textarea id="formBillingItems" class="hidden"></textarea>
+
+                                    <!-- 病人套票管理 -->
+                                    <div class="mt-4 border border-purple-200 rounded-lg p-3 bg-purple-50">
+                                      <div class="flex items-center justify-between mb-2">
+                                        <div class="text-sm font-semibold text-purple-800">🎫 病人套票</div>
+                                        <button type="button" onclick="refreshPatientPackagesUI()"
+                                                class="text-xs px-2 py-1 bg-purple-600 text-white rounded">刷新</button>
+                                      </div>
+                                      <div id="patientPackagesList" class="space-y-2 text-sm text-gray-700">
+                                        <!-- 動態載入 -->
+                                        <div class="text-gray-500">尚未載入或無套票</div>
+                                      </div>
+                                    </div>
                                 </div>
                                 
                                 <div>
@@ -1028,6 +1028,23 @@
                                         <option value="package">套票項目</option>
                                     </select>
                                 </div>
+                                <!-- 套票專用欄位：當類別選擇 package 時顯示 -->
+                                <div id="packageFields" class="md:col-span-2 hidden">
+                                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                      <label class="block text-sm font-medium text-gray-700 mb-1">套票可用次數 *</label>
+                                      <input type="number" id="billingItemPackageUses" placeholder="例如：10" min="1"
+                                             class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    </div>
+                                    <div>
+                                      <label class="block text-sm font-medium text-gray-700 mb-1">有效天數 *</label>
+                                      <input type="number" id="billingItemValidityDays" placeholder="例如：180（半年）" min="1"
+                                             class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                      <p class="text-xs text-gray-500 mt-1">自購買日起算</p>
+                                    </div>
+                                  </div>
+                                </div>
+
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">收費金額 *</label>
                                     <input type="number" id="billingItemPrice" placeholder="0" step="1" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
@@ -1872,11 +1889,6 @@
         ];
 
         let appointments = JSON.parse(localStorage.getItem('appointments') || '[]');
-        // 套票購買記錄
-        let packagePurchases = JSON.parse(localStorage.getItem('packagePurchases') || '[]');
-
-        // 套票使用記錄
-        let packageUsages = JSON.parse(localStorage.getItem('packageUsages') || '[]');
         if (appointments.length === 0) {
             appointments = defaultAppointments;
             localStorage.setItem('appointments', JSON.stringify(appointments));
@@ -2342,49 +2354,6 @@
                 unit: '套',
                 description: '學生專享優惠套票，包含：診症2次 + 針灸3次 + 健康指導',
                 active: true,
-                createdAt: new Date('2024-01-01').toISOString()
-            },
-                        // 套票項目
-            {
-                id: 4051,
-                name: '針灸療程套票（10次）',
-                category: 'package',
-                price: 800,
-                unit: '套',
-                description: '針灸治療10次套票，原價$1000，套票價$800',
-                active: true,
-                totalSessions: 10,
-                validityDays: 90,
-                serviceType: 'treatment',
-                serviceId: 4021,
-                createdAt: new Date('2024-01-01').toISOString()
-            },
-            {
-                id: 4052,
-                name: '推拿療程套票（5次）',
-                category: 'package',
-                price: 600,
-                unit: '套',
-                description: '推拿按摩5次套票，原價$750，套票價$600',
-                active: true,
-                totalSessions: 5,
-                validityDays: 60,
-                serviceType: 'treatment',
-                serviceId: 4022,
-                createdAt: new Date('2024-01-01').toISOString()
-            },
-            {
-                id: 4053,
-                name: '診症套票（8次）',
-                category: 'package',
-                price: 1000,
-                unit: '套',
-                description: '診金8次套票，原價$1200，套票價$1000',
-                active: true,
-                totalSessions: 8,
-                validityDays: 120,
-                serviceType: 'consultation',
-                serviceId: 4001,
                 createdAt: new Date('2024-01-01').toISOString()
             }
         ];
@@ -2897,6 +2866,15 @@
 
         // 搜尋功能
         document.addEventListener('DOMContentLoaded', function() {
+            // 套票欄位切換
+            const categorySelect = document.getElementById('billingItemCategory');
+            if (categorySelect) {
+                categorySelect.addEventListener('change', function () {
+                    const isPackage = this.value === 'package';
+                    const pf = document.getElementById('packageFields');
+                    if (pf) pf.classList.toggle('hidden', !isPackage);
+                });
+            }
             const searchInput = document.getElementById('searchPatient');
             if (searchInput) {
                 searchInput.addEventListener('input', function() {
@@ -3564,6 +3542,7 @@
             // 設置病人資訊
             document.getElementById('formPatientName').textContent = `${patient.name} (${patient.patientNumber})`;
             document.getElementById('formAppointmentTime').textContent = new Date(appointment.appointmentTime).toLocaleString('zh-TW');
+            renderPatientPackages(patient.id);
             
             // 檢查是否為編輯模式
             if (appointment.status === 'completed' && appointment.consultationId) {
@@ -3817,6 +3796,17 @@
             }
             
             const patient = patients.find(p => p.id === appointment.patientId);
+            // 處理購買套票：將購買的套票轉為病人套票
+            (function handlePackagesBeforeSave(){
+                const packagePurchases = selectedBillingItems.filter(it => it.category === 'package');
+                packagePurchases.forEach(it => {
+                    if (typeof it.packageUses === 'undefined' || typeof it.validityDays === 'undefined') {
+                        console.warn('套票缺少 packageUses / validityDays');
+                        return;
+                    }
+                    purchasePackage(patient.id, it);
+                });
+            })();
             
             // 檢查是否為修改病歷模式
             if (appointment.status === 'completed' && appointment.consultationId) {
@@ -6360,6 +6350,9 @@
         }
         
         function clearBillingItemForm() {
+            document.getElementById('billingItemPackageUses').value = '';
+            document.getElementById('billingItemValidityDays').value = '';
+            var pf = document.getElementById('packageFields'); if (pf) pf.classList.add('hidden');
             document.getElementById('billingItemName').value = '';
             document.getElementById('billingItemCategory').value = '';
             document.getElementById('billingItemPrice').value = '';
@@ -6382,6 +6375,12 @@
             document.getElementById('billingItemUnit').value = item.unit || '';
             document.getElementById('billingItemDescription').value = item.description || '';
             document.getElementById('billingItemActive').checked = item.active !== false;
+            document.getElementById('billingItemPackageUses').value = item.packageUses || '';
+            document.getElementById('billingItemValidityDays').value = item.validityDays || '';
+            {
+                const pf = document.getElementById('packageFields');
+                if (pf) pf.classList.toggle('hidden', item.category !== 'package');
+            }
             
             document.getElementById('addBillingItemModal').classList.remove('hidden');
         }
@@ -6389,7 +6388,22 @@
         function saveBillingItem() {
             const name = document.getElementById('billingItemName').value.trim();
             const category = document.getElementById('billingItemCategory').value;
-            const price = parseFloat(document.getElementById('billingItemPrice').value);
+            let price = parseFloat(document.getElementById('billingItemPrice').value);
+
+            let packageUses = null;
+            let validityDays = null;
+            if (category === 'package') {
+                packageUses = parseInt(document.getElementById('billingItemPackageUses').value);
+                validityDays = parseInt(document.getElementById('billingItemValidityDays').value);
+                if (!packageUses || packageUses <= 0) {
+                    showToast('請輸入套票可用次數！', 'error');
+                    return;
+                }
+                if (!validityDays || validityDays <= 0) {
+                    showToast('請輸入有效天數！', 'error');
+                    return;
+                }
+            }
             
             if (!name) {
                 showToast('請輸入收費項目名稱！', 'error');
@@ -6429,6 +6443,8 @@
                 price: price,
                 unit: document.getElementById('billingItemUnit').value.trim(),
                 description: document.getElementById('billingItemDescription').value.trim(),
+                packageUses: packageUses,
+                validityDays: validityDays,
                 active: document.getElementById('billingItemActive').checked,
                 createdAt: editingBillingItemId ? billingItems.find(b => b.id === editingBillingItemId).createdAt : new Date().toISOString(),
                 updatedAt: new Date().toISOString()
@@ -6914,6 +6930,8 @@
                     price: item.price,
                     unit: item.unit,
                     description: item.description,
+                    packageUses: item.packageUses,
+                    validityDays: item.validityDays,
                     quantity: 1
                 };
                 selectedBillingItems.push(billingItem);
@@ -7949,132 +7967,6 @@
             }
         }
 
-        // === 套票管理功能 ===
-
-// 購買套票
-function purchasePackage(patientId, billingItemId, quantity = 1) {
-    const billingItem = billingItems.find(item => item.id === billingItemId);
-    if (!billingItem || billingItem.category !== 'package') {
-        showToast('找不到套票項目！', 'error');
-        return;
-    }
-
-    const patient = patients.find(p => p.id === patientId);
-    if (!patient) {
-        showToast('找不到病人資料！', 'error');
-        return;
-    }
-
-    for (let i = 0; i < quantity; i++) {
-        const purchase = {
-            id: Date.now() + i,
-            patientId: patientId,
-            packageId: billingItemId,
-            packageName: billingItem.name,
-            totalSessions: billingItem.totalSessions,
-            remainingSessions: billingItem.totalSessions,
-            purchaseDate: new Date().toISOString(),
-            expiryDate: calculateExpiryDate(billingItem.validityDays),
-            price: billingItem.price,
-            serviceType: billingItem.serviceType,
-            serviceId: billingItem.serviceId,
-            status: 'active' // active, expired, used_up
-        };
-        
-        packagePurchases.push(purchase);
-    }
-    
-    localStorage.setItem('packagePurchases', JSON.stringify(packagePurchases));
-    showToast(`${patient.name} 已購買 ${billingItem.name} x${quantity}`, 'success');
-}
-
-// 計算到期日
-function calculateExpiryDate(validityDays) {
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + validityDays);
-    return expiryDate.toISOString();
-}
-
-// 使用套票
-function usePackage(packagePurchaseId, consultationId) {
-    const purchase = packagePurchases.find(p => p.id === packagePurchaseId);
-    if (!purchase) {
-        showToast('找不到套票記錄！', 'error');
-        return false;
-    }
-
-    if (purchase.status !== 'active') {
-        showToast('套票已失效或用完！', 'warning');
-        return false;
-    }
-
-    if (purchase.remainingSessions <= 0) {
-        showToast('套票次數已用完！', 'warning');
-        purchase.status = 'used_up';
-        localStorage.setItem('packagePurchases', JSON.stringify(packagePurchases));
-        return false;
-    }
-
-    if (new Date(purchase.expiryDate) < new Date()) {
-        showToast('套票已過期！', 'warning');
-        purchase.status = 'expired';
-        localStorage.setItem('packagePurchases', JSON.stringify(packagePurchases));
-        return false;
-    }
-
-    purchase.remainingSessions -= 1;
-    if (purchase.remainingSessions === 0) {
-        purchase.status = 'used_up';
-    }
-
-    const usage = {
-        id: Date.now(),
-        packagePurchaseId: packagePurchaseId,
-        consultationId: consultationId,
-        usedDate: new Date().toISOString(),
-        patientId: purchase.patientId
-    };
-    
-    packageUsages.push(usage);
-    
-    localStorage.setItem('packagePurchases', JSON.stringify(packagePurchases));
-    localStorage.setItem('packageUsages', JSON.stringify(packageUsages));
-    
-    return true;
-}
-
-// 獲取病人的有效套票
-function getPatientActivePackages(patientId) {
-    return packagePurchases.filter(purchase => {
-        return purchase.patientId === patientId &&
-               purchase.status === 'active' &&
-               purchase.remainingSessions > 0 &&
-               new Date(purchase.expiryDate) > new Date();
-    });
-}
-
-// 獲取病人的所有套票
-function getPatientAllPackages(patientId) {
-    return packagePurchases.filter(purchase => purchase.patientId === patientId);
-}
-
-// 更新過期套票狀態
-function updateExpiredPackages() {
-    const now = new Date();
-    let updated = false;
-    
-    packagePurchases.forEach(purchase => {
-        if (purchase.status === 'active' && new Date(purchase.expiryDate) < now) {
-            purchase.status = 'expired';
-            updated = true;
-        }
-    });
-    
-    if (updated) {
-        localStorage.setItem('packagePurchases', JSON.stringify(packagePurchases));
-    }
-}
-
 // 財務報表功能
         let currentFinancialTabType = 'summary';
         
@@ -8574,7 +8466,118 @@ function updateExpiredPackages() {
             showToast('財務報表已匯出！', 'success');
         }
 
-        // 初始化系統
+        
+        // 套票管理函式
+        function getPatientPackagesStore() {
+            return JSON.parse(localStorage.getItem('patientPackages') || '[]');
+        }
+        function setPatientPackagesStore(list) {
+            localStorage.setItem('patientPackages', JSON.stringify(list));
+        }
+        function getPatientPackages(patientId) {
+            const all = getPatientPackagesStore();
+            return all.filter(p => p.patientId === patientId);
+        }
+        function purchasePackage(patientId, item) {
+            const totalUses = Number(item.packageUses || item.totalUses || 0);
+            const validityDays = Number(item.validityDays || 0);
+            const purchasedAt = new Date();
+            const expiresAt = new Date(purchasedAt);
+            expiresAt.setDate(expiresAt.getDate() + validityDays);
+            const record = {
+                id: Date.now(),
+                patientId: patientId,
+                packageItemId: item.id,
+                name: item.name,
+                totalUses: totalUses,
+                remainingUses: totalUses,
+                purchasedAt: purchasedAt.toISOString(),
+                expiresAt: expiresAt.toISOString()
+            };
+            const all = getPatientPackagesStore();
+            all.push(record);
+            setPatientPackagesStore(all);
+            return record;
+        }
+        function consumePackage(patientId, packageRecordId) {
+            const all = getPatientPackagesStore();
+            const idx = all.findIndex(p => p.id === packageRecordId && p.patientId === patientId);
+            if (idx === -1) return { ok: false, msg: '找不到套票' };
+            const now = new Date();
+            const exp = new Date(all[idx].expiresAt);
+            if (now > exp) return { ok: false, msg: '套票已過期' };
+            if (all[idx].remainingUses <= 0) return { ok: false, msg: '套票已用完' };
+            all[idx].remainingUses -= 1;
+            setPatientPackagesStore(all);
+            return { ok: true, record: all[idx] };
+        }
+        function formatPackageStatus(pkg) {
+            const exp = new Date(pkg.expiresAt);
+            const now = new Date();
+            const daysLeft = Math.ceil((exp - now) / (1000*60*60*24));
+            const expired = daysLeft < 0;
+            return expired
+              ? `已到期（${exp.toLocaleDateString('zh-TW')}）`
+              : `剩餘 ${pkg.remainingUses}/${pkg.totalUses} 次 · ${exp.toLocaleDateString('zh-TW')} 到期（約 ${daysLeft} 天）`;
+        }
+        function renderPatientPackages(patientId) {
+            const container = document.getElementById('patientPackagesList');
+            if (!container) return;
+            const pkgs = getPatientPackages(patientId).sort((a,b)=> new Date(a.expiresAt)-new Date(b.expiresAt));
+            if (pkgs.length === 0) {
+                container.innerHTML = '<div class="text-gray-500">無已購買的套票</div>';
+                return;
+            }
+            container.innerHTML = pkgs.map(pkg => {
+                const exp = new Date(pkg.expiresAt);
+                const now = new Date();
+                const expired = now > exp;
+                const disabled = expired || pkg.remainingUses <= 0;
+                const badge =
+                  expired ? '<span class="ml-2 text-xs text-white px-2 py-0.5 rounded bg-red-500">已到期</span>' :
+                  (pkg.remainingUses <= 0 ? '<span class="ml-2 text-xs text-white px-2 py-0.5 rounded bg-gray-500">已用完</span>' : '');
+                return `
+      <div class="flex items-center justify-between bg-white border border-purple-200 rounded p-2">
+        <div>
+          <div class="font-medium text-purple-900">${pkg.name}${badge}</div>
+          <div class="text-xs text-gray-600">${formatPackageStatus(pkg)}</div>
+        </div>
+        <button type="button" ${disabled ? 'disabled' : ''} 
+          onclick="useOnePackage(${pkg.patientId}, ${pkg.id})"
+          class="px-3 py-1 rounded ${disabled ? 'bg-gray-300 text-gray-600' : 'bg-purple-600 text-white hover:bg-purple-700'}">
+          使用一次
+        </button>
+      </div>
+    `;
+            }).join('');
+        }
+        function refreshPatientPackagesUI() {
+            const appointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
+            if (!appointment) return;
+            renderPatientPackages(appointment.patientId);
+        }
+        function useOnePackage(patientId, packageRecordId) {
+            const res = consumePackage(patientId, packageRecordId);
+            if (!res.ok) {
+                showToast(res.msg || '套票不可用', 'warning');
+                return;
+            }
+            const usedName = `${res.record.name}（使用套票）`;
+            selectedBillingItems.push({
+                id: `use-${res.record.id}-${Date.now()}`,
+                name: usedName,
+                category: 'packageUse',
+                price: 0,
+                unit: '次',
+                description: '套票抵扣一次',
+                quantity: 1
+            });
+            updateBillingDisplay();
+            refreshPatientPackagesUI();
+            showToast(`已使用套票：${res.record.name}，剩餘 ${res.record.remainingUses} 次`, 'success');
+        }
+
+// 初始化系統
         document.addEventListener('DOMContentLoaded', function() {
             // 系統啟動時清空過期掛號
             clearOldAppointments();
@@ -8591,5 +8594,6 @@ function updateExpiredPackages() {
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96abf25724ae0514',t:'MTc1NDQ1NjE3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96abf25724ae0514',t:'MTc1NDQ1NjE3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96c0aa608efc84c9","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+</body>
 </html>
