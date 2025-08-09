@@ -6975,33 +6975,35 @@ if (wantUseNow) {
         }
         
         // 更新收費項目顯示
-        function updateBillingDisplay() {
-            const container = document.getElementById('selectedBillingItems');
-            const hiddenTextarea = document.getElementById('formBillingItems');
-            const totalAmountSpan = document.getElementById('totalBillingAmount');
-            // 在每個項目的 HTML 內，針對「套票使用」加上取消鈕
-// 假設你的單筆項目 HTML 變數叫 rowHtml（或你直接在模板字串內加判斷）
-const isPackageUse = item.category === 'packageUse';
-const undoBtn = isPackageUse ? `
-  <button
-    type="button"
-    class="ml-2 text-xs px-2 py-0.5 rounded border border-purple-300 text-purple-700 hover:bg-purple-50"
-    onclick="undoPackageUse(${item.patientId}, ${item.packageRecordId}, '${item.id}')"
-  >
-    取消使用
-  </button>
-` : '';
-            
-            if (selectedBillingItems.length === 0) {
-                container.innerHTML = `
-                    <div class="text-sm text-gray-500 text-center py-4">
-                        請使用上方搜索功能添加收費項目
-                    </div>
-                `;
-                hiddenTextarea.value = '';
-                totalAmountSpan.textContent = '$0';
-                return;
-            }
+function updateBillingDisplay() {
+  const billingList = document.getElementById('billing-list');
+  billingList.innerHTML = '';
+
+  billingItems.forEach(item => {
+    // 判斷是否為套票使用
+    const isPackageUse = item.category === 'packageUse';
+    const undoBtn = isPackageUse ? `
+      <button
+        type="button"
+        class="ml-2 text-xs px-2 py-0.5 rounded border border-purple-300 text-purple-700 hover:bg-purple-50"
+        onclick="undoPackageUse(${item.patientId}, ${item.packageRecordId}, '${item.id}')"
+      >
+        取消使用
+      </button>
+    ` : '';
+
+    const itemRow = document.createElement('div');
+    itemRow.className = 'item-row';
+    itemRow.innerHTML = `
+      <span class="item-name">${item.name}</span>
+      <span class="item-price">${item.price}</span>
+      ${undoBtn}
+      <button class="remove-btn" onclick="removeBillingItem('${item.id}')">刪除</button>
+    `;
+    billingList.appendChild(itemRow);
+  });
+}
+
             
             // 計算總費用
             let totalAmount = 0;
