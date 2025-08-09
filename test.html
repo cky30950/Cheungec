@@ -5,30 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>中醫診所系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-    <script>
-        // Firebase project configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyBx6RQt7wA2DDnxkQiIfh8ubzpzKYfXWGg",
-            authDomain: "clinic-bb064.firebaseapp.com",
-            databaseURL: "https://clinic-bb064-default-rtdb.firebaseio.com",
-            projectId: "clinic-bb064",
-            storageBucket: "clinic-bb064.firebasestorage.app",
-            messagingSenderId: "387800418575",
-            appId: "1:387800418575:web:4dc6baafbedf640ac1567a",
-            measurementId: "G-1KW4XQX10N"
-        };
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        // Create Firebase service references
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        const rtdb = firebase.database();
-    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; }
@@ -121,16 +97,16 @@
                     <div class="text-sm font-medium text-blue-800 mb-3">示範帳號：</div>
                     <div class="text-xs text-blue-700 space-y-2">
                         <div class="flex justify-between items-center">
-                            <span>👨‍💼 管理員</span>
-                            <span class="font-mono bg-white px-2 py-1 rounded">admin / admin2024</span>
+                            <span>👨‍💼 陳經理診所管理</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">manager / manager2024</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span>👨‍⚕️ 醫師</span>
-                            <span class="font-mono bg-white px-2 py-1 rounded">doctor / doctor2024</span>
+                            <span>👨‍⚕️ 張中醫師醫師</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">drzhang / zhang888</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span>👩‍💻 診所助理</span>
-                            <span class="font-mono bg-white px-2 py-1 rounded">assistant / assistant2024</span>
+                            <span>👩‍💻 林護理師護理師</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">nurse_amy / amy2024</span>
                         </div>
                     </div>
                 </div>
@@ -1771,8 +1747,24 @@
             }
         ];
 
-        // 初始化病人資料：改用 Firestore 載入，移除本地儲存
-        let patients = [];
+        // 初始化病人資料（如果本地儲存為空則載入預設資料）
+        let patients = JSON.parse(localStorage.getItem('patients') || '[]');
+        if (patients.length === 0) {
+            patients = defaultPatients;
+            localStorage.setItem('patients', JSON.stringify(patients));
+        } else {
+            // 為舊資料補充病人編號
+            let needsUpdate = false;
+            patients.forEach(patient => {
+                if (!patient.patientNumber) {
+                    patient.patientNumber = generatePatientNumber();
+                    needsUpdate = true;
+                }
+            });
+            if (needsUpdate) {
+                localStorage.setItem('patients', JSON.stringify(patients));
+            }
+        }
         
         // 預設診症記錄
         const defaultConsultations = [
@@ -1835,8 +1827,11 @@
             }
         ];
 
-        // 初始化診症資料：改用 Firestore 載入
-        let consultations = [];
+        let consultations = JSON.parse(localStorage.getItem('consultations') || '[]');
+        if (consultations.length === 0) {
+            consultations = defaultConsultations;
+            localStorage.setItem('consultations', JSON.stringify(consultations));
+        }
         
         // 預設掛號記錄
         const defaultAppointments = [
@@ -1893,58 +1888,21 @@
             }
         ];
 
-        // 初始化掛號資料：改用 Firestore 載入
-        let appointments = [];
-
-        // 透過 Firestore 監聽並載入病人、診症和掛號資料
-        function loadPatientsFromFirestore() {
-            db.collection('patients').onSnapshot((snapshot) => {
-                patients = [];
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    data.id = doc.id;
-                    patients.push(data);
-                });
-                if (typeof loadPatientList === 'function') loadPatientList();
-                if (typeof updateStatistics === 'function') updateStatistics();
+        let appointments = JSON.parse(localStorage.getItem('appointments') || '[]');
+        if (appointments.length === 0) {
+            appointments = defaultAppointments;
+            localStorage.setItem('appointments', JSON.stringify(appointments));
+        } else {
+            // 為舊資料補充醫師欄位
+            let needsUpdate = false;
+            appointments.forEach(appointment => {
+                if (!appointment.appointmentDoctor) {
+                    appointment.appointmentDoctor = 'drzhang'; // 預設為張醫師
+                    needsUpdate = true;
+                }
             });
-        }
-
-        function loadConsultationsFromFirestore() {
-            db.collection('consultations').onSnapshot((snapshot) => {
-                consultations = [];
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    data.id = doc.id;
-                    consultations.push(data);
-                });
-                if (typeof updateStatistics === 'function') updateStatistics();
-            });
-        }
-
-        function loadAppointmentsFromFirestore() {
-            db.collection('appointments').onSnapshot((snapshot) => {
-                appointments = [];
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    data.id = doc.id;
-                    appointments.push(data);
-                });
-                if (typeof loadTodayAppointments === 'function') loadTodayAppointments();
-                if (typeof updateStatistics === 'function') updateStatistics();
-            });
-        }
-
-        // 從 Firestore 載入使用者資料
-        function loadUsersFromFirestore() {
-            if (typeof db !== 'undefined') {
-                db.collection('users').onSnapshot((snapshot) => {
-                    users = [];
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        users.push(Object.assign({ id: doc.id }, data));
-                    });
-                });
+            if (needsUpdate) {
+                localStorage.setItem('appointments', JSON.stringify(appointments));
             }
         }
 
@@ -2411,44 +2369,49 @@
         const defaultUsers = [
             {
                 id: 1,
-                username: 'admin',
-                password: 'admin2024',
-                name: '診所管理員',
-                position: '管理員',
-                email: 'admin@clinic.com',
-                phone: '',
+                username: 'manager',
+                password: 'manager2024',
+                name: '陳經理',
+                position: '診所管理',
+                email: 'manager@tcmclinic.com',
+                phone: '02-8888-1001',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString(),
                 lastLogin: null
             },
             {
                 id: 2,
-                username: 'doctor',
-                password: 'doctor2024',
-                name: '醫師',
+                username: 'drzhang',
+                password: 'zhang888',
+                name: '張中醫師',
                 position: '醫師',
-                email: 'doctor@clinic.com',
-                phone: '',
+                registrationNumber: 'CM001234',
+                email: 'drzhang@tcmclinic.com',
+                phone: '02-8888-1002',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString(),
                 lastLogin: null
             },
             {
                 id: 3,
-                username: 'assistant',
-                password: 'assistant2024',
-                name: '診所助理',
-                position: '診所助理',
-                email: 'assistant@clinic.com',
-                phone: '',
+                username: 'nurse_amy',
+                password: 'amy2024',
+                name: '林護理師',
+                position: '護理師',
+                email: 'amy@tcmclinic.com',
+                phone: '02-8888-1003',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString(),
                 lastLogin: null
             }
         ];
 
-        // 初始化用戶資料（將從 Firestore 載入）
-        let users = [];
+        // 初始化用戶資料
+        let users = JSON.parse(localStorage.getItem('users') || '[]');
+        if (users.length === 0) {
+            users = defaultUsers;
+            localStorage.setItem('users', JSON.stringify(users));
+        }
 
         // 所有用戶都有完整權限
         const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'financialReports', 'userManagement', 'systemManagement'];
@@ -2463,9 +2426,8 @@
                 return;
             }
             
-            // 尋找匹配的用戶，若尚未載入 Firestore 的 users，則使用 defaultUsers 作為備用
-            const userList = (Array.isArray(users) && users.length > 0) ? users : defaultUsers;
-            const user = userList.find(u => 
+            // 尋找匹配的用戶
+            const user = users.find(u => 
                 u.username === username && 
                 u.password === password && 
                 u.active
@@ -2500,49 +2462,9 @@
             const userIndex = users.findIndex(u => u.id === user.id);
             if (userIndex !== -1) {
                 users[userIndex].lastLogin = new Date().toISOString();
-                // 將最後登入時間寫入 Firestore（不再寫入 localStorage）
-                try {
-                    if (typeof db !== 'undefined') {
-                        db.collection('users').doc(users[userIndex].username).set({
-                            lastLogin: users[userIndex].lastLogin
-                        }, { merge: true });
-                    }
-                } catch (e) {
-                    console.warn('更新 Firestore 用戶最後登入時間失敗', e);
-                }
+                localStorage.setItem('users', JSON.stringify(users));
             }
-
-            // 嘗試使用 Firebase 進行登入，如果該帳號已有對應的 Firebase 使用者
-            // 這裡假設 local user 物件包含 email 和 password 欄位
-            if (typeof auth !== 'undefined' && user.email && user.password) {
-                auth.signInWithEmailAndPassword(user.email, user.password)
-                    .then((cred) => {
-                        // 設定 Realtime Database presence 狀態
-                        try {
-                            const uid = cred.user && cred.user.uid;
-                            if (uid) {
-                                const presenceRef = rtdb.ref('presence/' + uid);
-                                presenceRef.set(true);
-                                presenceRef.onDisconnect().remove();
-                                // 更新 Firestore 用戶資料與最後登入時間
-                                db.collection('users').doc(uid).set({
-                                    lastLogin: new Date().toISOString(),
-                                    name: user.name || '',
-                                    username: user.username || '',
-                                    position: user.position || '',
-                                    email: user.email || '',
-                                    active: user.active !== false
-                                }, { merge: true });
-                            }
-                        } catch (e) {
-                            console.error('Firebase presence/Firestore 更新失敗', e);
-                        }
-                    })
-                    .catch((error) => {
-                        console.warn('Firebase 登入失敗：', error.message);
-                    });
-            }
-
+            
             currentUser = user.username;
             currentUserData = user;
             
@@ -2575,18 +2497,6 @@
 
         // 登出功能
         function logout() {
-            // 當使用 Firebase 登入時，登出並清除 presence
-            try {
-                if (typeof auth !== 'undefined' && auth.currentUser) {
-                    const uid = auth.currentUser.uid;
-                    if (uid) {
-                        rtdb.ref('presence/' + uid).remove().catch(() => {});
-                    }
-                    auth.signOut().catch(() => {});
-                }
-            } catch (e) {
-                console.warn('Firebase 登出/移除 presence 失敗', e);
-            }
             currentUser = null;
             currentUserData = null;
             document.getElementById('loginPage').classList.remove('hidden');
@@ -2600,7 +2510,7 @@
         function generateSidebarMenu() {
             const menuContainer = document.getElementById('sidebarMenu');
             menuContainer.innerHTML = '';
-
+            
             const menuItems = {
                 patientManagement: { title: '病人資料管理', icon: '👥', description: '新增、查看、管理病人資料' },
                 consultationSystem: { title: '診症系統', icon: '🩺', description: '記錄症狀、診斷、開立處方' },
@@ -2610,14 +2520,8 @@
                 financialReports: { title: '財務報表', icon: '📊', description: '收入分析與財務統計' },
                 systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' }
             };
-            // 根據當前用戶角色決定可見的選單項目
-            const role = currentUserData ? currentUserData.role : null;
-            let allowedPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'systemManagement'];
-            if (role === 'admin') {
-                allowedPermissions.push('financialReports');
-                allowedPermissions.push('userManagement');
-            }
-            allowedPermissions.forEach(permission => {
+            
+            allPermissions.forEach(permission => {
                 const item = menuItems[permission];
                 const button = document.createElement('button');
                 button.className = 'w-full text-left p-4 rounded-lg hover:bg-gray-100 transition duration-200 border border-gray-200 mb-2';
@@ -2640,11 +2544,6 @@
 
         // 顯示指定區域
         function showSection(sectionId) {
-            // 如果欲開啟的區域是財務報表或診所用戶管理，且非管理員，則禁止存取
-            if ((sectionId === 'financialReports' || sectionId === 'userManagement') && (!currentUserData || currentUserData.role !== 'admin')) {
-                showToast('只有管理員可以使用此功能！', 'error');
-                return;
-            }
             hideAllSections();
             document.getElementById('welcomePage').classList.add('hidden');
             document.getElementById(sectionId).classList.remove('hidden');
@@ -2708,7 +2607,7 @@
             });
         }
 
-        async function savePatient() {
+        function savePatient() {
             const patient = {
                 id: editingPatientId || Date.now(),
                 patientNumber: editingPatientId ? patients.find(p => p.id === editingPatientId).patientNumber : generatePatientNumber(),
@@ -2763,28 +2662,20 @@
             }
 
             if (editingPatientId) {
-                // 更新現有病人資料至 Firestore
-                try {
-                    await db.collection('patients').doc(editingPatientId.toString()).set(patient);
-                    showToast('病人資料已成功更新！', 'success');
-                } catch (error) {
-                    console.error(error);
-                    showToast('更新病人資料失敗！', 'error');
-                }
+                // 更新現有病人
+                const index = patients.findIndex(p => p.id === editingPatientId);
+                patients[index] = patient;
+                showToast('病人資料已成功更新！', 'success');
             } else {
-                // 新增病人到 Firestore
-                try {
-                    const docRef = db.collection('patients').doc();
-                    patient.id = docRef.id;
-                    patient.createdAt = new Date().toISOString();
-                    await docRef.set(patient);
-                    showToast('病人資料已成功新增！', 'success');
-                } catch (error) {
-                    console.error(error);
-                    showToast('新增病人資料失敗！', 'error');
-                }
+                // 新增病人
+                patients.push(patient);
+                showToast('病人資料已成功新增！', 'success');
             }
+
+            localStorage.setItem('patients', JSON.stringify(patients));
+            loadPatientList();
             hideAddPatientForm();
+            updateStatistics();
         }
 
         function loadPatientList() {
@@ -2858,34 +2749,27 @@
             document.getElementById('addPatientModal').classList.remove('hidden');
         }
 
-async function deletePatient(id) {
-    const patient = patients.find(p => p.id === id);
-    if (!patient) return;
+        function deletePatient(id) {
+            const patient = patients.find(p => p.id === id);
+            if (!patient) return;
 
-    if (confirm(`確定要刪除病人「${patient.name}」的資料嗎？\n\n注意：相關的診症記錄也會一併刪除！`)) {
-        try {
-            // 刪除病人資料
-            await db.collection('patients').doc(id.toString()).delete();
-
-            // 刪除相關診症記錄
-            const consultSnap = await db.collection('consultations').where('patientId', '==', id).get();
-            consultSnap.forEach(doc => {
-                doc.ref.delete();
-            });
-
-            // 刪除相關掛號記錄
-            const apptSnap = await db.collection('appointments').where('patientId', '==', id).get();
-            apptSnap.forEach(doc => {
-                doc.ref.delete();
-            });
-
-            showToast('病人資料及相關診症記錄已刪除！', 'success');
-        } catch (error) {
-            console.error(error);
-            showToast('刪除病人資料失敗！', 'error');
+            if (confirm(`確定要刪除病人「${patient.name}」的資料嗎？\n\n注意：相關的診症記錄也會一併刪除！`)) {
+                // 刪除病人資料
+                patients = patients.filter(p => p.id !== id);
+                // 刪除相關診症記錄
+                consultations = consultations.filter(c => c.patientId !== id);
+                // 刪除相關掛號記錄
+                appointments = appointments.filter(a => a.patientId !== id);
+                
+                localStorage.setItem('patients', JSON.stringify(patients));
+                localStorage.setItem('consultations', JSON.stringify(consultations));
+                localStorage.setItem('appointments', JSON.stringify(appointments));
+                
+                loadPatientList();
+                updateStatistics();
+                showToast('病人資料及相關診症記錄已刪除！', 'success');
+            }
         }
-    }
-}
 
         function viewPatient(id) {
             const patient = patients.find(p => p.id === id);
@@ -3019,14 +2903,6 @@ async function deletePatient(id) {
                     loadPatientList();
                 });
             }
-
-            // 從 Firestore 載入資料
-            if (typeof loadPatientsFromFirestore === 'function') loadPatientsFromFirestore();
-            if (typeof loadConsultationsFromFirestore === 'function') loadConsultationsFromFirestore();
-            if (typeof loadAppointmentsFromFirestore === 'function') loadAppointmentsFromFirestore();
-            if (typeof loadUsersFromFirestore === 'function') loadUsersFromFirestore();
-            // 建立預設 Firebase 帳號並寫入 Firestore
-            if (typeof ensureDefaultFirebaseAccounts === 'function') ensureDefaultFirebaseAccounts();
         });
 
         // 診症系統功能
@@ -3187,7 +3063,7 @@ async function deletePatient(id) {
         }
         
         // 確認掛號
-async function confirmRegistration() {
+        function confirmRegistration() {
             if (!selectedPatientForRegistration) {
                 showToast('系統錯誤：未選擇病人！', 'error');
                 return;
@@ -3228,30 +3104,26 @@ async function confirmRegistration() {
                 return;
             }
             
-    const appointment = {
-        patientId: selectedPatientForRegistration.id,
-        appointmentTime: selectedTime.toISOString(),
-        appointmentDoctor: appointmentDoctor,
-        chiefComplaint: chiefComplaint || '無特殊主訴',
-        status: 'registered', // registered, waiting, consulting, completed
-        createdAt: new Date().toISOString(),
-        createdBy: currentUserData ? currentUserData.username : currentUser
-    };
-    try {
-        // 新增掛號紀錄至 Firestore
-        const docRef = await db.collection('appointments').add(appointment);
-        appointment.id = docRef.id;
-        // 更新本地陣列以立即顯示（可選）
-        appointments.push({ ...appointment });
-        showToast(`${selectedPatientForRegistration.name} 已掛號給 ${selectedDoctor.name}醫師！`, 'success');
-    } catch (error) {
-        console.error(error);
-        showToast('新增掛號失敗！', 'error');
-    }
-    closeRegistrationModal();
-    clearPatientSearch();
-    loadTodayAppointments();
-}
+            const appointment = {
+                id: Date.now(),
+                patientId: selectedPatientForRegistration.id,
+                appointmentTime: selectedTime.toISOString(),
+                appointmentDoctor: appointmentDoctor,
+                chiefComplaint: chiefComplaint || '無特殊主訴',
+                status: 'registered', // registered, waiting, consulting, completed
+                createdAt: new Date().toISOString(),
+                createdBy: currentUserData ? currentUserData.username : currentUser
+            };
+            
+            appointments.push(appointment);
+            localStorage.setItem('appointments', JSON.stringify(appointments));
+            
+            showToast(`${selectedPatientForRegistration.name} 已掛號給 ${selectedDoctor.name}醫師！`, 'success');
+            
+            closeRegistrationModal();
+            clearPatientSearch();
+            loadTodayAppointments();
+        }
         
         // 每日自動清空掛號列表
         function clearOldAppointments() {
@@ -3267,9 +3139,9 @@ async function confirmRegistration() {
                 return appointmentDate >= today; // 只保留今天及以後的掛號
             });
             
-            // 如果有清除記錄，您可以選擇更新 Firestore 或僅在本地更新。
-            // 此處不再使用 localStorage 儲存掛號清單。
+            // 如果有清除記錄，保存到本地儲存
             if (appointments.length < originalLength) {
+                localStorage.setItem('appointments', JSON.stringify(appointments));
                 console.log(`已清除 ${originalLength - appointments.length} 筆過期掛號記錄`);
             }
         }
@@ -3515,18 +3387,10 @@ async function confirmRegistration() {
             appointment.arrivedAt = new Date().toISOString();
             appointment.confirmedBy = currentUserData ? currentUserData.username : currentUser;
             
-            try {
-                // 更新狀態變更至 Firestore
-                await db.collection('appointments').doc(appointment.id.toString()).update({
-                    status: 'waiting',
-                    arrivedAt: appointment.arrivedAt,
-                    confirmedBy: appointment.confirmedBy
-                });
-                showToast(`${patient.name} 已確認到達，進入候診狀態！`, 'success');
-            } catch (error) {
-                console.error(error);
-                showToast('更新掛號狀態失敗！', 'error');
-            }
+            // 保存狀態變更
+            localStorage.setItem('appointments', JSON.stringify(appointments));
+            
+            showToast(`${patient.name} 已確認到達，進入候診狀態！`, 'success');
             loadTodayAppointments();
         }
         
@@ -3576,15 +3440,13 @@ async function confirmRegistration() {
                                  `注意：此操作無法復原！`;
             
             if (confirm(confirmMessage)) {
-                try {
-                    // 從 Firestore 移除掛號
-                    await db.collection('appointments').doc(appointmentId.toString()).delete();
-                    showToast(`已移除 ${patient.name} 的掛號記錄`, 'success');
-                } catch (error) {
-                    console.error(error);
-                    showToast('移除掛號失敗！', 'error');
-                }
+                // 從掛號列表中移除
+                appointments = appointments.filter(apt => apt.id !== appointmentId);
+                localStorage.setItem('appointments', JSON.stringify(appointments));
+                
+                showToast(`已移除 ${patient.name} 的掛號記錄`, 'success');
                 loadTodayAppointments();
+                
                 // 如果正在診症表單中顯示該病人，則關閉表單
                 if (currentConsultingAppointmentId === appointmentId) {
                     closeConsultationForm();
@@ -3598,7 +3460,7 @@ async function confirmRegistration() {
 
         
         // 開始診症（醫師操作）
-async function startConsultation(appointmentId) {
+        function startConsultation(appointmentId) {
             const appointment = appointments.find(apt => apt.id === appointmentId);
             if (!appointment) {
                 showToast('找不到掛號記錄！', 'error');
@@ -3655,21 +3517,12 @@ async function startConsultation(appointmentId) {
                     consultingAppointment.status = 'waiting';
                     delete consultingAppointment.consultationStartTime;
                     delete consultingAppointment.consultingDoctor;
-                    // 同步更新到 Firestore
-                    try {
-                        await db.collection('appointments').doc(consultingAppointment.id.toString()).update({
-                            status: 'waiting',
-                            consultationStartTime: firebase.firestore.FieldValue.delete(),
-                            consultingDoctor: firebase.firestore.FieldValue.delete()
-                        });
-                    } catch (error) {
-                        console.error(error);
-                        showToast('更新診症狀態失敗！', 'error');
-                    }
+                    
                     // 關閉可能開啟的診症表單
                     if (currentConsultingAppointmentId === consultingAppointment.id) {
                         closeConsultationForm();
                     }
+                    
                     showToast(`已結束 ${consultingPatientName} 的診症`, 'info');
                 } else {
                     return; // 用戶取消操作
@@ -3680,26 +3533,18 @@ async function startConsultation(appointmentId) {
             appointment.status = 'consulting';
             appointment.consultationStartTime = new Date().toISOString();
             appointment.consultingDoctor = currentUserData ? currentUserData.username : currentUser;
-            try {
-                // 同步更新到 Firestore
-                await db.collection('appointments').doc(appointment.id.toString()).update({
-                    status: 'consulting',
-                    consultationStartTime: appointment.consultationStartTime,
-                    consultingDoctor: appointment.consultingDoctor,
-                    // 如果自動確認到達也包含 arrivedAt/confirmedBy
-                    arrivedAt: appointment.arrivedAt || firebase.firestore.FieldValue.delete(),
-                    confirmedBy: appointment.confirmedBy || firebase.firestore.FieldValue.delete()
-                });
-                showToast(`開始為 ${patient.name} 診症`, 'success');
-            } catch (error) {
-                console.error(error);
-                showToast('更新診症狀態失敗！', 'error');
-            }
+            
+            // 立即保存狀態變更
+            localStorage.setItem('appointments', JSON.stringify(appointments));
+            
             // 設置當前診症ID並顯示表單
             currentConsultingAppointmentId = appointmentId;
             showConsultationForm(appointment);
+            
             // 重新載入列表以顯示正確狀態
             loadTodayAppointments();
+            
+            showToast(`開始為 ${patient.name} 診症`, 'success');
         }
         
         // 繼續診症
@@ -3926,18 +3771,12 @@ async function startConsultation(appointmentId) {
                     appointment.status = 'waiting';
                     delete appointment.consultationStartTime;
                     delete appointment.consultingDoctor;
-                    try {
-                        // 更新到 Firestore
-                        await db.collection('appointments').doc(appointment.id.toString()).update({
-                            status: 'waiting',
-                            consultationStartTime: firebase.firestore.FieldValue.delete(),
-                            consultingDoctor: firebase.firestore.FieldValue.delete()
-                        });
-                        showToast(`已取消 ${patient.name} 的診症，病人回到候診狀態`, 'info');
-                    } catch (error) {
-                        console.error(error);
-                        showToast('取消診症失敗！', 'error');
-                    }
+                    
+                    // 保存狀態變更
+                    localStorage.setItem('appointments', JSON.stringify(appointments));
+                    
+                    showToast(`已取消 ${patient.name} 的診症，病人回到候診狀態`, 'info');
+                    
                     // 關閉表單並清理
                     closeConsultationForm();
                     currentConsultingAppointmentId = null;
@@ -3956,7 +3795,7 @@ async function startConsultation(appointmentId) {
         }
         
         // 儲存診症記錄（醫師操作）
-async function saveConsultation() {
+        function saveConsultation() {
             if (!currentConsultingAppointmentId) {
                 showToast('系統錯誤：找不到診症記錄！', 'error');
                 return;
@@ -4014,90 +3853,85 @@ async function saveConsultation() {
                 });
             })();
             
-    // 檢查是否為修改病歷模式
-    if (appointment.status === 'completed' && appointment.consultationId) {
-        // 修改現有病歷
-        const existingConsultation = consultations.find(c => c.id === appointment.consultationId);
-        if (existingConsultation) {
-            // 更新 local 物件
-            existingConsultation.symptoms = symptoms;
-            existingConsultation.tongue = document.getElementById('formTongue').value.trim();
-            existingConsultation.pulse = document.getElementById('formPulse').value.trim();
-            existingConsultation.currentHistory = document.getElementById('formCurrentHistory').value.trim();
-            existingConsultation.diagnosis = diagnosis;
-            existingConsultation.syndrome = syndrome;
-            existingConsultation.acupunctureNotes = document.getElementById('formAcupunctureNotes').value.trim();
-            existingConsultation.prescription = prescription;
-            existingConsultation.usage = document.getElementById('formUsage').value.trim();
-            existingConsultation.treatmentCourse = document.getElementById('formTreatmentCourse').value.trim();
-            existingConsultation.instructions = document.getElementById('formInstructions').value.trim();
-            existingConsultation.followUpDate = document.getElementById('formFollowUpDate').value;
-            existingConsultation.visitTime = document.getElementById('formVisitTime').value;
-            existingConsultation.restStartDate = document.getElementById('formRestStartDate').value;
-            existingConsultation.restEndDate = document.getElementById('formRestEndDate').value;
-            existingConsultation.billingItems = document.getElementById('formBillingItems').value.trim();
-            existingConsultation.updatedAt = new Date().toISOString();
-            existingConsultation.updatedBy = currentUserData ? currentUserData.username : currentUser;
-
-            // 更新 Firestore
-            try {
-                await db.collection('consultations').doc(appointment.consultationId.toString()).update(existingConsultation);
-                showToast(`${patient.name} 的病歷已成功更新！`, 'success');
-            } catch (error) {
-                console.error(error);
-                showToast('更新病歷失敗！', 'error');
+            // 檢查是否為修改病歷模式
+            if (appointment.status === 'completed' && appointment.consultationId) {
+                // 修改現有病歷
+                const existingConsultation = consultations.find(c => c.id === appointment.consultationId);
+                if (existingConsultation) {
+                    existingConsultation.symptoms = symptoms;
+                    existingConsultation.tongue = document.getElementById('formTongue').value.trim();
+                    existingConsultation.pulse = document.getElementById('formPulse').value.trim();
+                    existingConsultation.currentHistory = document.getElementById('formCurrentHistory').value.trim();
+                    existingConsultation.diagnosis = diagnosis;
+                    existingConsultation.syndrome = syndrome;
+                    existingConsultation.acupunctureNotes = document.getElementById('formAcupunctureNotes').value.trim();
+                    
+                    // 處方內容直接使用表單中的內容（包含現有處方和新添加的項目）
+                    existingConsultation.prescription = prescription;
+                    
+                    existingConsultation.usage = document.getElementById('formUsage').value.trim();
+                    existingConsultation.treatmentCourse = document.getElementById('formTreatmentCourse').value.trim();
+                    existingConsultation.instructions = document.getElementById('formInstructions').value.trim();
+                    existingConsultation.followUpDate = document.getElementById('formFollowUpDate').value;
+                    existingConsultation.visitTime = document.getElementById('formVisitTime').value;
+                    existingConsultation.restStartDate = document.getElementById('formRestStartDate').value;
+                    existingConsultation.restEndDate = document.getElementById('formRestEndDate').value;
+                    existingConsultation.billingItems = document.getElementById('formBillingItems').value.trim();
+                    existingConsultation.updatedAt = new Date().toISOString();
+                    existingConsultation.updatedBy = currentUserData ? currentUserData.username : currentUser;
+                    
+                    localStorage.setItem('consultations', JSON.stringify(consultations));
+                    showToast(`${patient.name} 的病歷已成功更新！`, 'success');
+                }
+            } else if (appointment.status === 'consulting') {
+                // 新增診症記錄
+                const consultation = {
+                    id: Date.now(),
+                    appointmentId: currentConsultingAppointmentId,
+                    patientId: appointment.patientId,
+                    symptoms: symptoms,
+                    tongue: document.getElementById('formTongue').value.trim(),
+                    pulse: document.getElementById('formPulse').value.trim(),
+                    currentHistory: document.getElementById('formCurrentHistory').value.trim(),
+                    diagnosis: diagnosis,
+                    syndrome: syndrome,
+                    acupunctureNotes: document.getElementById('formAcupunctureNotes').value.trim(),
+                    prescription: prescription,
+                    usage: document.getElementById('formUsage').value.trim(),
+                    treatmentCourse: document.getElementById('formTreatmentCourse').value.trim(),
+                    instructions: document.getElementById('formInstructions').value.trim(),
+                    followUpDate: document.getElementById('formFollowUpDate').value,
+                    visitTime: document.getElementById('formVisitTime').value,
+                    restStartDate: document.getElementById('formRestStartDate').value,
+                    restEndDate: document.getElementById('formRestEndDate').value,
+                    billingItems: document.getElementById('formBillingItems').value.trim(),
+                    date: new Date().toISOString(),
+                    doctor: currentUserData ? currentUserData.username : currentUser,
+                    status: 'completed'
+                };
+                
+                consultations.push(consultation);
+                localStorage.setItem('consultations', JSON.stringify(consultations));
+                
+                // 更新掛號狀態為已完成
+                appointment.status = 'completed';
+                appointment.completedAt = new Date().toISOString();
+                appointment.consultationId = consultation.id;
+                appointment.completedBy = currentUserData ? currentUserData.username : currentUser;
+                localStorage.setItem('appointments', JSON.stringify(appointments));
+                
+                showToast(`${patient.name} 的診症記錄已完成並保存！`, 'success');
+            } else {
+                showToast('只能保存診症中狀態的記錄或修改已完成的病歷！', 'warning');
+                return;
             }
-        }
-    } else if (appointment.status === 'consulting') {
-        // 新增診症記錄
-        const consultation = {
-            appointmentId: currentConsultingAppointmentId,
-            patientId: appointment.patientId,
-            symptoms: symptoms,
-            tongue: document.getElementById('formTongue').value.trim(),
-            pulse: document.getElementById('formPulse').value.trim(),
-            currentHistory: document.getElementById('formCurrentHistory').value.trim(),
-            diagnosis: diagnosis,
-            syndrome: syndrome,
-            acupunctureNotes: document.getElementById('formAcupunctureNotes').value.trim(),
-            prescription: prescription,
-            usage: document.getElementById('formUsage').value.trim(),
-            treatmentCourse: document.getElementById('formTreatmentCourse').value.trim(),
-            instructions: document.getElementById('formInstructions').value.trim(),
-            followUpDate: document.getElementById('formFollowUpDate').value,
-            visitTime: document.getElementById('formVisitTime').value,
-            restStartDate: document.getElementById('formRestStartDate').value,
-            restEndDate: document.getElementById('formRestEndDate').value,
-            billingItems: document.getElementById('formBillingItems').value.trim(),
-            date: new Date().toISOString(),
-            doctor: currentUserData ? currentUserData.username : currentUser,
-            status: 'completed'
-        };
-
-        try {
-            const docRef = await db.collection('consultations').add(consultation);
-            consultation.id = docRef.id;
-            // 更新 appointment 狀態為已完成
-            await db.collection('appointments').doc(currentConsultingAppointmentId.toString()).update({
-                status: 'completed',
-                completedAt: new Date().toISOString(),
-                consultationId: consultation.id,
-                completedBy: currentUserData ? currentUserData.username : currentUser
-            });
-            showToast(`${patient.name} 的診症記錄已完成並保存！`, 'success');
-        } catch (error) {
-            console.error(error);
-            showToast('新增診症記錄失敗！', 'error');
-        }
-    } else {
-        showToast('只能保存診症中狀態的記錄或修改已完成的病歷！', 'warning');
-        return;
-    }
-
-    closeConsultationForm();
-    loadTodayAppointments();
-    updateStatistics();
-    clearAllSearchFields();
+            
+            closeConsultationForm();
+            loadTodayAppointments();
+            updateStatistics();
+            
+            // 清空搜尋欄位
+            clearAllSearchFields();
         }
         
 
@@ -5823,23 +5657,25 @@ async function saveConsultation() {
                                  `注意：此操作無法復原！`;
             
             if (confirm(confirmMessage)) {
-                try {
-                    // 刪除診症記錄
-                    await db.collection('consultations').doc(appointment.consultationId.toString()).delete();
-                    // 將掛號狀態改回已掛號並移除相關欄位
-                    await db.collection('appointments').doc(appointmentId.toString()).update({
-                        status: 'registered',
-                        completedAt: firebase.firestore.FieldValue.delete(),
-                        consultationId: firebase.firestore.FieldValue.delete(),
-                        completedBy: firebase.firestore.FieldValue.delete(),
-                        consultationStartTime: firebase.firestore.FieldValue.delete(),
-                        consultingDoctor: firebase.firestore.FieldValue.delete()
-                    });
-                    showToast(`已撤回 ${patient.name} 的診症，病人狀態回到已掛號`, 'success');
-                } catch (error) {
-                    console.error(error);
-                    showToast('撤回診症失敗！', 'error');
+                // 刪除診症記錄
+                const consultationIndex = consultations.findIndex(c => c.id === appointment.consultationId);
+                if (consultationIndex !== -1) {
+                    consultations.splice(consultationIndex, 1);
+                    localStorage.setItem('consultations', JSON.stringify(consultations));
                 }
+                
+                // 將掛號狀態改回已掛號
+                appointment.status = 'registered';
+                delete appointment.completedAt;
+                delete appointment.consultationId;
+                delete appointment.completedBy;
+                delete appointment.consultationStartTime;
+                delete appointment.consultingDoctor;
+                
+                // 保存狀態變更
+                localStorage.setItem('appointments', JSON.stringify(appointments));
+                
+                showToast(`已撤回 ${patient.name} 的診症，病人狀態回到已掛號`, 'success');
                 
                 // 如果正在編輯該病歷，則關閉表單
                 if (currentConsultingAppointmentId === appointmentId) {
@@ -5915,18 +5751,8 @@ async function saveConsultation() {
                         closeConsultationForm();
                     }
                     
-                    try {
-                        // 更新當前診症病人狀態至 Firestore
-                        await db.collection('appointments').doc(consultingAppointment.id.toString()).update({
-                            status: 'waiting',
-                            consultationStartTime: firebase.firestore.FieldValue.delete(),
-                            consultingDoctor: firebase.firestore.FieldValue.delete()
-                        });
-                        showToast(`已結束 ${consultingPatientName} 的診症`, 'info');
-                    } catch (error) {
-                        console.error(error);
-                        showToast('更新診症狀態失敗！', 'error');
-                    }
+                    showToast(`已結束 ${consultingPatientName} 的診症`, 'info');
+                    localStorage.setItem('appointments', JSON.stringify(appointments));
                 } else {
                     return; // 用戶取消操作
                 }
@@ -8851,45 +8677,6 @@ async function saveConsultation() {
             }
             showToast('已取消本次套票使用，次數已退回', 'success');
         }
-        // 確保預設帳號存在於 Firebase Authentication 中
-        async function ensureDefaultFirebaseAccounts() {
-            if (typeof auth !== 'undefined') {
-                try {
-                    const defaults = (typeof defaultUsers !== 'undefined') ? defaultUsers : [];
-                    for (const u of defaults) {
-                        if (u.email && u.password) {
-                            try {
-                                await auth.createUserWithEmailAndPassword(u.email, u.password);
-                            } catch (e) {
-                                if (e.code !== 'auth/email-already-in-use') {
-                                    console.warn('Firebase 建立預設帳號失敗：', u.email, e);
-                                }
-                            }
-                        }
-                        // 將預設用戶資料寫入 Firestore，使用 username 為 doc ID
-                        if (typeof db !== 'undefined' && u.username) {
-                            try {
-                                await db.collection('users').doc(u.username).set({
-                                    username: u.username,
-                                    name: u.name || '',
-                                    position: u.position || '',
-                                    email: u.email || '',
-                                    active: u.active !== false,
-                                    password: u.password || '',
-                                    createdAt: u.createdAt || new Date().toISOString(),
-                                    lastLogin: null
-                                }, { merge: true });
-                            } catch (fireErr) {
-                                console.warn('寫入預設用戶至 Firestore 失敗：', u.username, fireErr);
-                            }
-                        }
-                    }
-                } catch (err) {
-                    console.warn('確保預設帳號存在時發生錯誤：', err);
-                }
-            }
-        }
-
 
         // 病人詳細資料套票分頁顯示的變數與函式
         let currentPatientPackages = [];
