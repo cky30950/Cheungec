@@ -2785,30 +2785,12 @@
             const patientPkgs = getPatientPackages(id);
             let packagesHtml = '';
             if (patientPkgs && patientPkgs.length > 0) {
+                // 建立套票區塊，實際內容透過分頁函式渲染
                 packagesHtml += '<div class="mt-6 pt-6 border-t border-gray-200">';
                 packagesHtml += '<h4 class="text-lg font-semibold text-gray-800 mb-2">套票情況</h4>';
-                packagesHtml += '<div class="space-y-2">';
-                patientPkgs.forEach(function(pkg) {
-                    const exp = new Date(pkg.expiresAt);
-                    const now = new Date();
-                    const expired = now > exp;
-                    let statusHtml;
-                    if (expired) {
-                        statusHtml = '<span class="text-red-600">已到期</span>';
-                    } else if (pkg.remainingUses <= 0) {
-                        statusHtml = '<span class="text-gray-600">已用完</span>';
-                    } else {
-                        statusHtml = '<span class="text-green-600">剩餘 ' + pkg.remainingUses + '/' + pkg.totalUses + '</span>';
-                    }
-                    packagesHtml += '<div class="flex justify-between items-center bg-purple-50 border border-purple-200 rounded p-2">';
-                    packagesHtml += '<div>';
-                    packagesHtml += '<div class="font-medium text-purple-900">' + pkg.name + '</div>';
-                    packagesHtml += '<div class="text-xs text-gray-600">到期日：' + exp.toLocaleDateString("zh-TW") + '</div>';
-                    packagesHtml += '</div>';
-                    packagesHtml += '<div>' + statusHtml + '</div>';
-                    packagesHtml += '</div>';
-                });
-                packagesHtml += '</div></div>';
+                // 容器將由 renderPatientPackagesDetailPage() 生成實際列表
+                packagesHtml += '<div id="patientPackagesDetailList" class="space-y-2"></div>';
+                packagesHtml += '</div>';
             }
 
             const content = `
@@ -2885,6 +2867,15 @@
 
             document.getElementById('patientDetailContent').innerHTML = content;
             document.getElementById('patientDetailModal').classList.remove('hidden');
+            // 套票分頁初始化：若病人有套票紀錄，設定全域分頁資料並渲染第一頁
+            if (patientPkgs && patientPkgs.length > 0) {
+                currentPatientPackages = patientPkgs;
+                currentPatientPackagePage = 0;
+                const pkgContainer = document.getElementById('patientPackagesDetailList');
+                if (pkgContainer) {
+                    pkgContainer.innerHTML = renderPatientPackagesDetailPage();
+                }
+            }
         }
 
         function closePatientDetail() {
@@ -8685,6 +8676,52 @@
                 refreshPatientPackagesUI();
             }
             showToast('已取消本次套票使用，次數已退回', 'success');
+        }
+
+        // 病人詳細資料套票分頁顯示的變數與函式
+        let currentPatientPackages = [];
+        let currentPatientPackagePage = 0;
+        const PACKAGES_PER_PAGE = 5;
+        function renderPatientPackagesDetailPage() {
+            const start = currentPatientPackagePage * PACKAGES_PER_PAGE;
+            const end = start + PACKAGES_PER_PAGE;
+            const pkgs = currentPatientPackages.slice(start, end);
+            let html = '';
+            pkgs.forEach(function(pkg) {
+                const purchased = new Date(pkg.purchasedAt);
+                const exp = new Date(pkg.expiresAt);
+                const now = new Date();
+                const expired = now > exp;
+                const status = expired ? '<span class="text-red-600">已到期</span>' :
+                    (pkg.remainingUses <= 0 ? '<span class="text-gray-600">已用完</span>' :
+                        '<span class="text-green-600">剩餘 ' + pkg.remainingUses + '/' + pkg.totalUses + '</span>');
+                html += '<div class="flex justify-between items-start bg-purple-50 border border-purple-200 rounded p-2">';
+                html += '<div>';
+                html += '<div class="font-medium text-purple-900">' + pkg.name + '</div>';
+                html += '<div class="text-xs text-gray-600">購買日：' + purchased.toLocaleDateString("zh-TW") + ' · 到期日：' + exp.toLocaleDateString("zh-TW") + '</div>';
+                html += '<div class="text-xs text-gray-600">剩餘次數：' + pkg.remainingUses + '/' + pkg.totalUses + '</div>';
+                html += '</div>';
+                html += '<div class="mt-1">' + status + '</div>';
+                html += '</div>';
+            });
+            const totalPages = Math.ceil(currentPatientPackages.length / PACKAGES_PER_PAGE);
+            if (totalPages > 1) {
+                html += '<div class="flex justify-end space-x-2 mt-2">';
+                const prevDisabled = currentPatientPackagePage <= 0;
+                const nextDisabled = currentPatientPackagePage >= totalPages - 1;
+                html += '<button type="button" ' + (prevDisabled ? 'disabled' : '') + ' onclick="changePatientPackagePage(-1)" class="px-2 py-1 bg-gray-200 text-gray-700 rounded ' + (prevDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-300') + '">上一頁</button>';
+                html += '<button type="button" ' + (nextDisabled ? 'disabled' : '') + ' onclick="changePatientPackagePage(1)" class="px-2 py-1 bg-gray-200 text-gray-700 rounded ' + (nextDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-300') + '">下一頁</button>';
+                html += '</div>';
+            }
+            return html;
+        }
+        function changePatientPackagePage(delta) {
+            const totalPages = Math.ceil(currentPatientPackages.length / PACKAGES_PER_PAGE);
+            currentPatientPackagePage = Math.min(Math.max(currentPatientPackagePage + delta, 0), totalPages - 1);
+            const container = document.getElementById('patientPackagesDetailList');
+            if (container) {
+                container.innerHTML = renderPatientPackagesDetailPage();
+            }
         }
 
 // 初始化系統
