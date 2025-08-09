@@ -3808,6 +3808,30 @@
                     // （已有）建立病人套票
 const record = purchasePackage(patient.id, it);
 
+const wantUseNow = confirm(`本次購買「${it.name}」，是否立即使用一次？`);
+if (wantUseNow) {
+  const resUse = consumePackage(patient.id, record.id);
+  if (resUse.ok) {
+    const usedName = `${record.name}（使用套票）`;
+    selectedBillingItems.push({
+      id: `use-${record.id}-${Date.now()}`,
+      name: usedName,
+      category: 'packageUse',
+      price: 0,
+      unit: '次',
+      description: '套票抵扣一次',
+      quantity: 1,
+      // 為了讓「取消使用」能退回
+      patientId: patient.id,
+      packageRecordId: record.id
+    });
+    updateBillingDisplay();
+    showToast(`已立即使用一次：${record.name}，剩餘 ${resUse.record.remainingUses} 次`, 'success');
+  } else {
+    showToast(resUse.msg || '無法立即使用', 'warning');
+  }
+}
+
 // 新增：詢問是否立即使用一次
 const wantUseNow = confirm(`本次購買「${it.name}」，是否立即使用一次？`);
 if (wantUseNow) {
@@ -6348,6 +6372,7 @@ if (wantUseNow) {
                             </span>
                             <div class="flex space-x-1">
                                 <button onclick="editBillingItem(${item.id})" class="text-blue-600 hover:text-blue-800 text-sm">編輯</button>
+                                ${undoBtn}
                                 <button onclick="deleteBillingItem(${item.id})" class="text-red-600 hover:text-red-800 text-sm">刪除</button>
                             </div>
                         </div>
@@ -6977,6 +7002,16 @@ if (wantUseNow) {
         // 更新收費項目顯示
 function updateBillingDisplay() {
   const billingList = document.getElementById('billing-list');
+// ✅ 放在單筆項目模板字串之前
+const isPackageUse = item.category === 'packageUse';
+const undoBtn = isPackageUse ? `
+  <button
+    type="button"
+    class="ml-2 text-xs px-2 py-0.5 rounded border border-purple-300 text-purple-700 hover:bg-purple-50"
+    onclick="undoPackageUse(${item.patientId}, ${item.packageRecordId}, '${item.id}')"
+  >取消使用</button>
+` : '';
+
   billingList.innerHTML = '';
 
   billingItems.forEach(item => {
@@ -8622,29 +8657,34 @@ selectedBillingItems.push({
             refreshPatientPackagesUI();
             showToast(`已使用套票：${res.record.name}，剩餘 ${res.record.remainingUses} 次`, 'success');
         }
-          // 取消一次套票使用：次數 +1，並把收費清單中的「使用紀錄」刪掉
-  function undoPackageUse(patientId, packageRecordId, usageItemId) {
-    // 1) 先把套票 +1
-    const all = getPatientPackagesStore();
-    const idx = all.findIndex(p => p.id === packageRecordId && p.patientId === patientId);
-    if (idx === -1) {
-      showToast('找不到對應的套票，無法取消', 'warning');
-      return;
-    }
-    all[idx].remainingUses += 1;
-    setPatientPackagesStore(all);
+// ✅ 取消一次套票使用：次數 +1，並從右側清單移除那筆 $0 的使用紀錄
+function undoPackageUse(patientId, packageRecordId, usageItemId) {
+  // 1) 讀取全部病人套票
+  const all = getPatientPackagesStore(); // 這個函式應該已存在（回傳陣列）
 
-    // 2) 把這筆 $0 的使用紀錄移除
-    const before = selectedBillingItems.length;
-    selectedBillingItems = selectedBillingItems.filter(it => it.id !== usageItemId);
-    const removed = before !== selectedBillingItems.length;
-
-    // 3) 更新畫面
-    updateBillingDisplay();
-    refreshPatientPackagesUI();
-
-    showToast(removed ? '已取消本次套票使用，次數已退回' : '已退回次數', 'success');
+  // 2) 找到對應的那張套票
+  const idx = all.findIndex(p => p.id === packageRecordId && p.patientId === patientId);
+  if (idx === -1) {
+    showToast('找不到對應的套票，無法取消', 'warning');
+    return;
   }
+
+  // 3) 退回一次
+  all[idx].remainingUses += 1;
+  setPatientPackagesStore(all); // 存回 localStorage
+
+  // 4) 從已選清單移除這筆 $0 使用紀錄（注意：是 selectedBillingItems 不是 billingItems）
+  const before = selectedBillingItems.length;
+  selectedBillingItems = selectedBillingItems.filter(it => it.id !== usageItemId);
+
+  // 5) 更新畫面
+  updateBillingDisplay();
+  refreshPatientPackagesUI && refreshPatientPackagesUI();
+
+  showToast('已取消本次套票使用，次數已退回', 'success');
+}
+
+
 
 // 初始化系統
         document.addEventListener('DOMContentLoaded', function() {
