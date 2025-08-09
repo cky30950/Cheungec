@@ -5,14 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>中醫診所系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase App (the core Firebase SDK) -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <!-- Firebase Authentication -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <!-- Cloud Firestore -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <!-- Firebase Realtime Database -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; }
@@ -100,10 +92,23 @@
                     登入系統
                 </button>
                 
-                <!-- 登入提示 -->
+                <!-- 示範帳號提示 -->
                 <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div class="text-sm font-medium text-blue-800 mb-3">使用您的帳號登入系統</div>
-                    <div class="text-xs text-blue-700">請使用由管理員建立的電子郵件帳號及密碼登入本系統。</div>
+                    <div class="text-sm font-medium text-blue-800 mb-3">示範帳號：</div>
+                    <div class="text-xs text-blue-700 space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span>👨‍💼 陳經理診所管理</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">manager / manager2024</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span>👨‍⚕️ 張中醫師醫師</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">drzhang / zhang888</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span>👩‍💻 林護理師護理師</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">nurse_amy / amy2024</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2602,7 +2607,7 @@
             });
         }
 
-        async function savePatient() {
+        function savePatient() {
             const patient = {
                 id: editingPatientId || Date.now(),
                 patientNumber: editingPatientId ? patients.find(p => p.id === editingPatientId).patientNumber : generatePatientNumber(),
@@ -2660,26 +2665,14 @@
                 // 更新現有病人
                 const index = patients.findIndex(p => p.id === editingPatientId);
                 patients[index] = patient;
-                // 將變更同步至 Firestore
-                try {
-                    await db.collection('patients').doc(String(patient.id)).set(patient);
-                } catch (error) {
-                    console.error('Failed to update patient in Firestore', error);
-                }
                 showToast('病人資料已成功更新！', 'success');
             } else {
                 // 新增病人
-                // 將新資料寫入 Firestore
-                try {
-                    await db.collection('patients').doc(String(patient.id)).set(patient);
-                } catch (error) {
-                    console.error('Failed to save patient in Firestore', error);
-                }
                 patients.push(patient);
                 showToast('病人資料已成功新增！', 'success');
             }
 
-            // 重新載入病人列表並更新統計，不再寫入 localStorage
+            localStorage.setItem('patients', JSON.stringify(patients));
             loadPatientList();
             hideAddPatientForm();
             updateStatistics();
@@ -2756,7 +2749,7 @@
             document.getElementById('addPatientModal').classList.remove('hidden');
         }
 
-        async function deletePatient(id) {
+        function deletePatient(id) {
             const patient = patients.find(p => p.id === id);
             if (!patient) return;
 
@@ -2767,18 +2760,11 @@
                 consultations = consultations.filter(c => c.patientId !== id);
                 // 刪除相關掛號記錄
                 appointments = appointments.filter(a => a.patientId !== id);
-
-                // 從 Firestore 刪除病人文件
-                try {
-                    await db.collection('patients').doc(String(id)).delete();
-                } catch (error) {
-                    console.error('Failed to delete patient from Firestore', error);
-                }
-
-                // 持續維持其他本地陣列與 localStorage 的同步，以免影響既有功能
+                
+                localStorage.setItem('patients', JSON.stringify(patients));
                 localStorage.setItem('consultations', JSON.stringify(consultations));
                 localStorage.setItem('appointments', JSON.stringify(appointments));
-
+                
                 loadPatientList();
                 updateStatistics();
                 showToast('病人資料及相關診症記錄已刪除！', 'success');
@@ -3131,8 +3117,6 @@
             
             appointments.push(appointment);
             localStorage.setItem('appointments', JSON.stringify(appointments));
-            // 將新掛號的狀態寫入 Realtime Database
-            updateRealtimeStatus(appointment.id, 'registered');
             
             showToast(`${selectedPatientForRegistration.name} 已掛號給 ${selectedDoctor.name}醫師！`, 'success');
             
@@ -3402,10 +3386,8 @@
             appointment.status = 'waiting';
             appointment.arrivedAt = new Date().toISOString();
             appointment.confirmedBy = currentUserData ? currentUserData.username : currentUser;
-            // 同步至 Realtime Database
-            updateRealtimeStatus(appointment.id, 'waiting');
             
-            // 保存狀態變更到本地（保留本地狀態以確保現有邏輯正常運行）
+            // 保存狀態變更
             localStorage.setItem('appointments', JSON.stringify(appointments));
             
             showToast(`${patient.name} 已確認到達，進入候診狀態！`, 'success');
@@ -3533,8 +3515,6 @@
                 if (confirm(`您目前正在為 ${consultingPatientName} 診症。\n\n是否要結束該病人的診症並開始為 ${patient.name} 診症？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`)) {
                     // 結束當前診症的病人
                     consultingAppointment.status = 'waiting';
-                    // 將狀態同步至 Realtime Database
-                    updateRealtimeStatus(consultingAppointment.id, 'waiting');
                     delete consultingAppointment.consultationStartTime;
                     delete consultingAppointment.consultingDoctor;
                     
@@ -3553,8 +3533,6 @@
             appointment.status = 'consulting';
             appointment.consultationStartTime = new Date().toISOString();
             appointment.consultingDoctor = currentUserData ? currentUserData.username : currentUser;
-            // 將狀態同步至 Realtime Database
-            updateRealtimeStatus(appointment.id, 'consulting');
             
             // 立即保存狀態變更
             localStorage.setItem('appointments', JSON.stringify(appointments));
@@ -3793,8 +3771,6 @@
                     appointment.status = 'waiting';
                     delete appointment.consultationStartTime;
                     delete appointment.consultingDoctor;
-                    // 同步狀態至 Realtime Database
-                    updateRealtimeStatus(appointment.id, 'waiting');
                     
                     // 保存狀態變更
                     localStorage.setItem('appointments', JSON.stringify(appointments));
@@ -3942,8 +3918,6 @@
                 appointment.completedAt = new Date().toISOString();
                 appointment.consultationId = consultation.id;
                 appointment.completedBy = currentUserData ? currentUserData.username : currentUser;
-                // 同步狀態至 Realtime Database
-                updateRealtimeStatus(appointment.id, 'completed');
                 localStorage.setItem('appointments', JSON.stringify(appointments));
                 
                 showToast(`${patient.name} 的診症記錄已完成並保存！`, 'success');
@@ -5697,8 +5671,6 @@
                 delete appointment.completedBy;
                 delete appointment.consultationStartTime;
                 delete appointment.consultingDoctor;
-                // 同步狀態至 Realtime Database
-                updateRealtimeStatus(appointment.id, 'registered');
                 
                 // 保存狀態變更
                 localStorage.setItem('appointments', JSON.stringify(appointments));
@@ -5771,8 +5743,6 @@
                 if (confirm(`目前 ${consultingPatientName} 正在診症中。\n\n是否要結束該病人的診症並開始修改 ${patient.name} 的病歷？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`)) {
                     // 結束當前診症的病人
                     consultingAppointment.status = 'waiting';
-                    // 同步狀態至 Realtime Database
-                    updateRealtimeStatus(consultingAppointment.id, 'waiting');
                     delete consultingAppointment.consultationStartTime;
                     delete consultingAppointment.consultingDoctor;
                     
@@ -8771,484 +8741,6 @@
             }
         });
     </script>
-
-    <!-- Firebase integration and authentication overrides -->
-    <script>
-        // Firebase configuration - replace the placeholders with your project's config
-        var firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            // Other configuration keys as needed...
-        };
-        // Initialize Firebase only if it hasn't been initialized already
-        if (!firebase.apps || !firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        var auth = firebase.auth();
-        var db = firebase.firestore();
-        // Initialize Firebase Realtime Database
-        var realtimeDb = firebase.database();
-
-        /**
-         * Update appointment status in Firebase Realtime Database.
-         * This helper writes the status under the path 'appointments/{appointmentId}/status'.
-         */
-        function updateRealtimeStatus(appointmentId, status) {
-            try {
-                if (realtimeDb) {
-                    realtimeDb.ref('appointments/' + appointmentId + '/status').set(status);
-                }
-            } catch (error) {
-                console.error('Failed to update realtime status', error);
-            }
-        }
-
-        /**
-         * Load patient records from Firestore.
-         * This replaces the localStorage initialization and ensures the `patients`
-         * array reflects the latest data stored in the cloud.
-         */
-        async function loadPatientsFromFirestore() {
-            try {
-                const snapshot = await db.collection('patients').get();
-                // Each document is expected to store the full patient object including its own `id`.
-                patients = snapshot.docs.map(doc => doc.data());
-                loadPatientList();
-            } catch (error) {
-                console.error('Failed to load patients from Firestore', error);
-            }
-        }
-
-        // Override the global users array; users will be loaded from Firestore
-        // Reassign rather than redeclare, because `users` may already be defined in earlier scripts
-        users = [];
-
-        // Role-based permissions
-        const rolePermissions = {
-            admin: ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'financialReports', 'userManagement', 'systemManagement'],
-            doctor: ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'financialReports'],
-            assistant: ['patientManagement', 'consultationSystem', 'herbLibrary']
-        };
-
-        /**
-         * Load all users from the "users" collection in Firestore.
-         * Each user document should contain at least: username, name, position, email, role, active, registrationNumber.
-         * The document ID will be used as the user's unique identifier.
-         */
-        async function loadUsersFromFirestore() {
-            const snapshot = await db.collection('users').get();
-            users = snapshot.docs.map(doc => {
-                const data = doc.data();
-                // Ensure the role field exists; derive from position if missing
-                let role = data.role;
-                if (!role) {
-                    const pos = data.position || '';
-                    if (pos.includes('管理')) role = 'admin';
-                    else if (pos.includes('醫師')) role = 'doctor';
-                    else role = 'assistant';
-                }
-                return Object.assign({ id: doc.id, role: role }, data);
-            });
-        }
-
-        /**
-         * Once a user signs in or out, this listener updates the UI accordingly.
-         * When signed in, it fetches user data from Firestore and calls existing functions to render the main system.
-         */
-        auth.onAuthStateChanged(async function(firebaseUser) {
-            if (firebaseUser) {
-                // Load users from Firestore
-                await loadUsersFromFirestore();
-                currentUser = firebaseUser;
-                // Look up the current user's metadata in our users array using UID or email
-                currentUserData = users.find(u => u.id === firebaseUser.uid) ||
-                                  users.find(u => u.email === firebaseUser.email);
-                // If no record exists, create a default one with assistant role
-                if (!currentUserData) {
-                    const defaultData = {
-                        id: firebaseUser.uid,
-                        username: firebaseUser.email,
-                        name: firebaseUser.displayName || firebaseUser.email,
-                        position: '診所助理',
-                        role: 'assistant',
-                        email: firebaseUser.email,
-                        phone: '',
-                        registrationNumber: '',
-                        active: true,
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                        lastLogin: null
-                    };
-                    await db.collection('users').doc(firebaseUser.uid).set(defaultData);
-                    users.push(defaultData);
-                    currentUserData = defaultData;
-                }
-                // If the user account is marked inactive, sign them out and show error
-                if (currentUserData.active === false) {
-                    showToast('您的帳號已被停用，請聯繫管理員！', 'error');
-                    auth.signOut();
-                    return;
-                }
-                // Update lastLogin timestamp in Firestore
-                await db.collection('users').doc(currentUserData.id).update({
-                    lastLogin: new Date().toISOString()
-                });
-
-                // Load patient records from Firestore to populate the local patients array
-                await loadPatientsFromFirestore();
-                // Hide login page and show main system
-                document.getElementById('loginPage').classList.add('hidden');
-                document.getElementById('mainSystem').classList.remove('hidden');
-                document.getElementById('userRole').textContent = `當前用戶：${currentUserData.name || currentUserData.username}`;
-                document.getElementById('sidebarUserRole').textContent = `當前用戶：${currentUserData.name || currentUserData.username}`;
-                // Regenerate the sidebar based on role
-                generateSidebarMenu();
-                updateStatistics();
-            } else {
-                // Signed out; show login page and hide main system
-                currentUser = null;
-                currentUserData = null;
-                document.getElementById('loginPage').classList.remove('hidden');
-                document.getElementById('mainSystem').classList.add('hidden');
-            }
-        });
-
-        /**
-         * Attempt to sign the user in with email and password via Firebase Authentication.
-         * This overrides the original attemptMainLogin function.
-         */
-        function attemptMainLogin() {
-            const email = document.getElementById('mainLoginUsername').value.trim();
-            const password = document.getElementById('mainLoginPassword').value.trim();
-            if (!email || !password) {
-                showToast('請輸入帳號和密碼！', 'error');
-                return;
-            }
-            auth.signInWithEmailAndPassword(email, password)
-                .then(() => {
-                    // Sign-in successful; onAuthStateChanged will handle UI updates.
-                })
-                .catch(error => {
-                    // Show a user-friendly error message
-                    let message = '登入失敗，請檢查帳號密碼是否正確！';
-                    if (error.code === 'auth/user-not-found') {
-                        message = '帳號不存在，請檢查輸入！';
-                    } else if (error.code === 'auth/wrong-password') {
-                        message = '密碼錯誤，請重新輸入！';
-                    } else if (error.code === 'auth/too-many-requests') {
-                        message = '嘗試登入次數過多，請稍後再試。';
-                    }
-                    showToast(message, 'error');
-                    // Clear password field
-                    document.getElementById('mainLoginPassword').value = '';
-                    document.getElementById('mainLoginPassword').focus();
-                });
-        }
-
-        /**
-         * Sign the current user out from Firebase Authentication.
-         * Overrides the original logout function.
-         */
-        function logout() {
-            auth.signOut();
-        }
-
-        /**
-         * Overrides the original generateSidebarMenu to respect role-based permissions.
-         * It dynamically builds the sidebar based on the current user's role.
-         */
-        function generateSidebarMenu() {
-            const menuContainer = document.getElementById('sidebarMenu');
-            menuContainer.innerHTML = '';
-            const menuItems = {
-                patientManagement: { title: '病人資料管理', icon: '👥', description: '新增、查看、管理病人資料' },
-                consultationSystem: { title: '診症系統', icon: '🩺', description: '記錄症狀、診斷、開立處方' },
-                herbLibrary: { title: '中藥庫管理', icon: '🌿', description: '管理中藥材及方劑資料' },
-                billingManagement: { title: '收費項目管理', icon: '💰', description: '管理診療費用及收費項目' },
-                userManagement: { title: '診所用戶管理', icon: '👤', description: '管理診所用戶帳號及權限' },
-                financialReports: { title: '財務報表', icon: '📊', description: '收入分析與財務統計' },
-                systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' }
-            };
-            // Determine permitted permissions based on role
-            const permissions = (currentUserData && currentUserData.role) ? (rolePermissions[currentUserData.role] || []) : [];
-            permissions.forEach(permission => {
-                const item = menuItems[permission];
-                const button = document.createElement('button');
-                button.className = 'w-full text-left p-4 rounded-lg hover:bg-gray-100 transition duration-200 border border-gray-200 mb-2';
-                button.innerHTML = `
-                    <div class="flex items-center">
-                        <span class="text-2xl mr-4">${item.icon}</span>
-                        <div>
-                            <div class="font-semibold text-gray-800">${item.title}</div>
-                            <div class="text-sm text-gray-600">${item.description}</div>
-                        </div>
-                    </div>
-                `;
-                button.onclick = () => {
-                    showSection(permission);
-                    toggleSidebar();
-                };
-                menuContainer.appendChild(button);
-            });
-        }
-
-        /**
-         * Overrides displayUsers to populate the user management table from Firestore data.
-         * Supports search and filter by active/inactive status.
-         */
-        function displayUsers() {
-            const searchInput = document.getElementById('searchUser');
-            const searchTerm = (searchInput ? searchInput.value : '').toLowerCase();
-            const tbody = document.getElementById('userList');
-            if (!tbody) return;
-            // Filter users based on search term and current filter
-            let filteredUsers = users.filter(user => {
-                const matchesSearch = user.username.toLowerCase().includes(searchTerm) ||
-                                      (user.name && user.name.toLowerCase().includes(searchTerm)) ||
-                                      (user.email && user.email.toLowerCase().includes(searchTerm));
-                let matchesFilter = true;
-                if (currentUserFilter === 'inactive') {
-                    matchesFilter = user.active === false;
-                }
-                return matchesSearch && matchesFilter;
-            });
-            tbody.innerHTML = '';
-            if (filteredUsers.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="8" class="px-4 py-8 text-center text-gray-500">
-                            ${searchTerm ? '沒有找到符合條件的用戶' : '尚無用戶資料'}
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-            filteredUsers.forEach(user => {
-                const statusClass = user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-                const statusText = user.active ? '啟用' : '停用';
-                const lastLogin = user.lastLogin ?
-                    new Date(user.lastLogin).toLocaleString('zh-TW') : '從未登入';
-                const row = document.createElement('tr');
-                row.className = 'hover:bg-gray-50';
-                row.innerHTML = `
-                    <td class="px-4 py-3 text-sm text-gray-900 font-medium">${user.username}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">${user.name || ''}</td>
-                    <td class="px-4 py-3 text-sm text-gray-600">${user.position || '未設定'}</td>
-                    <td class="px-4 py-3 text-sm text-gray-600">${user.position === '醫師' ? (user.registrationNumber || '未設定') : '-'}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">${user.email || '未設定'}</td>
-                    <td class="px-4 py-3">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
-                            ${statusText}
-                        </span>
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-600">${lastLogin}</td>
-                    <td class="px-4 py-3 text-sm space-x-2">
-                        <button onclick="editUser('${user.id}')" class="text-blue-600 hover:text-blue-800">編輯</button>
-                        ${user.id !== (currentUserData && currentUserData.id) ? `
-                            <button onclick="toggleUserStatus('${user.id}')" class="text-orange-600 hover:text-orange-800">
-                                ${user.active ? '停用' : '啟用'}
-                            </button>
-                            <button onclick="deleteUser('${user.id}')" class="text-red-600 hover:text-red-800">刪除</button>
-                        ` : `
-                            <span class="text-gray-400 text-xs">當前用戶</span>
-                        `}
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        /**
-         * Overrides saveUser to synchronize with Firebase Authentication and Firestore.
-         * When editing, only Firestore data is updated (email/password changes require user self-service or admin SDK).
-         * When creating a new user, an auth account is created and a corresponding Firestore document is stored.
-         */
-        async function saveUser() {
-            const username = document.getElementById('userName').value.trim();
-            const password = document.getElementById('userPassword').value.trim();
-            const name = document.getElementById('userDisplayName').value.trim();
-            const position = document.getElementById('userPosition').value.trim();
-            const email = document.getElementById('userEmail').value.trim();
-            const phone = document.getElementById('userPhone').value.trim();
-            const registrationNumber = document.getElementById('userRegistrationNumber').value.trim();
-            const active = document.getElementById('userActive').checked;
-            // Validate required fields
-            if (!username || !name || !position) {
-                showToast('請填寫必要資料（帳號、姓名、職位）！', 'error');
-                return;
-            }
-            if (position === '醫師' && !registrationNumber) {
-                showToast('醫師職位必須填寫中醫註冊編號！', 'error');
-                return;
-            }
-            // Username may only contain letters, numbers and underscores
-            const usernameRegex = /^[a-zA-Z0-9_]+$/;
-            if (!usernameRegex.test(username)) {
-                showToast('帳號只能包含英文字母、數字和底線！', 'error');
-                return;
-            }
-            // Validate email format if provided
-            if (email) {
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(email)) {
-                    showToast('請輸入有效的電子郵件格式！', 'error');
-                    return;
-                }
-            }
-            // Determine role based on position
-            let role = 'assistant';
-            if (position.includes('管理')) role = 'admin';
-            else if (position.includes('醫師')) role = 'doctor';
-            // Check for duplicate usernames (excluding current user)
-            const existingUser = users.find(u => u.username === username && u.id !== editingUserId);
-            if (existingUser) {
-                showToast('此帳號已存在，請使用其他帳號！', 'error');
-                return;
-            }
-            try {
-                if (editingUserId) {
-                    // Update existing user in Firestore
-                    await db.collection('users').doc(editingUserId).update({
-                        username: username,
-                        name: name,
-                        position: position,
-                        role: role,
-                        registrationNumber: position === '醫師' ? registrationNumber : '',
-                        email: email,
-                        phone: phone,
-                        active: active,
-                        updatedAt: new Date().toISOString()
-                    });
-                    // Update local copy
-                    const idx = users.findIndex(u => u.id === editingUserId);
-                    if (idx !== -1) {
-                        users[idx] = Object.assign({}, users[idx], {
-                            username: username,
-                            name: name,
-                            position: position,
-                            role: role,
-                            registrationNumber: position === '醫師' ? registrationNumber : '',
-                            email: email,
-                            phone: phone,
-                            active: active,
-                            updatedAt: new Date().toISOString()
-                        });
-                        // If editing the current logged-in user, update currentUserData
-                        if (editingUserId === (currentUserData && currentUserData.id)) {
-                            currentUserData = users[idx];
-                            document.getElementById('userRole').textContent = `當前用戶：${currentUserData.name || currentUserData.username}`;
-                            document.getElementById('sidebarUserRole').textContent = `當前用戶：${currentUserData.name || currentUserData.username}`;
-                            generateSidebarMenu();
-                        }
-                    }
-                    showToast('用戶資料已成功更新！', 'success');
-                } else {
-                    // Ensure password is provided for new users
-                    if (!password) {
-                        showToast('請輸入密碼！', 'error');
-                        return;
-                    }
-                    if (password.length < 6) {
-                        showToast('密碼至少需要6個字符！', 'error');
-                        return;
-                    }
-                    // Create new auth user; if email is provided use it, otherwise derive email from username
-                    const userEmail = email || `${username}@example.com`;
-                    const userCredential = await auth.createUserWithEmailAndPassword(userEmail, password);
-                    const uid = userCredential.user.uid;
-                    const newUser = {
-                        id: uid,
-                        username: username,
-                        name: name,
-                        position: position,
-                        role: role,
-                        registrationNumber: position === '醫師' ? registrationNumber : '',
-                        email: userEmail,
-                        phone: phone,
-                        active: active,
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                        lastLogin: null
-                    };
-                    await db.collection('users').doc(uid).set(newUser);
-                    users.push(newUser);
-                    showToast('用戶已成功新增！', 'success');
-                }
-                displayUsers();
-                hideAddUserForm();
-            } catch (error) {
-                let message = '保存用戶資料時發生錯誤！';
-                if (error.code === 'auth/email-already-in-use') {
-                    message = '此電子郵件已被使用，請換一個。';
-                }
-                showToast(message, 'error');
-            }
-        }
-
-        /**
-         * Toggles the activation status of a user. Updates Firestore and local array.
-         */
-        async function toggleUserStatus(id) {
-            const user = users.find(u => u.id === id);
-            if (!user) return;
-            // Prevent disabling self
-            if (user.id === (currentUserData && currentUserData.id)) {
-                showToast('不能停用自己的帳號！', 'error');
-                return;
-            }
-            const newStatus = !user.active;
-            const action = newStatus ? '啟用' : '停用';
-            const confirmMessage = `確定要${action}用戶「${user.name || user.username}」嗎？\n\n${!newStatus ? '停用後該用戶將無法登入系統。' : '啟用後該用戶可以正常登入系統。'}`;
-            if (!confirm(confirmMessage)) {
-                return;
-            }
-            await db.collection('users').doc(id).update({
-                active: newStatus,
-                updatedAt: new Date().toISOString()
-            });
-            user.active = newStatus;
-            displayUsers();
-            showToast(`用戶「${user.name || user.username}」已${action}！`, 'success');
-        }
-
-        /**
-         * Deletes a user from Firestore. Only non-self users can be deleted.
-         */
-        async function deleteUser(id) {
-            const user = users.find(u => u.id === id);
-            if (!user) return;
-            // Prevent deleting self
-            if (user.id === (currentUserData && currentUserData.id)) {
-                showToast('不能刪除自己的帳號！', 'error');
-                return;
-            }
-            // Check if this is the last admin
-            const remainingAdmins = users.filter(u => u.role === 'admin' && u.id !== id && u.active);
-            if (user.role === 'admin' && remainingAdmins.length === 0) {
-                showToast('不能刪除最後一個管理員帳號！', 'error');
-                return;
-            }
-            const confirmMessage = `確定要刪除用戶「${user.name || user.username}」嗎？\n\n` +
-                                 `帳號：${user.username}\n` +
-                                 `角色：${user.role === 'admin' ? '管理員' : user.role === 'doctor' ? '醫師' : '助理'}\n\n` +
-                                 `注意：此操作無法復原！`;
-            if (!confirm(confirmMessage)) {
-                return;
-            }
-            await db.collection('users').doc(id).delete();
-            users = users.filter(u => u.id !== id);
-            displayUsers();
-            showToast(`用戶「${user.name || user.username}」已刪除！`, 'success');
-        }
-
-        // Ensure currentUserFilter is defined
-        if (typeof currentUserFilter === 'undefined') {
-            currentUserFilter = 'all';
-        }
-
-    </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96abf25724ae0514',t:'MTc1NDQ1NjE3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96c38f22ee47ddc3","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96c8c294fa3d2673","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>
