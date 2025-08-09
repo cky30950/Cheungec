@@ -3804,30 +3804,7 @@
                         console.warn('套票缺少 packageUses / validityDays');
                         return;
                     }
-                    const record = purchasePackage(patient.id, it);
-                    // 購買套票後詢問是否立即使用一次
-                    const wantUseNow = confirm(`本次購買「${it.name}」，是否立即使用一次？`);
-                    if (wantUseNow) {
-                        const resUse = consumePackage(patient.id, record.id);
-                        if (resUse.ok) {
-                            const usedName = `${record.name}（使用套票）`;
-                            selectedBillingItems.push({
-                                id: `use-${record.id}-${Date.now()}`,
-                                name: usedName,
-                                category: 'packageUse',
-                                price: 0,
-                                unit: '次',
-                                description: '套票抵扣一次',
-                                quantity: 1,
-                                patientId: patient.id,
-                                packageRecordId: record.id
-                            });
-                            updateBillingDisplay();
-                            showToast(`已立即使用一次：${record.name}，剩餘 ${resUse.record.remainingUses} 次`, 'success');
-                        } else {
-                            showToast(resUse.msg || '無法立即使用', 'warning');
-                        }
-                    }
+                    purchasePackage(patient.id, it);
                 });
             })();
             
@@ -7044,9 +7021,14 @@
                         const bgColor = getCategoryBgColor(item.category);
                         let subtotal;
                         let subtotalDisplay;
-                        // 檢查是否為套票使用，若是則準備取消按鈕
+                        // 套票使用：不顯示加減號，只保留取消按鈕
                         const isPackageUse = item.category === 'packageUse';
-                        const undoBtn = isPackageUse ? `\n                                    <button\n                                        type="button"\n                                        class="ml-2 text-xs px-2 py-0.5 rounded border border-purple-300 text-purple-700 hover:bg-purple-50"\n                                        onclick="undoPackageUse(${item.patientId}, ${item.packageRecordId}, '${item.id}')"\n                                    >取消使用</button>\n                                ` : '';
+                        const qtyControls = isPackageUse ? '' : `<div class="flex items-center space-x-2 mr-3">
+                            <button onclick="updateBillingQuantity(${originalIndex}, -1)" class="bg-red-500 text-white px-2 py-1 rounded-full text-xs hover:bg-red-600 transition duration-200">-</button>
+                            <span class="w-8 text-center font-semibold">${item.quantity}</span>
+                            <button onclick="updateBillingQuantity(${originalIndex}, 1)" class="bg-green-500 text-white px-2 py-1 rounded-full text-xs hover:bg-green-600 transition duration-200">+</button>
+                        </div>`;
+        
                         
                         if (item.category === 'discount' && item.price > 0 && item.price < 1) {
                             // 百分比折扣：顯示折扣金額
@@ -7079,15 +7061,11 @@
                                         })()}${item.unit ? ` / ${item.unit}` : ''}
                                     </div>
                                 </div>
-                                <div class="flex items-center space-x-2 mr-3">
-                                    <button onclick="updateBillingQuantity(${originalIndex}, -1)" class="w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition duration-200">-</button>
-                                    <span class="w-8 text-center font-semibold">${item.quantity}</span>
-                                    <button onclick="updateBillingQuantity(${originalIndex}, 1)" class="w-6 h-6 bg-green-500 text-white rounded-full text-xs hover:bg-green-600 transition duration-200">+</button>
-                                </div>
+                                ${qtyControls}
                                 <div class="mr-3 text-right">
                                     <div class="font-bold ${subtotal < 0 ? 'text-red-600' : 'text-green-600'}">${subtotalDisplay}</div>
                                 </div>
-                                ${undoBtn}<button onclick="removeBillingItem(${originalIndex})" class="text-red-500 hover:text-red-700 font-bold text-lg px-2">×</button>
+                                <button onclick="removeBillingItem(${originalIndex})" class="text-red-500 hover:text-red-700 font-bold text-lg px-2">×</button>
                             </div>
                         `;
                     }).join('')}
@@ -7156,14 +7134,7 @@
         // 更新收費項目數量
         function updateBillingQuantity(index, change) {
             if (index >= 0 && index < selectedBillingItems.length) {
-                const item = selectedBillingItems[index];
-                // 如果是套票使用，且 change < 0，直接取消使用並退回次數
-                if (change < 0 && item.category === 'packageUse') {
-                    // 調用取消函式，這會自動移除該筆記錄並退回次數
-                    undoPackageUse(item.patientId, item.packageRecordId, item.id);
-                    return;
-                }
-                const newQuantity = item.quantity + change;
+                const newQuantity = selectedBillingItems[index].quantity + change;
                 if (newQuantity > 0) {
                     selectedBillingItems[index].quantity = newQuantity;
                     updateBillingDisplay();
@@ -7177,15 +7148,7 @@
         // 移除收費項目
         function removeBillingItem(index) {
             if (index >= 0 && index < selectedBillingItems.length) {
-                const removedItem = selectedBillingItems[index];
-                // 如果是套票使用，移除時需要退回剩餘次數
-                if (removedItem.category === 'packageUse') {
-                    // 直接調用取消函式，它會自動從陣列移除並處理次數
-                    undoPackageUse(removedItem.patientId, removedItem.packageRecordId, removedItem.id);
-                    return;
-                }
-                // 否則，單純移除
-                selectedBillingItems.splice(index, 1);
+                const removedItem = selectedBillingItems.splice(index, 1)[0];
                 updateBillingDisplay();
                 // showToast(`已移除：${removedItem.name}`, 'info');
             }
@@ -8604,7 +8567,6 @@
                 return;
             }
             const usedName = `${res.record.name}（使用套票）`;
-            // 在推入套票使用紀錄時，額外存入 patientId 與 packageRecordId，方便後續取消
             selectedBillingItems.push({
                 id: `use-${res.record.id}-${Date.now()}`,
                 name: usedName,
@@ -8612,36 +8574,11 @@
                 price: 0,
                 unit: '次',
                 description: '套票抵扣一次',
-                quantity: 1,
-                patientId: patientId,
-                packageRecordId: res.record.id
+                quantity: 1
             });
             updateBillingDisplay();
             refreshPatientPackagesUI();
             showToast(`已使用套票：${res.record.name}，剩餘 ${res.record.remainingUses} 次`, 'success');
-        }
-
-        // 取消一次套票使用：退回剩餘次數並移除該筆使用紀錄
-        function undoPackageUse(patientId, packageRecordId, usageItemId) {
-            // 讀取所有病人套票紀錄
-            const all = getPatientPackagesStore();
-            // 找到對應套票索引
-            const idx = all.findIndex(p => p.id === packageRecordId && p.patientId === patientId);
-            if (idx === -1) {
-                showToast('找不到對應的套票，無法取消', 'warning');
-                return;
-            }
-            // 增加剩餘次數
-            all[idx].remainingUses += 1;
-            setPatientPackagesStore(all);
-            // 移除該筆 $0 使用紀錄
-            selectedBillingItems = selectedBillingItems.filter(it => it.id !== usageItemId);
-            // 更新顯示
-            updateBillingDisplay();
-            if (typeof refreshPatientPackagesUI === 'function') {
-                refreshPatientPackagesUI();
-            }
-            showToast('已取消本次套票使用，次數已退回', 'success');
         }
 
 // 初始化系統
