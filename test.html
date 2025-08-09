@@ -61,35 +61,64 @@
             line-height: 1.4;
         }
     </style>
-    <!-- Firebase App (compat) & Services -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+
+    <!-- Firebase 初始化腳本 -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script>
-        // Initialize Firebase with your configuration. Replace the following configuration object with your own Firebase project's settings.
+        // TODO: 將以下配置替換為您的 Firebase 專案設定
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_AUTH_DOMAIN",
             projectId: "YOUR_PROJECT_ID",
+            databaseURL: "YOUR_DATABASE_URL",
             storageBucket: "YOUR_STORAGE_BUCKET",
             messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID",
-            databaseURL: "YOUR_DATABASE_URL"
+            appId: "YOUR_APP_ID"
         };
-        firebase.initializeApp(firebaseConfig);
-        // Expose Firestore and Realtime Database globally
+
+        // 初始化 Firebase
+        if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
         window.firestoreDB = firebase.firestore();
         window.realtimeDB = firebase.database();
-        // 清除現有的本地儲存並禁用 localStorage，將資料完全改為線上儲存
+
+        // 清空並禁用本地儲存
         try {
             localStorage.clear();
-            // 禁用 localStorage 的方法，避免後續寫入本地端
-            localStorage.setItem = function() {};
-            localStorage.getItem = function() { return null; };
-            localStorage.removeItem = function() {};
+            localStorage.setItem = function () {};
+            localStorage.getItem = function () { return null; };
+            localStorage.removeItem = function () {};
+            localStorage.clear = function () {};
         } catch (e) {
-            console.warn('localStorage 無法操作：', e);
+            console.warn('Unable to override localStorage:', e);
         }
+
+        // Firebase 連線狀態監聽
+        document.addEventListener('DOMContentLoaded', function () {
+            if (window.realtimeDB) {
+                const connectedRef = window.realtimeDB.ref('.info/connected');
+                connectedRef.on('value', function (snap) {
+                    const indicator = document.getElementById('firebaseStatus');
+                    if (!indicator) return;
+                    if (snap.val() === true) {
+                        // 已連線
+                        indicator.classList.remove('bg-gray-400', 'bg-red-500');
+                        if (!indicator.classList.contains('bg-green-500')) {
+                            indicator.classList.add('bg-green-500');
+                        }
+                    } else {
+                        // 未連線或離線
+                        indicator.classList.remove('bg-gray-400', 'bg-green-500');
+                        if (!indicator.classList.contains('bg-red-500')) {
+                            indicator.classList.add('bg-red-500');
+                        }
+                    }
+                });
+            }
+        });
     </script>
 </head>
 <body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
@@ -199,6 +228,8 @@
                         <div>
                             <h1 id="systemTitle" class="text-xl font-bold text-gray-800">12334</h1>
                             <p id="systemEnglishTitle" class="text-xs text-gray-500">12334 Clinic</p>
+                            <!-- Firebase connection status indicator -->
+                            <span id="firebaseStatus" class="ml-2 w-2 h-2 rounded-full inline-block bg-gray-400" title="Firebase connection status"></span>
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -8772,5 +8803,6 @@
         });
     </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96abf25724ae0514',t:'MTc1NDQ1NjE3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96c38f22ee47ddc3","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96c8fe28c9851f05","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>
