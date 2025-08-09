@@ -7156,7 +7156,14 @@
         // 更新收費項目數量
         function updateBillingQuantity(index, change) {
             if (index >= 0 && index < selectedBillingItems.length) {
-                const newQuantity = selectedBillingItems[index].quantity + change;
+                const item = selectedBillingItems[index];
+                // 如果是套票使用，且 change < 0，直接取消使用並退回次數
+                if (change < 0 && item.category === 'packageUse') {
+                    // 調用取消函式，這會自動移除該筆記錄並退回次數
+                    undoPackageUse(item.patientId, item.packageRecordId, item.id);
+                    return;
+                }
+                const newQuantity = item.quantity + change;
                 if (newQuantity > 0) {
                     selectedBillingItems[index].quantity = newQuantity;
                     updateBillingDisplay();
@@ -7170,7 +7177,15 @@
         // 移除收費項目
         function removeBillingItem(index) {
             if (index >= 0 && index < selectedBillingItems.length) {
-                const removedItem = selectedBillingItems.splice(index, 1)[0];
+                const removedItem = selectedBillingItems[index];
+                // 如果是套票使用，移除時需要退回剩餘次數
+                if (removedItem.category === 'packageUse') {
+                    // 直接調用取消函式，它會自動從陣列移除並處理次數
+                    undoPackageUse(removedItem.patientId, removedItem.packageRecordId, removedItem.id);
+                    return;
+                }
+                // 否則，單純移除
+                selectedBillingItems.splice(index, 1);
                 updateBillingDisplay();
                 // showToast(`已移除：${removedItem.name}`, 'info');
             }
