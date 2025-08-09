@@ -1935,6 +1935,19 @@
             });
         }
 
+        // 從 Firestore 載入使用者資料
+        function loadUsersFromFirestore() {
+            if (typeof db !== 'undefined') {
+                db.collection('users').onSnapshot((snapshot) => {
+                    users = [];
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        users.push(Object.assign({ id: doc.id }, data));
+                    });
+                });
+            }
+        }
+
         // 預設中藥材資料
         const defaultHerbs = [
             {
@@ -2398,49 +2411,44 @@
         const defaultUsers = [
             {
                 id: 1,
-                username: 'manager',
-                password: 'manager2024',
-                name: '陳經理',
-                position: '診所管理',
-                email: 'manager@tcmclinic.com',
-                phone: '02-8888-1001',
+                username: 'admin',
+                password: 'admin2024',
+                name: '診所管理員',
+                position: '管理員',
+                email: 'admin@clinic.com',
+                phone: '',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString(),
                 lastLogin: null
             },
             {
                 id: 2,
-                username: 'drzhang',
-                password: 'zhang888',
-                name: '張中醫師',
+                username: 'doctor',
+                password: 'doctor2024',
+                name: '醫師',
                 position: '醫師',
-                registrationNumber: 'CM001234',
-                email: 'drzhang@tcmclinic.com',
-                phone: '02-8888-1002',
+                email: 'doctor@clinic.com',
+                phone: '',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString(),
                 lastLogin: null
             },
             {
                 id: 3,
-                username: 'nurse_amy',
-                password: 'amy2024',
-                name: '林護理師',
-                position: '護理師',
-                email: 'amy@tcmclinic.com',
-                phone: '02-8888-1003',
+                username: 'assistant',
+                password: 'assistant2024',
+                name: '診所助理',
+                position: '診所助理',
+                email: 'assistant@clinic.com',
+                phone: '',
                 active: true,
                 createdAt: new Date('2024-01-01').toISOString(),
                 lastLogin: null
             }
         ];
 
-        // 初始化用戶資料
-        let users = JSON.parse(localStorage.getItem('users') || '[]');
-        if (users.length === 0) {
-            users = defaultUsers;
-            localStorage.setItem('users', JSON.stringify(users));
-        }
+        // 初始化用戶資料（將從 Firestore 載入）
+        let users = [];
 
         // 所有用戶都有完整權限
         const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'financialReports', 'userManagement', 'systemManagement'];
@@ -2455,8 +2463,9 @@
                 return;
             }
             
-            // 尋找匹配的用戶
-            const user = users.find(u => 
+            // 尋找匹配的用戶，若尚未載入 Firestore 的 users，則使用 defaultUsers 作為備用
+            const userList = (Array.isArray(users) && users.length > 0) ? users : defaultUsers;
+            const user = userList.find(u => 
                 u.username === username && 
                 u.password === password && 
                 u.active
@@ -3006,6 +3015,9 @@ async function deletePatient(id) {
             if (typeof loadPatientsFromFirestore === 'function') loadPatientsFromFirestore();
             if (typeof loadConsultationsFromFirestore === 'function') loadConsultationsFromFirestore();
             if (typeof loadAppointmentsFromFirestore === 'function') loadAppointmentsFromFirestore();
+            if (typeof loadUsersFromFirestore === 'function') loadUsersFromFirestore();
+            // 建立預設 Firebase 帳號並寫入 Firestore
+            if (typeof ensureDefaultFirebaseAccounts === 'function') ensureDefaultFirebaseAccounts();
         });
 
         // 診症系統功能
@@ -8830,6 +8842,45 @@ async function saveConsultation() {
             }
             showToast('已取消本次套票使用，次數已退回', 'success');
         }
+        // 確保預設帳號存在於 Firebase Authentication 中
+        async function ensureDefaultFirebaseAccounts() {
+            if (typeof auth !== 'undefined') {
+                try {
+                    const defaults = (typeof defaultUsers !== 'undefined') ? defaultUsers : [];
+                    for (const u of defaults) {
+                        if (u.email && u.password) {
+                            try {
+                                await auth.createUserWithEmailAndPassword(u.email, u.password);
+                            } catch (e) {
+                                if (e.code !== 'auth/email-already-in-use') {
+                                    console.warn('Firebase 建立預設帳號失敗：', u.email, e);
+                                }
+                            }
+                        }
+                        // 將預設用戶資料寫入 Firestore，使用 username 為 doc ID
+                        if (typeof db !== 'undefined' && u.username) {
+                            try {
+                                await db.collection('users').doc(u.username).set({
+                                    username: u.username,
+                                    name: u.name || '',
+                                    position: u.position || '',
+                                    email: u.email || '',
+                                    active: u.active !== false,
+                                    password: u.password || '',
+                                    createdAt: u.createdAt || new Date().toISOString(),
+                                    lastLogin: null
+                                }, { merge: true });
+                            } catch (fireErr) {
+                                console.warn('寫入預設用戶至 Firestore 失敗：', u.username, fireErr);
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn('確保預設帳號存在時發生錯誤：', err);
+                }
+            }
+        }
+
 
         // 病人詳細資料套票分頁顯示的變數與函式
         let currentPatientPackages = [];
