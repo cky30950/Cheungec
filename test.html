@@ -61,42 +61,72 @@
             line-height: 1.4;
         }
     </style>
-
-    <!-- Firebase 初始化腳本 -->
+    <!-- Firebase 初始化與連線狀態腳本 -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script>
-        // TODO: 將以下配置替換為您的 Firebase 專案設定
+        // 使用者提供的 Firebase 專案設定
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID",
-            databaseURL: "YOUR_DATABASE_URL",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
+            apiKey: "AIzaSyBx6RQt7wA2DDnxkQiIfh8ubzpzKYfXWGg",
+            authDomain: "clinic-bb064.firebaseapp.com",
+            databaseURL: "https://clinic-bb064-default-rtdb.firebaseio.com",
+            projectId: "clinic-bb064",
+            storageBucket: "clinic-bb064.firebasestorage.app",
+            messagingSenderId: "387800418575",
+            appId: "1:387800418575:web:4dc6baafbedf640ac1567a",
+            measurementId: "G-1KW4XQX10N"
         };
-
-        // 初始化 Firebase
+        // 初始化 Firebase（避免重複初始化）
         if (typeof firebase !== 'undefined' && !firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
         window.firestoreDB = firebase.firestore();
         window.realtimeDB = firebase.database();
-
-        // 清空並禁用本地儲存
-        try {
-            localStorage.clear();
-            localStorage.setItem = function () {};
-            localStorage.getItem = function () { return null; };
-            localStorage.removeItem = function () {};
-            localStorage.clear = function () {};
-        } catch (e) {
-            console.warn('Unable to override localStorage:', e);
-        }
-
-        // Firebase 連線狀態監聽
+        // 將 localStorage 操作改寫為使用 Firestore 儲存，實現完全線上化
+        window.localDataCache = {};
+        const keysToLoad = [
+            'clinicSettings',
+            'patients',
+            'consultations',
+            'appointments',
+            'herbLibrary',
+            'billingItems',
+            'users',
+            'patientPackages',
+            'clinicBackup'
+        ];
+        keysToLoad.forEach(function (key) {
+            firestoreDB.collection('localData').doc(key).get().then(function (doc) {
+                if (doc.exists) {
+                    window.localDataCache[key] = doc.data().value;
+                } else {
+                    window.localDataCache[key] = null;
+                }
+            });
+        });
+        localStorage.getItem = function (key) {
+            return window.localDataCache.hasOwnProperty(key) ? window.localDataCache[key] : null;
+        };
+        localStorage.setItem = function (key, value) {
+            window.localDataCache[key] = value;
+            return firestoreDB.collection('localData').doc(key).set({ value: value });
+        };
+        localStorage.removeItem = function (key) {
+            delete window.localDataCache[key];
+            return firestoreDB.collection('localData').doc(key).delete();
+        };
+        localStorage.clear = function () {
+            window.localDataCache = {};
+            return firestoreDB.collection('localData').get().then(function (querySnapshot) {
+                const batch = firestoreDB.batch();
+                querySnapshot.forEach(function (doc) {
+                    batch.delete(doc.ref);
+                });
+                return batch.commit();
+            });
+        };
+        // Firebase 連線狀態監聽，更新狀態燈顏色
         document.addEventListener('DOMContentLoaded', function () {
             if (window.realtimeDB) {
                 const connectedRef = window.realtimeDB.ref('.info/connected');
@@ -104,13 +134,11 @@
                     const indicator = document.getElementById('firebaseStatus');
                     if (!indicator) return;
                     if (snap.val() === true) {
-                        // 已連線
                         indicator.classList.remove('bg-gray-400', 'bg-red-500');
                         if (!indicator.classList.contains('bg-green-500')) {
                             indicator.classList.add('bg-green-500');
                         }
                     } else {
-                        // 未連線或離線
                         indicator.classList.remove('bg-gray-400', 'bg-green-500');
                         if (!indicator.classList.contains('bg-red-500')) {
                             indicator.classList.add('bg-red-500');
@@ -8803,6 +8831,6 @@
         });
     </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96abf25724ae0514',t:'MTc1NDQ1NjE3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96c38f22ee47ddc3","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96c8fe28c9851f05","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96c90d05da9f0464","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>
