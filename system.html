@@ -68,8 +68,8 @@
         <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
             <div class="text-center mb-8">
                 <div class="text-4xl mb-4">🏥</div>
-                <h1 id="loginTitle" class="text-2xl font-bold text-gray-800 mb-2">中醫診所系統</h1>
-                <p id="loginEnglishTitle" class="text-sm text-gray-500 mb-3">中醫診所系統 Clinic</p>
+                <h1 id="loginTitle" class="text-2xl font-bold text-gray-800 mb-2">12334</h1>
+                <p id="loginEnglishTitle" class="text-sm text-gray-500 mb-3">12334 Clinic</p>
                 <p class="text-gray-600">請輸入您的帳號密碼登入</p>
             </div>
             
@@ -167,8 +167,8 @@
                         </button>
                         <span class="text-2xl mr-3">🏥</span>
                         <div>
-                            <h1 id="systemTitle" class="text-xl font-bold text-gray-800">中醫診所系統</h1>
-                            <p id="systemEnglishTitle" class="text-xs text-gray-500">TCM Clinic</p>
+                            <h1 id="systemTitle" class="text-xl font-bold text-gray-800">12334</h1>
+                            <p id="systemEnglishTitle" class="text-xs text-gray-500">12334 Clinic</p>
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -186,8 +186,8 @@
             <!-- 歡迎頁面 -->
             <div id="welcomePage" class="text-center py-16">
                 <div class="text-6xl mb-6">🏥</div>
-                <h2 id="welcomeTitle" class="text-3xl font-bold text-gray-800 mb-2">歡迎使用中醫診所系統</h2>
-                <p id="welcomeEnglishTitle" class="text-lg text-gray-500 mb-4">Welcome to TCM Clinic</p>
+                <h2 id="welcomeTitle" class="text-3xl font-bold text-gray-800 mb-2">歡迎使用12334</h2>
+                <p id="welcomeEnglishTitle" class="text-lg text-gray-500 mb-4">Welcome to 12334 Clinic</p>
                 <p class="text-gray-600 text-lg mb-8">請點擊左上角選單按鈕開始使用系統功能</p>
                 <div class="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto">
                     <h3 class="text-xl font-semibold mb-4">系統功能概覽</h3>
@@ -721,6 +721,19 @@
                                     
                                     <!-- 隱藏的文本域用於存儲收費項目 -->
                                     <textarea id="formBillingItems" class="hidden"></textarea>
+
+                                    <!-- 病人套票管理 -->
+                                    <div class="mt-4 border border-purple-200 rounded-lg p-3 bg-purple-50">
+                                      <div class="flex items-center justify-between mb-2">
+                                        <div class="text-sm font-semibold text-purple-800">🎫 病人套票</div>
+                                        <button type="button" onclick="refreshPatientPackagesUI()"
+                                                class="text-xs px-2 py-1 bg-purple-600 text-white rounded">刷新</button>
+                                      </div>
+                                      <div id="patientPackagesList" class="space-y-2 text-sm text-gray-700">
+                                        <!-- 動態載入 -->
+                                        <div class="text-gray-500">尚未載入或無套票</div>
+                                      </div>
+                                    </div>
                                 </div>
                                 
                                 <div>
@@ -1015,6 +1028,23 @@
                                         <option value="package">套票項目</option>
                                     </select>
                                 </div>
+                                <!-- 套票專用欄位：當類別選擇 package 時顯示 -->
+                                <div id="packageFields" class="md:col-span-2 hidden">
+                                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                      <label class="block text-sm font-medium text-gray-700 mb-1">套票可用次數 *</label>
+                                      <input type="number" id="billingItemPackageUses" placeholder="例如：10" min="1"
+                                             class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    </div>
+                                    <div>
+                                      <label class="block text-sm font-medium text-gray-700 mb-1">有效天數 *</label>
+                                      <input type="number" id="billingItemValidityDays" placeholder="例如：180（半年）" min="1"
+                                             class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                      <p class="text-xs text-gray-500 mt-1">自購買日起算</p>
+                                    </div>
+                                  </div>
+                                </div>
+
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">收費金額 *</label>
                                     <input type="number" id="billingItemPrice" placeholder="0" step="1" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
@@ -1454,8 +1484,8 @@
                         <div class="space-y-3">
                             <div class="text-center py-4" id="clinicSettingsDisplay">
                                 <div class="text-sm text-gray-700 mb-3">
-                                    <div class="font-medium">診所中文名稱：<span id="displayChineseName">中醫診所系統</span></div>
-                                    <div class="text-gray-600 mt-1">診所英文名稱：<span id="displayEnglishName">TCM Clinic</span></div>
+                                    <div class="font-medium">診所中文名稱：<span id="displayChineseName">12334</span></div>
+                                    <div class="text-gray-600 mt-1">診所英文名稱：<span id="displayEnglishName">12334 Clinic</span></div>
                                 </div>
                                 <button onclick="showClinicSettingsModal()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-200">
                                     診所資料修改
@@ -1539,8 +1569,8 @@
         // 診所設定
         let clinicSettings = JSON.parse(localStorage.getItem('clinicSettings') || '{}');
         if (!clinicSettings.chineseName) {
-            clinicSettings.chineseName = '中醫診所系統';
-            clinicSettings.englishName = 'TCM Clinic';
+            clinicSettings.chineseName = '12334';
+            clinicSettings.englishName = '12334 Clinic';
             clinicSettings.businessHours = '週一至週五 09:00-18:00';
             clinicSettings.phone = '(852) 2345-6789';
             clinicSettings.address = '香港中環皇后大道中123號';
@@ -2751,6 +2781,18 @@
             const lastConsultation = patientConsultations.length > 0 ? 
                 patientConsultations.sort((a, b) => new Date(b.date) - new Date(a.date))[0] : null;
 
+            // 取得該病人的所有套票紀錄，用於在病人詳細資料顯示套票情況
+            const patientPkgs = getPatientPackages(id);
+            let packagesHtml = '';
+            if (patientPkgs && patientPkgs.length > 0) {
+                // 建立套票區塊，實際內容透過分頁函式渲染
+                packagesHtml += '<div class="mt-6 pt-6 border-t border-gray-200">';
+                packagesHtml += '<h4 class="text-lg font-semibold text-gray-800 mb-2">套票情況</h4>';
+                // 容器將由 renderPatientPackagesDetailPage() 生成實際列表
+                packagesHtml += '<div id="patientPackagesDetailList" class="space-y-2"></div>';
+                packagesHtml += '</div>';
+            }
+
             const content = `
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="space-y-4">
@@ -2820,10 +2862,20 @@
                         </div>
                     `}
                 </div>
+                ${packagesHtml}
             `;
 
             document.getElementById('patientDetailContent').innerHTML = content;
             document.getElementById('patientDetailModal').classList.remove('hidden');
+            // 套票分頁初始化：若病人有套票紀錄，設定全域分頁資料並渲染第一頁
+            if (patientPkgs && patientPkgs.length > 0) {
+                currentPatientPackages = patientPkgs;
+                currentPatientPackagePage = 0;
+                const pkgContainer = document.getElementById('patientPackagesDetailList');
+                if (pkgContainer) {
+                    pkgContainer.innerHTML = renderPatientPackagesDetailPage();
+                }
+            }
         }
 
         function closePatientDetail() {
@@ -2836,6 +2888,15 @@
 
         // 搜尋功能
         document.addEventListener('DOMContentLoaded', function() {
+            // 套票欄位切換
+            const categorySelect = document.getElementById('billingItemCategory');
+            if (categorySelect) {
+                categorySelect.addEventListener('change', function () {
+                    const isPackage = this.value === 'package';
+                    const pf = document.getElementById('packageFields');
+                    if (pf) pf.classList.toggle('hidden', !isPackage);
+                });
+            }
             const searchInput = document.getElementById('searchPatient');
             if (searchInput) {
                 searchInput.addEventListener('input', function() {
@@ -3503,6 +3564,7 @@
             // 設置病人資訊
             document.getElementById('formPatientName').textContent = `${patient.name} (${patient.patientNumber})`;
             document.getElementById('formAppointmentTime').textContent = new Date(appointment.appointmentTime).toLocaleString('zh-TW');
+            renderPatientPackages(patient.id);
             
             // 檢查是否為編輯模式
             if (appointment.status === 'completed' && appointment.consultationId) {
@@ -3756,6 +3818,40 @@
             }
             
             const patient = patients.find(p => p.id === appointment.patientId);
+            // 處理購買套票：將購買的套票轉為病人套票
+            (function handlePackagesBeforeSave(){
+                const packagePurchases = selectedBillingItems.filter(it => it.category === 'package');
+                packagePurchases.forEach(it => {
+                    if (typeof it.packageUses === 'undefined' || typeof it.validityDays === 'undefined') {
+                        console.warn('套票缺少 packageUses / validityDays');
+                        return;
+                    }
+                    const record = purchasePackage(patient.id, it);
+                    // 購買套票後詢問是否立即使用一次
+                    const wantUseNow = confirm(`本次購買「${it.name}」，是否立即使用一次？`);
+                    if (wantUseNow) {
+                        const resUse = consumePackage(patient.id, record.id);
+                        if (resUse.ok) {
+                            const usedName = `${record.name}（使用套票）`;
+                            selectedBillingItems.push({
+                                id: `use-${record.id}-${Date.now()}`,
+                                name: usedName,
+                                category: 'packageUse',
+                                price: 0,
+                                unit: '次',
+                                description: '套票抵扣一次',
+                                quantity: 1,
+                                patientId: patient.id,
+                                packageRecordId: record.id
+                            });
+                            updateBillingDisplay();
+                            showToast(`已立即使用一次：${record.name}，剩餘 ${resUse.record.remainingUses} 次`, 'success');
+                        } else {
+                            showToast(resUse.msg || '無法立即使用', 'warning');
+                        }
+                    }
+                });
+            })();
             
             // 檢查是否為修改病歷模式
             if (appointment.status === 'completed' && appointment.consultationId) {
@@ -4625,8 +4721,8 @@
                     <div class="receipt-container">
                         <!-- 診所標題 -->
                         <div class="clinic-header">
-                            <div class="clinic-name">${clinicSettings.chineseName || '中醫診所系統'}</div>
-                            <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
+                            <div class="clinic-name">${clinicSettings.chineseName || '12334'}</div>
+                            <div class="clinic-subtitle">${clinicSettings.englishName || '12334 Clinic'}</div>
                             <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                         </div>
                         
@@ -5028,8 +5124,8 @@
                         <div class="content">
                             <!-- 診所標題 -->
                             <div class="clinic-header">
-                                <div class="clinic-name">${clinicSettings.chineseName || '中醫診所系統'}</div>
-                                <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
+                                <div class="clinic-name">${clinicSettings.chineseName || '1233455'}</div>
+                                <div class="clinic-subtitle">${clinicSettings.englishName || '1233455 Clinic'}</div>
                                 <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                             </div>
                             
@@ -5347,8 +5443,8 @@
                         <div class="content">
                             <!-- 診所標題 -->
                             <div class="clinic-header">
-                                <div class="clinic-name">${clinicSettings.chineseName || '中醫診所系統'}</div>
-                                <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
+                                <div class="clinic-name">${clinicSettings.chineseName || '1233455'}</div>
+                                <div class="clinic-subtitle">${clinicSettings.englishName || '1233455 Clinic'}</div>
                                 <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                             </div>
                             
@@ -5782,40 +5878,40 @@
             const englishNameSpan = document.getElementById('displayEnglishName');
             
             if (chineseNameSpan) {
-                chineseNameSpan.textContent = clinicSettings.chineseName || '中醫診所系統';
+                chineseNameSpan.textContent = clinicSettings.chineseName || '1233455';
             }
             if (englishNameSpan) {
-                englishNameSpan.textContent = clinicSettings.englishName || 'TCM Clinic';
+                englishNameSpan.textContent = clinicSettings.englishName || '1233455 Clinic';
             }
             
             // 更新登入頁面的診所名稱
             const loginTitle = document.getElementById('loginTitle');
             const loginEnglishTitle = document.getElementById('loginEnglishTitle');
             if (loginTitle) {
-                loginTitle.textContent = clinicSettings.chineseName || '中醫診所系統';
+                loginTitle.textContent = clinicSettings.chineseName || '1233455';
             }
             if (loginEnglishTitle) {
-                loginEnglishTitle.textContent = clinicSettings.englishName || 'TCM Clinic';
+                loginEnglishTitle.textContent = clinicSettings.englishName || '1233455 Clinic';
             }
             
             // 更新主頁面的診所名稱
             const systemTitle = document.getElementById('systemTitle');
             const systemEnglishTitle = document.getElementById('systemEnglishTitle');
             if (systemTitle) {
-                systemTitle.textContent = clinicSettings.chineseName || '中醫診所系統';
+                systemTitle.textContent = clinicSettings.chineseName || '1233455';
             }
             if (systemEnglishTitle) {
-                systemEnglishTitle.textContent = clinicSettings.englishName || 'TCM Clinic';
+                systemEnglishTitle.textContent = clinicSettings.englishName || '1233455 Clinic';
             }
             
             // 更新歡迎頁面的診所名稱
             const welcomeTitle = document.getElementById('welcomeTitle');
             const welcomeEnglishTitle = document.getElementById('welcomeEnglishTitle');
             if (welcomeTitle) {
-                welcomeTitle.textContent = `歡迎使用${clinicSettings.chineseName || '中醫診所系統'}`;
+                welcomeTitle.textContent = `歡迎使用${clinicSettings.chineseName || '1233455'}`;
             }
             if (welcomeEnglishTitle) {
-                welcomeEnglishTitle.textContent = `Welcome to ${clinicSettings.englishName || 'TCM Clinic'}`;
+                welcomeEnglishTitle.textContent = `Welcome to ${clinicSettings.englishName || '1233455 Clinic'}`;
             }
         }
 
@@ -6299,6 +6395,9 @@
         }
         
         function clearBillingItemForm() {
+            document.getElementById('billingItemPackageUses').value = '';
+            document.getElementById('billingItemValidityDays').value = '';
+            var pf = document.getElementById('packageFields'); if (pf) pf.classList.add('hidden');
             document.getElementById('billingItemName').value = '';
             document.getElementById('billingItemCategory').value = '';
             document.getElementById('billingItemPrice').value = '';
@@ -6321,6 +6420,12 @@
             document.getElementById('billingItemUnit').value = item.unit || '';
             document.getElementById('billingItemDescription').value = item.description || '';
             document.getElementById('billingItemActive').checked = item.active !== false;
+            document.getElementById('billingItemPackageUses').value = item.packageUses || '';
+            document.getElementById('billingItemValidityDays').value = item.validityDays || '';
+            {
+                const pf = document.getElementById('packageFields');
+                if (pf) pf.classList.toggle('hidden', item.category !== 'package');
+            }
             
             document.getElementById('addBillingItemModal').classList.remove('hidden');
         }
@@ -6328,7 +6433,22 @@
         function saveBillingItem() {
             const name = document.getElementById('billingItemName').value.trim();
             const category = document.getElementById('billingItemCategory').value;
-            const price = parseFloat(document.getElementById('billingItemPrice').value);
+            let price = parseFloat(document.getElementById('billingItemPrice').value);
+
+            let packageUses = null;
+            let validityDays = null;
+            if (category === 'package') {
+                packageUses = parseInt(document.getElementById('billingItemPackageUses').value);
+                validityDays = parseInt(document.getElementById('billingItemValidityDays').value);
+                if (!packageUses || packageUses <= 0) {
+                    showToast('請輸入套票可用次數！', 'error');
+                    return;
+                }
+                if (!validityDays || validityDays <= 0) {
+                    showToast('請輸入有效天數！', 'error');
+                    return;
+                }
+            }
             
             if (!name) {
                 showToast('請輸入收費項目名稱！', 'error');
@@ -6368,6 +6488,8 @@
                 price: price,
                 unit: document.getElementById('billingItemUnit').value.trim(),
                 description: document.getElementById('billingItemDescription').value.trim(),
+                packageUses: packageUses,
+                validityDays: validityDays,
                 active: document.getElementById('billingItemActive').checked,
                 createdAt: editingBillingItemId ? billingItems.find(b => b.id === editingBillingItemId).createdAt : new Date().toISOString(),
                 updatedAt: new Date().toISOString()
@@ -6853,6 +6975,8 @@
                     price: item.price,
                     unit: item.unit,
                     description: item.description,
+                    packageUses: item.packageUses,
+                    validityDays: item.validityDays,
                     quantity: 1
                 };
                 selectedBillingItems.push(billingItem);
@@ -6942,6 +7066,24 @@
                         const bgColor = getCategoryBgColor(item.category);
                         let subtotal;
                         let subtotalDisplay;
+                        // 檢查是否為套票使用
+                        const isPackageUse = item.category === 'packageUse';
+                        // 取消按鈕：只有在套票使用時顯示
+                        const undoBtn = isPackageUse ? `
+                                    <button
+                                        type="button"
+                                        class="ml-2 text-xs px-2 py-0.5 rounded border border-purple-300 text-purple-700 hover:bg-purple-50"
+                                        onclick="undoPackageUse(${item.patientId}, ${item.packageRecordId}, '${item.id}')"
+                                    >取消使用</button>
+                                ` : '';
+                        // 數量控制區：套票使用項目不顯示加減號
+                        const quantityControls = isPackageUse ? '' : `
+                                <div class="flex items-center space-x-2 mr-3">
+                                    <button onclick="updateBillingQuantity(${originalIndex}, -1)" class="w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition duration-200">-</button>
+                                    <span class="w-8 text-center font-semibold">${item.quantity}</span>
+                                    <button onclick="updateBillingQuantity(${originalIndex}, 1)" class="w-6 h-6 bg-green-500 text-white rounded-full text-xs hover:bg-green-600 transition duration-200">+</button>
+                                </div>
+                        `;
                         
                         if (item.category === 'discount' && item.price > 0 && item.price < 1) {
                             // 百分比折扣：顯示折扣金額
@@ -6974,15 +7116,11 @@
                                         })()}${item.unit ? ` / ${item.unit}` : ''}
                                     </div>
                                 </div>
-                                <div class="flex items-center space-x-2 mr-3">
-                                    <button onclick="updateBillingQuantity(${originalIndex}, -1)" class="w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition duration-200">-</button>
-                                    <span class="w-8 text-center font-semibold">${item.quantity}</span>
-                                    <button onclick="updateBillingQuantity(${originalIndex}, 1)" class="w-6 h-6 bg-green-500 text-white rounded-full text-xs hover:bg-green-600 transition duration-200">+</button>
-                                </div>
+                                ${quantityControls}
                                 <div class="mr-3 text-right">
                                     <div class="font-bold ${subtotal < 0 ? 'text-red-600' : 'text-green-600'}">${subtotalDisplay}</div>
                                 </div>
-                                <button onclick="removeBillingItem(${originalIndex})" class="text-red-500 hover:text-red-700 font-bold text-lg px-2">×</button>
+                                ${undoBtn}<button onclick="removeBillingItem(${originalIndex})" class="text-red-500 hover:text-red-700 font-bold text-lg px-2">×</button>
                             </div>
                         `;
                     }).join('')}
@@ -7051,7 +7189,14 @@
         // 更新收費項目數量
         function updateBillingQuantity(index, change) {
             if (index >= 0 && index < selectedBillingItems.length) {
-                const newQuantity = selectedBillingItems[index].quantity + change;
+                const item = selectedBillingItems[index];
+                // 如果是套票使用，且 change < 0，直接取消使用並退回次數
+                if (change < 0 && item.category === 'packageUse') {
+                    // 調用取消函式，這會自動移除該筆記錄並退回次數
+                    undoPackageUse(item.patientId, item.packageRecordId, item.id);
+                    return;
+                }
+                const newQuantity = item.quantity + change;
                 if (newQuantity > 0) {
                     selectedBillingItems[index].quantity = newQuantity;
                     updateBillingDisplay();
@@ -7065,7 +7210,15 @@
         // 移除收費項目
         function removeBillingItem(index) {
             if (index >= 0 && index < selectedBillingItems.length) {
-                const removedItem = selectedBillingItems.splice(index, 1)[0];
+                const removedItem = selectedBillingItems[index];
+                // 如果是套票使用，移除時需要退回剩餘次數
+                if (removedItem.category === 'packageUse') {
+                    // 直接調用取消函式，它會自動從陣列移除並處理次數
+                    undoPackageUse(removedItem.patientId, removedItem.packageRecordId, removedItem.id);
+                    return;
+                }
+                // 否則，單純移除
+                selectedBillingItems.splice(index, 1);
                 updateBillingDisplay();
                 // showToast(`已移除：${removedItem.name}`, 'info');
             }
@@ -8387,7 +8540,191 @@
             showToast('財務報表已匯出！', 'success');
         }
 
-        // 初始化系統
+        
+        // 套票管理函式
+        function getPatientPackagesStore() {
+            return JSON.parse(localStorage.getItem('patientPackages') || '[]');
+        }
+        function setPatientPackagesStore(list) {
+            localStorage.setItem('patientPackages', JSON.stringify(list));
+        }
+        function getPatientPackages(patientId) {
+            const all = getPatientPackagesStore();
+            return all.filter(p => p.patientId === patientId);
+        }
+        function purchasePackage(patientId, item) {
+            const totalUses = Number(item.packageUses || item.totalUses || 0);
+            const validityDays = Number(item.validityDays || 0);
+            const purchasedAt = new Date();
+            const expiresAt = new Date(purchasedAt);
+            expiresAt.setDate(expiresAt.getDate() + validityDays);
+            const record = {
+                id: Date.now(),
+                patientId: patientId,
+                packageItemId: item.id,
+                name: item.name,
+                totalUses: totalUses,
+                remainingUses: totalUses,
+                purchasedAt: purchasedAt.toISOString(),
+                expiresAt: expiresAt.toISOString()
+            };
+            const all = getPatientPackagesStore();
+            all.push(record);
+            setPatientPackagesStore(all);
+            return record;
+        }
+        function consumePackage(patientId, packageRecordId) {
+            const all = getPatientPackagesStore();
+            const idx = all.findIndex(p => p.id === packageRecordId && p.patientId === patientId);
+            if (idx === -1) return { ok: false, msg: '找不到套票' };
+            const now = new Date();
+            const exp = new Date(all[idx].expiresAt);
+            if (now > exp) return { ok: false, msg: '套票已過期' };
+            if (all[idx].remainingUses <= 0) return { ok: false, msg: '套票已用完' };
+            all[idx].remainingUses -= 1;
+            setPatientPackagesStore(all);
+            return { ok: true, record: all[idx] };
+        }
+        function formatPackageStatus(pkg) {
+            const exp = new Date(pkg.expiresAt);
+            const now = new Date();
+            const daysLeft = Math.ceil((exp - now) / (1000*60*60*24));
+            const expired = daysLeft < 0;
+            return expired
+              ? `已到期（${exp.toLocaleDateString('zh-TW')}）`
+              : `剩餘 ${pkg.remainingUses}/${pkg.totalUses} 次 · ${exp.toLocaleDateString('zh-TW')} 到期（約 ${daysLeft} 天）`;
+        }
+        function renderPatientPackages(patientId) {
+            const container = document.getElementById('patientPackagesList');
+            if (!container) return;
+            // 僅顯示剩餘次數大於 0 的套票（已用完的套票不在診症記錄顯示）
+            const pkgs = getPatientPackages(patientId).filter(p => p.remainingUses > 0).sort((a,b)=> new Date(a.expiresAt)-new Date(b.expiresAt));
+            if (pkgs.length === 0) {
+                container.innerHTML = '<div class="text-gray-500">無已購買的套票</div>';
+                return;
+            }
+            container.innerHTML = pkgs.map(pkg => {
+                const exp = new Date(pkg.expiresAt);
+                const now = new Date();
+                const expired = now > exp;
+                const disabled = expired || pkg.remainingUses <= 0;
+                const badge =
+                  expired ? '<span class="ml-2 text-xs text-white px-2 py-0.5 rounded bg-red-500">已到期</span>' :
+                  (pkg.remainingUses <= 0 ? '<span class="ml-2 text-xs text-white px-2 py-0.5 rounded bg-gray-500">已用完</span>' : '');
+                return `
+      <div class="flex items-center justify-between bg-white border border-purple-200 rounded p-2">
+        <div>
+          <div class="font-medium text-purple-900">${pkg.name}${badge}</div>
+          <div class="text-xs text-gray-600">${formatPackageStatus(pkg)}</div>
+        </div>
+        <button type="button" ${disabled ? 'disabled' : ''} 
+          onclick="useOnePackage(${pkg.patientId}, ${pkg.id})"
+          class="px-3 py-1 rounded ${disabled ? 'bg-gray-300 text-gray-600' : 'bg-purple-600 text-white hover:bg-purple-700'}">
+          使用一次
+        </button>
+      </div>
+    `;
+            }).join('');
+        }
+        function refreshPatientPackagesUI() {
+            const appointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
+            if (!appointment) return;
+            renderPatientPackages(appointment.patientId);
+        }
+        function useOnePackage(patientId, packageRecordId) {
+            const res = consumePackage(patientId, packageRecordId);
+            if (!res.ok) {
+                showToast(res.msg || '套票不可用', 'warning');
+                return;
+            }
+            const usedName = `${res.record.name}（使用套票）`;
+            // 在推入套票使用紀錄時，額外存入 patientId 與 packageRecordId，方便後續取消
+            selectedBillingItems.push({
+                id: `use-${res.record.id}-${Date.now()}`,
+                name: usedName,
+                category: 'packageUse',
+                price: 0,
+                unit: '次',
+                description: '套票抵扣一次',
+                quantity: 1,
+                patientId: patientId,
+                packageRecordId: res.record.id
+            });
+            updateBillingDisplay();
+            refreshPatientPackagesUI();
+            showToast(`已使用套票：${res.record.name}，剩餘 ${res.record.remainingUses} 次`, 'success');
+        }
+
+        // 取消一次套票使用：退回剩餘次數並移除該筆使用紀錄
+        function undoPackageUse(patientId, packageRecordId, usageItemId) {
+            // 讀取所有病人套票紀錄
+            const all = getPatientPackagesStore();
+            // 找到對應套票索引
+            const idx = all.findIndex(p => p.id === packageRecordId && p.patientId === patientId);
+            if (idx === -1) {
+                showToast('找不到對應的套票，無法取消', 'warning');
+                return;
+            }
+            // 增加剩餘次數
+            all[idx].remainingUses += 1;
+            setPatientPackagesStore(all);
+            // 移除該筆 $0 使用紀錄
+            selectedBillingItems = selectedBillingItems.filter(it => it.id !== usageItemId);
+            // 更新顯示
+            updateBillingDisplay();
+            if (typeof refreshPatientPackagesUI === 'function') {
+                refreshPatientPackagesUI();
+            }
+            showToast('已取消本次套票使用，次數已退回', 'success');
+        }
+
+        // 病人詳細資料套票分頁顯示的變數與函式
+        let currentPatientPackages = [];
+        let currentPatientPackagePage = 0;
+        const PACKAGES_PER_PAGE = 5;
+        function renderPatientPackagesDetailPage() {
+            const start = currentPatientPackagePage * PACKAGES_PER_PAGE;
+            const end = start + PACKAGES_PER_PAGE;
+            const pkgs = currentPatientPackages.slice(start, end);
+            let html = '';
+            pkgs.forEach(function(pkg) {
+                const purchased = new Date(pkg.purchasedAt);
+                const exp = new Date(pkg.expiresAt);
+                const now = new Date();
+                const expired = now > exp;
+                const status = expired ? '<span class="text-red-600">已到期</span>' :
+                    (pkg.remainingUses <= 0 ? '<span class="text-gray-600">已用完</span>' :
+                        '<span class="text-green-600">剩餘 ' + pkg.remainingUses + '/' + pkg.totalUses + '</span>');
+                html += '<div class="flex justify-between items-start bg-purple-50 border border-purple-200 rounded p-2">';
+                html += '<div>';
+                html += '<div class="font-medium text-purple-900">' + pkg.name + '</div>';
+                html += '<div class="text-xs text-gray-600">購買日：' + purchased.toLocaleDateString("zh-TW") + ' · 到期日：' + exp.toLocaleDateString("zh-TW") + '</div>';
+                html += '<div class="text-xs text-gray-600">剩餘次數：' + pkg.remainingUses + '/' + pkg.totalUses + '</div>';
+                html += '</div>';
+                html += '<div class="mt-1">' + status + '</div>';
+                html += '</div>';
+            });
+            const totalPages = Math.ceil(currentPatientPackages.length / PACKAGES_PER_PAGE);
+            if (totalPages > 1) {
+                html += '<div class="flex justify-end space-x-2 mt-2">';
+                const prevDisabled = currentPatientPackagePage <= 0;
+                const nextDisabled = currentPatientPackagePage >= totalPages - 1;
+                html += '<button type="button" ' + (prevDisabled ? 'disabled' : '') + ' onclick="changePatientPackagePage(-1)" class="px-2 py-1 bg-gray-200 text-gray-700 rounded ' + (prevDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-300') + '">上一頁</button>';
+                html += '<button type="button" ' + (nextDisabled ? 'disabled' : '') + ' onclick="changePatientPackagePage(1)" class="px-2 py-1 bg-gray-200 text-gray-700 rounded ' + (nextDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-300') + '">下一頁</button>';
+                html += '</div>';
+            }
+            return html;
+        }
+        function changePatientPackagePage(delta) {
+            const totalPages = Math.ceil(currentPatientPackages.length / PACKAGES_PER_PAGE);
+            currentPatientPackagePage = Math.min(Math.max(currentPatientPackagePage + delta, 0), totalPages - 1);
+            const container = document.getElementById('patientPackagesDetailList');
+            if (container) {
+                container.innerHTML = renderPatientPackagesDetailPage();
+            }
+        }
+
+// 初始化系統
         document.addEventListener('DOMContentLoaded', function() {
             // 系統啟動時清空過期掛號
             clearOldAppointments();
@@ -8404,5 +8741,6 @@
             }
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96abf25724ae0514',t:'MTc1NDQ1NjE3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96abf25724ae0514',t:'MTc1NDQ1NjE3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96c38f22ee47ddc3","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+</body>
 </html>
