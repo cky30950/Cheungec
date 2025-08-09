@@ -3805,6 +3805,34 @@
                         return;
                     }
                     purchasePackage(patient.id, it);
+                    // （已有）建立病人套票
+const record = purchasePackage(patient.id, it);
+
+// 新增：詢問是否立即使用一次
+const wantUseNow = confirm(`本次購買「${it.name}」，是否立即使用一次？`);
+if (wantUseNow) {
+  const resUse = consumePackage(patient.id, record.id);
+  if (resUse.ok) {
+    const usedName = `${record.name}（使用套票）`;
+    selectedBillingItems.push({
+      id: `use-${record.id}-${Date.now()}`,
+      name: usedName,
+      category: 'packageUse',
+      price: 0,
+      unit: '次',
+      description: '套票抵扣一次',
+      quantity: 1,
+      // 這兩個欄位是為了之後可以取消
+      patientId: patient.id,
+      packageRecordId: record.id
+    });
+    updateBillingDisplay();
+    showToast(`已立即使用一次：${record.name}，剩餘 ${resUse.record.remainingUses} 次`, 'success');
+  } else {
+    showToast(resUse.msg || '無法立即使用', 'warning');
+  }
+}
+
                 });
             })();
             
@@ -6951,6 +6979,18 @@
             const container = document.getElementById('selectedBillingItems');
             const hiddenTextarea = document.getElementById('formBillingItems');
             const totalAmountSpan = document.getElementById('totalBillingAmount');
+            // 在每個項目的 HTML 內，針對「套票使用」加上取消鈕
+// 假設你的單筆項目 HTML 變數叫 rowHtml（或你直接在模板字串內加判斷）
+const isPackageUse = item.category === 'packageUse';
+const undoBtn = isPackageUse ? `
+  <button
+    type="button"
+    class="ml-2 text-xs px-2 py-0.5 rounded border border-purple-300 text-purple-700 hover:bg-purple-50"
+    onclick="undoPackageUse(${item.patientId}, ${item.packageRecordId}, '${item.id}')"
+  >
+    取消使用
+  </button>
+` : '';
             
             if (selectedBillingItems.length === 0) {
                 container.innerHTML = `
@@ -8563,19 +8603,46 @@
                 return;
             }
             const usedName = `${res.record.name}（使用套票）`;
-            selectedBillingItems.push({
-                id: `use-${res.record.id}-${Date.now()}`,
-                name: usedName,
-                category: 'packageUse',
-                price: 0,
-                unit: '次',
-                description: '套票抵扣一次',
-                quantity: 1
-            });
+selectedBillingItems.push({
+  id: `use-${res.record.id}-${Date.now()}`,
+  name: usedName,
+  category: 'packageUse',
+  price: 0,
+  unit: '次',
+  description: '套票抵扣一次',
+  quantity: 1,
+  // 新增：為了能取消（退回次數）
+  patientId: patientId,
+  packageRecordId: res.record.id
+});
+
             updateBillingDisplay();
             refreshPatientPackagesUI();
             showToast(`已使用套票：${res.record.name}，剩餘 ${res.record.remainingUses} 次`, 'success');
         }
+          // 取消一次套票使用：次數 +1，並把收費清單中的「使用紀錄」刪掉
+  function undoPackageUse(patientId, packageRecordId, usageItemId) {
+    // 1) 先把套票 +1
+    const all = getPatientPackagesStore();
+    const idx = all.findIndex(p => p.id === packageRecordId && p.patientId === patientId);
+    if (idx === -1) {
+      showToast('找不到對應的套票，無法取消', 'warning');
+      return;
+    }
+    all[idx].remainingUses += 1;
+    setPatientPackagesStore(all);
+
+    // 2) 把這筆 $0 的使用紀錄移除
+    const before = selectedBillingItems.length;
+    selectedBillingItems = selectedBillingItems.filter(it => it.id !== usageItemId);
+    const removed = before !== selectedBillingItems.length;
+
+    // 3) 更新畫面
+    updateBillingDisplay();
+    refreshPatientPackagesUI();
+
+    showToast(removed ? '已取消本次套票使用，次數已退回' : '已退回次數', 'success');
+  }
 
 // 初始化系統
         document.addEventListener('DOMContentLoaded', function() {
