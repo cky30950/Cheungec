@@ -121,16 +121,16 @@
                     <div class="text-sm font-medium text-blue-800 mb-3">示範帳號：</div>
                     <div class="text-xs text-blue-700 space-y-2">
                         <div class="flex justify-between items-center">
-                            <span>👨‍💼 陳經理診所管理</span>
-                            <span class="font-mono bg-white px-2 py-1 rounded">manager / manager2024</span>
+                            <span>👨‍💼 管理員</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">admin / admin2024</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span>👨‍⚕️ 張中醫師醫師</span>
-                            <span class="font-mono bg-white px-2 py-1 rounded">drzhang / zhang888</span>
+                            <span>👨‍⚕️ 醫師</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">doctor / doctor2024</span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span>👩‍💻 林護理師護理師</span>
-                            <span class="font-mono bg-white px-2 py-1 rounded">nurse_amy / amy2024</span>
+                            <span>👩‍💻 診所助理</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">assistant / assistant2024</span>
                         </div>
                     </div>
                 </div>
@@ -2500,7 +2500,16 @@
             const userIndex = users.findIndex(u => u.id === user.id);
             if (userIndex !== -1) {
                 users[userIndex].lastLogin = new Date().toISOString();
-                localStorage.setItem('users', JSON.stringify(users));
+                // 將最後登入時間寫入 Firestore（不再寫入 localStorage）
+                try {
+                    if (typeof db !== 'undefined') {
+                        db.collection('users').doc(users[userIndex].username).set({
+                            lastLogin: users[userIndex].lastLogin
+                        }, { merge: true });
+                    }
+                } catch (e) {
+                    console.warn('更新 Firestore 用戶最後登入時間失敗', e);
+                }
             }
 
             // 嘗試使用 Firebase 進行登入，如果該帳號已有對應的 Firebase 使用者
