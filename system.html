@@ -5,6 +5,54 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>中醫診所系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDK -->
+<script type="module">
+    // Import Firebase functions
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getDatabase, ref, set, get, child, push, update, remove, onValue, off } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+    // 您的 Firebase 配置（請替換成您的實際配置）
+const firebaseConfig = {
+  apiKey: "AIzaSyCx_BLIWVKZs0vJa5TwL6zoycJexY_5nXU",
+  authDomain: "system-1e90a.firebaseapp.com",
+  databaseURL: "https://system-1e90a-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "system-1e90a",
+  storageBucket: "system-1e90a.firebasestorage.app",
+  messagingSenderId: "80947900109",
+  appId: "1:80947900109:web:b6cd62bb2f1e07971a4384"
+};
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const rtdb = getDatabase(app);
+    const auth = getAuth(app);
+
+    // 讓其他腳本可以使用 Firebase
+    window.firebase = {
+        app, db, rtdb, auth,
+        collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit,
+        ref, set, get, child, push, update, remove, onValue, off,
+        signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged
+    };
+
+    // 連接狀態監控
+    window.firebaseConnected = false;
+    const connectedRef = ref(rtdb, '.info/connected');
+    onValue(connectedRef, (snapshot) => {
+        if (snapshot.val() === true) {
+            window.firebaseConnected = true;
+            console.log('Firebase 已連接');
+        } else {
+            window.firebaseConnected = false;
+            console.log('Firebase 連接中斷');
+        }
+    });
+
+    console.log('Firebase 初始化完成');
+</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; }
@@ -75,8 +123,8 @@
             
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">帳號</label>
-                    <input type="text" id="mainLoginUsername" placeholder="請輸入帳號" 
+                    <label class="block text-sm font-medium text-gray-700 mb-2">電子郵件</label>
+                    <input type="email" id="mainLoginUsername" placeholder="請輸入電子郵件" 
                            class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                            onkeypress="if(event.key==='Enter') document.getElementById('mainLoginPassword').focus()">
                 </div>
@@ -98,15 +146,15 @@
                     <div class="text-xs text-blue-700 space-y-2">
                         <div class="flex justify-between items-center">
                             <span>👨‍💼 陳經理診所管理</span>
-                            <span class="font-mono bg-white px-2 py-1 rounded">manager / manager2024</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">admin@clinic.com / admin123</span>
                         </div>
                         <div class="flex justify-between items-center">
                             <span>👨‍⚕️ 張中醫師醫師</span>
-                            <span class="font-mono bg-white px-2 py-1 rounded">drzhang / zhang888</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">doctor@clinic.com / doctor123</span>
                         </div>
                         <div class="flex justify-between items-center">
                             <span>👩‍💻 林護理師護理師</span>
-                            <span class="font-mono bg-white px-2 py-1 rounded">nurse_amy / amy2024</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded">nurse@clinic.com / nurse123</span>
                         </div>
                     </div>
                 </div>
@@ -2417,44 +2465,85 @@
         const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'financialReports', 'userManagement', 'systemManagement'];
 
         // 主要登入功能
-        function attemptMainLogin() {
-            const username = document.getElementById('mainLoginUsername').value.trim();
-            const password = document.getElementById('mainLoginPassword').value.trim();
-            
-            if (!username || !password) {
-                showToast('請輸入帳號和密碼！', 'error');
-                return;
-            }
-            
-            // 尋找匹配的用戶
-            const user = users.find(u => 
-                u.username === username && 
-                u.password === password && 
-                u.active
-            );
-            
-            if (!user) {
-                // 檢查是否帳號存在但密碼錯誤
-                const existingUser = users.find(u => u.username === username);
-                if (existingUser) {
-                    if (!existingUser.active) {
-                        showToast('此帳號已被停用，請聯繫管理員！', 'error');
-                    } else {
-                        showToast('密碼錯誤，請重新輸入！', 'error');
-                    }
-                } else {
-                    showToast('帳號不存在，請檢查輸入！', 'error');
-                }
-                
-                // 清空密碼欄位
-                document.getElementById('mainLoginPassword').value = '';
-                document.getElementById('mainLoginPassword').focus();
-                return;
-            }
-            
-            // 登入成功
-            performLogin(user);
+async function attemptMainLogin() {
+    const email = document.getElementById('mainLoginUsername').value.trim();
+    const password = document.getElementById('mainLoginPassword').value.trim();
+    
+    if (!email || !password) {
+        showToast('請輸入帳號和密碼！', 'error');
+        return;
+    }
+
+    // 顯示載入狀態
+    const loginButton = document.querySelector('button[onclick="attemptMainLogin()"]');
+    const originalText = loginButton.textContent;
+    loginButton.textContent = '登入中...';
+    loginButton.disabled = true;
+
+    try {
+        // 等待 Firebase 初始化
+        while (!window.firebase) {
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
+
+        // 使用 Firebase 登入
+        const userCredential = await window.firebase.signInWithEmailAndPassword(
+            window.firebase.auth, 
+            email, 
+            password
+        );
+
+        console.log('Firebase 登入成功:', userCredential.user.email);
+        
+        // 模擬用戶數據（暫時）
+        currentUser = userCredential.user.email;
+        currentUserData = {
+            email: userCredential.user.email,
+            name: getUserNameFromEmail(email),
+            position: getUserPositionFromEmail(email)
+        };
+
+        // 登入成功，切換到主系統
+        performLogin(currentUserData);
+        
+        showToast('登入成功！', 'success');
+
+    } catch (error) {
+        console.error('登入失敗:', error);
+        let errorMessage = '登入失敗';
+        
+        if (error.code === 'auth/user-not-found') {
+            errorMessage = '帳號不存在';
+        } else if (error.code === 'auth/wrong-password') {
+            errorMessage = '密碼錯誤';
+        } else if (error.code === 'auth/invalid-email') {
+            errorMessage = '電子郵件格式不正確';
+        }
+        
+        showToast(errorMessage, 'error');
+        document.getElementById('mainLoginPassword').value = '';
+    } finally {
+        // 恢復按鈕狀態
+        loginButton.textContent = originalText;
+        loginButton.disabled = false;
+    }
+}
+
+// 幫助函數：從 email 獲取姓名
+function getUserNameFromEmail(email) {
+    if (email === 'admin@clinic.com') return '系統管理員';
+    if (email === 'doctor@clinic.com') return '張中醫師';
+    if (email === 'nurse@clinic.com') return '林護理師';
+    return '用戶';
+}
+
+// 幫助函數：從 email 獲取職位
+function getUserPositionFromEmail(email) {
+    if (email === 'admin@clinic.com') return '診所管理';
+    if (email === 'doctor@clinic.com') return '醫師';
+    if (email === 'nurse@clinic.com') return '護理師';
+    return '用戶';
+}
         
         // 執行登入
         function performLogin(user) {
@@ -2496,15 +2585,35 @@
         }
 
         // 登出功能
-        function logout() {
-            currentUser = null;
-            currentUserData = null;
-            document.getElementById('loginPage').classList.remove('hidden');
-            document.getElementById('mainSystem').classList.add('hidden');
-            document.getElementById('sidebar').classList.add('-translate-x-full');
-            document.getElementById('sidebarOverlay').classList.add('hidden');
-            hideAllSections();
+async function logout() {
+    try {
+        // Firebase 登出
+        if (window.firebase && window.firebase.auth) {
+            await window.firebase.signOut(window.firebase.auth);
         }
+        
+        // 清理本地數據
+        currentUser = null;
+        currentUserData = null;
+        
+        // 切換頁面
+        document.getElementById('loginPage').classList.remove('hidden');
+        document.getElementById('mainSystem').classList.add('hidden');
+        document.getElementById('sidebar').classList.add('-translate-x-full');
+        document.getElementById('sidebarOverlay').classList.add('hidden');
+        hideAllSections();
+        
+        // 清空登入表單
+        document.getElementById('mainLoginUsername').value = '';
+        document.getElementById('mainLoginPassword').value = '';
+        
+        showToast('已成功登出', 'success');
+        
+    } catch (error) {
+        console.error('登出錯誤:', error);
+        showToast('登出時發生錯誤', 'error');
+    }
+}
 
         // 生成側邊選單
         function generateSidebarMenu() {
@@ -2607,123 +2716,199 @@
             });
         }
 
-        function savePatient() {
-            const patient = {
-                id: editingPatientId || Date.now(),
-                patientNumber: editingPatientId ? patients.find(p => p.id === editingPatientId).patientNumber : generatePatientNumber(),
-                name: document.getElementById('patientName').value.trim(),
-                age: document.getElementById('patientAge').value,
-                gender: document.getElementById('patientGender').value,
-                phone: document.getElementById('patientPhone').value.trim(),
-                idCard: document.getElementById('patientIdCard').value.trim(),
-                birthDate: document.getElementById('patientBirthDate').value,
-                address: document.getElementById('patientAddress').value.trim(),
-                allergies: document.getElementById('patientAllergies').value.trim(),
-                history: document.getElementById('patientHistory').value.trim(),
-                createdAt: editingPatientId ? patients.find(p => p.id === editingPatientId).createdAt : new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
+async function savePatient() {
+    const patient = {
+        name: document.getElementById('patientName').value.trim(),
+        age: document.getElementById('patientAge').value,
+        gender: document.getElementById('patientGender').value,
+        phone: document.getElementById('patientPhone').value.trim(),
+        idCard: document.getElementById('patientIdCard').value.trim(),
+        birthDate: document.getElementById('patientBirthDate').value,
+        address: document.getElementById('patientAddress').value.trim(),
+        allergies: document.getElementById('patientAllergies').value.trim(),
+        history: document.getElementById('patientHistory').value.trim()
+    };
 
-            // 驗證必填欄位
-            if (!patient.name || !patient.gender || !patient.phone || !patient.birthDate) {
-                showToast('請填寫必要資料（姓名、性別、電話、出生日期）！', 'error');
-                return;
-            }
+    // 驗證必填欄位
+    if (!patient.name || !patient.gender || !patient.phone || !patient.birthDate) {
+        showToast('請填寫必要資料（姓名、性別、電話、出生日期）！', 'error');
+        return;
+    }
 
-            // 驗證出生日期
-            const birthDate = new Date(patient.birthDate);
-            const today = new Date();
-            if (birthDate > today) {
-                showToast('出生日期不能晚於今天！', 'error');
-                return;
-            }
+    // 驗證出生日期
+    const birthDate = new Date(patient.birthDate);
+    const today = new Date();
+    if (birthDate > today) {
+        showToast('出生日期不能晚於今天！', 'error');
+        return;
+    }
 
-            // 計算年齡
-            const calculatedAge = calculateAge(patient.birthDate);
-            if (calculatedAge > 120) {
-                showToast('請確認出生日期是否正確！', 'error');
-                return;
-            }
+    // 計算年齡
+    const calculatedAge = calculateAge(patient.birthDate);
+    if (calculatedAge > 120) {
+        showToast('請確認出生日期是否正確！', 'error');
+        return;
+    }
 
-            // 驗證電話格式
-            const phoneRegex = /^[0-9\-\+\(\)\s]+$/;
-            if (!phoneRegex.test(patient.phone)) {
-                showToast('請輸入有效的電話號碼！', 'error');
-                return;
-            }
+    // 驗證電話格式
+    const phoneRegex = /^[0-9\-\+\(\)\s]+$/;
+    if (!phoneRegex.test(patient.phone)) {
+        showToast('請輸入有效的電話號碼！', 'error');
+        return;
+    }
 
-            // 驗證身分證格式（如果有填寫）
-            if (patient.idCard) {
-                const idRegex = /^[A-Z][12][0-9]{8}$/;
-                if (!idRegex.test(patient.idCard)) {
-                    showToast('請輸入有效的身分證字號格式（例：A123456789）！', 'error');
-                    return;
-                }
-            }
+    // 驗證身分證格式（如果有填寫）
+    if (patient.idCard) {
+        const idRegex = /^[A-Z][12][0-9]{8}$/;
+        if (!idRegex.test(patient.idCard)) {
+            showToast('請輸入有效的身分證字號格式（例：A123456789）！', 'error');
+            return;
+        }
+    }
 
-            if (editingPatientId) {
-                // 更新現有病人
-                const index = patients.findIndex(p => p.id === editingPatientId);
-                patients[index] = patient;
+    try {
+        if (editingPatientId) {
+            // 更新現有病人
+            const result = await window.firebaseDataManager.updatePatient(editingPatientId, patient);
+            if (result.success) {
                 showToast('病人資料已成功更新！', 'success');
             } else {
-                // 新增病人
-                patients.push(patient);
-                showToast('病人資料已成功新增！', 'success');
-            }
-
-            localStorage.setItem('patients', JSON.stringify(patients));
-            loadPatientList();
-            hideAddPatientForm();
-            updateStatistics();
-        }
-
-        function loadPatientList() {
-            const tbody = document.getElementById('patientList');
-            const searchTerm = document.getElementById('searchPatient').value.toLowerCase();
-            
-            // 過濾病人資料
-            filteredPatients = patients.filter(patient => 
-                patient.name.toLowerCase().includes(searchTerm) ||
-                patient.phone.includes(searchTerm) ||
-                (patient.idCard && patient.idCard.toLowerCase().includes(searchTerm)) ||
-                (patient.patientNumber && patient.patientNumber.toLowerCase().includes(searchTerm))
-            );
-
-            tbody.innerHTML = '';
-
-            if (filteredPatients.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
-                            ${searchTerm ? '沒有找到符合條件的病人' : '尚無病人資料'}
-                        </td>
-                    </tr>
-                `;
+                showToast('更新失敗，請稍後再試', 'error');
                 return;
             }
-
-            filteredPatients.forEach(patient => {
-
-                const row = document.createElement('tr');
-                row.className = 'hover:bg-gray-50';
-                row.innerHTML = `
-                    <td class="px-4 py-3 text-sm text-blue-600 font-medium">${patient.patientNumber || '未設定'}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900 font-medium">${patient.name}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">${formatAge(patient.birthDate)}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">${patient.gender}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">${patient.phone}</td>
-
-                    <td class="px-4 py-3 text-sm space-x-2">
-                        <button onclick="viewPatient(${patient.id})" class="text-blue-600 hover:text-blue-800">查看</button>
-                        <button onclick="showPatientMedicalHistory(${patient.id})" class="text-purple-600 hover:text-purple-800">病歷</button>
-                        <button onclick="editPatient(${patient.id})" class="text-green-600 hover:text-green-800">編輯</button>
-                        <button onclick="deletePatient(${patient.id})" class="text-red-600 hover:text-red-800">刪除</button>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
+        } else {
+            // 新增病人
+            // 生成病人編號
+            patient.patientNumber = await generatePatientNumberFromFirebase();
+            
+            const result = await window.firebaseDataManager.addPatient(patient);
+            if (result.success) {
+                showToast('病人資料已成功新增！', 'success');
+            } else {
+                showToast('新增失敗，請稍後再試', 'error');
+                return;
+            }
         }
+
+        // 重新載入病人列表
+        await loadPatientListFromFirebase();
+        hideAddPatientForm();
+        updateStatistics();
+
+    } catch (error) {
+        console.error('保存病人資料錯誤:', error);
+        showToast('保存時發生錯誤，請稍後再試', 'error');
+    }
+}
+
+        // 從 Firebase 生成病人編號
+async function generatePatientNumberFromFirebase() {
+    try {
+        const result = await window.firebaseDataManager.getPatients();
+        if (!result.success) {
+            return 'P000001'; // 如果無法讀取，使用預設編號
+        }
+
+        const existingNumbers = result.data
+            .map(p => p.patientNumber)
+            .filter(num => num && num.startsWith('P'))
+            .map(num => parseInt(num.substring(1)))
+            .filter(num => !isNaN(num));
+
+        const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
+        const newNumber = maxNumber + 1;
+        return `P${newNumber.toString().padStart(6, '0')}`;
+    } catch (error) {
+        console.error('生成病人編號失敗:', error);
+        return `P${Date.now().toString().slice(-6)}`; // 備用方案
+    }
+}
+
+// 從 Firebase 載入病人列表
+async function loadPatientListFromFirebase() {
+    const tbody = document.getElementById('patientList');
+    const searchTerm = document.getElementById('searchPatient').value.toLowerCase();
+    
+    try {
+        // 顯示載入中
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                    <div class="mt-2">載入中...</div>
+                </td>
+            </tr>
+        `;
+
+        const result = await window.firebaseDataManager.getPatients();
+        
+        if (!result.success) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                        讀取資料失敗，請重新整理頁面
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        // 過濾病人資料
+        const filteredPatients = result.data.filter(patient => 
+            patient.name.toLowerCase().includes(searchTerm) ||
+            patient.phone.includes(searchTerm) ||
+            (patient.idCard && patient.idCard.toLowerCase().includes(searchTerm)) ||
+            (patient.patientNumber && patient.patientNumber.toLowerCase().includes(searchTerm))
+        );
+
+        tbody.innerHTML = '';
+
+        if (filteredPatients.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                        ${searchTerm ? '沒有找到符合條件的病人' : '尚無病人資料'}
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        filteredPatients.forEach(patient => {
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-gray-50';
+            row.innerHTML = `
+                <td class="px-4 py-3 text-sm text-blue-600 font-medium">${patient.patientNumber || '未設定'}</td>
+                <td class="px-4 py-3 text-sm text-gray-900 font-medium">${patient.name}</td>
+                <td class="px-4 py-3 text-sm text-gray-900">${formatAge(patient.birthDate)}</td>
+                <td class="px-4 py-3 text-sm text-gray-900">${patient.gender}</td>
+                <td class="px-4 py-3 text-sm text-gray-900">${patient.phone}</td>
+                <td class="px-4 py-3 text-sm space-x-2">
+                    <button onclick="viewPatient('${patient.id}')" class="text-blue-600 hover:text-blue-800">查看</button>
+                    <button onclick="editPatient('${patient.id}')" class="text-green-600 hover:text-green-800">編輯</button>
+                    <button onclick="deletePatient('${patient.id}')" class="text-red-600 hover:text-red-800">刪除</button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        console.log('已載入', filteredPatients.length, '筆病人資料');
+
+    } catch (error) {
+        console.error('載入病人列表錯誤:', error);
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                    載入失敗，請檢查網路連接
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function loadPatientList() {
+    loadPatientListFromFirebase();
+}
 
         function editPatient(id) {
             const patient = patients.find(p => p.id === id);
@@ -8724,6 +8909,107 @@
             }
         }
 
+// Firebase 數據管理系統
+class FirebaseDataManager {
+    constructor() {
+        this.isReady = false;
+        this.initializeWhenReady();
+    }
+
+    async initializeWhenReady() {
+        // 等待 Firebase 初始化
+        while (!window.firebase) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        this.isReady = true;
+        console.log('Firebase 數據管理器已準備就緒');
+    }
+
+    // 病人數據管理
+    async addPatient(patientData) {
+        if (!this.isReady) {
+            showToast('數據管理器尚未準備就緒', 'error');
+            return { success: false };
+        }
+
+        try {
+            const docRef = await window.firebase.addDoc(
+                window.firebase.collection(window.firebase.db, 'patients'),
+                {
+                    ...patientData,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    createdBy: currentUser || 'system'
+                }
+            );
+            
+            console.log('病人數據已添加到 Firebase:', docRef.id);
+            return { success: true, id: docRef.id };
+        } catch (error) {
+            console.error('添加病人數據失敗:', error);
+            showToast('保存病人數據失敗', 'error');
+            return { success: false, error: error.message };
+        }
+    }
+
+    async getPatients() {
+        if (!this.isReady) return { success: false, data: [] };
+
+        try {
+            const querySnapshot = await window.firebase.getDocs(
+                window.firebase.collection(window.firebase.db, 'patients')
+            );
+            
+            const patients = [];
+            querySnapshot.forEach((doc) => {
+                patients.push({ id: doc.id, ...doc.data() });
+            });
+            
+            console.log('已從 Firebase 讀取病人數據:', patients.length, '筆');
+            return { success: true, data: patients };
+        } catch (error) {
+            console.error('讀取病人數據失敗:', error);
+            return { success: false, data: [] };
+        }
+    }
+
+    async updatePatient(patientId, patientData) {
+        try {
+            await window.firebase.updateDoc(
+                window.firebase.doc(window.firebase.db, 'patients', patientId),
+                {
+                    ...patientData,
+                    updatedAt: new Date(),
+                    updatedBy: currentUser
+                }
+            );
+            return { success: true };
+        } catch (error) {
+            console.error('更新病人數據失敗:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async deletePatient(patientId) {
+        try {
+            await window.firebase.deleteDoc(
+                window.firebase.doc(window.firebase.db, 'patients', patientId)
+            );
+            return { success: true };
+        } catch (error) {
+            console.error('刪除病人數據失敗:', error);
+            return { success: false, error: error.message };
+        }
+    }
+}
+
+// 初始化數據管理器
+let firebaseDataManager;
+window.addEventListener('load', () => {
+    firebaseDataManager = new FirebaseDataManager();
+    window.firebaseDataManager = firebaseDataManager; // 全域使用
+});
+        
 // 初始化系統
         document.addEventListener('DOMContentLoaded', function() {
             // 系統啟動時清空過期掛號
