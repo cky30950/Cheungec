@@ -123,8 +123,8 @@ const firebaseConfig = {
             
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">帳號</label>
-                    <input type="text" id="mainLoginUsername" placeholder="請輸入帳號" 
+                    <label class="block text-sm font-medium text-gray-700 mb-2">電子郵件</label>
+                    <input type="email" id="mainLoginUsername" placeholder="請輸入電子郵件" 
                            class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                            onkeypress="if(event.key==='Enter') document.getElementById('mainLoginPassword').focus()">
                 </div>
@@ -2465,44 +2465,85 @@ const firebaseConfig = {
         const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'financialReports', 'userManagement', 'systemManagement'];
 
         // 主要登入功能
-        function attemptMainLogin() {
-            const username = document.getElementById('mainLoginUsername').value.trim();
-            const password = document.getElementById('mainLoginPassword').value.trim();
-            
-            if (!username || !password) {
-                showToast('請輸入帳號和密碼！', 'error');
-                return;
-            }
-            
-            // 尋找匹配的用戶
-            const user = users.find(u => 
-                u.username === username && 
-                u.password === password && 
-                u.active
-            );
-            
-            if (!user) {
-                // 檢查是否帳號存在但密碼錯誤
-                const existingUser = users.find(u => u.username === username);
-                if (existingUser) {
-                    if (!existingUser.active) {
-                        showToast('此帳號已被停用，請聯繫管理員！', 'error');
-                    } else {
-                        showToast('密碼錯誤，請重新輸入！', 'error');
-                    }
-                } else {
-                    showToast('帳號不存在，請檢查輸入！', 'error');
-                }
-                
-                // 清空密碼欄位
-                document.getElementById('mainLoginPassword').value = '';
-                document.getElementById('mainLoginPassword').focus();
-                return;
-            }
-            
-            // 登入成功
-            performLogin(user);
+async function attemptMainLogin() {
+    const email = document.getElementById('mainLoginUsername').value.trim();
+    const password = document.getElementById('mainLoginPassword').value.trim();
+    
+    if (!email || !password) {
+        showToast('請輸入帳號和密碼！', 'error');
+        return;
+    }
+
+    // 顯示載入狀態
+    const loginButton = document.querySelector('button[onclick="attemptMainLogin()"]');
+    const originalText = loginButton.textContent;
+    loginButton.textContent = '登入中...';
+    loginButton.disabled = true;
+
+    try {
+        // 等待 Firebase 初始化
+        while (!window.firebase) {
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
+
+        // 使用 Firebase 登入
+        const userCredential = await window.firebase.signInWithEmailAndPassword(
+            window.firebase.auth, 
+            email, 
+            password
+        );
+
+        console.log('Firebase 登入成功:', userCredential.user.email);
+        
+        // 模擬用戶數據（暫時）
+        currentUser = userCredential.user.email;
+        currentUserData = {
+            email: userCredential.user.email,
+            name: getUserNameFromEmail(email),
+            position: getUserPositionFromEmail(email)
+        };
+
+        // 登入成功，切換到主系統
+        performLogin(currentUserData);
+        
+        showToast('登入成功！', 'success');
+
+    } catch (error) {
+        console.error('登入失敗:', error);
+        let errorMessage = '登入失敗';
+        
+        if (error.code === 'auth/user-not-found') {
+            errorMessage = '帳號不存在';
+        } else if (error.code === 'auth/wrong-password') {
+            errorMessage = '密碼錯誤';
+        } else if (error.code === 'auth/invalid-email') {
+            errorMessage = '電子郵件格式不正確';
+        }
+        
+        showToast(errorMessage, 'error');
+        document.getElementById('mainLoginPassword').value = '';
+    } finally {
+        // 恢復按鈕狀態
+        loginButton.textContent = originalText;
+        loginButton.disabled = false;
+    }
+}
+
+// 幫助函數：從 email 獲取姓名
+function getUserNameFromEmail(email) {
+    if (email === 'admin@clinic.com') return '系統管理員';
+    if (email === 'doctor@clinic.com') return '張中醫師';
+    if (email === 'nurse@clinic.com') return '林護理師';
+    return '用戶';
+}
+
+// 幫助函數：從 email 獲取職位
+function getUserPositionFromEmail(email) {
+    if (email === 'admin@clinic.com') return '診所管理';
+    if (email === 'doctor@clinic.com') return '醫師';
+    if (email === 'nurse@clinic.com') return '護理師';
+    return '用戶';
+}
         
         // 執行登入
         function performLogin(user) {
