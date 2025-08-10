@@ -3038,13 +3038,18 @@ async function viewPatient(id) {
                     <h4 class="text-lg font-semibold text-gray-800">診症記錄摘要</h4>
                 </div>
                 
-                <div class="text-center py-8 text-gray-500">
-                    <div class="text-4xl mb-2">📋</div>
-                    <div>診症記錄功能將在下一步整合</div>
-                </div>
+<div id="patientConsultationSummary">
+    <div class="text-center py-4">
+        <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+        <div class="mt-2 text-sm">載入診症記錄中...</div>
+    </div>
+</div>
             </div>
         `;
 
+                // 載入診症記錄摘要
+        loadPatientConsultationSummary(id);
+        
         document.getElementById('patientDetailContent').innerHTML = content;
         document.getElementById('patientDetailModal').classList.remove('hidden');
 
@@ -3971,146 +3976,92 @@ async function viewPatient(id) {
         }
         
         // 儲存診症記錄（醫師操作）
-        function saveConsultation() {
-            if (!currentConsultingAppointmentId) {
-                showToast('系統錯誤：找不到診症記錄！', 'error');
-                return;
-            }
-            
-            const appointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
-            if (!appointment) {
-                showToast('找不到掛號記錄！', 'error');
-                return;
-            }
-            
-            const symptoms = document.getElementById('formSymptoms').value.trim();
-            const diagnosis = document.getElementById('formDiagnosis').value.trim();
-            const syndrome = document.getElementById('formSyndrome').value.trim();
-            const prescription = document.getElementById('formPrescription').value.trim();
-            
-            if (!symptoms || !diagnosis) {
-                showToast('請填寫必填欄位：主訴、中醫診斷！', 'error');
-                return;
-            }
-            
-            const patient = patients.find(p => p.id === appointment.patientId);
-            // 處理購買套票：將購買的套票轉為病人套票
-            (function handlePackagesBeforeSave(){
-                const packagePurchases = selectedBillingItems.filter(it => it.category === 'package');
-                packagePurchases.forEach(it => {
-                    if (typeof it.packageUses === 'undefined' || typeof it.validityDays === 'undefined') {
-                        console.warn('套票缺少 packageUses / validityDays');
-                        return;
-                    }
-                    const record = purchasePackage(patient.id, it);
-                    // 購買套票後詢問是否立即使用一次
-                    const wantUseNow = confirm(`本次購買「${it.name}」，是否立即使用一次？`);
-                    if (wantUseNow) {
-                        const resUse = consumePackage(patient.id, record.id);
-                        if (resUse.ok) {
-                            const usedName = `${record.name}（使用套票）`;
-                            selectedBillingItems.push({
-                                id: `use-${record.id}-${Date.now()}`,
-                                name: usedName,
-                                category: 'packageUse',
-                                price: 0,
-                                unit: '次',
-                                description: '套票抵扣一次',
-                                quantity: 1,
-                                patientId: patient.id,
-                                packageRecordId: record.id
-                            });
-                            updateBillingDisplay();
-                            showToast(`已立即使用一次：${record.name}，剩餘 ${resUse.record.remainingUses} 次`, 'success');
-                        } else {
-                            showToast(resUse.msg || '無法立即使用', 'warning');
-                        }
-                    }
-                });
-            })();
-            
-            // 檢查是否為修改病歷模式
-            if (appointment.status === 'completed' && appointment.consultationId) {
-                // 修改現有病歷
-                const existingConsultation = consultations.find(c => c.id === appointment.consultationId);
-                if (existingConsultation) {
-                    existingConsultation.symptoms = symptoms;
-                    existingConsultation.tongue = document.getElementById('formTongue').value.trim();
-                    existingConsultation.pulse = document.getElementById('formPulse').value.trim();
-                    existingConsultation.currentHistory = document.getElementById('formCurrentHistory').value.trim();
-                    existingConsultation.diagnosis = diagnosis;
-                    existingConsultation.syndrome = syndrome;
-                    existingConsultation.acupunctureNotes = document.getElementById('formAcupunctureNotes').value.trim();
-                    
-                    // 處方內容直接使用表單中的內容（包含現有處方和新添加的項目）
-                    existingConsultation.prescription = prescription;
-                    
-                    existingConsultation.usage = document.getElementById('formUsage').value.trim();
-                    existingConsultation.treatmentCourse = document.getElementById('formTreatmentCourse').value.trim();
-                    existingConsultation.instructions = document.getElementById('formInstructions').value.trim();
-                    existingConsultation.followUpDate = document.getElementById('formFollowUpDate').value;
-                    existingConsultation.visitTime = document.getElementById('formVisitTime').value;
-                    existingConsultation.restStartDate = document.getElementById('formRestStartDate').value;
-                    existingConsultation.restEndDate = document.getElementById('formRestEndDate').value;
-                    existingConsultation.billingItems = document.getElementById('formBillingItems').value.trim();
-                    existingConsultation.updatedAt = new Date().toISOString();
-                    existingConsultation.updatedBy = currentUserData ? currentUserData.username : currentUser;
-                    
-                    localStorage.setItem('consultations', JSON.stringify(consultations));
-                    showToast(`${patient.name} 的病歷已成功更新！`, 'success');
-                }
-            } else if (appointment.status === 'consulting') {
-                // 新增診症記錄
-                const consultation = {
-                    id: Date.now(),
-                    appointmentId: currentConsultingAppointmentId,
-                    patientId: appointment.patientId,
-                    symptoms: symptoms,
-                    tongue: document.getElementById('formTongue').value.trim(),
-                    pulse: document.getElementById('formPulse').value.trim(),
-                    currentHistory: document.getElementById('formCurrentHistory').value.trim(),
-                    diagnosis: diagnosis,
-                    syndrome: syndrome,
-                    acupunctureNotes: document.getElementById('formAcupunctureNotes').value.trim(),
-                    prescription: prescription,
-                    usage: document.getElementById('formUsage').value.trim(),
-                    treatmentCourse: document.getElementById('formTreatmentCourse').value.trim(),
-                    instructions: document.getElementById('formInstructions').value.trim(),
-                    followUpDate: document.getElementById('formFollowUpDate').value,
-                    visitTime: document.getElementById('formVisitTime').value,
-                    restStartDate: document.getElementById('formRestStartDate').value,
-                    restEndDate: document.getElementById('formRestEndDate').value,
-                    billingItems: document.getElementById('formBillingItems').value.trim(),
-                    date: new Date().toISOString(),
-                    doctor: currentUserData ? currentUserData.username : currentUser,
-                    status: 'completed'
-                };
-                
-                consultations.push(consultation);
-                localStorage.setItem('consultations', JSON.stringify(consultations));
-                
-                // 更新掛號狀態為已完成
-                appointment.status = 'completed';
-                appointment.completedAt = new Date().toISOString();
-                appointment.consultationId = consultation.id;
-                appointment.completedBy = currentUserData ? currentUserData.username : currentUser;
-                localStorage.setItem('appointments', JSON.stringify(appointments));
-                
-                showToast(`${patient.name} 的診症記錄已完成並保存！`, 'success');
-            } else {
-                showToast('只能保存診症中狀態的記錄或修改已完成的病歷！', 'warning');
-                return;
-            }
+async function saveConsultation() {
+    if (!currentConsultingAppointmentId) {
+        showToast('系統錯誤：找不到診症記錄！', 'error');
+        return;
+    }
+    
+    const symptoms = document.getElementById('formSymptoms').value.trim();
+    const diagnosis = document.getElementById('formDiagnosis').value.trim();
+    
+    if (!symptoms || !diagnosis) {
+        showToast('請填寫必填欄位：主訴、中醫診斷！', 'error');
+        return;
+    }
+
+    try {
+        // 獲取當前掛號信息（從原始數據結構獲取，因為掛號還沒有遷移到 Firebase）
+        const appointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
+        if (!appointment) {
+            showToast('找不到掛號記錄！', 'error');
+            return;
+        }
+
+        const consultation = {
+            appointmentId: currentConsultingAppointmentId,
+            patientId: appointment.patientId,
+            symptoms: symptoms,
+            tongue: document.getElementById('formTongue').value.trim(),
+            pulse: document.getElementById('formPulse').value.trim(),
+            currentHistory: document.getElementById('formCurrentHistory').value.trim(),
+            diagnosis: diagnosis,
+            syndrome: document.getElementById('formSyndrome').value.trim(),
+            acupunctureNotes: document.getElementById('formAcupunctureNotes').value.trim(),
+            prescription: document.getElementById('formPrescription').value.trim(),
+            usage: document.getElementById('formUsage').value.trim(),
+            treatmentCourse: document.getElementById('formTreatmentCourse').value.trim(),
+            instructions: document.getElementById('formInstructions').value.trim(),
+            followUpDate: document.getElementById('formFollowUpDate').value,
+            visitTime: document.getElementById('formVisitTime').value,
+            restStartDate: document.getElementById('formRestStartDate').value,
+            restEndDate: document.getElementById('formRestEndDate').value,
+            billingItems: document.getElementById('formBillingItems').value.trim(),
+            date: new Date(),
+            doctor: currentUser,
+            status: 'completed'
+        };
+
+        // 顯示保存中狀態
+        const saveButton = document.querySelector('[onclick="saveConsultation()"]');
+        const originalText = saveButton.textContent;
+        saveButton.textContent = '保存中...';
+        saveButton.disabled = true;
+
+        // 保存到 Firebase
+        const result = await window.firebaseDataManager.addConsultation(consultation);
+
+        if (result.success) {
+            // 更新本地掛號狀態（暫時，直到掛號系統也遷移到 Firebase）
+            appointment.status = 'completed';
+            appointment.completedAt = new Date().toISOString();
+            appointment.consultationId = result.id;
+            appointment.completedBy = currentUser;
+            localStorage.setItem('appointments', JSON.stringify(appointments));
+
+            showToast('診症記錄已完成並保存到雲端！', 'success');
             
             closeConsultationForm();
             loadTodayAppointments();
             updateStatistics();
-            
-            // 清空搜尋欄位
             clearAllSearchFields();
-        }
-        
 
+        } else {
+            showToast('保存診症記錄失敗，請稍後再試', 'error');
+        }
+
+    } catch (error) {
+        console.error('保存診症記錄錯誤:', error);
+        showToast('保存時發生錯誤', 'error');
+    } finally {
+        // 恢復按鈕狀態
+        const saveButton = document.querySelector('[onclick="saveConsultation()"]');
+        if (saveButton) {
+            saveButton.textContent = originalText;
+            saveButton.disabled = false;
+        }
+    }
+}
         
         // 病人資料管理頁面的病歷查看功能
         let currentPatientConsultations = [];
@@ -5941,6 +5892,104 @@ async function viewPatient(id) {
             showToast(`進入 ${patient.name} 的病歷編輯模式`, 'info');
         }
 
+
+// 載入病人診症記錄摘要
+async function loadPatientConsultationSummary(patientId) {
+    const summaryContainer = document.getElementById('patientConsultationSummary');
+    
+    try {
+        const result = await window.firebaseDataManager.getPatientConsultations(patientId);
+        
+        if (!result.success) {
+            summaryContainer.innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                    <div class="text-4xl mb-2">❌</div>
+                    <div>無法載入診症記錄</div>
+                </div>
+            `;
+            return;
+        }
+
+        const consultations = result.data;
+        const totalConsultations = consultations.length;
+        const lastConsultation = consultations[0]; // 最新的診症記錄
+
+        if (totalConsultations === 0) {
+            summaryContainer.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div class="bg-blue-50 rounded-lg p-4 text-center">
+                        <div class="text-2xl font-bold text-blue-600">0</div>
+                        <div class="text-sm text-blue-800">總診症次數</div>
+                    </div>
+                    <div class="bg-green-50 rounded-lg p-4 text-center">
+                        <div class="text-lg font-semibold text-green-600">無</div>
+                        <div class="text-sm text-green-800">最近診症</div>
+                    </div>
+                    <div class="bg-orange-50 rounded-lg p-4 text-center">
+                        <div class="text-lg font-semibold text-orange-600">無安排</div>
+                        <div class="text-sm text-orange-800">下次複診</div>
+                    </div>
+                </div>
+                <div class="text-center py-8 text-gray-500">
+                    <div class="text-4xl mb-2">📋</div>
+                    <div>尚無診症記錄</div>
+                </div>
+            `;
+            return;
+        }
+
+        // 格式化最後診症日期
+        const lastConsultationDate = lastConsultation.date ? 
+            new Date(lastConsultation.date.seconds * 1000).toLocaleDateString('zh-TW') : 
+            new Date(lastConsultation.createdAt.seconds * 1000).toLocaleDateString('zh-TW');
+
+        // 格式化下次複診日期
+        const nextFollowUp = lastConsultation.followUpDate ? 
+            new Date(lastConsultation.followUpDate).toLocaleDateString('zh-TW') : '無安排';
+
+        summaryContainer.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div class="bg-blue-50 rounded-lg p-4 text-center">
+                    <div class="text-2xl font-bold text-blue-600">${totalConsultations}</div>
+                    <div class="text-sm text-blue-800">總診症次數</div>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 text-center">
+                    <div class="text-lg font-semibold text-green-600">${lastConsultationDate}</div>
+                    <div class="text-sm text-green-800">最近診症</div>
+                </div>
+                <div class="bg-orange-50 rounded-lg p-4 text-center">
+                    <div class="text-lg font-semibold text-orange-600">${nextFollowUp}</div>
+                    <div class="text-sm text-orange-800">下次複診</div>
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h5 class="font-medium text-gray-800 mb-2">最近診症記錄</h5>
+                <div class="text-sm text-gray-700">
+                    <div><span class="font-medium">診斷：</span>${lastConsultation.diagnosis || '無記錄'}</div>
+                    <div class="mt-1"><span class="font-medium">證型：</span>${lastConsultation.syndrome || '無記錄'}</div>
+                    ${lastConsultation.instructions ? `<div class="mt-1"><span class="font-medium">醫囑：</span>${lastConsultation.instructions}</div>` : ''}
+                </div>
+                <div class="mt-3">
+                    <button onclick="viewPatientMedicalHistory('${patientId}')" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm transition duration-200">
+                        查看完整病歷
+                    </button>
+                </div>
+            </div>
+        `;
+
+    } catch (error) {
+        console.error('載入診症記錄摘要錯誤:', error);
+        summaryContainer.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+                <div class="text-4xl mb-2">❌</div>
+                <div>載入診症記錄失敗</div>
+            </div>
+        `;
+    }
+}
+
+        
         // 系統管理功能
 async function updateStatistics() {
     try {
@@ -8991,6 +9040,94 @@ class FirebaseDataManager {
         } catch (error) {
             console.error('刪除病人數據失敗:', error);
             return { success: false, error: error.message };
+        }
+    }
+// 診症記錄管理
+    async addConsultation(consultationData) {
+        if (!this.isReady) {
+            showToast('數據管理器尚未準備就緒', 'error');
+            return { success: false };
+        }
+
+        try {
+            const docRef = await window.firebase.addDoc(
+                window.firebase.collection(window.firebase.db, 'consultations'),
+                {
+                    ...consultationData,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    createdBy: currentUser
+                }
+            );
+            
+            console.log('診症記錄已添加到 Firebase:', docRef.id);
+            return { success: true, id: docRef.id };
+        } catch (error) {
+            console.error('添加診症記錄失敗:', error);
+            showToast('保存診症記錄失敗', 'error');
+            return { success: false, error: error.message };
+        }
+    }
+
+    async getConsultations() {
+        if (!this.isReady) return { success: false, data: [] };
+
+        try {
+            const querySnapshot = await window.firebase.getDocs(
+                window.firebase.collection(window.firebase.db, 'consultations')
+            );
+            
+            const consultations = [];
+            querySnapshot.forEach((doc) => {
+                consultations.push({ id: doc.id, ...doc.data() });
+            });
+            
+            console.log('已從 Firebase 讀取診症記錄:', consultations.length, '筆');
+            return { success: true, data: consultations };
+        } catch (error) {
+            console.error('讀取診症記錄失敗:', error);
+            return { success: false, data: [] };
+        }
+    }
+
+    async updateConsultation(consultationId, consultationData) {
+        try {
+            await window.firebase.updateDoc(
+                window.firebase.doc(window.firebase.db, 'consultations', consultationId),
+                {
+                    ...consultationData,
+                    updatedAt: new Date(),
+                    updatedBy: currentUser
+                }
+            );
+            return { success: true };
+        } catch (error) {
+            console.error('更新診症記錄失敗:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async getPatientConsultations(patientId) {
+        if (!this.isReady) return { success: false, data: [] };
+
+        try {
+            const allConsultations = await this.getConsultations();
+            if (!allConsultations.success) {
+                return { success: false, data: [] };
+            }
+
+            const patientConsultations = allConsultations.data
+                .filter(consultation => consultation.patientId === patientId)
+                .sort((a, b) => {
+                    const dateA = a.date ? new Date(a.date.seconds * 1000) : new Date(a.createdAt.seconds * 1000);
+                    const dateB = b.date ? new Date(b.date.seconds * 1000) : new Date(b.createdAt.seconds * 1000);
+                    return dateB - dateA; // 最新的在前面
+                });
+
+            return { success: true, data: patientConsultations };
+        } catch (error) {
+            console.error('讀取病人診症記錄失敗:', error);
+            return { success: false, data: [] };
         }
     }
 }
