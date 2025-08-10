@@ -2910,158 +2910,149 @@ function loadPatientList() {
     loadPatientListFromFirebase();
 }
 
-        function editPatient(id) {
-            const patient = patients.find(p => p.id === id);
-            if (!patient) return;
-
-            editingPatientId = id;
-            document.getElementById('formTitle').textContent = '編輯病人資料';
-            document.getElementById('saveButtonText').textContent = '更新';
-            
-            // 填入現有資料
-            document.getElementById('patientName').value = patient.name || '';
-            document.getElementById('patientGender').value = patient.gender || '';
-            document.getElementById('patientPhone').value = patient.phone || '';
-            document.getElementById('patientIdCard').value = patient.idCard || '';
-            document.getElementById('patientBirthDate').value = patient.birthDate || '';
-            document.getElementById('patientAddress').value = patient.address || '';
-            document.getElementById('patientAllergies').value = patient.allergies || '';
-            document.getElementById('patientHistory').value = patient.history || '';
-            
-            // 自動計算年齡
-            updatePatientAge();
-            
-            document.getElementById('addPatientModal').classList.remove('hidden');
+async function editPatient(id) {
+    try {
+        // 從 Firebase 獲取病人資料
+        const result = await window.firebaseDataManager.getPatients();
+        if (!result.success) {
+            showToast('無法讀取病人資料', 'error');
+            return;
         }
 
-        function deletePatient(id) {
-            const patient = patients.find(p => p.id === id);
-            if (!patient) return;
+        const patient = result.data.find(p => p.id === id);
+        if (!patient) {
+            showToast('找不到病人資料', 'error');
+            return;
+        }
 
-            if (confirm(`確定要刪除病人「${patient.name}」的資料嗎？\n\n注意：相關的診症記錄也會一併刪除！`)) {
-                // 刪除病人資料
-                patients = patients.filter(p => p.id !== id);
-                // 刪除相關診症記錄
-                consultations = consultations.filter(c => c.patientId !== id);
-                // 刪除相關掛號記錄
-                appointments = appointments.filter(a => a.patientId !== id);
-                
-                localStorage.setItem('patients', JSON.stringify(patients));
-                localStorage.setItem('consultations', JSON.stringify(consultations));
-                localStorage.setItem('appointments', JSON.stringify(appointments));
-                
-                loadPatientList();
+        editingPatientId = id;
+        document.getElementById('formTitle').textContent = '編輯病人資料';
+        document.getElementById('saveButtonText').textContent = '更新';
+        
+        // 填入現有資料
+        document.getElementById('patientName').value = patient.name || '';
+        document.getElementById('patientGender').value = patient.gender || '';
+        document.getElementById('patientPhone').value = patient.phone || '';
+        document.getElementById('patientIdCard').value = patient.idCard || '';
+        document.getElementById('patientBirthDate').value = patient.birthDate || '';
+        document.getElementById('patientAddress').value = patient.address || '';
+        document.getElementById('patientAllergies').value = patient.allergies || '';
+        document.getElementById('patientHistory').value = patient.history || '';
+        
+        // 自動計算年齡
+        updatePatientAge();
+        
+        document.getElementById('addPatientModal').classList.remove('hidden');
+
+    } catch (error) {
+        console.error('編輯病人資料錯誤:', error);
+        showToast('讀取病人資料失敗', 'error');
+    }
+}
+async function deletePatient(id) {
+    try {
+        // 從 Firebase 獲取病人資料
+        const result = await window.firebaseDataManager.getPatients();
+        if (!result.success) {
+            showToast('無法讀取病人資料', 'error');
+            return;
+        }
+
+        const patient = result.data.find(p => p.id === id);
+        if (!patient) {
+            showToast('找不到病人資料', 'error');
+            return;
+        }
+
+        const confirmMessage = `確定要刪除病人「${patient.name}」的資料嗎？\n\n注意：相關的診症記錄也會一併刪除！`;
+        
+        if (confirm(confirmMessage)) {
+            // 顯示刪除中狀態
+            showToast('刪除中...', 'info');
+
+            // 從 Firebase 刪除病人資料
+            const deleteResult = await window.firebaseDataManager.deletePatient(id);
+            
+            if (deleteResult.success) {
+                showToast('病人資料已刪除！', 'success');
+                // 重新載入病人列表
+                await loadPatientListFromFirebase();
                 updateStatistics();
-                showToast('病人資料及相關診症記錄已刪除！', 'success');
+            } else {
+                showToast('刪除失敗，請稍後再試', 'error');
             }
         }
 
-        function viewPatient(id) {
-            const patient = patients.find(p => p.id === id);
-            if (!patient) return;
+    } catch (error) {
+        console.error('刪除病人資料錯誤:', error);
+        showToast('刪除時發生錯誤', 'error');
+    }
+}
 
-            // 獲取該病人的診症記錄統計
-            const patientConsultations = consultations.filter(c => c.patientId === id);
-            const totalConsultations = patientConsultations.length;
-            const lastConsultation = patientConsultations.length > 0 ? 
-                patientConsultations.sort((a, b) => new Date(b.date) - new Date(a.date))[0] : null;
+async function viewPatient(id) {
+    try {
+        // 從 Firebase 獲取病人資料
+        const result = await window.firebaseDataManager.getPatients();
+        if (!result.success) {
+            showToast('無法讀取病人資料', 'error');
+            return;
+        }
 
-            // 取得該病人的所有套票紀錄，用於在病人詳細資料顯示套票情況
-            const patientPkgs = getPatientPackages(id);
-            let packagesHtml = '';
-            if (patientPkgs && patientPkgs.length > 0) {
-                // 建立套票區塊，實際內容透過分頁函式渲染
-                packagesHtml += '<div class="mt-6 pt-6 border-t border-gray-200">';
-                packagesHtml += '<h4 class="text-lg font-semibold text-gray-800 mb-2">套票情況</h4>';
-                // 容器將由 renderPatientPackagesDetailPage() 生成實際列表
-                packagesHtml += '<div id="patientPackagesDetailList" class="space-y-2"></div>';
-                packagesHtml += '</div>';
-            }
+        const patient = result.data.find(p => p.id === id);
+        if (!patient) {
+            showToast('找不到病人資料', 'error');
+            return;
+        }
 
-            const content = `
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="space-y-4">
-                        <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">基本資料</h4>
-                        <div class="space-y-2">
-                            <div><span class="font-medium">病人編號：</span><span class="text-blue-600 font-semibold">${patient.patientNumber || '未設定'}</span></div>
-                            <div><span class="font-medium">姓名：</span>${patient.name}</div>
-                            <div><span class="font-medium">年齡：</span>${formatAge(patient.birthDate)}</div>
-                            <div><span class="font-medium">性別：</span>${patient.gender}</div>
-                            <div><span class="font-medium">電話：</span>${patient.phone}</div>
-                            ${patient.idCard ? `<div><span class="font-medium">身分證：</span>${patient.idCard}</div>` : ''}
-                            ${patient.birthDate ? `<div><span class="font-medium">出生日期：</span>${new Date(patient.birthDate).toLocaleDateString('zh-TW')}</div>` : ''}
-                            ${patient.address ? `<div><span class="font-medium">地址：</span>${patient.address}</div>` : ''}
-                        </div>
-                    </div>
-                    
-                    <div class="space-y-4">
-                        <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">醫療資訊</h4>
-                        <div class="space-y-2">
-                            ${patient.allergies ? `<div><span class="font-medium">過敏史：</span><div class="mt-1 p-2 bg-red-50 rounded text-sm">${patient.allergies}</div></div>` : ''}
-                            ${patient.history ? `<div><span class="font-medium">病史：</span><div class="mt-1 p-2 bg-gray-50 rounded text-sm">${patient.history}</div></div>` : ''}
-                            <div><span class="font-medium">建檔日期：</span>${new Date(patient.createdAt).toLocaleDateString('zh-TW')}</div>
-                            ${patient.updatedAt ? `<div><span class="font-medium">更新日期：</span>${new Date(patient.updatedAt).toLocaleDateString('zh-TW')}</div>` : ''}
-                        </div>
+        // 顯示病人詳細資料
+        const content = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">基本資料</h4>
+                    <div class="space-y-2">
+                        <div><span class="font-medium">病人編號：</span><span class="text-blue-600 font-semibold">${patient.patientNumber || '未設定'}</span></div>
+                        <div><span class="font-medium">姓名：</span>${patient.name}</div>
+                        <div><span class="font-medium">年齡：</span>${formatAge(patient.birthDate)}</div>
+                        <div><span class="font-medium">性別：</span>${patient.gender}</div>
+                        <div><span class="font-medium">電話：</span>${patient.phone}</div>
+                        ${patient.idCard ? `<div><span class="font-medium">身分證：</span>${patient.idCard}</div>` : ''}
+                        ${patient.birthDate ? `<div><span class="font-medium">出生日期：</span>${new Date(patient.birthDate).toLocaleDateString('zh-TW')}</div>` : ''}
+                        ${patient.address ? `<div><span class="font-medium">地址：</span>${patient.address}</div>` : ''}
                     </div>
                 </div>
                 
-                <!-- 診症記錄摘要 -->
-                <div class="mt-6 pt-6 border-t border-gray-200">
-                    <div class="flex justify-between items-center mb-4">
-                        <h4 class="text-lg font-semibold text-gray-800">診症記錄摘要</h4>
+                <div class="space-y-4">
+                    <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">醫療資訊</h4>
+                    <div class="space-y-2">
+                        ${patient.allergies ? `<div><span class="font-medium">過敏史：</span><div class="mt-1 p-2 bg-red-50 rounded text-sm">${patient.allergies}</div></div>` : ''}
+                        ${patient.history ? `<div><span class="font-medium">病史：</span><div class="mt-1 p-2 bg-gray-50 rounded text-sm">${patient.history}</div></div>` : ''}
+                        <div><span class="font-medium">建檔日期：</span>${patient.createdAt ? new Date(patient.createdAt.seconds * 1000).toLocaleDateString('zh-TW') : '未知'}</div>
+                        ${patient.updatedAt ? `<div><span class="font-medium">更新日期：</span>${new Date(patient.updatedAt.seconds * 1000).toLocaleDateString('zh-TW')}</div>` : ''}
                     </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div class="bg-blue-50 rounded-lg p-4 text-center">
-                            <div class="text-2xl font-bold text-blue-600">${totalConsultations}</div>
-                            <div class="text-sm text-blue-800">總診症次數</div>
-                        </div>
-                        <div class="bg-green-50 rounded-lg p-4 text-center">
-                            <div class="text-lg font-semibold text-green-600">
-                                ${lastConsultation ? new Date(lastConsultation.date).toLocaleDateString('zh-TW') : '無'}
-                            </div>
-                            <div class="text-sm text-green-800">最近診症</div>
-                        </div>
-                        <div class="bg-orange-50 rounded-lg p-4 text-center">
-                            <div class="text-lg font-semibold text-orange-600">
-                                ${lastConsultation ? (lastConsultation.followUpDate ? 
-                                    new Date(lastConsultation.followUpDate).toLocaleDateString('zh-TW') : '無安排') : '無'}
-                            </div>
-                            <div class="text-sm text-orange-800">下次複診</div>
-                        </div>
-                    </div>
-                    
-                    ${totalConsultations > 0 ? `
-                        <div class="bg-gray-50 rounded-lg p-4">
-                            <h5 class="font-medium text-gray-800 mb-2">最近診症記錄</h5>
-                            <div class="text-sm text-gray-700">
-                                <div><span class="font-medium">診斷：</span>${lastConsultation.diagnosis || '無記錄'}</div>
-                                <div class="mt-1"><span class="font-medium">證型：</span>${lastConsultation.syndrome || '無記錄'}</div>
-                                ${lastConsultation.instructions ? `<div class="mt-1"><span class="font-medium">醫囑：</span>${lastConsultation.instructions}</div>` : ''}
-                            </div>
-                        </div>
-                    ` : `
-                        <div class="text-center py-8 text-gray-500">
-                            <div class="text-4xl mb-2">📋</div>
-                            <div>尚無診症記錄</div>
-                        </div>
-                    `}
                 </div>
-                ${packagesHtml}
-            `;
+            </div>
+            
+            <!-- 診症記錄摘要 -->
+            <div class="mt-6 pt-6 border-t border-gray-200">
+                <div class="flex justify-between items-center mb-4">
+                    <h4 class="text-lg font-semibold text-gray-800">診症記錄摘要</h4>
+                </div>
+                
+                <div class="text-center py-8 text-gray-500">
+                    <div class="text-4xl mb-2">📋</div>
+                    <div>診症記錄功能將在下一步整合</div>
+                </div>
+            </div>
+        `;
 
-            document.getElementById('patientDetailContent').innerHTML = content;
-            document.getElementById('patientDetailModal').classList.remove('hidden');
-            // 套票分頁初始化：若病人有套票紀錄，設定全域分頁資料並渲染第一頁
-            if (patientPkgs && patientPkgs.length > 0) {
-                currentPatientPackages = patientPkgs;
-                currentPatientPackagePage = 0;
-                const pkgContainer = document.getElementById('patientPackagesDetailList');
-                if (pkgContainer) {
-                    pkgContainer.innerHTML = renderPatientPackagesDetailPage();
-                }
-            }
-        }
+        document.getElementById('patientDetailContent').innerHTML = content;
+        document.getElementById('patientDetailModal').classList.remove('hidden');
+
+    } catch (error) {
+        console.error('查看病人資料錯誤:', error);
+        showToast('讀取病人資料失敗', 'error');
+    }
+}
 
         function closePatientDetail() {
             document.getElementById('patientDetailModal').classList.add('hidden');
@@ -5951,22 +5942,23 @@ function loadPatientList() {
         }
 
         // 系統管理功能
-        function updateStatistics() {
-            document.getElementById('totalPatients').textContent = patients.length;
-            
-            const today = new Date().toDateString();
-            const todayConsultations = consultations.filter(c => 
-                new Date(c.date).toDateString() === today
-            ).length;
-            document.getElementById('todayConsultations').textContent = todayConsultations;
-            
-            const thisMonth = new Date().getMonth();
-            const monthlyConsultations = consultations.filter(c => 
-                new Date(c.date).getMonth() === thisMonth
-            ).length;
-            document.getElementById('monthlyConsultations').textContent = monthlyConsultations;
-        }
-
+async function updateStatistics() {
+    try {
+        // 從 Firebase 獲取病人總數
+        const result = await window.firebaseDataManager.getPatients();
+        const totalPatients = result.success ? result.data.length : 0;
+        
+        document.getElementById('totalPatients').textContent = totalPatients;
+        
+        // 其他統計暫時保持原樣（診症記錄將在下一步整合）
+        document.getElementById('todayConsultations').textContent = '0';
+        document.getElementById('monthlyConsultations').textContent = '0';
+        
+    } catch (error) {
+        console.error('更新統計錯誤:', error);
+        document.getElementById('totalPatients').textContent = '0';
+    }
+}
         function exportData() {
             const data = {
                 patients: patients,
