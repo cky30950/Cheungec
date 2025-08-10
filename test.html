@@ -311,7 +311,9 @@ const firebaseConfig = {
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">身分證字號</label>
-                                    <input type="text" id="patientIdCard" placeholder="例：A123456789" maxlength="10" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <input type="text" id="patientIdCard" placeholder="例：A123456789" maxlength="10"
+    pattern="^[A-Za-z]\d{9}$" title="身分證字號格式錯誤，請輸入正確格式（如：A123456789）"
+    class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">出生日期 *</label>
@@ -2697,6 +2699,14 @@ function getUserPositionFromEmail(email) {
         }
 
         function savePatient() {
+    const patientIdCard = document.getElementById('patientIdCard').value.trim();
+
+    // 身分證字號格式檢查
+    const idCardPattern = /^[A-Za-z]\d{9}$/;
+    if (!idCardPattern.test(patientIdCard)) {
+        showToast('請輸入有效的身分證字號，格式應為一個字母後接9個數字', 'error');
+        return;
+    }
             const patient = {
                 id: editingPatientId || Date.now(),
                 patientNumber: editingPatientId ? patients.find(p => p.id === editingPatientId).patientNumber : generatePatientNumber(),
