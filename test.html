@@ -2585,15 +2585,35 @@ function getUserPositionFromEmail(email) {
         }
 
         // 登出功能
-        function logout() {
-            currentUser = null;
-            currentUserData = null;
-            document.getElementById('loginPage').classList.remove('hidden');
-            document.getElementById('mainSystem').classList.add('hidden');
-            document.getElementById('sidebar').classList.add('-translate-x-full');
-            document.getElementById('sidebarOverlay').classList.add('hidden');
-            hideAllSections();
+async function logout() {
+    try {
+        // Firebase 登出
+        if (window.firebase && window.firebase.auth) {
+            await window.firebase.signOut(window.firebase.auth);
         }
+        
+        // 清理本地數據
+        currentUser = null;
+        currentUserData = null;
+        
+        // 切換頁面
+        document.getElementById('loginPage').classList.remove('hidden');
+        document.getElementById('mainSystem').classList.add('hidden');
+        document.getElementById('sidebar').classList.add('-translate-x-full');
+        document.getElementById('sidebarOverlay').classList.add('hidden');
+        hideAllSections();
+        
+        // 清空登入表單
+        document.getElementById('mainLoginUsername').value = '';
+        document.getElementById('mainLoginPassword').value = '';
+        
+        showToast('已成功登出', 'success');
+        
+    } catch (error) {
+        console.error('登出錯誤:', error);
+        showToast('登出時發生錯誤', 'error');
+    }
+}
 
         // 生成側邊選單
         function generateSidebarMenu() {
@@ -8813,6 +8833,107 @@ function getUserPositionFromEmail(email) {
             }
         }
 
+// Firebase 數據管理系統
+class FirebaseDataManager {
+    constructor() {
+        this.isReady = false;
+        this.initializeWhenReady();
+    }
+
+    async initializeWhenReady() {
+        // 等待 Firebase 初始化
+        while (!window.firebase) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        this.isReady = true;
+        console.log('Firebase 數據管理器已準備就緒');
+    }
+
+    // 病人數據管理
+    async addPatient(patientData) {
+        if (!this.isReady) {
+            showToast('數據管理器尚未準備就緒', 'error');
+            return { success: false };
+        }
+
+        try {
+            const docRef = await window.firebase.addDoc(
+                window.firebase.collection(window.firebase.db, 'patients'),
+                {
+                    ...patientData,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    createdBy: currentUser
+                }
+            );
+            
+            console.log('病人數據已添加到 Firebase:', docRef.id);
+            return { success: true, id: docRef.id };
+        } catch (error) {
+            console.error('添加病人數據失敗:', error);
+            showToast('保存病人數據失敗', 'error');
+            return { success: false, error: error.message };
+        }
+    }
+
+    async getPatients() {
+        if (!this.isReady) return { success: false, data: [] };
+
+        try {
+            const querySnapshot = await window.firebase.getDocs(
+                window.firebase.collection(window.firebase.db, 'patients')
+            );
+            
+            const patients = [];
+            querySnapshot.forEach((doc) => {
+                patients.push({ id: doc.id, ...doc.data() });
+            });
+            
+            console.log('已從 Firebase 讀取病人數據:', patients.length, '筆');
+            return { success: true, data: patients };
+        } catch (error) {
+            console.error('讀取病人數據失敗:', error);
+            return { success: false, data: [] };
+        }
+    }
+
+    async updatePatient(patientId, patientData) {
+        try {
+            await window.firebase.updateDoc(
+                window.firebase.doc(window.firebase.db, 'patients', patientId),
+                {
+                    ...patientData,
+                    updatedAt: new Date(),
+                    updatedBy: currentUser
+                }
+            );
+            return { success: true };
+        } catch (error) {
+            console.error('更新病人數據失敗:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async deletePatient(patientId) {
+        try {
+            await window.firebase.deleteDoc(
+                window.firebase.doc(window.firebase.db, 'patients', patientId)
+            );
+            return { success: true };
+        } catch (error) {
+            console.error('刪除病人數據失敗:', error);
+            return { success: false, error: error.message };
+        }
+    }
+}
+
+// 初始化數據管理器
+let firebaseDataManager;
+window.addEventListener('load', () => {
+    firebaseDataManager = new FirebaseDataManager();
+    window.firebaseDataManager = firebaseDataManager; // 全域使用
+});
+        
 // 初始化系統
         document.addEventListener('DOMContentLoaded', function() {
             // 系統啟動時清空過期掛號
