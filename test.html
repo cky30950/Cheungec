@@ -8939,7 +8939,7 @@ class FirebaseDataManager {
                     ...patientData,
                     createdAt: new Date(),
                     updatedAt: new Date(),
-                    createdBy: currentUser
+                    createdBy: currentUser || 'system'
                 }
             );
             
