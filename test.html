@@ -3136,69 +3136,124 @@ async function viewPatient(id) {
             clearPatientSearch();
         }
         
-        // 搜索病人進行掛號
-        function searchPatientsForRegistration() {
-            const searchTerm = document.getElementById('patientSearchInput').value.trim().toLowerCase();
-            const resultsContainer = document.getElementById('patientSearchResults');
-            const resultsList = document.getElementById('searchResultsList');
-            
-            if (searchTerm.length < 1) {
-                resultsContainer.classList.add('hidden');
-                return;
-            }
-            
-            // 搜索匹配的病人
-            const matchedPatients = patients.filter(patient => 
-                patient.name.toLowerCase().includes(searchTerm) ||
-                patient.phone.includes(searchTerm) ||
-                (patient.patientNumber && patient.patientNumber.toLowerCase().includes(searchTerm))
-            );
-            
-            if (matchedPatients.length === 0) {
-                resultsList.innerHTML = `
-                    <div class="p-4 text-center text-gray-500">
-                        找不到符合條件的病人
-                    </div>
-                `;
-                resultsContainer.classList.remove('hidden');
-                return;
-            }
-            
-            // 顯示搜索結果
-            resultsList.innerHTML = matchedPatients.map(patient => `
-                <div class="p-4 hover:bg-gray-50 cursor-pointer transition duration-200" onclick="selectPatientForRegistration(${patient.id})">
-                    <div>
-                        <div class="font-semibold text-gray-900">${patient.name}</div>
-                        <div class="text-sm text-gray-600">編號：${patient.patientNumber} | 年齡：${formatAge(patient.birthDate)} | 性別：${patient.gender}</div>
-                        <div class="text-sm text-gray-500">電話：${patient.phone}</div>
-                    </div>
+// 1. 修改病人搜尋函數，改為從 Firebase 讀取資料
+async function searchPatientsForRegistration() {
+    const searchTerm = document.getElementById('patientSearchInput').value.trim().toLowerCase();
+    const resultsContainer = document.getElementById('patientSearchResults');
+    const resultsList = document.getElementById('searchResultsList');
+    
+    if (searchTerm.length < 1) {
+        resultsContainer.classList.add('hidden');
+        return;
+    }
+    
+    // 顯示載入中
+    resultsList.innerHTML = `
+        <div class="p-4 text-center text-gray-500">
+            <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+            <div class="mt-2">搜尋中...</div>
+        </div>
+    `;
+    resultsContainer.classList.remove('hidden');
+    
+    try {
+        // 從 Firebase 獲取病人資料
+        const result = await window.firebaseDataManager.getPatients();
+        
+        if (!result.success) {
+            resultsList.innerHTML = `
+                <div class="p-4 text-center text-red-500">
+                    讀取病人資料失敗，請重試
                 </div>
-            `).join('');
-            
-            resultsContainer.classList.remove('hidden');
+            `;
+            return;
         }
         
-        // 選擇病人進行掛號
-        function selectPatientForRegistration(patientId) {
-            // 檢查是否有病人正在診症中
-            const consultingAppointment = appointments.find(apt => 
-                apt.status === 'consulting' && 
-                new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
-            );
-            
-            if (consultingAppointment) {
-                const consultingPatient = patients.find(p => p.id === consultingAppointment.patientId);
+        // 搜索匹配的病人
+        const matchedPatients = result.data.filter(patient => 
+            patient.name.toLowerCase().includes(searchTerm) ||
+            patient.phone.includes(searchTerm) ||
+            (patient.patientNumber && patient.patientNumber.toLowerCase().includes(searchTerm))
+        );
+        
+        if (matchedPatients.length === 0) {
+            resultsList.innerHTML = `
+                <div class="p-4 text-center text-gray-500">
+                    找不到符合條件的病人
+                </div>
+            `;
+            resultsContainer.classList.remove('hidden');
+            return;
+        }
+        
+        // 顯示搜索結果
+        resultsList.innerHTML = matchedPatients.map(patient => `
+            <div class="p-4 hover:bg-gray-50 cursor-pointer transition duration-200" onclick="selectPatientForRegistration('${patient.id}')">
+                <div>
+                    <div class="font-semibold text-gray-900">${patient.name}</div>
+                    <div class="text-sm text-gray-600">編號：${patient.patientNumber} | 年齡：${formatAge(patient.birthDate)} | 性別：${patient.gender}</div>
+                    <div class="text-sm text-gray-500">電話：${patient.phone}</div>
+                </div>
+            </div>
+        `).join('');
+        
+        resultsContainer.classList.remove('hidden');
+        
+    } catch (error) {
+        console.error('搜尋病人資料錯誤:', error);
+        resultsList.innerHTML = `
+            <div class="p-4 text-center text-red-500">
+                搜尋失敗，請檢查網路連接
+            </div>
+        `;
+    }
+}
+        
+// 2. 修改選擇病人進行掛號函數
+async function selectPatientForRegistration(patientId) {
+    // 檢查是否有病人正在診症中
+    const consultingAppointment = appointments.find(apt => 
+        apt.status === 'consulting' && 
+        new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
+    );
+    
+    if (consultingAppointment) {
+        try {
+            // 從 Firebase 獲取正在診症的病人資料
+            const result = await window.firebaseDataManager.getPatients();
+            if (result.success) {
+                const consultingPatient = result.data.find(p => p.id === consultingAppointment.patientId);
                 const consultingPatientName = consultingPatient ? consultingPatient.name : '某位病人';
                 showToast(`無法進行掛號！${consultingPatientName}正在診症中，請等待診症完成後再進行掛號操作。`, 'warning');
                 return;
             }
-            
-            const patient = patients.find(p => p.id === patientId);
-            if (!patient) return;
-            
-            selectedPatientForRegistration = patient;
-            showRegistrationModal(patient);
+        } catch (error) {
+            console.error('檢查診症狀態錯誤:', error);
         }
+    }
+    
+    try {
+        // 從 Firebase 獲取病人資料
+        const result = await window.firebaseDataManager.getPatients();
+        if (!result.success) {
+            showToast('讀取病人資料失敗', 'error');
+            return;
+        }
+        
+        const patient = result.data.find(p => p.id === patientId);
+        if (!patient) {
+            showToast('找不到病人資料', 'error');
+            return;
+        }
+        
+        selectedPatientForRegistration = patient;
+        showRegistrationModal(patient);
+        
+    } catch (error) {
+        console.error('選擇病人資料錯誤:', error);
+        showToast('讀取病人資料失敗', 'error');
+    }
+}
         
         // 清除病人搜索
         function clearPatientSearch() {
@@ -3368,91 +3423,129 @@ async function viewPatient(id) {
             }
         }
 
-        // 載入今日掛號列表
-        function loadTodayAppointments() {
-            // 先清空過期掛號
-            clearOldAppointments();
+// 3. 修改今日掛號列表載入功能，確保能正確顯示病人資訊
+async function loadTodayAppointments() {
+    // 先清空過期掛號
+    clearOldAppointments();
+    
+    const today = new Date().toDateString();
+    let todayAppointments = appointments.filter(apt => 
+        new Date(apt.appointmentTime).toDateString() === today
+    );
+    
+    // 如果當前用戶是醫師，只顯示掛給自己的病人
+    if (currentUserData && currentUserData.position === '醫師') {
+        todayAppointments = todayAppointments.filter(apt => 
+            apt.appointmentDoctor === currentUserData.username
+        );
+    }
+    
+    // 按時間排序
+    todayAppointments.sort((a, b) => new Date(a.appointmentTime) - new Date(b.appointmentTime));
+    
+    const tbody = document.getElementById('todayAppointmentsList');
+    document.getElementById('todayTotal').textContent = todayAppointments.length;
+    
+    if (todayAppointments.length === 0) {
+        const message = currentUserData && currentUserData.position === '醫師' 
+            ? '今日暫無掛給您的病人' 
+            : '今日暫無掛號記錄';
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                    ${message}
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    try {
+        // 從 Firebase 獲取所有病人資料
+        const result = await window.firebaseDataManager.getPatients();
+        const patientsData = result.success ? result.data : [];
+        
+        tbody.innerHTML = todayAppointments.map((appointment, index) => {
+            // 從 Firebase 資料中尋找對應病人
+            const patient = patientsData.find(p => p.id === appointment.patientId);
             
-            const today = new Date().toDateString();
-            let todayAppointments = appointments.filter(apt => 
-                new Date(apt.appointmentTime).toDateString() === today
-            );
-            
-            // 如果當前用戶是醫師，只顯示掛給自己的病人
-            if (currentUserData && currentUserData.position === '醫師') {
-                todayAppointments = todayAppointments.filter(apt => 
-                    apt.appointmentDoctor === currentUserData.username
-                );
+            if (!patient) {
+                // 如果在 Firebase 找不到，嘗試從本地陣列找（向後兼容）
+                const localPatient = patients.find(p => p.id === appointment.patientId);
+                if (!localPatient) {
+                    return `
+                        <tr class="hover:bg-gray-50">
+                            <td colspan="7" class="px-4 py-3 text-center text-red-500">
+                                找不到病人資料 (ID: ${appointment.patientId})
+                            </td>
+                        </tr>
+                    `;
+                }
+                // 使用本地病人資料
+                return createAppointmentRow(appointment, localPatient, index);
             }
             
-            // 按時間排序
-            todayAppointments.sort((a, b) => new Date(a.appointmentTime) - new Date(b.appointmentTime));
-            
-            const tbody = document.getElementById('todayAppointmentsList');
-            document.getElementById('todayTotal').textContent = todayAppointments.length;
-            
-            if (todayAppointments.length === 0) {
-                const message = currentUserData && currentUserData.position === '醫師' 
-                    ? '今日暫無掛給您的病人' 
-                    : '今日暫無掛號記錄';
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
-                            ${message}
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-            
-            tbody.innerHTML = todayAppointments.map((appointment, index) => {
-                const patient = patients.find(p => p.id === appointment.patientId);
-                if (!patient) return '';
-                
-                // 獲取掛號醫師資訊
-                const appointmentDoctor = users.find(u => u.username === appointment.appointmentDoctor);
-                const doctorName = appointmentDoctor ? `${appointmentDoctor.name}醫師` : '未指定醫師';
-                
-                const statusInfo = getStatusInfo(appointment.status);
-                const operationButtons = getOperationButtons(appointment);
-                
-                return `
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 text-sm text-gray-900 font-medium">${index + 1}</td>
-                        <td class="px-4 py-3 text-sm font-medium text-gray-900">
-                            ${patient.name}
-                            <div class="text-xs text-gray-500">${patient.patientNumber}</div>
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-900">
-                            <div class="font-medium text-blue-600">${doctorName}</div>
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-900">
-                            ${new Date(appointment.appointmentTime).toLocaleString('zh-TW', {
-                                month: '2-digit',
-                                day: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                            })}
-                        </td>
-                        <td class="px-4 py-3 text-sm text-gray-900">
-                            <div class="max-w-xs truncate" title="${appointment.chiefComplaint || '無'}">
-                                ${appointment.chiefComplaint || '無'}
-                            </div>
-                        </td>
-                        <td class="px-4 py-3">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.class}">
-                                ${statusInfo.text}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-sm">
-                            <div class="flex flex-wrap gap-1">
-                                ${operationButtons}
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        }
+            // 使用 Firebase 病人資料
+            return createAppointmentRow(appointment, patient, index);
+        }).join('');
+        
+    } catch (error) {
+        console.error('載入掛號列表錯誤:', error);
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="px-4 py-8 text-center text-red-500">
+                    載入掛號列表失敗，請重新整理頁面
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// 4. 創建掛號列表行的輔助函數
+function createAppointmentRow(appointment, patient, index) {
+    // 獲取掛號醫師資訊
+    const appointmentDoctor = users.find(u => u.username === appointment.appointmentDoctor);
+    const doctorName = appointmentDoctor ? `${appointmentDoctor.name}醫師` : '未指定醫師';
+    
+    const statusInfo = getStatusInfo(appointment.status);
+    const operationButtons = getOperationButtons(appointment);
+    
+    return `
+        <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3 text-sm text-gray-900 font-medium">${index + 1}</td>
+            <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                ${patient.name}
+                <div class="text-xs text-gray-500">${patient.patientNumber}</div>
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-900">
+                <div class="font-medium text-blue-600">${doctorName}</div>
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-900">
+                ${new Date(appointment.appointmentTime).toLocaleString('zh-TW', {
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })}
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-900">
+                <div class="max-w-xs truncate" title="${appointment.chiefComplaint || '無'}">
+                    ${appointment.chiefComplaint || '無'}
+                </div>
+            </td>
+            <td class="px-4 py-3">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.class}">
+                    ${statusInfo.text}
+                </span>
+            </td>
+            <td class="px-4 py-3 text-sm">
+                <div class="flex flex-wrap gap-1">
+                    ${operationButtons}
+                </div>
+            </td>
+        </tr>
+    `;
+}
         
         // 獲取狀態資訊
         function getStatusInfo(status) {
@@ -4368,57 +4461,75 @@ async function saveConsultation() {
         let currentConsultationConsultations = [];
         let currentConsultationHistoryPage = 0;
         
-        function viewPatientMedicalHistory(patientId) {
-            const patient = patients.find(p => p.id === patientId);
-            if (!patient) {
-                showToast('找不到病人資料！', 'error');
-                return;
-            }
-            
-            // 獲取該病人的所有診症記錄
-            currentConsultationConsultations = consultations
-                .filter(c => c.patientId === patientId)
-                .sort((a, b) => new Date(a.date) - new Date(b.date)); // 按日期升序排列（較舊至較新）
-            
-            // 預設顯示最新的病歷（最近一次診症）
-            currentConsultationHistoryPage = currentConsultationConsultations.length - 1;
-            
-            // 設置標題
-            document.getElementById('medicalHistoryTitle').textContent = `${patient.name} 的診症記錄`;
-            
-            // 顯示病人基本資訊
-            document.getElementById('medicalHistoryPatientInfo').innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                        <span class="font-medium text-gray-700">病人編號：</span>
-                        <span class="text-blue-600 font-semibold">${patient.patientNumber}</span>
-                    </div>
-                    <div>
-                        <span class="font-medium text-gray-700">姓名：</span>
-                        <span class="font-semibold">${patient.name}</span>
-                    </div>
-                    <div>
-                        <span class="font-medium text-gray-700">年齡：</span>
-                        <span>${formatAge(patient.birthDate)}</span>
-                    </div>
-                    <div>
-                        <span class="font-medium text-gray-700">性別：</span>
-                        <span>${patient.gender}</span>
-                    </div>
-                    ${patient.allergies ? `
-                    <div class="md:col-span-4">
-                        <span class="font-medium text-red-600">過敏史：</span>
-                        <span class="text-red-700 bg-red-50 px-2 py-1 rounded">${patient.allergies}</span>
-                    </div>
-                    ` : ''}
-                </div>
-            `;
-            
-            // 顯示分頁病歷記錄
-            displayConsultationMedicalHistoryPage();
-            
-            document.getElementById('medicalHistoryModal').classList.remove('hidden');
+// 5. 修改查看病人診症記錄功能
+async function viewPatientMedicalHistory(patientId) {
+    try {
+        // 從 Firebase 獲取病人資料
+        const patientResult = await window.firebaseDataManager.getPatients();
+        if (!patientResult.success) {
+            showToast('無法讀取病人資料', 'error');
+            return;
         }
+        
+        const patient = patientResult.data.find(p => p.id === patientId);
+        if (!patient) {
+            showToast('找不到病人資料', 'error');
+            return;
+        }
+        
+        // 獲取該病人的所有診症記錄
+        const consultationResult = await window.firebaseDataManager.getPatientConsultations(patientId);
+        if (!consultationResult.success) {
+            showToast('無法讀取診症記錄', 'error');
+            return;
+        }
+        
+        currentConsultationConsultations = consultationResult.data;
+        
+        // 預設顯示最新的病歷（最近一次診症）
+        currentConsultationHistoryPage = 0; // Firebase 已經按時間排序，最新在前
+        
+        // 設置標題
+        document.getElementById('medicalHistoryTitle').textContent = `${patient.name} 的診症記錄`;
+        
+        // 顯示病人基本資訊
+        document.getElementById('medicalHistoryPatientInfo').innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                    <span class="font-medium text-gray-700">病人編號：</span>
+                    <span class="text-blue-600 font-semibold">${patient.patientNumber}</span>
+                </div>
+                <div>
+                    <span class="font-medium text-gray-700">姓名：</span>
+                    <span class="font-semibold">${patient.name}</span>
+                </div>
+                <div>
+                    <span class="font-medium text-gray-700">年齡：</span>
+                    <span>${formatAge(patient.birthDate)}</span>
+                </div>
+                <div>
+                    <span class="font-medium text-gray-700">性別：</span>
+                    <span>${patient.gender}</span>
+                </div>
+                ${patient.allergies ? `
+                <div class="md:col-span-4">
+                    <span class="font-medium text-red-600">過敏史：</span>
+                    <span class="text-red-700 bg-red-50 px-2 py-1 rounded">${patient.allergies}</span>
+                </div>
+                ` : ''}
+            </div>
+        `;
+        
+        // 顯示分頁病歷記錄
+        displayConsultationMedicalHistoryPage();
+        
+        document.getElementById('medicalHistoryModal').classList.remove('hidden');
+        
+    } catch (error) {
+        console.error('查看病人診症記錄錯誤:', error);
+        showToast('讀取病人資料失敗', 'error');
+    }
+}
         
         function displayConsultationMedicalHistoryPage() {
             const contentDiv = document.getElementById('medicalHistoryContent');
@@ -6031,22 +6142,51 @@ async function loadPatientConsultationSummary(patientId) {
 }
 
         
-        // 系統管理功能
+// 6. 修改更新統計功能
 async function updateStatistics() {
     try {
         // 從 Firebase 獲取病人總數
         const result = await window.firebaseDataManager.getPatients();
         const totalPatients = result.success ? result.data.length : 0;
         
-        document.getElementById('totalPatients').textContent = totalPatients;
+        // 更新病人總數顯示
+        const totalPatientsElement = document.getElementById('totalPatients');
+        if (totalPatientsElement) {
+            totalPatientsElement.textContent = totalPatients;
+        }
         
-        // 其他統計暫時保持原樣（診症記錄將在下一步整合）
-        document.getElementById('todayConsultations').textContent = '0';
-        document.getElementById('monthlyConsultations').textContent = '0';
+        // 計算今日診症數（從本地appointments計算，因為掛號系統尚未移到Firebase）
+        const today = new Date().toDateString();
+        const todayConsultations = appointments.filter(apt => 
+            apt.status === 'completed' && 
+            new Date(apt.appointmentTime).toDateString() === today
+        ).length;
+        
+        const todayConsultationsElement = document.getElementById('todayConsultations');
+        if (todayConsultationsElement) {
+            todayConsultationsElement.textContent = todayConsultations;
+        }
+        
+        // 計算本月診症數
+        const thisMonth = new Date();
+        const monthlyConsultations = appointments.filter(apt => 
+            apt.status === 'completed' && 
+            new Date(apt.appointmentTime).getMonth() === thisMonth.getMonth() &&
+            new Date(apt.appointmentTime).getFullYear() === thisMonth.getFullYear()
+        ).length;
+        
+        const monthlyConsultationsElement = document.getElementById('monthlyConsultations');
+        if (monthlyConsultationsElement) {
+            monthlyConsultationsElement.textContent = monthlyConsultations;
+        }
         
     } catch (error) {
         console.error('更新統計錯誤:', error);
-        document.getElementById('totalPatients').textContent = '0';
+        // 如果 Firebase 讀取失敗，顯示 0
+        const totalPatientsElement = document.getElementById('totalPatients');
+        if (totalPatientsElement) {
+            totalPatientsElement.textContent = '0';
+        }
     }
 }
         function exportData() {
