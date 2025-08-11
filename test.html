@@ -146,15 +146,15 @@ const firebaseConfig = {
                     <div class="text-xs text-blue-700 space-y-2">
                         <div class="flex justify-between items-center">
                             <span>👨‍💼 陳經理診所管理</span>
-                            <span class="font-mono bg-white px-2 py-1 rounded">admin@clinic.com / admin123</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="6d0c090004032d0e010403040e430e0200">[email&#160;protected]</a> / admin123</span>
                         </div>
                         <div class="flex justify-between items-center">
                             <span>👨‍⚕️ 張中醫師醫師</span>
-                            <span class="font-mono bg-white px-2 py-1 rounded">doctor@clinic.com / doctor123</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="75111a16011a073516191c1b1c165b161a18">[email&#160;protected]</a> / doctor123</span>
                         </div>
                         <div class="flex justify-between items-center">
                             <span>👩‍💻 林護理師護理師</span>
-                            <span class="font-mono bg-white px-2 py-1 rounded">nurse@clinic.com / nurse123</span>
+                            <span class="font-mono bg-white px-2 py-1 rounded"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="a4cad1d6d7c1e4c7c8cdcacdc78ac7cbc9">[email&#160;protected]</a> / nurse123</span>
                         </div>
                     </div>
                 </div>
@@ -1207,6 +1207,12 @@ const firebaseConfig = {
                                     <label class="block text-sm font-medium text-gray-700 mb-1">電話號碼</label>
                                     <input type="tel" id="userPhone" placeholder="請輸入電話號碼" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
+                                <!-- Firebase UID 欄位 -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Firebase UID</label>
+                                    <input type="text" id="userUID" placeholder="請輸入 Firebase UID（可不填）" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <p class="text-xs text-gray-500 mt-1">對應 Firebase Authentication 帳號的 UID</p>
+                                </div>
                                 <div class="md:col-span-2">
                                     <label class="flex items-center">
                                         <input type="checkbox" id="userActive" checked class="mr-2 rounded">
@@ -1609,7 +1615,7 @@ const firebaseConfig = {
         </div>
     </div>
 
-    <script>
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
         // 系統資料儲存
         let currentUser = null;
         let currentUserData = null;
@@ -2424,6 +2430,8 @@ const firebaseConfig = {
                 email: 'manager@tcmclinic.com',
                 phone: '02-8888-1001',
                 active: true,
+                // Firebase UID 對應值，可於用戶管理中設定
+                uid: '',
                 createdAt: new Date('2024-01-01').toISOString(),
                 lastLogin: null
             },
@@ -2437,6 +2445,8 @@ const firebaseConfig = {
                 email: 'drzhang@tcmclinic.com',
                 phone: '02-8888-1002',
                 active: true,
+                // Firebase UID 對應值，可於用戶管理中設定
+                uid: '',
                 createdAt: new Date('2024-01-01').toISOString(),
                 lastLogin: null
             },
@@ -2449,6 +2459,8 @@ const firebaseConfig = {
                 email: 'amy@tcmclinic.com',
                 phone: '02-8888-1003',
                 active: true,
+                // Firebase UID 對應值，可於用戶管理中設定
+                uid: '',
                 createdAt: new Date('2024-01-01').toISOString(),
                 lastLogin: null
             }
@@ -2488,20 +2500,49 @@ async function attemptMainLogin() {
 
         // 使用 Firebase 登入
         const userCredential = await window.firebase.signInWithEmailAndPassword(
-            window.firebase.auth, 
-            email, 
+            window.firebase.auth,
+            email,
             password
         );
 
         console.log('Firebase 登入成功:', userCredential.user.email);
-        
-        // 模擬用戶數據（暫時）
-        currentUser = userCredential.user.email;
-        currentUserData = {
-            email: userCredential.user.email,
-            name: getUserNameFromEmail(email),
-            position: getUserPositionFromEmail(email)
-        };
+
+        // 取得 Firebase 使用者資訊
+        const firebaseUser = userCredential.user;
+        const uid = firebaseUser.uid;
+
+        // 在本地用戶資料中尋找對應的 UID 或電子郵件
+        let matchingUser = users.find(u => u.uid && u.uid === uid);
+        if (!matchingUser) {
+            // 若未設定 uid，改用 email 比對（不區分大小寫）
+            matchingUser = users.find(u => u.email && u.email.toLowerCase() === firebaseUser.email.toLowerCase());
+            if (matchingUser) {
+                // 將 Firebase UID 設定到用戶資料中，以便下次可直接透過 UID 比對
+                matchingUser.uid = uid;
+                localStorage.setItem('users', JSON.stringify(users));
+            }
+        }
+
+        if (matchingUser) {
+            // 找到對應用戶，使用用戶資料進行登入
+            currentUserData = matchingUser;
+            currentUser = matchingUser.username;
+        } else {
+            // 若找不到對應用戶，使用 Firebase 資訊建立臨時用戶資料
+            currentUserData = {
+                id: null,
+                uid: uid,
+                username: firebaseUser.email,
+                email: firebaseUser.email,
+                name: firebaseUser.displayName || firebaseUser.email,
+                position: '用戶',
+                active: true,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                lastLogin: new Date().toISOString()
+            };
+            currentUser = currentUserData.username;
+        }
 
         // 登入成功，切換到主系統
         performLogin(currentUserData);
@@ -8051,7 +8092,7 @@ async function updateStatistics() {
         }
         
         function clearUserForm() {
-            ['userName', 'userPassword', 'userDisplayName', 'userPosition', 'userEmail', 'userPhone', 'userRegistrationNumber'].forEach(id => {
+            ['userName', 'userPassword', 'userDisplayName', 'userPosition', 'userEmail', 'userPhone', 'userRegistrationNumber', 'userUID'].forEach(id => {
                 document.getElementById(id).value = '';
             });
             document.getElementById('userActive').checked = true;
@@ -8090,6 +8131,9 @@ async function updateStatistics() {
             document.getElementById('userPhone').value = user.phone || '';
             document.getElementById('userRegistrationNumber').value = user.registrationNumber || '';
             document.getElementById('userActive').checked = user.active !== false;
+
+            // 填入 Firebase UID
+            document.getElementById('userUID').value = user.uid || '';
             
             // 根據職位顯示或隱藏註冊編號欄位
             toggleRegistrationNumberField();
@@ -8106,6 +8150,7 @@ async function updateStatistics() {
             const phone = document.getElementById('userPhone').value.trim();
             const registrationNumber = document.getElementById('userRegistrationNumber').value.trim();
             const active = document.getElementById('userActive').checked;
+            const uid = document.getElementById('userUID').value.trim();
             
             // 驗證必填欄位
             if (!username || !name || !position) {
@@ -8169,6 +8214,7 @@ async function updateStatistics() {
                 users[userIndex].registrationNumber = position === '醫師' ? registrationNumber : null;
                 users[userIndex].email = email;
                 users[userIndex].phone = phone;
+                users[userIndex].uid = uid || '';
                 users[userIndex].active = active;
                 users[userIndex].updatedAt = new Date().toISOString();
                 
@@ -8199,6 +8245,7 @@ async function updateStatistics() {
                     registrationNumber: position === '醫師' ? registrationNumber : null,
                     email: email,
                     phone: phone,
+                    uid: uid || '',
                     active: active,
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
@@ -9157,5 +9204,6 @@ window.addEventListener('load', () => {
         });
     </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96abf25724ae0514',t:'MTc1NDQ1NjE3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96c38f22ee47ddc3","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96d90c272a1cdd44","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>
