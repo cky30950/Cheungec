@@ -4074,7 +4074,7 @@ async function showConsultationForm(appointment) {
         }
         
         // 取消診症
-        function cancelConsultation() {
+        async function cancelConsultation() {
             if (!currentConsultingAppointmentId) {
                 closeConsultationForm();
                 return;
@@ -4222,12 +4222,19 @@ async function saveConsultation() {
         let currentPatientConsultations = [];
         let currentPatientHistoryPage = 0;
         
-        function showPatientMedicalHistory(patientId) {
-            const patient = patients.find(p => p.id === patientId);
-            if (!patient) {
-                showToast('找不到病人資料！', 'error');
-                return;
-            }
+        async function showPatientMedicalHistory(patientId) {
+    try {
+const patientResult = await window.firebaseDataManager.getPatients();
+if (!patientResult.success) {
+    showToast('無法讀取病人資料！', 'error');
+    return;
+}
+
+const patient = patientResult.data.find(p => p.id === patientId);
+if (!patient) {
+    showToast('找不到病人資料！', 'error');
+    return;
+}
             
             // 獲取該病人的所有診症記錄
             currentPatientConsultations = consultations
@@ -4272,6 +4279,10 @@ async function saveConsultation() {
             displayPatientMedicalHistoryPage();
             
             document.getElementById('patientMedicalHistoryModal').classList.remove('hidden');
+            } catch (error) {
+        console.error('讀取病人資料錯誤:', error);
+        showToast('讀取病人資料失敗', 'error');
+    }
         }
         
         function displayPatientMedicalHistoryPage() {
@@ -5675,18 +5686,24 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
 }
         
         // 列印病假證明
-        function printSickLeave(consultationId) {
+        async function printSickLeave(consultationId) {
             const consultation = consultations.find(c => c.id === consultationId);
             if (!consultation) {
                 showToast('找不到診症記錄！', 'error');
                 return;
             }
-            
-            const patient = patients.find(p => p.id === consultation.patientId);
-            if (!patient) {
-                showToast('找不到病人資料！', 'error');
-                return;
-            }
+    try {            
+const patientResult = await window.firebaseDataManager.getPatients();
+if (!patientResult.success) {
+    showToast('無法讀取病人資料！', 'error');
+    return;
+}
+
+const patient = patientResult.data.find(p => p.id === patientId);
+if (!patient) {
+    showToast('找不到病人資料！', 'error');
+    return;
+}
             
             // 創建病假證明格式
             const printContent = `
@@ -6023,21 +6040,31 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
             printWindow.print();
             
             showToast('病假證明書已準備列印！', 'success');
+            } catch (error) {
+        console.error('讀取病人資料錯誤:', error);
+        showToast('讀取病人資料失敗', 'error');
+    }
         }
 
         // 撤回診症功能
-        function withdrawConsultation(appointmentId) {
+        async function withdrawConsultation(appointmentId) {
             const appointment = appointments.find(apt => apt.id === appointmentId);
             if (!appointment) {
                 showToast('找不到掛號記錄！', 'error');
                 return;
             }
-            
-            const patient = patients.find(p => p.id === appointment.patientId);
-            if (!patient) {
-                showToast('找不到病人資料！', 'error');
-                return;
-            }
+    try {             
+const patientResult = await window.firebaseDataManager.getPatients();
+if (!patientResult.success) {
+    showToast('無法讀取病人資料！', 'error');
+    return;
+}
+
+const patient = patientResult.data.find(p => p.id === patientId);
+if (!patient) {
+    showToast('找不到病人資料！', 'error');
+    return;
+}
             
             // 詳細狀態檢查
             console.log(`撤回診症狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}, 診症記錄ID: ${appointment.consultationId}`);
@@ -6107,21 +6134,31 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
                 loadTodayAppointments();
                 updateStatistics();
             }
+            } catch (error) {
+        console.error('讀取病人資料錯誤:', error);
+        showToast('讀取病人資料失敗', 'error');
+    }
         }
 
         // 修改病歷功能
-        function editMedicalRecord(appointmentId) {
+        async function editMedicalRecord(appointmentId) {
             const appointment = appointments.find(apt => apt.id === appointmentId);
             if (!appointment) {
                 showToast('找不到掛號記錄！', 'error');
                 return;
             }
-            
-            const patient = patients.find(p => p.id === appointment.patientId);
-            if (!patient) {
-                showToast('找不到病人資料！', 'error');
-                return;
-            }
+    try {            
+const patientResult = await window.firebaseDataManager.getPatients();
+if (!patientResult.success) {
+    showToast('無法讀取病人資料！', 'error');
+    return;
+}
+
+const patient = patientResult.data.find(p => p.id === patientId);
+if (!patient) {
+    showToast('找不到病人資料！', 'error');
+    return;
+}
             
             // 詳細狀態檢查
             console.log(`修改病歷狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}, 診症記錄ID: ${appointment.consultationId}`);
@@ -6183,6 +6220,10 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
             showConsultationForm(appointment);
             
             showToast(`進入 ${patient.name} 的病歷編輯模式`, 'info');
+            } catch (error) {
+        console.error('讀取病人資料錯誤:', error);
+        showToast('讀取病人資料失敗', 'error');
+    }
         }
 
 
@@ -7843,7 +7884,7 @@ async function updateStatistics() {
 
         
         // 載入上次處方內容（按鈕觸發）
-        function loadPreviousPrescription() {
+        async function loadPreviousPrescription() {
             if (!currentConsultingAppointmentId) {
                 showToast('請先開始診症！', 'error');
                 return;
@@ -7854,12 +7895,18 @@ async function updateStatistics() {
                 showToast('找不到當前診症記錄！', 'error');
                 return;
             }
-            
-            const patient = patients.find(p => p.id === appointment.patientId);
-            if (!patient) {
-                showToast('找不到病人資料！', 'error');
-                return;
-            }
+    try {            
+const patientResult = await window.firebaseDataManager.getPatients();
+if (!patientResult.success) {
+    showToast('無法讀取病人資料！', 'error');
+    return;
+}
+
+const patient = patientResult.data.find(p => p.id === patientId);
+if (!patient) {
+    showToast('找不到病人資料！', 'error');
+    return;
+}
             
             // 獲取該病人的最近一次診症記錄（排除當前正在編輯的記錄）
             const patientConsultations = consultations
@@ -7884,6 +7931,10 @@ async function updateStatistics() {
             updatePrescriptionDisplay();
             
             // showToast(`已載入 ${patient.name} 上次的處方內容`, 'success');
+            } catch (error) {
+        console.error('讀取病人資料錯誤:', error);
+        showToast('讀取病人資料失敗', 'error');
+    }
         }
         
         // 解析處方內容並重建處方項目
@@ -7983,7 +8034,7 @@ async function updateStatistics() {
 
         
         // 載入上次收費項目（按鈕觸發）
-        function loadPreviousBillingItems() {
+        async function loadPreviousBillingItems() {
             if (!currentConsultingAppointmentId) {
                 showToast('請先開始診症！', 'error');
                 return;
@@ -7994,12 +8045,18 @@ async function updateStatistics() {
                 showToast('找不到當前診症記錄！', 'error');
                 return;
             }
-            
-            const patient = patients.find(p => p.id === appointment.patientId);
-            if (!patient) {
-                showToast('找不到病人資料！', 'error');
-                return;
-            }
+    try {             
+const patientResult = await window.firebaseDataManager.getPatients();
+if (!patientResult.success) {
+    showToast('無法讀取病人資料！', 'error');
+    return;
+}
+
+const patient = patientResult.data.find(p => p.id === patientId);
+if (!patient) {
+    showToast('找不到病人資料！', 'error');
+    return;
+}
             
             // 獲取該病人的最近一次診症記錄
             const patientConsultations = consultations
@@ -8022,6 +8079,10 @@ async function updateStatistics() {
             
             // 更新顯示
             updateBillingDisplay();
+            } catch (error) {
+        console.error('讀取病人資料錯誤:', error);
+        showToast('讀取病人資料失敗', 'error');
+    }
         }
         
         // 解析收費項目文字並載入
@@ -8075,7 +8136,7 @@ async function updateStatistics() {
         }
         
         // 載入指定病歷記錄到當前診症
-        function loadMedicalRecordToCurrentConsultation(consultationId) {
+        async function loadMedicalRecordToCurrentConsultation(consultationId) {
             if (!currentConsultingAppointmentId) {
                 showToast('請先開始診症！', 'error');
                 return;
