@@ -4257,7 +4257,7 @@ async function saveConsultation() {
             appointment.completedBy = currentUser;
             localStorage.setItem('appointments', JSON.stringify(appointments));
 
-            showToast('診症記錄已完成並保存到雲端！', 'success');
+            showToast('診症記錄已保存！', 'success');
             
             closeConsultationForm();
             loadTodayAppointments();
