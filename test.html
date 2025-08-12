@@ -6377,6 +6377,11 @@ async function loadPatientConsultationSummary(patientId) {
 // 6. 修改更新統計功能
 async function updateStatistics() {
     try {
+        // 如果 Firebase 數據管理器尚未初始化或尚未準備好，則跳過統計更新。
+        if (!window.firebaseDataManager || !window.firebaseDataManager.isReady) {
+            console.log('Firebase 數據管理器尚未準備就緒，統計資訊將稍後更新');
+            return;
+        }
         // 從 Firebase 獲取病人總數
         const result = await window.firebaseDataManager.getPatients();
         const totalPatients = result.success ? result.data.length : 0;
@@ -9808,6 +9813,8 @@ let firebaseDataManager;
 window.addEventListener('load', () => {
     firebaseDataManager = new FirebaseDataManager();
     window.firebaseDataManager = firebaseDataManager; // 全域使用
+    // Firebase 資料管理器初始化完成後更新統計
+    updateStatistics();
 });
         
 // 初始化系統
@@ -9815,7 +9822,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // 系統啟動時清空過期掛號
     clearOldAppointments();
     
-    updateStatistics();
     updateClinicSettingsDisplay();
     
     // 初始化數據遷移
