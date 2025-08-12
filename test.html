@@ -2447,7 +2447,7 @@ const firebaseConfig = {
         // 所有用戶都有完整權限
         const allPermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement', 'financialReports', 'userManagement', 'systemManagement'];
 
-        // 主要登入功能
+// 主要登入功能
 async function attemptMainLogin() {
     const email = document.getElementById('mainLoginUsername').value.trim();
     const password = document.getElementById('mainLoginPassword').value.trim();
@@ -2482,7 +2482,10 @@ async function attemptMainLogin() {
         const firebaseUser = userCredential.user;
         const uid = firebaseUser.uid;
 
-        // 在本地用戶資料中尋找對應的 UID 或電子郵件
+        // 同步載入 Firebase 用戶數據
+        await syncUserDataFromFirebase();
+
+        // 在用戶資料中尋找對應的 UID 或電子郵件
         let matchingUser = users.find(u => u.uid && u.uid === uid);
         if (!matchingUser) {
             // 若未設定 uid，改用 email 比對（不區分大小寫）
@@ -2490,12 +2493,38 @@ async function attemptMainLogin() {
             if (matchingUser) {
                 // 將 Firebase UID 設定到用戶資料中，以便下次可直接透過 UID 比對
                 matchingUser.uid = uid;
+                
+                // 更新到 Firebase
+                try {
+                    await window.firebaseDataManager.updateUser(matchingUser.id, { uid: uid });
+                } catch (error) {
+                    console.error('更新用戶 UID 失敗:', error);
+                }
+                
+                // 更新本地存儲
                 localStorage.setItem('users', JSON.stringify(users));
             }
         }
 
         if (matchingUser) {
-            // 找到對應用戶，使用用戶資料進行登入
+            // 找到對應用戶，檢查是否啟用
+            if (!matchingUser.active) {
+                showToast('您的帳號已被停用，請聯繫管理員', 'error');
+                await window.firebase.signOut(window.firebase.auth);
+                return;
+            }
+
+            // 更新最後登入時間
+            matchingUser.lastLogin = new Date().toISOString();
+            try {
+                await window.firebaseDataManager.updateUser(matchingUser.id, { 
+                    lastLogin: new Date() 
+                });
+            } catch (error) {
+                console.error('更新最後登入時間失敗:', error);
+            }
+            
+            // 使用用戶資料進行登入
             currentUserData = matchingUser;
             currentUser = matchingUser.username;
         } else {
@@ -2505,8 +2534,8 @@ async function attemptMainLogin() {
                 uid: uid,
                 username: firebaseUser.email,
                 email: firebaseUser.email,
-                name: firebaseUser.displayName || firebaseUser.email,
-                position: '用戶',
+                name: firebaseUser.displayName || getUserNameFromEmail(firebaseUser.email),
+                position: getUserPositionFromEmail(firebaseUser.email),
                 active: true,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
@@ -2538,6 +2567,36 @@ async function attemptMainLogin() {
         // 恢復按鈕狀態
         loginButton.textContent = originalText;
         loginButton.disabled = false;
+    }
+}
+
+// 同步 Firebase 用戶數據到本地
+async function syncUserDataFromFirebase() {
+    try {
+        if (!window.firebaseDataManager || !window.firebaseDataManager.isReady) {
+            console.log('Firebase 數據管理器尚未準備就緒，跳過同步');
+            return;
+        }
+
+        const result = await window.firebaseDataManager.getUsers();
+        if (result.success && result.data.length > 0) {
+            // 更新本地 users 變數
+            users = result.data.map(user => ({
+                ...user,
+                // 確保數據格式兼容性
+                createdAt: user.createdAt ? (user.createdAt.seconds ? new Date(user.createdAt.seconds * 1000).toISOString() : user.createdAt) : new Date().toISOString(),
+                updatedAt: user.updatedAt ? (user.updatedAt.seconds ? new Date(user.updatedAt.seconds * 1000).toISOString() : user.updatedAt) : new Date().toISOString(),
+                lastLogin: user.lastLogin ? (user.lastLogin.seconds ? new Date(user.lastLogin.seconds * 1000).toISOString() : user.lastLogin) : null
+            }));
+            
+            // 保存到本地存儲作為備用
+            localStorage.setItem('users', JSON.stringify(users));
+            console.log('已同步 Firebase 用戶數據到本地:', users.length, '筆');
+        } else {
+            console.log('Firebase 用戶數據為空或讀取失敗，使用本地數據');
+        }
+    } catch (error) {
+        console.error('同步 Firebase 用戶數據失敗:', error);
     }
 }
 
@@ -8314,323 +8373,466 @@ if (!patient) {
             return null;
         }
         
-        // 用戶管理功能
-        let editingUserId = null;
-        let currentUserFilter = 'all';
-        
-        function loadUserManagement() {
-            displayUsers();
-            
-            // 搜尋功能
-            const searchInput = document.getElementById('searchUser');
-            if (searchInput) {
-                searchInput.addEventListener('input', function() {
-                    displayUsers();
-                });
-            }
-        }
-        
-        function filterUsers(status) {
-            currentUserFilter = status;
-            
-            // 更新按鈕樣式
-            document.querySelectorAll('[id^="user-filter-"]').forEach(btn => {
-                btn.className = 'px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200';
-            });
-            document.getElementById(`user-filter-${status}`).className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 transition duration-200';
-            
-            displayUsers();
-        }
-        
-        function displayUsers() {
-            const searchTerm = document.getElementById('searchUser').value.toLowerCase();
-            const tbody = document.getElementById('userList');
-            
-            // 過濾用戶資料
-            let filteredUsers = users.filter(user => {
-                // 僅以姓名或電子郵件進行搜尋，不包含帳號
-                const matchesSearch = user.name.toLowerCase().includes(searchTerm) ||
-                                    (user.email && user.email.toLowerCase().includes(searchTerm));
-                
-                let matchesFilter = true;
-                if (currentUserFilter === 'inactive') {
-                    matchesFilter = !user.active;
-                }
-                
-                return matchesSearch && matchesFilter;
-            });
-            
-                tbody.innerHTML = '';
-            
-            if (filteredUsers.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
-                            ${searchTerm ? '沒有找到符合條件的用戶' : '尚無用戶資料'}
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-            
-                filteredUsers.forEach(user => {
-                const statusClass = user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-                const statusText = user.active ? '啟用' : '停用';
-                
-                const lastLogin = user.lastLogin ? 
-                    new Date(user.lastLogin).toLocaleString('zh-TW') : '從未登入';
-                
-                const row = document.createElement('tr');
-                row.className = 'hover:bg-gray-50';
-                row.innerHTML = `
-                    <td class="px-4 py-3 text-sm text-gray-900">${user.name}</td>
-                    <td class="px-4 py-3 text-sm text-gray-600">${user.position || '未設定'}</td>
-                    <td class="px-4 py-3 text-sm text-gray-600">${user.position === '醫師' ? (user.registrationNumber || '未設定') : '-'}</td>
-                    <td class="px-4 py-3 text-sm text-gray-900">${user.email || '未設定'}</td>
-                    <td class="px-4 py-3">
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
-                            ${statusText}
-                        </span>
-                    </td>
-                    <td class="px-4 py-3 text-sm text-gray-600">${lastLogin}</td>
-                    <td class="px-4 py-3 text-sm space-x-2">
-                        <button onclick="editUser(${user.id})" class="text-blue-600 hover:text-blue-800">編輯</button>
-                        ${user.id !== currentUserData.id ? `
-                            <button onclick="toggleUserStatus(${user.id})" class="text-orange-600 hover:text-orange-800">
-                                ${user.active ? '停用' : '啟用'}
-                            </button>
-                            <button onclick="deleteUser(${user.id})" class="text-red-600 hover:text-red-800">刪除</button>
-                        ` : `
-                            <span class="text-gray-400 text-xs">當前用戶</span>
-                        `}
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-        
-        function showAddUserForm() {
-            editingUserId = null;
-            document.getElementById('userFormTitle').textContent = '新增用戶';
-            document.getElementById('userSaveButtonText').textContent = '儲存';
-            clearUserForm();
-            document.getElementById('addUserModal').classList.remove('hidden');
-        }
-        
-        function hideAddUserForm() {
-            document.getElementById('addUserModal').classList.add('hidden');
-            clearUserForm();
-            editingUserId = null;
-        }
-        
-        function clearUserForm() {
-            ['userDisplayName', 'userPosition', 'userEmail', 'userPhone', 'userRegistrationNumber', 'userUID'].forEach(id => {
-                document.getElementById(id).value = '';
-            });
-            document.getElementById('userActive').checked = true;
-            
-            // 隱藏註冊編號欄位
-            document.getElementById('registrationNumberField').classList.add('hidden');
-        }
-        
-        // 切換註冊編號欄位顯示
-        function toggleRegistrationNumberField() {
-            const positionSelect = document.getElementById('userPosition');
-            const registrationField = document.getElementById('registrationNumberField');
-            
-            if (positionSelect.value === '醫師') {
-                registrationField.classList.remove('hidden');
-            } else {
-                registrationField.classList.add('hidden');
-                // 清空註冊編號欄位
-                document.getElementById('userRegistrationNumber').value = '';
-            }
-        }
-        
-        function editUser(id) {
-            const user = users.find(u => u.id === id);
-            if (!user) return;
-            
-            editingUserId = id;
-            document.getElementById('userFormTitle').textContent = '編輯用戶';
-            document.getElementById('userSaveButtonText').textContent = '更新';
-            
-            // 帳號及密碼欄位已移除，無需填充相關資料
-            document.getElementById('userDisplayName').value = user.name || '';
-            document.getElementById('userPosition').value = user.position || '';
-            document.getElementById('userEmail').value = user.email || '';
-            document.getElementById('userPhone').value = user.phone || '';
-            document.getElementById('userRegistrationNumber').value = user.registrationNumber || '';
-            document.getElementById('userActive').checked = user.active !== false;
+// 用戶管理功能
+let editingUserId = null;
+let currentUserFilter = 'all';
+let usersFromFirebase = []; // 儲存從 Firebase 讀取的用戶數據
 
-            // 填入 Firebase UID
-            document.getElementById('userUID').value = user.uid || '';
+async function loadUserManagement() {
+    await loadUsersFromFirebase();
+    displayUsers();
+    
+    // 搜尋功能
+    const searchInput = document.getElementById('searchUser');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            displayUsers();
+        });
+    }
+}
+
+// 從 Firebase 載入用戶數據
+async function loadUsersFromFirebase() {
+    const tbody = document.getElementById('userList');
+    
+    // 顯示載入中
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                <div class="mt-2">載入中...</div>
+            </td>
+        </tr>
+    `;
+
+    try {
+        const result = await window.firebaseDataManager.getUsers();
+        
+        if (result.success) {
+            usersFromFirebase = result.data;
+            // 同時更新本地 users 變數以保持兼容性
+            users = result.data.map(user => ({
+                ...user,
+                // 確保數據格式兼容性
+                createdAt: user.createdAt ? (user.createdAt.seconds ? new Date(user.createdAt.seconds * 1000).toISOString() : user.createdAt) : new Date().toISOString(),
+                updatedAt: user.updatedAt ? (user.updatedAt.seconds ? new Date(user.updatedAt.seconds * 1000).toISOString() : user.updatedAt) : new Date().toISOString(),
+                lastLogin: user.lastLogin ? (user.lastLogin.seconds ? new Date(user.lastLogin.seconds * 1000).toISOString() : user.lastLogin) : null
+            }));
             
-            // 根據職位顯示或隱藏註冊編號欄位
-            toggleRegistrationNumberField();
-            
-            document.getElementById('addUserModal').classList.remove('hidden');
+            console.log('已從 Firebase 載入用戶數據:', usersFromFirebase.length, '筆');
+        } else {
+            // 如果 Firebase 讀取失敗，使用本地 users 數據
+            usersFromFirebase = users;
+            console.log('Firebase 讀取失敗，使用本地用戶數據');
+        }
+    } catch (error) {
+        console.error('載入用戶數據錯誤:', error);
+        usersFromFirebase = users; // 使用本地數據作為備用
+        showToast('載入用戶數據時發生錯誤，使用本地數據', 'warning');
+    }
+}
+
+function filterUsers(status) {
+    currentUserFilter = status;
+    
+    // 更新按鈕樣式
+    document.querySelectorAll('[id^="user-filter-"]').forEach(btn => {
+        btn.className = 'px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200';
+    });
+    document.getElementById(`user-filter-${status}`).className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 transition duration-200';
+    
+    displayUsers();
+}
+
+function displayUsers() {
+    const searchTerm = document.getElementById('searchUser').value.toLowerCase();
+    const tbody = document.getElementById('userList');
+    
+    // 使用 Firebase 數據或本地數據
+    const currentUsers = usersFromFirebase.length > 0 ? usersFromFirebase : users;
+    
+    // 過濾用戶資料
+    let filteredUsers = currentUsers.filter(user => {
+        // 僅以姓名或電子郵件進行搜尋，不包含帳號
+        const matchesSearch = user.name.toLowerCase().includes(searchTerm) ||
+                            (user.email && user.email.toLowerCase().includes(searchTerm));
+        
+        let matchesFilter = true;
+        if (currentUserFilter === 'inactive') {
+            matchesFilter = !user.active;
         }
         
-        function saveUser() {
-            // 帳號及密碼欄位已移除，使用 UID 或電子郵件自動產生內部識別名稱
-            const name = document.getElementById('userDisplayName').value.trim();
-            const position = document.getElementById('userPosition').value.trim();
-            const email = document.getElementById('userEmail').value.trim();
-            const phone = document.getElementById('userPhone').value.trim();
-            const registrationNumber = document.getElementById('userRegistrationNumber').value.trim();
-            const active = document.getElementById('userActive').checked;
-            const uid = document.getElementById('userUID').value.trim();
-
-            // 產生內部用戶識別名稱（username）
-            let username;
-            if (uid) {
-                username = uid;
-            } else if (email) {
-                username = email.split('@')[0];
+        return matchesSearch && matchesFilter;
+    });
+    
+        tbody.innerHTML = '';
+    
+    if (filteredUsers.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                    ${searchTerm ? '沒有找到符合條件的用戶' : '尚無用戶資料'}
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+        filteredUsers.forEach(user => {
+        const statusClass = user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+        const statusText = user.active ? '啟用' : '停用';
+        
+        // 處理 Firebase Timestamp 格式
+        let lastLogin = '從未登入';
+        if (user.lastLogin) {
+            if (user.lastLogin.seconds) {
+                lastLogin = new Date(user.lastLogin.seconds * 1000).toLocaleString('zh-TW');
             } else {
-                username = 'user_' + Date.now();
+                lastLogin = new Date(user.lastLogin).toLocaleString('zh-TW');
             }
+        }
+        
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50';
+        row.innerHTML = `
+            <td class="px-4 py-3 text-sm text-gray-900">${user.name}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${user.position || '未設定'}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">${user.position === '醫師' ? (user.registrationNumber || '未設定') : '-'}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${user.email || '未設定'}</td>
+            <td class="px-4 py-3">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClass}">
+                    ${statusText}
+                </span>
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-600">${lastLogin}</td>
+            <td class="px-4 py-3 text-sm space-x-2">
+                <button onclick="editUser('${user.id}')" class="text-blue-600 hover:text-blue-800">編輯</button>
+                ${user.id !== currentUserData.id ? `
+                    <button onclick="toggleUserStatus('${user.id}')" class="text-orange-600 hover:text-orange-800">
+                        ${user.active ? '停用' : '啟用'}
+                    </button>
+                    <button onclick="deleteUser('${user.id}')" class="text-red-600 hover:text-red-800">刪除</button>
+                ` : `
+                    <span class="text-gray-400 text-xs">當前用戶</span>
+                `}
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function showAddUserForm() {
+    editingUserId = null;
+    document.getElementById('userFormTitle').textContent = '新增用戶';
+    document.getElementById('userSaveButtonText').textContent = '儲存';
+    clearUserForm();
+    document.getElementById('addUserModal').classList.remove('hidden');
+}
+
+function hideAddUserForm() {
+    document.getElementById('addUserModal').classList.add('hidden');
+    clearUserForm();
+    editingUserId = null;
+}
+
+function clearUserForm() {
+    ['userDisplayName', 'userPosition', 'userEmail', 'userPhone', 'userRegistrationNumber', 'userUID'].forEach(id => {
+        document.getElementById(id).value = '';
+    });
+    document.getElementById('userActive').checked = true;
+    
+    // 隱藏註冊編號欄位
+    document.getElementById('registrationNumberField').classList.add('hidden');
+}
+
+// 切換註冊編號欄位顯示
+function toggleRegistrationNumberField() {
+    const positionSelect = document.getElementById('userPosition');
+    const registrationField = document.getElementById('registrationNumberField');
+    
+    if (positionSelect.value === '醫師') {
+        registrationField.classList.remove('hidden');
+    } else {
+        registrationField.classList.add('hidden');
+        // 清空註冊編號欄位
+        document.getElementById('userRegistrationNumber').value = '';
+    }
+}
+
+async function editUser(id) {
+    const currentUsers = usersFromFirebase.length > 0 ? usersFromFirebase : users;
+    const user = currentUsers.find(u => u.id === id);
+    if (!user) return;
+    
+    editingUserId = id;
+    document.getElementById('userFormTitle').textContent = '編輯用戶';
+    document.getElementById('userSaveButtonText').textContent = '更新';
+    
+    // 帳號及密碼欄位已移除，無需填充相關資料
+    document.getElementById('userDisplayName').value = user.name || '';
+    document.getElementById('userPosition').value = user.position || '';
+    document.getElementById('userEmail').value = user.email || '';
+    document.getElementById('userPhone').value = user.phone || '';
+    document.getElementById('userRegistrationNumber').value = user.registrationNumber || '';
+    document.getElementById('userActive').checked = user.active !== false;
+
+    // 填入 Firebase UID
+    document.getElementById('userUID').value = user.uid || '';
+    
+    // 根據職位顯示或隱藏註冊編號欄位
+    toggleRegistrationNumberField();
+    
+    document.getElementById('addUserModal').classList.remove('hidden');
+}
+
+async function saveUser() {
+    // 帳號及密碼欄位已移除，使用 UID 或電子郵件自動產生內部識別名稱
+    const name = document.getElementById('userDisplayName').value.trim();
+    const position = document.getElementById('userPosition').value.trim();
+    const email = document.getElementById('userEmail').value.trim();
+    const phone = document.getElementById('userPhone').value.trim();
+    const registrationNumber = document.getElementById('userRegistrationNumber').value.trim();
+    const active = document.getElementById('userActive').checked;
+    const uid = document.getElementById('userUID').value.trim();
+
+    // 產生內部用戶識別名稱（username）
+    let username;
+    if (uid) {
+        username = uid;
+    } else if (email) {
+        username = email.split('@')[0];
+    } else {
+        username = 'user_' + Date.now();
+    }
+    
+    // 驗證必填欄位（姓名與職位）
+    if (!name || !position) {
+        showToast('請填寫必要資料（姓名、職位）！', 'error');
+        return;
+    }
+    
+    // 醫師職位必須填寫註冊編號
+    if (position === '醫師' && !registrationNumber) {
+        showToast('醫師職位必須填寫中醫註冊編號！', 'error');
+        return;
+    }
+    
+    // 檢查電子郵件是否重複
+    if (email) {
+        const currentUsers = usersFromFirebase.length > 0 ? usersFromFirebase : users;
+        const existingUserByEmail = currentUsers.find(u => u.email && u.email.toLowerCase() === email.toLowerCase() && u.id !== editingUserId);
+        if (existingUserByEmail) {
+            showToast('此電子郵件已存在，請使用其他電子郵件！', 'error');
+            return;
+        }
+    }
+    
+    // 驗證電子郵件格式
+    if (email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showToast('請輸入有效的電子郵件格式！', 'error');
+            return;
+        }
+    }
+
+    // 顯示保存中狀態
+    const saveButton = document.querySelector('[onclick="saveUser()"]');
+    const originalText = saveButton.textContent;
+    saveButton.textContent = '保存中...';
+    saveButton.disabled = true;
+
+    try {
+        if (editingUserId) {
+            // 更新現有用戶
+            const userData = {
+                name: name,
+                position: position,
+                registrationNumber: position === '醫師' ? registrationNumber : null,
+                email: email,
+                phone: phone,
+                uid: uid || '',
+                active: active
+            };
+
+            const result = await window.firebaseDataManager.updateUser(editingUserId, userData);
             
-            // 驗證必填欄位（姓名與職位）
-            if (!name || !position) {
-                showToast('請填寫必要資料（姓名、職位）！', 'error');
-                return;
-            }
-            
-            // 醫師職位必須填寫註冊編號
-            if (position === '醫師' && !registrationNumber) {
-                showToast('醫師職位必須填寫中醫註冊編號！', 'error');
-                return;
-            }
-            
-            // 檢查電子郵件是否重複
-            if (email) {
-                const existingUserByEmail = users.find(u => u.email && u.email.toLowerCase() === email.toLowerCase() && u.id !== editingUserId);
-                if (existingUserByEmail) {
-                    showToast('此電子郵件已存在，請使用其他電子郵件！', 'error');
-                    return;
-                }
-            }
-            
-            // 驗證電子郵件格式
-            if (email) {
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(email)) {
-                    showToast('請輸入有效的電子郵件格式！', 'error');
-                    return;
-                }
-            }
-            
-            if (editingUserId) {
-                // 更新現有用戶
+            if (result.success) {
+                // 更新本地數據
                 const userIndex = users.findIndex(u => u.id === editingUserId);
-                if (userIndex === -1) {
-                    showToast('找不到要更新的用戶！', 'error');
-                    return;
+                if (userIndex !== -1) {
+                    users[userIndex] = { ...users[userIndex], ...userData, updatedAt: new Date().toISOString() };
                 }
-                
-                // 直接更新用戶屬性（帳號已移除，因此不更新 username）
-                users[userIndex].name = name;
-                users[userIndex].position = position;
-                users[userIndex].registrationNumber = position === '醫師' ? registrationNumber : null;
-                users[userIndex].email = email;
-                users[userIndex].phone = phone;
-                users[userIndex].uid = uid || '';
-                users[userIndex].active = active;
-                users[userIndex].updatedAt = new Date().toISOString();
-                
-                // 不再處理密碼更新，密碼在 Firebase Authentication 中管理
+
+                // 更新 Firebase 數據
+                const firebaseUserIndex = usersFromFirebase.findIndex(u => u.id === editingUserId);
+                if (firebaseUserIndex !== -1) {
+                    usersFromFirebase[firebaseUserIndex] = { ...usersFromFirebase[firebaseUserIndex], ...userData };
+                }
                 
                 // 如果更新的是當前登入用戶，同步更新 currentUserData
                 if (editingUserId === currentUserData.id) {
-                    currentUserData = users[userIndex];
+                    currentUserData = { ...currentUserData, ...userData };
                     currentUser = users[userIndex].username;
                     
                     // 更新顯示的用戶資訊
-                    document.getElementById('userRole').textContent = `當前用戶：${getUserDisplayName(users[userIndex])}`;
-                    document.getElementById('sidebarUserRole').textContent = `當前用戶：${getUserDisplayName(users[userIndex])}`;
+                    document.getElementById('userRole').textContent = `當前用戶：${getUserDisplayName(currentUserData)}`;
+                    document.getElementById('sidebarUserRole').textContent = `當前用戶：${getUserDisplayName(currentUserData)}`;
                 }
                 
                 showToast('用戶資料已成功更新！', 'success');
             } else {
-                // 新增用戶
-                const newUser = {
-                    id: Date.now(),
-                    username: username,
-                    name: name,
-                    position: position,
-                    registrationNumber: position === '醫師' ? registrationNumber : null,
-                    email: email,
-                    phone: phone,
-                    uid: uid || '',
-                    active: active,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    lastLogin: null
-                };
-                
-                users.push(newUser);
-                showToast('用戶已成功新增！', 'success');
-            }
-            
-            localStorage.setItem('users', JSON.stringify(users));
-            displayUsers();
-            hideAddUserForm();
-        }
-        
-        function toggleUserStatus(id) {
-            const user = users.find(u => u.id === id);
-            if (!user) return;
-            
-            // 防止停用自己的帳號
-            if (user.id === currentUserData.id) {
-                showToast('不能停用自己的帳號！', 'error');
+                showToast('更新用戶資料失敗，請稍後再試', 'error');
                 return;
             }
+        } else {
+            // 新增用戶
+            const userData = {
+                username: username,
+                name: name,
+                position: position,
+                registrationNumber: position === '醫師' ? registrationNumber : null,
+                email: email,
+                phone: phone,
+                uid: uid || '',
+                active: active,
+                lastLogin: null
+            };
+
+            const result = await window.firebaseDataManager.addUser(userData);
             
-            const action = user.active ? '停用' : '啟用';
-            const confirmMessage = `確定要${action}用戶「${user.name}」嗎？\n\n${user.active ? '停用後該用戶將無法登入系統。' : '啟用後該用戶可以正常登入系統。'}`;
+            if (result.success) {
+                // 更新本地數據
+                const newUser = {
+                    id: result.id,
+                    ...userData,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                };
+                users.push(newUser);
+                usersFromFirebase.push(newUser);
+                
+                showToast('用戶已成功新增！', 'success');
+            } else {
+                showToast('新增用戶失敗，請稍後再試', 'error');
+                return;
+            }
+        }
+        
+        // 保存到本地儲存作為備用
+        localStorage.setItem('users', JSON.stringify(users));
+        displayUsers();
+        hideAddUserForm();
+
+    } catch (error) {
+        console.error('保存用戶資料錯誤:', error);
+        showToast('保存時發生錯誤', 'error');
+    } finally {
+        // 恢復按鈕狀態
+        saveButton.textContent = originalText;
+        saveButton.disabled = false;
+    }
+}
+
+async function toggleUserStatus(id) {
+    const currentUsers = usersFromFirebase.length > 0 ? usersFromFirebase : users;
+    const user = currentUsers.find(u => u.id === id);
+    if (!user) return;
+    
+    // 防止停用自己的帳號
+    if (user.id === currentUserData.id) {
+        showToast('不能停用自己的帳號！', 'error');
+        return;
+    }
+    
+    const action = user.active ? '停用' : '啟用';
+    const confirmMessage = `確定要${action}用戶「${user.name}」嗎？\n\n${user.active ? '停用後該用戶將無法登入系統。' : '啟用後該用戶可以正常登入系統。'}`;
+    
+    if (confirm(confirmMessage)) {
+        // 顯示處理中狀態
+        showToast('處理中...', 'info');
+
+        try {
+            const userData = {
+                active: !user.active
+            };
+
+            const result = await window.firebaseDataManager.updateUser(id, userData);
             
-            if (confirm(confirmMessage)) {
-                user.active = !user.active;
-                user.updatedAt = new Date().toISOString();
+            if (result.success) {
+                // 更新本地數據
+                const userIndex = users.findIndex(u => u.id === id);
+                if (userIndex !== -1) {
+                    users[userIndex].active = !user.active;
+                    users[userIndex].updatedAt = new Date().toISOString();
+                }
+
+                // 更新 Firebase 數據
+                const firebaseUserIndex = usersFromFirebase.findIndex(u => u.id === id);
+                if (firebaseUserIndex !== -1) {
+                    usersFromFirebase[firebaseUserIndex].active = !user.active;
+                }
                 
                 localStorage.setItem('users', JSON.stringify(users));
                 displayUsers();
                 showToast(`用戶「${user.name}」已${action}！`, 'success');
+            } else {
+                showToast(`${action}用戶失敗，請稍後再試`, 'error');
             }
+        } catch (error) {
+            console.error('更新用戶狀態錯誤:', error);
+            showToast('更新用戶狀態時發生錯誤', 'error');
         }
-        
-        function deleteUser(id) {
-            const user = users.find(u => u.id === id);
-            if (!user) return;
+    }
+}
+
+async function deleteUser(id) {
+    const currentUsers = usersFromFirebase.length > 0 ? usersFromFirebase : users;
+    const user = currentUsers.find(u => u.id === id);
+    if (!user) return;
+    
+    // 防止刪除自己的帳號
+    if (user.id === currentUserData.id) {
+        showToast('不能刪除自己的帳號！', 'error');
+        return;
+    }
+    
+    // 檢查是否為最後一個管理員
+    const adminUsers = currentUsers.filter(u => u.position === '診所管理' && u.active && u.id !== id);
+    if (user.position === '診所管理' && adminUsers.length === 0) {
+        showToast('不能刪除最後一個診所管理帳號！', 'error');
+        return;
+    }
+    
+    const confirmMessage = `確定要刪除用戶「${user.name}」嗎？\n\n` +
+                         `職位：${user.position}\n` +
+                         `電子郵件：${user.email || '未設定'}\n\n` +
+                         `注意：此操作無法復原！`;
+    
+    if (confirm(confirmMessage)) {
+        // 顯示刪除中狀態
+        showToast('刪除中...', 'info');
+
+        try {
+            const result = await window.firebaseDataManager.deleteUser(id);
             
-            // 防止刪除自己的帳號
-            if (user.id === currentUserData.id) {
-                showToast('不能刪除自己的帳號！', 'error');
-                return;
-            }
-            
-            // 檢查是否為最後一個管理員
-            const adminUsers = users.filter(u => u.role === 'admin' && u.active && u.id !== id);
-            if (user.role === 'admin' && adminUsers.length === 0) {
-                showToast('不能刪除最後一個管理員帳號！', 'error');
-                return;
-            }
-            
-            const confirmMessage = `確定要刪除用戶「${user.name}」嗎？\n\n` +
-                                 `識別名稱：${user.username}\n` +
-                                 `角色：${user.role === 'admin' ? '管理員' : user.role === 'doctor' ? '醫師' : '助理'}\n\n` +
-                                 `注意：此操作無法復原！`;
-            
-            if (confirm(confirmMessage)) {
+            if (result.success) {
+                // 更新本地數據
                 users = users.filter(u => u.id !== id);
+                usersFromFirebase = usersFromFirebase.filter(u => u.id !== id);
+                
                 localStorage.setItem('users', JSON.stringify(users));
                 displayUsers();
                 showToast(`用戶「${user.name}」已刪除！`, 'success');
+            } else {
+                showToast('刪除用戶失敗，請稍後再試', 'error');
             }
+        } catch (error) {
+            console.error('刪除用戶錯誤:', error);
+            showToast('刪除用戶時發生錯誤', 'error');
         }
+    }
+}
 
 // 財務報表功能
         let currentFinancialTabType = 'summary';
@@ -9495,6 +9697,82 @@ class FirebaseDataManager {
             return { success: false, data: [] };
         }
     }
+    // 用戶數據管理
+    async addUser(userData) {
+        if (!this.isReady) {
+            showToast('數據管理器尚未準備就緒', 'error');
+            return { success: false };
+        }
+
+        try {
+            const docRef = await window.firebase.addDoc(
+                window.firebase.collection(window.firebase.db, 'users'),
+                {
+                    ...userData,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    createdBy: currentUser || 'system'
+                }
+            );
+            
+            console.log('用戶數據已添加到 Firebase:', docRef.id);
+            return { success: true, id: docRef.id };
+        } catch (error) {
+            console.error('添加用戶數據失敗:', error);
+            showToast('保存用戶數據失敗', 'error');
+            return { success: false, error: error.message };
+        }
+    }
+
+    async getUsers() {
+        if (!this.isReady) return { success: false, data: [] };
+
+        try {
+            const querySnapshot = await window.firebase.getDocs(
+                window.firebase.collection(window.firebase.db, 'users')
+            );
+            
+            const users = [];
+            querySnapshot.forEach((doc) => {
+                users.push({ id: doc.id, ...doc.data() });
+            });
+            
+            console.log('已從 Firebase 讀取用戶數據:', users.length, '筆');
+            return { success: true, data: users };
+        } catch (error) {
+            console.error('讀取用戶數據失敗:', error);
+            return { success: false, data: [] };
+        }
+    }
+
+    async updateUser(userId, userData) {
+        try {
+            await window.firebase.updateDoc(
+                window.firebase.doc(window.firebase.db, 'users', userId),
+                {
+                    ...userData,
+                    updatedAt: new Date(),
+                    updatedBy: currentUser || 'system'
+                }
+            );
+            return { success: true };
+        } catch (error) {
+            console.error('更新用戶數據失敗:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async deleteUser(userId) {
+        try {
+            await window.firebase.deleteDoc(
+                window.firebase.doc(window.firebase.db, 'users', userId)
+            );
+            return { success: true };
+        } catch (error) {
+            console.error('刪除用戶數據失敗:', error);
+            return { success: false, error: error.message };
+        }
+    }
 }
 
 // 初始化數據管理器
@@ -9505,21 +9783,100 @@ window.addEventListener('load', () => {
 });
         
 // 初始化系統
-        document.addEventListener('DOMContentLoaded', function() {
-            // 系統啟動時清空過期掛號
-            clearOldAppointments();
+document.addEventListener('DOMContentLoaded', function() {
+    // 系統啟動時清空過期掛號
+    clearOldAppointments();
+    
+    updateStatistics();
+    updateClinicSettingsDisplay();
+    
+    // 初始化數據遷移
+    initializeDataMigration();
+    
+    // 自動聚焦到電子郵件輸入框
+    const usernameInput = document.getElementById('mainLoginUsername');
+    if (usernameInput) {
+        setTimeout(() => {
+            usernameInput.focus();
+        }, 100);
+    }
+});
+
+// 初始化數據遷移
+async function initializeDataMigration() {
+    // 等待 Firebase 數據管理器準備就緒
+    while (!window.firebaseDataManager || !window.firebaseDataManager.isReady) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    try {
+        // 檢查是否需要遷移用戶數據
+        await migrateUserDataToFirebase();
+    } catch (error) {
+        console.error('數據遷移初始化錯誤:', error);
+    }
+}
+
+// 遷移用戶數據到 Firebase
+async function migrateUserDataToFirebase() {
+    try {
+        // 檢查 Firebase 是否已有用戶數據
+        const firebaseResult = await window.firebaseDataManager.getUsers();
+        const hasFirebaseUsers = firebaseResult.success && firebaseResult.data.length > 0;
+
+        // 檢查本地是否有用戶數據
+        const localUsers = JSON.parse(localStorage.getItem('users') || '[]');
+        const hasLocalUsers = localUsers.length > 0;
+
+        console.log(`Firebase 用戶數據: ${hasFirebaseUsers ? firebaseResult.data.length : 0} 筆`);
+        console.log(`本地用戶數據: ${hasLocalUsers ? localUsers.length : 0} 筆`);
+
+        if (hasLocalUsers && !hasFirebaseUsers) {
+            // 有本地數據但 Firebase 沒有數據，進行遷移
+            console.log('開始遷移用戶數據到 Firebase...');
             
-            updateStatistics();
-            updateClinicSettingsDisplay();
-            
-            // 自動聚焦到電子郵件輸入框
-            const usernameInput = document.getElementById('mainLoginUsername');
-            if (usernameInput) {
-                setTimeout(() => {
-                    usernameInput.focus();
-                }, 100);
+            for (const user of localUsers) {
+                try {
+                    // 移除本地 ID，讓 Firebase 生成新的 ID
+                    const { id, ...userData } = user;
+                    
+                    const result = await window.firebaseDataManager.addUser(userData);
+                    if (result.success) {
+                        console.log(`用戶 ${user.name} 遷移成功`);
+                    } else {
+                        console.error(`用戶 ${user.name} 遷移失敗`);
+                    }
+                } catch (error) {
+                    console.error(`遷移用戶 ${user.name} 時發生錯誤:`, error);
+                }
             }
-        });
+            
+            console.log('用戶數據遷移完成');
+            showToast('用戶數據已同步到雲端', 'success');
+        } else if (hasFirebaseUsers) {
+            // Firebase 有數據，同步到本地
+            await syncUserDataFromFirebase();
+        } else {
+            // 兩邊都沒有數據，載入預設用戶數據
+            if (localUsers.length === 0) {
+                users = defaultUsers;
+                localStorage.setItem('users', JSON.stringify(users));
+                
+                // 遷移預設用戶到 Firebase
+                for (const user of defaultUsers) {
+                    try {
+                        const { id, ...userData } = user;
+                        await window.firebaseDataManager.addUser(userData);
+                    } catch (error) {
+                        console.error('遷移預設用戶失敗:', error);
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error('遷移用戶數據時發生錯誤:', error);
+    }
+}
     </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96abf25724ae0514',t:'MTc1NDQ1NjE3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96c38f22ee47ddc3","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96d90c272a1cdd44","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
