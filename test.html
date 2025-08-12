@@ -109,6 +109,82 @@ const firebaseConfig = {
             line-height: 1.4;
         }
     </style>
+    <style>
+/* 實時狀態指示器樣式 */
+.realtime-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-online {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.status-busy {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.status-offline {
+    background-color: #f3f4f6;
+    color: #6b7280;
+}
+
+/* 通知動畫 */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.notification-enter {
+    animation: slideInRight 0.3s ease-out;
+}
+
+/* 實時更新指示器 */
+.realtime-indicator {
+    position: relative;
+}
+
+.realtime-indicator::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background-color: #10b981;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+    }
+    
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+}
+</style>
 </head>
 <body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
     <!-- 登入頁面 -->
@@ -2679,7 +2755,7 @@ function getUserPositionFromEmail(email) {
 }
         
         // 執行登入
-        function performLogin(user) {
+        async function performLogin(user) {
             // 更新最後登入時間
             const userIndex = users.findIndex(u => u.id === user.id);
             if (userIndex !== -1) {
@@ -2690,19 +2766,23 @@ function getUserPositionFromEmail(email) {
             currentUser = user.username;
             currentUserData = user;
             
-            // 切換到主系統
-            document.getElementById('loginPage').classList.add('hidden');
-            document.getElementById('mainSystem').classList.remove('hidden');
-            
-            document.getElementById('userRole').textContent = `當前用戶：${getUserDisplayName(user)}`;
-            document.getElementById('sidebarUserRole').textContent = `當前用戶：${getUserDisplayName(user)}`;
-            
-            generateSidebarMenu();
-            updateStatistics();
-            
-            showToast(`歡迎回來，${getUserDisplayName(user)}！`, 'success');
-        }
-
+    // 切換到主系統
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('mainSystem').classList.remove('hidden');
+    
+    document.getElementById('userRole').textContent = `當前用戶：${getUserDisplayName(user)}`;
+    document.getElementById('sidebarUserRole').textContent = `當前用戶：${getUserDisplayName(user)}`;
+    
+    generateSidebarMenu();
+    updateStatistics();
+    
+    // 添加實時功能
+    if (window.realtimeManager && window.realtimeManager.isReady) {
+        await window.realtimeManager.setUserOnline(user.id, user);
+    }
+    
+    showToast(`歡迎回來，${getUserDisplayName(user)}！`, 'success');
+}
         // 側邊選單控制
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
@@ -2720,6 +2800,12 @@ function getUserPositionFromEmail(email) {
         // 登出功能
 async function logout() {
     try {
+        // 清理實時功能
+        if (window.realtimeManager && currentUserData) {
+            await window.realtimeManager.setUserOffline(currentUserData.id);
+            window.realtimeManager.cleanup();
+        }
+        
         // Firebase 登出
         if (window.firebase && window.firebase.auth) {
             await window.firebase.signOut(window.firebase.auth);
@@ -2729,7 +2815,6 @@ async function logout() {
         currentUser = null;
         currentUserData = null;
         
-        // 切換頁面
         document.getElementById('loginPage').classList.remove('hidden');
         document.getElementById('mainSystem').classList.add('hidden');
         document.getElementById('sidebar').classList.add('-translate-x-full');
@@ -3506,26 +3591,31 @@ async function selectPatientForRegistration(patientId) {
                 return;
             }
             
-            const appointment = {
-                id: Date.now(),
-                patientId: selectedPatientForRegistration.id,
-                appointmentTime: selectedTime.toISOString(),
-                appointmentDoctor: appointmentDoctor,
-                chiefComplaint: chiefComplaint || '無特殊主訴',
-                status: 'registered', // registered, waiting, consulting, completed
-                createdAt: new Date().toISOString(),
-                createdBy: currentUserData ? currentUserData.username : currentUser
-            };
-            
-            appointments.push(appointment);
-            localStorage.setItem('appointments', JSON.stringify(appointments));
-            
-            showToast(`${selectedPatientForRegistration.name} 已掛號給 ${selectedDoctor.name}醫師！`, 'success');
-            
-            closeRegistrationModal();
-            clearPatientSearch();
-            loadTodayAppointments();
-        }
+    const appointment = {
+        id: Date.now(),
+        patientId: selectedPatientForRegistration.id,
+        appointmentTime: selectedTime.toISOString(),
+        appointmentDoctor: appointmentDoctor,
+        chiefComplaint: chiefComplaint || '無特殊主訴',
+        status: 'registered',
+        createdAt: new Date().toISOString(),
+        createdBy: currentUserData ? currentUserData.username : currentUser
+    };
+    
+    appointments.push(appointment);
+    localStorage.setItem('appointments', JSON.stringify(appointments));
+    
+    // 同步到實時數據庫
+    if (window.realtimeManager && window.realtimeManager.isReady) {
+        window.realtimeManager.syncAppointmentToRealtime(appointment);
+    }
+    
+    showToast(`${selectedPatientForRegistration.name} 已掛號給 ${selectedDoctor.name}醫師！`, 'success');
+    
+    closeRegistrationModal();
+    clearPatientSearch();
+    loadTodayAppointments();
+}
         
         // 每日自動清空掛號列表
         function clearOldAppointments() {
@@ -3831,22 +3921,23 @@ async function confirmPatientArrival(appointmentId) {
         }
         
         // 更新狀態為候診中
-        appointment.status = 'waiting';
-        appointment.arrivedAt = new Date().toISOString();
-        appointment.confirmedBy = currentUserData ? currentUserData.username : currentUser;
-        
-        // 保存狀態變更
-        localStorage.setItem('appointments', JSON.stringify(appointments));
-        
-        showToast(`${patient.name} 已確認到達，進入候診狀態！`, 'success');
-        loadTodayAppointments();
-        
-    } catch (error) {
-        console.error('確認到達錯誤:', error);
-        showToast('處理確認到達時發生錯誤', 'error');
+    appointment.status = 'waiting';
+    appointment.arrivedAt = new Date().toISOString();
+    appointment.confirmedBy = currentUserData ? currentUserData.username : currentUser;
+    
+    localStorage.setItem('appointments', JSON.stringify(appointments));
+    
+    // 更新實時狀態
+    if (window.realtimeManager) {
+        await window.realtimeManager.updateAppointmentStatus(appointmentId, 'waiting', {
+            arrivedAt: appointment.arrivedAt,
+            confirmedBy: appointment.confirmedBy
+        });
     }
+    
+    showToast(`病人已確認到達，進入候診狀態！`, 'success');
+    loadTodayAppointments();
 }
-
         
  // 5. 修改移除掛號函數，支援 Firebase
 async function removeAppointment(appointmentId) {
@@ -4005,26 +4096,27 @@ async function startConsultation(appointmentId) {
         }
         
         // 開始新的診症 - 正確設置狀態為診症中
-        appointment.status = 'consulting';
-        appointment.consultationStartTime = new Date().toISOString();
-        appointment.consultingDoctor = currentUserData ? currentUserData.username : currentUser;
-        
-        // 立即保存狀態變更
-        localStorage.setItem('appointments', JSON.stringify(appointments));
-        
-        // 設置當前診症ID並顯示表單
-        currentConsultingAppointmentId = appointmentId;
-        showConsultationForm(appointment);
-        
-        // 重新載入列表以顯示正確狀態
-        loadTodayAppointments();
-        
-        showToast(`開始為 ${patient.name} 診症`, 'success');
-        
-    } catch (error) {
-        console.error('開始診症錯誤:', error);
-        showToast('開始診症時發生錯誤', 'error');
+    appointment.status = 'consulting';
+    appointment.consultationStartTime = new Date().toISOString();
+    appointment.consultingDoctor = currentUserData ? currentUserData.username : currentUser;
+    
+    localStorage.setItem('appointments', JSON.stringify(appointments));
+    
+    // 更新實時狀態
+    if (window.realtimeManager) {
+        await window.realtimeManager.updateConsultationStatus(appointmentId, {
+            step: 'consulting',
+            doctor: currentUser,
+            patientId: appointment.patientId,
+            startTime: appointment.consultationStartTime
+        });
     }
+    
+    currentConsultingAppointmentId = appointmentId;
+    showConsultationForm(appointment);
+    loadTodayAppointments();
+    
+    showToast(`開始診症`, 'success');
 }
         
         // 繼續診症
@@ -9622,6 +9714,42 @@ async function deleteUser(id) {
             showToast('財務報表已匯出！', 'success');
         }
 
+// 添加語音通知功能
+function playNotificationSound() {
+    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSs=');
+    audio.play().catch(console.error);
+}
+
+// 添加實時統計更新
+function createRealtimeDashboard() {
+    // 在歡迎頁面添加實時統計
+    const welcomePage = document.getElementById('welcomePage');
+    const dashboard = document.createElement('div');
+    dashboard.innerHTML = `
+        <div class="bg-white rounded-xl shadow-lg p-6 mt-8">
+            <h3 class="text-xl font-semibold mb-4">實時診所狀態</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="text-center p-4 bg-blue-50 rounded-lg">
+                    <div class="text-2xl font-bold text-blue-600" id="realtimeOnline">0</div>
+                    <div class="text-sm text-blue-800">在線用戶</div>
+                </div>
+                <div class="text-center p-4 bg-yellow-50 rounded-lg">
+                    <div class="text-2xl font-bold text-yellow-600" id="realtimeWaiting">0</div>
+                    <div class="text-sm text-yellow-800">候診中</div>
+                </div>
+                <div class="text-center p-4 bg-green-50 rounded-lg">
+                    <div class="text-2xl font-bold text-green-600" id="realtimeConsulting">0</div>
+                    <div class="text-sm text-green-800">診症中</div>
+                </div>
+                <div class="text-center p-4 bg-purple-50 rounded-lg">
+                    <div class="text-2xl font-bold text-purple-600" id="realtimeCompleted">0</div>
+                    <div class="text-sm text-purple-800">今日完成</div>
+                </div>
+            </div>
+        </div>
+    `;
+    welcomePage.appendChild(dashboard);
+}
         
         // 套票管理函式
         function getPatientPackagesStore() {
@@ -10167,6 +10295,675 @@ async function migrateUserDataToFirebase() {
         console.error('遷移用戶數據時發生錯誤:', error);
     }
 }
+
+// Firebase Realtime Database 整合模組
+// 在原有代碼中添加以下內容
+
+class RealtimeManager {
+    constructor() {
+        this.isReady = false;
+        this.currentSessionId = null;
+        this.onlineUsersRef = null;
+        this.appointmentsRef = null;
+        this.consultationStatusRef = null;
+        this.notificationsRef = null;
+        this.listeners = new Map(); // 存儲所有監聽器
+        this.initializeWhenReady();
+    }
+
+    async initializeWhenReady() {
+        // 等待 Firebase 初始化
+        while (!window.firebase || !window.firebase.rtdb) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        this.setupReferences();
+        this.isReady = true;
+        console.log('Realtime Database 管理器已準備就緒');
+    }
+
+    setupReferences() {
+        const rtdb = window.firebase.rtdb;
+        
+        // 設置各種數據引用
+        this.onlineUsersRef = window.firebase.ref(rtdb, 'onlineUsers');
+        this.appointmentsRef = window.firebase.ref(rtdb, 'appointments');
+        this.consultationStatusRef = window.firebase.ref(rtdb, 'consultationStatus');
+        this.notificationsRef = window.firebase.ref(rtdb, 'notifications');
+        this.clinicStatusRef = window.firebase.ref(rtdb, 'clinicStatus');
+    }
+
+    // ========== 在線用戶管理 ==========
+    
+    async setUserOnline(userId, userData) {
+        if (!this.isReady) return;
+        
+        try {
+            this.currentSessionId = `${userId}_${Date.now()}`;
+            const userRef = window.firebase.ref(window.firebase.rtdb, `onlineUsers/${userId}`);
+            
+            const onlineData = {
+                sessionId: this.currentSessionId,
+                name: userData.name,
+                position: userData.position,
+                email: userData.email,
+                loginTime: new Date().toISOString(),
+                lastActivity: new Date().toISOString(),
+                status: 'online',
+                currentAction: 'idle' // idle, consulting, managing
+            };
+            
+            await window.firebase.set(userRef, onlineData);
+            
+            // 設置離線時自動清除
+            await window.firebase.set(
+                window.firebase.ref(window.firebase.rtdb, `onlineUsers/${userId}`),
+                window.firebase.serverTimestamp ? window.firebase.serverTimestamp() : null
+            );
+            
+            // 定期更新活動時間
+            this.startActivityHeartbeat(userId);
+            
+            console.log('用戶已設置為在線:', userId);
+            return true;
+        } catch (error) {
+            console.error('設置用戶在線狀態失敗:', error);
+            return false;
+        }
+    }
+
+    async setUserOffline(userId) {
+        if (!this.isReady || !userId) return;
+        
+        try {
+            const userRef = window.firebase.ref(window.firebase.rtdb, `onlineUsers/${userId}`);
+            await window.firebase.remove(userRef);
+            
+            // 停止活動心跳
+            this.stopActivityHeartbeat();
+            
+            console.log('用戶已設置為離線:', userId);
+        } catch (error) {
+            console.error('設置用戶離線狀態失敗:', error);
+        }
+    }
+
+    startActivityHeartbeat(userId) {
+        // 每30秒更新一次活動時間
+        this.activityInterval = setInterval(async () => {
+            if (this.isReady && userId) {
+                try {
+                    const userRef = window.firebase.ref(window.firebase.rtdb, `onlineUsers/${userId}/lastActivity`);
+                    await window.firebase.set(userRef, new Date().toISOString());
+                } catch (error) {
+                    console.error('更新活動時間失敗:', error);
+                }
+            }
+        }, 30000);
+    }
+
+    stopActivityHeartbeat() {
+        if (this.activityInterval) {
+            clearInterval(this.activityInterval);
+            this.activityInterval = null;
+        }
+    }
+
+    // 監聽在線用戶變化
+    subscribeToOnlineUsers(callback) {
+        if (!this.isReady) return;
+        
+        const unsubscribe = window.firebase.onValue(this.onlineUsersRef, (snapshot) => {
+            const onlineUsers = snapshot.val() || {};
+            const usersList = Object.entries(onlineUsers).map(([userId, userData]) => ({
+                userId,
+                ...userData
+            }));
+            callback(usersList);
+        });
+        
+        this.listeners.set('onlineUsers', unsubscribe);
+        return unsubscribe;
+    }
+
+    // ========== 掛號狀態實時同步 ==========
+    
+    async syncAppointmentToRealtime(appointment) {
+        if (!this.isReady) return;
+        
+        try {
+            const appointmentRef = window.firebase.ref(
+                window.firebase.rtdb, 
+                `appointments/${appointment.id}`
+            );
+            
+            const realtimeData = {
+                ...appointment,
+                lastUpdated: new Date().toISOString(),
+                updatedBy: currentUser
+            };
+            
+            await window.firebase.set(appointmentRef, realtimeData);
+            console.log('掛號資料已同步到 Realtime Database:', appointment.id);
+        } catch (error) {
+            console.error('同步掛號資料失敗:', error);
+        }
+    }
+
+    async updateAppointmentStatus(appointmentId, status, additionalData = {}) {
+        if (!this.isReady) return;
+        
+        try {
+            const statusRef = window.firebase.ref(
+                window.firebase.rtdb, 
+                `appointments/${appointmentId}`
+            );
+            
+            const updateData = {
+                status: status,
+                lastUpdated: new Date().toISOString(),
+                updatedBy: currentUser,
+                ...additionalData
+            };
+            
+            await window.firebase.update(statusRef, updateData);
+            
+            // 發送通知
+            await this.sendNotification({
+                type: 'appointment_status_change',
+                appointmentId: appointmentId,
+                status: status,
+                message: this.getStatusChangeMessage(status),
+                timestamp: new Date().toISOString()
+            });
+            
+            console.log('掛號狀態已更新:', appointmentId, status);
+        } catch (error) {
+            console.error('更新掛號狀態失敗:', error);
+        }
+    }
+
+    // 監聽掛號狀態變化
+    subscribeToAppointments(callback) {
+        if (!this.isReady) return;
+        
+        const unsubscribe = window.firebase.onValue(this.appointmentsRef, (snapshot) => {
+            const appointmentsData = snapshot.val() || {};
+            const appointmentsList = Object.values(appointmentsData);
+            callback(appointmentsList);
+        });
+        
+        this.listeners.set('appointments', unsubscribe);
+        return unsubscribe;
+    }
+
+    // ========== 診症進度實時追蹤 ==========
+    
+    async updateConsultationStatus(appointmentId, progressData) {
+        if (!this.isReady) return;
+        
+        try {
+            const statusRef = window.firebase.ref(
+                window.firebase.rtdb, 
+                `consultationStatus/${appointmentId}`
+            );
+            
+            const statusData = {
+                appointmentId: appointmentId,
+                currentStep: progressData.step, // 'registered', 'waiting', 'consulting', 'completed'
+                startTime: progressData.startTime || new Date().toISOString(),
+                lastUpdated: new Date().toISOString(),
+                doctor: progressData.doctor || currentUser,
+                patientId: progressData.patientId,
+                estimatedDuration: progressData.estimatedDuration || 30, // 分鐘
+                notes: progressData.notes || '',
+                priority: progressData.priority || 'normal' // low, normal, high, urgent
+            };
+            
+            await window.firebase.set(statusRef, statusData);
+            
+            // 更新診所整體狀態
+            await this.updateClinicStatus();
+            
+            console.log('診症進度已更新:', appointmentId, progressData.step);
+        } catch (error) {
+            console.error('更新診症進度失敗:', error);
+        }
+    }
+
+    async updateClinicStatus() {
+        if (!this.isReady) return;
+        
+        try {
+            // 獲取當前所有診症狀態
+            const statusSnapshot = await window.firebase.get(this.consultationStatusRef);
+            const allStatus = statusSnapshot.val() || {};
+            
+            // 統計各種狀態的數量
+            const stats = {
+                totalWaiting: 0,
+                totalConsulting: 0,
+                activeDoctors: new Set(),
+                lastUpdated: new Date().toISOString()
+            };
+            
+            Object.values(allStatus).forEach(status => {
+                if (status.currentStep === 'waiting') stats.totalWaiting++;
+                if (status.currentStep === 'consulting') {
+                    stats.totalConsulting++;
+                    stats.activeDoctors.add(status.doctor);
+                }
+            });
+            
+            stats.activeDoctorsCount = stats.activeDoctors.size;
+            delete stats.activeDoctors; // 不能直接存儲 Set
+            
+            const clinicRef = window.firebase.ref(window.firebase.rtdb, 'clinicStatus/current');
+            await window.firebase.set(clinicRef, stats);
+            
+        } catch (error) {
+            console.error('更新診所狀態失敗:', error);
+        }
+    }
+
+    // 監聽診症進度變化
+    subscribeToConsultationStatus(callback) {
+        if (!this.isReady) return;
+        
+        const unsubscribe = window.firebase.onValue(this.consultationStatusRef, (snapshot) => {
+            const statusData = snapshot.val() || {};
+            callback(statusData);
+        });
+        
+        this.listeners.set('consultationStatus', unsubscribe);
+        return unsubscribe;
+    }
+
+    // ========== 通知系統 ==========
+    
+    async sendNotification(notificationData) {
+        if (!this.isReady) return;
+        
+        try {
+            const notificationRef = window.firebase.push(this.notificationsRef);
+            
+            const notification = {
+                id: notificationRef.key,
+                ...notificationData,
+                read: false,
+                createdAt: new Date().toISOString(),
+                createdBy: currentUser
+            };
+            
+            await window.firebase.set(notificationRef, notification);
+            console.log('通知已發送:', notification.id);
+        } catch (error) {
+            console.error('發送通知失敗:', error);
+        }
+    }
+
+    // 監聽通知
+    subscribeToNotifications(userId, callback) {
+        if (!this.isReady) return;
+        
+        // 監聽針對特定用戶或全體的通知
+        const userNotificationsRef = window.firebase.ref(
+            window.firebase.rtdb, 
+            'notifications'
+        );
+        
+        const unsubscribe = window.firebase.onValue(userNotificationsRef, (snapshot) => {
+            const notifications = snapshot.val() || {};
+            const userNotifications = Object.values(notifications)
+                .filter(notif => !notif.targetUser || notif.targetUser === userId)
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            
+            callback(userNotifications);
+        });
+        
+        this.listeners.set(`notifications_${userId}`, unsubscribe);
+        return unsubscribe;
+    }
+
+    // ========== 輔助方法 ==========
+    
+    getStatusChangeMessage(status) {
+        const messages = {
+            'registered': '病人已掛號',
+            'waiting': '病人已到達，正在候診',
+            'consulting': '開始診症',
+            'completed': '診症已完成'
+        };
+        return messages[status] || '狀態已更新';
+    }
+
+    // 清理所有監聽器
+    cleanup() {
+        this.listeners.forEach((unsubscribe) => {
+            if (typeof unsubscribe === 'function') {
+                unsubscribe();
+            }
+        });
+        this.listeners.clear();
+        
+        this.stopActivityHeartbeat();
+        
+        if (currentUserData) {
+            this.setUserOffline(currentUserData.id);
+        }
+    }
+
+    // ========== 數據同步方法 ==========
+    
+    // 將本地掛號數據同步到 Realtime Database
+    async syncLocalAppointmentsToRealtime() {
+        if (!this.isReady) return;
+        
+        try {
+            const localAppointments = JSON.parse(localStorage.getItem('appointments') || '[]');
+            
+            for (const appointment of localAppointments) {
+                await this.syncAppointmentToRealtime(appointment);
+            }
+            
+            console.log('本地掛號數據已同步到 Realtime Database');
+        } catch (error) {
+            console.error('同步本地掛號數據失敗:', error);
+        }
+    }
+
+    // 從 Realtime Database 同步到本地
+    async syncRealtimeToLocal() {
+        if (!this.isReady) return;
+        
+        try {
+            const snapshot = await window.firebase.get(this.appointmentsRef);
+            const realtimeAppointments = snapshot.val() || {};
+            const appointmentsList = Object.values(realtimeAppointments);
+            
+            // 更新本地存儲
+            localStorage.setItem('appointments', JSON.stringify(appointmentsList));
+            
+            // 更新全局變量
+            appointments = appointmentsList;
+            
+            console.log('Realtime Database 數據已同步到本地');
+            return appointmentsList;
+        } catch (error) {
+            console.error('同步 Realtime Database 數據失敗:', error);
+            return [];
+        }
+    }
+}
+
+// ========== UI 組件和顯示邏輯 ==========
+
+class RealtimeUI {
+    constructor(realtimeManager) {
+        this.rtManager = realtimeManager;
+        this.setupUI();
+        this.subscribeToUpdates();
+    }
+
+    setupUI() {
+        // 創建實時狀態顯示面板
+        this.createStatusPanel();
+        this.createNotificationPanel();
+    }
+
+    createStatusPanel() {
+        // 在導航欄添加實時狀態指示器
+        const navbar = document.querySelector('nav .max-w-7xl');
+        if (navbar) {
+            const statusPanel = document.createElement('div');
+            statusPanel.id = 'realtimeStatusPanel';
+            statusPanel.className = 'flex items-center space-x-4 text-sm';
+            statusPanel.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <div id="connectionStatus" class="w-3 h-3 rounded-full bg-gray-400"></div>
+                    <span class="text-gray-600">連接狀態</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-gray-600">在線：</span>
+                    <span id="onlineUsersCount" class="font-semibold text-blue-600">0</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-gray-600">候診：</span>
+                    <span id="waitingCount" class="font-semibold text-yellow-600">0</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-gray-600">診症中：</span>
+                    <span id="consultingCount" class="font-semibold text-green-600">0</span>
+                </div>
+            `;
+            
+            // 插入到用戶角色信息前
+            const userRole = document.getElementById('userRole');
+            if (userRole) {
+                userRole.parentNode.insertBefore(statusPanel, userRole);
+            }
+        }
+    }
+
+    createNotificationPanel() {
+        // 創建通知面板
+        const notificationPanel = document.createElement('div');
+        notificationPanel.id = 'notificationPanel';
+        notificationPanel.className = 'fixed top-4 right-4 z-50 space-y-2 max-w-sm';
+        document.body.appendChild(notificationPanel);
+    }
+
+    subscribeToUpdates() {
+        // 訂閱在線用戶更新
+        this.rtManager.subscribeToOnlineUsers((users) => {
+            this.updateOnlineUsersDisplay(users);
+        });
+
+        // 訂閱診症狀態更新
+        this.rtManager.subscribeToConsultationStatus((statusData) => {
+            this.updateConsultationStatusDisplay(statusData);
+        });
+
+        // 訂閱通知
+        if (currentUserData) {
+            this.rtManager.subscribeToNotifications(currentUserData.id, (notifications) => {
+                this.showNotifications(notifications);
+            });
+        }
+
+        // 監聽連接狀態
+        this.monitorConnectionStatus();
+    }
+
+    updateOnlineUsersDisplay(users) {
+        const countElement = document.getElementById('onlineUsersCount');
+        if (countElement) {
+            countElement.textContent = users.length;
+        }
+
+        // 在側邊欄顯示在線用戶列表（可選）
+        this.updateOnlineUsersList(users);
+    }
+
+    updateOnlineUsersList(users) {
+        // 可以在側邊欄或其他地方顯示在線用戶列表
+        const onlineUsersContainer = document.getElementById('onlineUsersList');
+        if (onlineUsersContainer) {
+            onlineUsersContainer.innerHTML = users.map(user => `
+                <div class="flex items-center space-x-2 p-2 bg-green-50 rounded">
+                    <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span class="text-sm text-gray-700">${user.name}</span>
+                    <span class="text-xs text-gray-500">${user.position}</span>
+                </div>
+            `).join('');
+        }
+    }
+
+    updateConsultationStatusDisplay(statusData) {
+        let waitingCount = 0;
+        let consultingCount = 0;
+
+        Object.values(statusData).forEach(status => {
+            if (status.currentStep === 'waiting') waitingCount++;
+            if (status.currentStep === 'consulting') consultingCount++;
+        });
+
+        const waitingElement = document.getElementById('waitingCount');
+        const consultingElement = document.getElementById('consultingCount');
+
+        if (waitingElement) waitingElement.textContent = waitingCount;
+        if (consultingElement) consultingElement.textContent = consultingCount;
+    }
+
+    showNotifications(notifications) {
+        const panel = document.getElementById('notificationPanel');
+        if (!panel) return;
+
+        // 只顯示最近5分鐘的未讀通知
+        const recentNotifications = notifications.filter(notif => {
+            const notifTime = new Date(notif.createdAt);
+            const now = new Date();
+            const diffMinutes = (now - notifTime) / (1000 * 60);
+            return !notif.read && diffMinutes < 5;
+        });
+
+        panel.innerHTML = recentNotifications.map(notif => `
+            <div class="bg-white border-l-4 border-blue-500 shadow-lg rounded-lg p-4 mb-2 max-w-sm">
+                <div class="flex items-start">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-900">${notif.message}</p>
+                        <p class="text-xs text-gray-500">${new Date(notif.createdAt).toLocaleTimeString('zh-TW')}</p>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" 
+                            class="ml-2 text-gray-400 hover:text-gray-600">×</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    monitorConnectionStatus() {
+        const statusIndicator = document.getElementById('connectionStatus');
+        if (!statusIndicator) return;
+
+        // 監聽 Firebase 連接狀態
+        const connectedRef = window.firebase.ref(window.firebase.rtdb, '.info/connected');
+        window.firebase.onValue(connectedRef, (snapshot) => {
+            const connected = snapshot.val();
+            if (connected) {
+                statusIndicator.className = 'w-3 h-3 rounded-full bg-green-500';
+                statusIndicator.title = '已連接到服務器';
+            } else {
+                statusIndicator.className = 'w-3 h-3 rounded-full bg-red-500';
+                statusIndicator.title = '與服務器斷開連接';
+            }
+        });
+    }
+}
+
+// ========== 整合到現有系統 ==========
+
+// 全局實例
+let realtimeManager;
+let realtimeUI;
+
+// 修改現有的登入函數
+async function performLoginWithRealtime(user) {
+    // 原有的登入邏輯
+    performLogin(user);
+    
+    // 設置實時功能
+    if (realtimeManager && realtimeManager.isReady) {
+        await realtimeManager.setUserOnline(user.id, user);
+    }
+}
+
+// 修改現有的登出函數
+async function logoutWithRealtime() {
+    // 清理實時功能
+    if (realtimeManager && currentUserData) {
+        await realtimeManager.setUserOffline(currentUserData.id);
+        realtimeManager.cleanup();
+    }
+    
+    // 原有的登出邏輯
+    logout();
+}
+
+// 修改現有的掛號確認函數
+async function confirmRegistrationWithRealtime() {
+    // 原有的掛號邏輯
+    confirmRegistration();
+    
+    // 同步到實時數據庫
+    if (realtimeManager && appointments.length > 0) {
+        const latestAppointment = appointments[appointments.length - 1];
+        await realtimeManager.syncAppointmentToRealtime(latestAppointment);
+    }
+}
+
+// 修改現有的狀態更新函數
+async function confirmPatientArrivalWithRealtime(appointmentId) {
+    // 原有的邏輯
+    confirmPatientArrival(appointmentId);
+    
+    // 更新實時狀態
+    if (realtimeManager) {
+        await realtimeManager.updateAppointmentStatus(appointmentId, 'waiting', {
+            arrivedAt: new Date().toISOString(),
+            confirmedBy: currentUser
+        });
+    }
+}
+
+async function startConsultationWithRealtime(appointmentId) {
+    // 原有的邏輯
+    startConsultation(appointmentId);
+    
+    // 更新實時狀態
+    if (realtimeManager) {
+        const appointment = appointments.find(apt => apt.id === appointmentId);
+        if (appointment) {
+            await realtimeManager.updateConsultationStatus(appointmentId, {
+                step: 'consulting',
+                doctor: currentUser,
+                patientId: appointment.patientId,
+                startTime: new Date().toISOString()
+            });
+        }
+    }
+}
+
+// 初始化實時功能
+document.addEventListener('DOMContentLoaded', async function() {
+    // 等待 Firebase 初始化
+    while (!window.firebase) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // 創建實時管理器
+    realtimeManager = new RealtimeManager();
+    window.realtimeManager = realtimeManager; // 全局使用
+    
+    // 等待實時管理器準備就緒
+    while (!realtimeManager.isReady) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // 創建實時 UI
+    realtimeUI = new RealtimeUI(realtimeManager);
+    
+    // 同步現有數據
+    await realtimeManager.syncLocalAppointmentsToRealtime();
+    
+    console.log('實時功能已初始化完成');
+});
+
+// 頁面關閉時清理
+window.addEventListener('beforeunload', () => {
+    if (realtimeManager) {
+        realtimeManager.cleanup();
+    }
+});        
     </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96abf25724ae0514',t:'MTc1NDQ1NjE3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96c38f22ee47ddc3","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96d90c272a1cdd44","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
