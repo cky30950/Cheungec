@@ -3890,6 +3890,8 @@ async function confirmPatientArrival(appointmentId) {
         showToast('找不到掛號記錄！', 'error');
         return;
     }
+    
+    try {
         // 從 Firebase 獲取病人資料
         const result = await window.firebaseDataManager.getPatients();
         if (!result.success) {
@@ -3935,6 +3937,11 @@ async function confirmPatientArrival(appointmentId) {
     
     showToast(`病人已確認到達，進入候診狀態！`, 'success');
     loadTodayAppointments();
+    } catch (error) {
+        console.error('確認病人到達錯誤:', error);
+        // 出現任何錯誤時顯示通知，避免未處理的例外導致登入功能無法正常執行
+        showToast('確認病人到達時發生錯誤', 'error');
+    }
 }
         
  // 5. 修改移除掛號函數，支援 Firebase
@@ -4021,6 +4028,8 @@ async function startConsultation(appointmentId) {
         showToast('找不到掛號記錄！', 'error');
         return;
     }
+    
+    try {
         // 從 Firebase 獲取病人資料
         const result = await window.firebaseDataManager.getPatients();
         if (!result.success) {
@@ -4113,6 +4122,11 @@ async function startConsultation(appointmentId) {
     loadTodayAppointments();
     
     showToast(`開始診症`, 'success');
+    } catch (error) {
+        console.error('開始診症錯誤:', error);
+        // 出現任何錯誤時顯示通知，避免未處理的例外導致功能無法正常執行
+        showToast('開始診症時發生錯誤', 'error');
+    }
 }
         
         // 繼續診症
