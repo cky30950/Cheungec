@@ -2708,9 +2708,15 @@ async function logout() {
              */
             function getPermissionsForPosition(position) {
                 const basePermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement'];
+                // 「診所管理」職位可使用所有進階功能
                 if (position === '診所管理') {
                     return [...basePermissions, 'financialReports', 'userManagement', 'systemManagement'];
                 }
+                // 醫師職位亦可管理用戶，因此加入 userManagement 權限
+                if (position === '醫師') {
+                    return [...basePermissions, 'userManagement'];
+                }
+                // 其他職位僅具備基本功能
                 return basePermissions;
             }
 
@@ -2743,10 +2749,17 @@ async function logout() {
 
         // 顯示指定區域
         function showSection(sectionId) {
-            // 如果使用者非「診所管理」，阻止訪問受限功能並提示無權限
-            if (['financialReports', 'userManagement', 'systemManagement'].includes(sectionId)) {
+            // 若為財務報表或系統管理，僅限診所管理存取
+            if (['financialReports', 'systemManagement'].includes(sectionId)) {
                 if (!currentUserData || currentUserData.position !== '診所管理') {
                     showToast('權限不足，僅診所管理可使用此功能', 'error');
+                    return;
+                }
+            }
+            // 若為用戶管理，診所管理及醫師皆可存取
+            if (sectionId === 'userManagement') {
+                if (!currentUserData || !['診所管理', '醫師'].includes(currentUserData.position)) {
+                    showToast('權限不足，僅診所管理或醫師可使用此功能', 'error');
                     return;
                 }
             }
@@ -9916,5 +9929,6 @@ async function migrateUserDataToFirebase() {
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96d90c272a1cdd44","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96dd51fb1d5d84a2","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96dd62519b8eb430","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96deefe9585702cc","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>
