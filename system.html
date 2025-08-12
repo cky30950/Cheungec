@@ -9,7 +9,7 @@
 <script type="module">
     // Import Firebase functions
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, setDoc, onSnapshot, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
     import { getDatabase, ref, set, get, child, push, update, remove, onValue, off } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
     import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
@@ -33,7 +33,7 @@ const firebaseConfig = {
     // 讓其他腳本可以使用 Firebase
     window.firebase = {
         app, db, rtdb, auth,
-        collection, addDoc, getDocs, doc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, limit,
+        collection, addDoc, getDocs, doc, updateDoc, deleteDoc, setDoc, onSnapshot, query, where, orderBy, limit,
         ref, set, get, child, push, update, remove, onValue, off,
         signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged
     };
@@ -2006,10 +2006,42 @@ const firebaseConfig = {
         ];
 
         // 初始化中藥庫資料
-        let herbLibrary = JSON.parse(localStorage.getItem('herbLibrary') || '[]');
-        if (herbLibrary.length === 0) {
-            herbLibrary = [...defaultHerbs, ...defaultFormulas];
-            localStorage.setItem('herbLibrary', JSON.stringify(herbLibrary));
+        let herbLibrary = [];
+        /**
+         * 從 Firestore 讀取中藥庫資料，若資料不存在則自動使用預設值初始化。
+         * 此函式會等待 Firebase 初始化完成後再執行。
+         */
+        async function initHerbLibrary() {
+            // 等待 Firebase 初始化
+            while (!window.firebase || !window.firebase.db) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            try {
+                // 從 Firestore 取得 herbLibrary 集合資料
+                const querySnapshot = await window.firebase.getDocs(
+                    window.firebase.collection(window.firebase.db, 'herbLibrary')
+                );
+                const herbsFromFirestore = [];
+                querySnapshot.forEach((docSnap) => {
+                    // docSnap.data() 已包含 id 屬性，因此直接展開
+                    herbsFromFirestore.push({ ...docSnap.data() });
+                });
+                if (herbsFromFirestore.length === 0) {
+                    // 若 Firestore 中沒有資料，使用預設中藥材與方劑初始化
+                    const combinedDefaults = [...defaultHerbs, ...defaultFormulas];
+                    for (const item of combinedDefaults) {
+                        await window.firebase.setDoc(
+                            window.firebase.doc(window.firebase.db, 'herbLibrary', String(item.id)),
+                            item
+                        );
+                    }
+                    herbLibrary = combinedDefaults;
+                } else {
+                    herbLibrary = herbsFromFirestore;
+                }
+            } catch (error) {
+                console.error('讀取/初始化中藥庫資料失敗:', error);
+            }
         }
 
         // 預設收費項目資料
@@ -2387,10 +2419,40 @@ const firebaseConfig = {
         ];
 
         // 初始化收費項目資料
-        let billingItems = JSON.parse(localStorage.getItem('billingItems') || '[]');
-        if (billingItems.length === 0) {
-            billingItems = defaultBillingItems;
-            localStorage.setItem('billingItems', JSON.stringify(billingItems));
+        let billingItems = [];
+        /**
+         * 從 Firestore 讀取收費項目資料，若資料不存在則使用預設資料初始化。
+         * 此函式會等待 Firebase 初始化完成後再執行。
+         */
+        async function initBillingItems() {
+            // 等待 Firebase 初始化
+            while (!window.firebase || !window.firebase.db) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            try {
+                // 從 Firestore 取得 billingItems 集合資料
+                const querySnapshot = await window.firebase.getDocs(
+                    window.firebase.collection(window.firebase.db, 'billingItems')
+                );
+                const itemsFromFirestore = [];
+                querySnapshot.forEach((docSnap) => {
+                    itemsFromFirestore.push({ ...docSnap.data() });
+                });
+                if (itemsFromFirestore.length === 0) {
+                    // 若 Firestore 中沒有資料，使用預設收費項目初始化
+                    for (const item of defaultBillingItems) {
+                        await window.firebase.setDoc(
+                            window.firebase.doc(window.firebase.db, 'billingItems', String(item.id)),
+                            item
+                        );
+                    }
+                    billingItems = defaultBillingItems;
+                } else {
+                    billingItems = itemsFromFirestore;
+                }
+            } catch (error) {
+                console.error('讀取/初始化收費項目資料失敗:', error);
+            }
         }
 
         // 預設用戶資料
@@ -2708,9 +2770,15 @@ async function logout() {
              */
             function getPermissionsForPosition(position) {
                 const basePermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement'];
+                // 「診所管理」職位可使用所有進階功能
                 if (position === '診所管理') {
                     return [...basePermissions, 'financialReports', 'userManagement', 'systemManagement'];
                 }
+                // 醫師職位亦可管理用戶，因此加入 userManagement 權限
+                if (position === '醫師') {
+                    return [...basePermissions, 'userManagement'];
+                }
+                // 其他職位僅具備基本功能
                 return basePermissions;
             }
 
@@ -2743,10 +2811,17 @@ async function logout() {
 
         // 顯示指定區域
         function showSection(sectionId) {
-            // 如果使用者非「診所管理」，阻止訪問受限功能並提示無權限
-            if (['financialReports', 'userManagement', 'systemManagement'].includes(sectionId)) {
+            // 若為財務報表或系統管理，僅限診所管理存取
+            if (['financialReports', 'systemManagement'].includes(sectionId)) {
                 if (!currentUserData || currentUserData.position !== '診所管理') {
                     showToast('權限不足，僅診所管理可使用此功能', 'error');
+                    return;
+                }
+            }
+            // 若為用戶管理，診所管理及醫師皆可存取
+            if (sectionId === 'userManagement') {
+                if (!currentUserData || !['診所管理', '醫師'].includes(currentUserData.position)) {
+                    showToast('權限不足，僅診所管理或醫師可使用此功能', 'error');
                     return;
                 }
             }
@@ -4244,7 +4319,7 @@ async function saveConsultation() {
             appointment.completedBy = currentUser;
             localStorage.setItem('appointments', JSON.stringify(appointments));
 
-            showToast('診症記錄已完成並保存到雲端！', 'success');
+            showToast('診症記錄已保存！', 'success');
             
             closeConsultationForm();
             loadTodayAppointments();
@@ -6377,6 +6452,11 @@ async function loadPatientConsultationSummary(patientId) {
 // 6. 修改更新統計功能
 async function updateStatistics() {
     try {
+        // 如果 Firebase 數據管理器尚未初始化或尚未準備好，則跳過統計更新。
+        if (!window.firebaseDataManager || !window.firebaseDataManager.isReady) {
+            console.log('Firebase 數據管理器尚未準備就緒，統計資訊將稍後更新');
+            return;
+        }
         // 從 Firebase 獲取病人總數
         const result = await window.firebaseDataManager.getPatients();
         const totalPatients = result.success ? result.data.length : 0;
@@ -6561,7 +6641,11 @@ async function updateStatistics() {
         let editingFormulaId = null;
         let currentHerbFilter = 'all';
         
-        function loadHerbLibrary() {
+        async function loadHerbLibrary() {
+            // 進入中藥庫頁面時先從 Firestore 重新載入資料
+            if (typeof initHerbLibrary === 'function') {
+                await initHerbLibrary();
+            }
             displayHerbLibrary();
             
             // 搜尋功能
@@ -6742,7 +6826,7 @@ async function updateStatistics() {
             document.getElementById('addHerbModal').classList.remove('hidden');
         }
         
-        function saveHerb() {
+        async function saveHerb() {
             const name = document.getElementById('herbName').value.trim();
             
             if (!name) {
@@ -6774,7 +6858,15 @@ async function updateStatistics() {
                 showToast('中藥材已新增！', 'success');
             }
             
-            localStorage.setItem('herbLibrary', JSON.stringify(herbLibrary));
+            try {
+                // 將中藥材資料寫入 Firestore
+                await window.firebase.setDoc(
+                    window.firebase.doc(window.firebase.db, 'herbLibrary', String(herb.id)),
+                    herb
+                );
+            } catch (error) {
+                console.error('儲存中藥材資料至 Firestore 失敗:', error);
+            }
             hideAddHerbForm();
             displayHerbLibrary();
         }
@@ -6819,7 +6911,7 @@ async function updateStatistics() {
             document.getElementById('addFormulaModal').classList.remove('hidden');
         }
         
-        function saveFormula() {
+        async function saveFormula() {
             const name = document.getElementById('formulaName').value.trim();
             const composition = document.getElementById('formulaComposition').value.trim();
             
@@ -6856,13 +6948,21 @@ async function updateStatistics() {
                 showToast('方劑已新增！', 'success');
             }
             
-            localStorage.setItem('herbLibrary', JSON.stringify(herbLibrary));
+            try {
+                // 將方劑資料寫入 Firestore
+                await window.firebase.setDoc(
+                    window.firebase.doc(window.firebase.db, 'herbLibrary', String(formula.id)),
+                    formula
+                );
+            } catch (error) {
+                console.error('儲存方劑資料至 Firestore 失敗:', error);
+            }
             hideAddFormulaForm();
             displayHerbLibrary();
         }
         
         // 刪除中藥材或方劑
-        function deleteHerbItem(id) {
+        async function deleteHerbItem(id) {
             const item = herbLibrary.find(h => h.id === id);
             if (!item) return;
             
@@ -6870,7 +6970,13 @@ async function updateStatistics() {
             
             if (confirm(`確定要刪除${itemType}「${item.name}」嗎？\n\n此操作無法復原！`)) {
                 herbLibrary = herbLibrary.filter(h => h.id !== id);
-                localStorage.setItem('herbLibrary', JSON.stringify(herbLibrary));
+                try {
+                    await window.firebase.deleteDoc(
+                        window.firebase.doc(window.firebase.db, 'herbLibrary', String(id))
+                    );
+                } catch (error) {
+                    console.error('刪除中藥材資料至 Firestore 失敗:', error);
+                }
                 showToast(`${itemType}「${item.name}」已刪除！`, 'success');
                 displayHerbLibrary();
             }
@@ -6880,7 +6986,11 @@ async function updateStatistics() {
         let editingBillingItemId = null;
         let currentBillingFilter = 'all';
         
-        function loadBillingManagement() {
+        async function loadBillingManagement() {
+            // 進入收費項目管理頁面時先從 Firestore 重新載入資料
+            if (typeof initBillingItems === 'function') {
+                await initBillingItems();
+            }
             displayBillingItems();
             
             // 搜尋功能
@@ -7069,7 +7179,7 @@ async function updateStatistics() {
             document.getElementById('addBillingItemModal').classList.remove('hidden');
         }
         
-        function saveBillingItem() {
+        async function saveBillingItem() {
             const name = document.getElementById('billingItemName').value.trim();
             const category = document.getElementById('billingItemCategory').value;
             let price = parseFloat(document.getElementById('billingItemPrice').value);
@@ -7143,18 +7253,32 @@ async function updateStatistics() {
                 showToast('收費項目已新增！', 'success');
             }
             
-            localStorage.setItem('billingItems', JSON.stringify(billingItems));
+            try {
+                // 將收費項目寫入 Firestore
+                await window.firebase.setDoc(
+                    window.firebase.doc(window.firebase.db, 'billingItems', String(item.id)),
+                    item
+                );
+            } catch (error) {
+                console.error('儲存收費項目至 Firestore 失敗:', error);
+            }
             hideAddBillingItemForm();
             displayBillingItems();
         }
         
-        function deleteBillingItem(id) {
+        async function deleteBillingItem(id) {
             const item = billingItems.find(b => b.id === id);
             if (!item) return;
             
             if (confirm(`確定要刪除收費項目「${item.name}」嗎？\n\n此操作無法復原！`)) {
                 billingItems = billingItems.filter(b => b.id !== id);
-                localStorage.setItem('billingItems', JSON.stringify(billingItems));
+                try {
+                    await window.firebase.deleteDoc(
+                        window.firebase.doc(window.firebase.db, 'billingItems', String(id))
+                    );
+                } catch (error) {
+                    console.error('刪除收費項目資料至 Firestore 失敗:', error);
+                }
                 showToast(`收費項目「${item.name}」已刪除！`, 'success');
                 displayBillingItems();
             }
@@ -9808,6 +9932,8 @@ let firebaseDataManager;
 window.addEventListener('load', () => {
     firebaseDataManager = new FirebaseDataManager();
     window.firebaseDataManager = firebaseDataManager; // 全域使用
+    // Firebase 資料管理器初始化完成後更新統計
+    updateStatistics();
 });
         
 // 初始化系統
@@ -9815,7 +9941,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // 系統啟動時清空過期掛號
     clearOldAppointments();
     
-    updateStatistics();
     updateClinicSettingsDisplay();
     
     // 初始化數據遷移
@@ -9910,5 +10035,6 @@ async function migrateUserDataToFirebase() {
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96d90c272a1cdd44","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96dd51fb1d5d84a2","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96dd62519b8eb430","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96deefe9585702cc","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>
