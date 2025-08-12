@@ -2631,7 +2631,8 @@ async function logout() {
         function generateSidebarMenu() {
             const menuContainer = document.getElementById('sidebarMenu');
             menuContainer.innerHTML = '';
-            
+
+            // 定義各個功能的標題、圖示及說明
             const menuItems = {
                 patientManagement: { title: '病人資料管理', icon: '👥', description: '新增、查看、管理病人資料' },
                 consultationSystem: { title: '診症系統', icon: '🩺', description: '記錄症狀、診斷、開立處方' },
@@ -2641,9 +2642,27 @@ async function logout() {
                 financialReports: { title: '財務報表', icon: '📊', description: '收入分析與財務統計' },
                 systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' }
             };
-            
-            allPermissions.forEach(permission => {
+
+            /*
+             * 根據當前用戶的職位決定可使用的功能列表。一般職位僅能查看與診療相關的資料，
+             * 「診所管理」職位可以額外存取財務報表、用戶管理與系統管理。
+             */
+            function getPermissionsForPosition(position) {
+                const basePermissions = ['patientManagement', 'consultationSystem', 'herbLibrary', 'billingManagement'];
+                if (position === '診所管理') {
+                    return [...basePermissions, 'financialReports', 'userManagement', 'systemManagement'];
+                }
+                return basePermissions;
+            }
+
+            // 取得當前用戶職位，沒有職位預設為一般使用者
+            const userPosition = (currentUserData && currentUserData.position) || '';
+            const permissions = getPermissionsForPosition(userPosition);
+
+            // 依序建立側邊選單按鈕
+            permissions.forEach(permission => {
                 const item = menuItems[permission];
+                if (!item) return;
                 const button = document.createElement('button');
                 button.className = 'w-full text-left p-4 rounded-lg hover:bg-gray-100 transition duration-200 border border-gray-200 mb-2';
                 button.innerHTML = `
@@ -2665,10 +2684,18 @@ async function logout() {
 
         // 顯示指定區域
         function showSection(sectionId) {
+            // 如果使用者非「診所管理」，阻止訪問受限功能並提示無權限
+            if (['financialReports', 'userManagement', 'systemManagement'].includes(sectionId)) {
+                if (!currentUserData || currentUserData.position !== '診所管理') {
+                    showToast('權限不足，僅診所管理可使用此功能', 'error');
+                    return;
+                }
+            }
+
             hideAllSections();
             document.getElementById('welcomePage').classList.add('hidden');
             document.getElementById(sectionId).classList.remove('hidden');
-            
+
             if (sectionId === 'patientManagement') {
                 loadPatientList();
             } else if (sectionId === 'consultationSystem') {
