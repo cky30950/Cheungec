@@ -8523,10 +8523,20 @@ function displayUsers() {
 
 function showAddUserForm() {
     editingUserId = null;
-    document.getElementById('userFormTitle').textContent = '新增用戶';
-    document.getElementById('userSaveButtonText').textContent = '儲存';
+    // 使用防呆處理，避免目標元素不存在時拋出錯誤
+    const titleEl = document.getElementById('userFormTitle');
+    if (titleEl) {
+        titleEl.textContent = '新增用戶';
+    }
+    const saveBtnTextEl = document.getElementById('userSaveButtonText');
+    if (saveBtnTextEl) {
+        saveBtnTextEl.textContent = '儲存';
+    }
     clearUserForm();
-    document.getElementById('addUserModal').classList.remove('hidden');
+    const modalEl = document.getElementById('addUserModal');
+    if (modalEl) {
+        modalEl.classList.remove('hidden');
+    }
 }
 
 function hideAddUserForm() {
@@ -8565,24 +8575,42 @@ async function editUser(id) {
     if (!user) return;
     
     editingUserId = id;
-    document.getElementById('userFormTitle').textContent = '編輯用戶';
-    document.getElementById('userSaveButtonText').textContent = '更新';
+    // 使用防呆處理，避免目標元素不存在時拋出錯誤
+    const titleEl = document.getElementById('userFormTitle');
+    if (titleEl) {
+        titleEl.textContent = '編輯用戶';
+    }
+    const saveBtnTextEl = document.getElementById('userSaveButtonText');
+    if (saveBtnTextEl) {
+        saveBtnTextEl.textContent = '更新';
+    }
     
     // 帳號及密碼欄位已移除，無需填充相關資料
-    document.getElementById('userDisplayName').value = user.name || '';
-    document.getElementById('userPosition').value = user.position || '';
-    document.getElementById('userEmail').value = user.email || '';
-    document.getElementById('userPhone').value = user.phone || '';
-    document.getElementById('userRegistrationNumber').value = user.registrationNumber || '';
-    document.getElementById('userActive').checked = user.active !== false;
+    // 填充表單資料
+    const displayNameEl = document.getElementById('userDisplayName');
+    if (displayNameEl) displayNameEl.value = user.name || '';
+    const positionEl = document.getElementById('userPosition');
+    if (positionEl) positionEl.value = user.position || '';
+    const emailEl = document.getElementById('userEmail');
+    if (emailEl) emailEl.value = user.email || '';
+    const phoneEl = document.getElementById('userPhone');
+    if (phoneEl) phoneEl.value = user.phone || '';
+    const regNumEl = document.getElementById('userRegistrationNumber');
+    if (regNumEl) regNumEl.value = user.registrationNumber || '';
+    const activeEl = document.getElementById('userActive');
+    if (activeEl) activeEl.checked = user.active !== false;
 
     // 填入 Firebase UID
-    document.getElementById('userUID').value = user.uid || '';
+    const uidEl = document.getElementById('userUID');
+    if (uidEl) uidEl.value = user.uid || '';
     
     // 根據職位顯示或隱藏註冊編號欄位
     toggleRegistrationNumberField();
     
-    document.getElementById('addUserModal').classList.remove('hidden');
+    const modalEl = document.getElementById('addUserModal');
+    if (modalEl) {
+        modalEl.classList.remove('hidden');
+    }
 }
 
 async function saveUser() {
