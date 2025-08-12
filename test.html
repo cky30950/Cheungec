@@ -3890,8 +3890,6 @@ async function confirmPatientArrival(appointmentId) {
         showToast('找不到掛號記錄！', 'error');
         return;
     }
-    
-    try {
         // 從 Firebase 獲取病人資料
         const result = await window.firebaseDataManager.getPatients();
         if (!result.success) {
@@ -4023,8 +4021,6 @@ async function startConsultation(appointmentId) {
         showToast('找不到掛號記錄！', 'error');
         return;
     }
-    
-    try {
         // 從 Firebase 獲取病人資料
         const result = await window.firebaseDataManager.getPatients();
         if (!result.success) {
