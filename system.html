@@ -2751,7 +2751,33 @@ async function logout() {
         document.getElementById('sidebar').classList.add('-translate-x-full');
         document.getElementById('sidebarOverlay').classList.add('hidden');
         hideAllSections();
-        
+
+        // 登出時若有開啟診症相關面板，將其關閉
+        try {
+            // 若有診症表單正在顯示，呼叫關閉函式或直接隱藏
+            if (typeof closeConsultationForm === 'function') {
+                closeConsultationForm();
+            } else if (document.getElementById('consultationForm')) {
+                document.getElementById('consultationForm').classList.add('hidden');
+            }
+
+            // 若有診症記錄查看彈窗正在顯示，呼叫關閉函式或直接隱藏
+            if (typeof closeMedicalHistoryModal === 'function') {
+                closeMedicalHistoryModal();
+            } else if (document.getElementById('medicalHistoryModal')) {
+                document.getElementById('medicalHistoryModal').classList.add('hidden');
+            }
+
+            // 若有病人病歷查看彈窗正在顯示，呼叫關閉函式或直接隱藏
+            if (typeof closePatientMedicalHistoryModal === 'function') {
+                closePatientMedicalHistoryModal();
+            } else if (document.getElementById('patientMedicalHistoryModal')) {
+                document.getElementById('patientMedicalHistoryModal').classList.add('hidden');
+            }
+        } catch (e) {
+            console.warn('登出時關閉診症相關面板時發生錯誤:', e);
+        }
+
         // 清空登入表單
         document.getElementById('mainLoginUsername').value = '';
         document.getElementById('mainLoginPassword').value = '';
@@ -10581,5 +10607,6 @@ async function migrateUserDataToFirebase() {
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e7cf3ffa4a02da","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e8b85e7a146682","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e8ce9b18e9dd9a","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e9acf69ccb8cae","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>
