@@ -4442,6 +4442,15 @@ async function saveConsultation() {
         return;
     }
 
+    // 在進入 try 區塊之前禁用保存按鈕並記錄原始按鈕文字，
+    // 以避免 finally 區塊無法存取 originalText 的錯誤（參考語法：let/const 具有塊級作用域）
+    const saveButton = document.querySelector('[onclick="saveConsultation()"]');
+    let originalText = '';
+    if (saveButton) {
+        originalText = saveButton.textContent;
+        saveButton.textContent = '保存中...';
+        saveButton.disabled = true;
+    }
     try {
         // 獲取當前掛號信息（從原始數據結構獲取，因為掛號還沒有遷移到 Firebase）
         const appointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
@@ -4474,11 +4483,7 @@ async function saveConsultation() {
             status: 'completed'
         };
 
-        // 顯示保存中狀態
-        const saveButton = document.querySelector('[onclick="saveConsultation()"]');
-        const originalText = saveButton.textContent;
-        saveButton.textContent = '保存中...';
-        saveButton.disabled = true;
+        // 顯示保存中狀態：已在函式開始處處理按鈕禁用與保存原始文字
 
         // 保存到 Firebase
         const result = await window.firebaseDataManager.addConsultation(consultation);
