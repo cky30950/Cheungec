@@ -4212,12 +4212,21 @@ async function showConsultationForm(appointment) {
                 return;
             }
             
-            const patient = patients.find(p => p.id === appointment.patientId);
-            if (!patient) {
-                closeConsultationForm();
-                currentConsultingAppointmentId = null;
-                return;
-            }
+const patientResult = await window.firebaseDataManager.getPatients();
+if (!patientResult.success) {
+    showToast('無法讀取病人資料！', 'error');
+    closeConsultationForm();
+    currentConsultingAppointmentId = null;
+    return;
+}
+
+const patient = patientResult.data.find(p => p.id === appointment.patientId);
+if (!patient) {
+    showToast('找不到病人資料！', 'error');
+    closeConsultationForm();
+    currentConsultingAppointmentId = null;
+    return;
+}
             
             // 詳細狀態檢查
             console.log(`取消診症狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}`);
@@ -5811,7 +5820,7 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
 }
         
         // 列印病假證明
-        async function printSickLeave(consultationId) {
+        async function printSickLeave(consultationId, consultationData = null) {
             const consultation = consultations.find(c => c.id === consultationId);
             if (!consultation) {
                 showToast('找不到診症記錄！', 'error');
@@ -8334,8 +8343,19 @@ if (!patient) {
                 return;
             }
             
-            const patient = patients.find(p => p.id === consultation.patientId);
-            const consultationDate = new Date(consultation.date).toLocaleDateString('zh-TW');
+const patientResult = await window.firebaseDataManager.getPatients();
+if (!patientResult.success) {
+    showToast('無法讀取病人資料！', 'error');
+    return;
+}
+
+const patient = patientResult.data.find(p => p.id === consultation.patientId);
+if (!patient) {
+    showToast('找不到病人資料！', 'error');
+    return;
+}
+
+const consultationDate = new Date(consultation.date).toLocaleDateString('zh-TW');
             
             // 確認載入操作
             const confirmMessage = `確定要載入 ${patient ? patient.name : '未知病人'} 在 ${consultationDate} 的病歷記錄嗎？\n\n` +
