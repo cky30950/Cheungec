@@ -3066,8 +3066,13 @@ async function loadPatientListFromFirebase() {
                 <td class="px-4 py-3 text-sm text-gray-900">${patient.gender}</td>
                 <td class="px-4 py-3 text-sm text-gray-900">${patient.phone}</td>
                 <td class="px-4 py-3 text-sm space-x-2">
+                    <!-- 查看病人基本資料 -->
                     <button onclick="viewPatient('${patient.id}')" class="text-blue-600 hover:text-blue-800">查看</button>
+                    <!-- 新增查看病歷功能：直接從病人資料管理頁面開啟該病人的完整診症記錄 -->
+                    <button onclick="viewPatientMedicalHistory('${patient.id}')" class="text-purple-600 hover:text-purple-800">病歷</button>
+                    <!-- 編輯病人資料 -->
                     <button onclick="editPatient('${patient.id}')" class="text-green-600 hover:text-green-800">編輯</button>
+                    <!-- 刪除病人資料 -->
                     <button onclick="deletePatient('${patient.id}')" class="text-red-600 hover:text-red-800">刪除</button>
                 </td>
             `;
@@ -4680,8 +4685,7 @@ if (!patient) {
                         <div class="flex justify-between items-center">
                             <div class="flex items-center space-x-4">
                                 <span class="font-semibold text-gray-900 text-lg">
-                                    ${new Date(consultation.date).toLocaleDateString('zh-TW')} 
-                                    ${new Date(consultation.date).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit'})}
+                                    ${formatConsultationDateTime(consultation.date)}
                                 </span>
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
                                     醫師：${getDoctorDisplayName(consultation.doctor)}
