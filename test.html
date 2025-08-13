@@ -2606,6 +2606,22 @@ async function attemptMainLogin() {
             currentUser = currentUserData.username;
         }
 
+        // 在登入主系統前先載入中藥庫資料和收費項目資料
+        // 目前中藥庫管理與收費項目管理僅在進入各頁面時會重新讀取 Firestore 資料，
+        // 為了縮短首次進入功能頁面的等待時間，這裡於登入後就先行載入一次。
+        try {
+            // 若有定義 initHerbLibrary 函式，則執行一次
+            if (typeof initHerbLibrary === 'function') {
+                await initHerbLibrary();
+            }
+            // 若有定義 initBillingItems 函式，則執行一次
+            if (typeof initBillingItems === 'function') {
+                await initBillingItems();
+            }
+        } catch (error) {
+            console.error('初始化中藥庫或收費項目資料失敗:', error);
+        }
+
         // 登入成功，切換到主系統
         performLogin(currentUserData);
         
