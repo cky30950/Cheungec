@@ -109,82 +109,6 @@ const firebaseConfig = {
             line-height: 1.4;
         }
     </style>
-    <style>
-/* 實時狀態指示器樣式 */
-.realtime-status {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.5rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
-.status-online {
-    background-color: #dcfce7;
-    color: #166534;
-}
-
-.status-busy {
-    background-color: #fef3c7;
-    color: #92400e;
-}
-
-.status-offline {
-    background-color: #f3f4f6;
-    color: #6b7280;
-}
-
-/* 通知動畫 */
-@keyframes slideInRight {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-.notification-enter {
-    animation: slideInRight 0.3s ease-out;
-}
-
-/* 實時更新指示器 */
-.realtime-indicator {
-    position: relative;
-}
-
-.realtime-indicator::after {
-    content: '';
-    position: absolute;
-    top: -2px;
-    right: -2px;
-    width: 8px;
-    height: 8px;
-    background-color: #10b981;
-    border-radius: 50%;
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0% {
-        transform: scale(0.95);
-        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-    }
-    
-    70% {
-        transform: scale(1);
-        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
-    }
-    
-    100% {
-        transform: scale(0.95);
-        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-    }
-}
-</style>
 </head>
 <body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
     <!-- 登入頁面 -->
@@ -2754,40 +2678,31 @@ function getUserPositionFromEmail(email) {
     return '用戶';
 }
         
-// 4. 修復登入函數以正確處理實時功能
-async function performLoginFixed(user) {
-    // 更新最後登入時間
-    const userIndex = users.findIndex(u => u.id === user.id);
-    if (userIndex !== -1) {
-        users[userIndex].lastLogin = new Date().toISOString();
-        localStorage.setItem('users', JSON.stringify(users));
-    }
-    
-    currentUser = user.username;
-    currentUserData = user;
-    
-    // 切換到主系統
-    document.getElementById('loginPage').classList.add('hidden');
-    document.getElementById('mainSystem').classList.remove('hidden');
-    
-    document.getElementById('userRole').textContent = `當前用戶：${getUserDisplayName(user)}`;
-    document.getElementById('sidebarUserRole').textContent = `當前用戶：${getUserDisplayName(user)}`;
-    
-    generateSidebarMenu();
-    updateStatistics();
-    
-    // 等待一段時間再設置在線狀態，確保認證完成
-    setTimeout(async () => {
-        if (window.realtimeManager) {
-            const success = await window.realtimeManager.setUserOnline(user.id, user);
-            if (!success) {
-                console.log('實時功能暫時不可用，系統將以離線模式運行');
+        // 執行登入
+        function performLogin(user) {
+            // 更新最後登入時間
+            const userIndex = users.findIndex(u => u.id === user.id);
+            if (userIndex !== -1) {
+                users[userIndex].lastLogin = new Date().toISOString();
+                localStorage.setItem('users', JSON.stringify(users));
             }
+            
+            currentUser = user.username;
+            currentUserData = user;
+            
+            // 切換到主系統
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('mainSystem').classList.remove('hidden');
+            
+            document.getElementById('userRole').textContent = `當前用戶：${getUserDisplayName(user)}`;
+            document.getElementById('sidebarUserRole').textContent = `當前用戶：${getUserDisplayName(user)}`;
+            
+            generateSidebarMenu();
+            updateStatistics();
+            
+            showToast(`歡迎回來，${getUserDisplayName(user)}！`, 'success');
         }
-    }, 1000);
-    
-    showToast(`歡迎回來，${getUserDisplayName(user)}！`, 'success');
-}
+
         // 側邊選單控制
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
@@ -2802,57 +2717,9 @@ async function performLoginFixed(user) {
             }
         }
 
-
-// 6. 添加 DOM 元素檢查函數
-function ensureRequiredElements() {
-    const requiredElements = [
-        'patientConsultationSummary',
-        'consultationSaveButton',
-        'realtimeStatusPanel'
-    ];
-    
-    requiredElements.forEach(elementId => {
-        if (!document.getElementById(elementId)) {
-            console.warn(`缺少必需的 DOM 元素: ${elementId}`);
-            
-            // 嘗試創建缺少的元素
-            if (elementId === 'patientConsultationSummary') {
-                const container = document.createElement('div');
-                container.id = elementId;
-                container.innerHTML = '<div class="text-gray-500">載入中...</div>';
-                
-                // 嘗試找到合適的父元素
-                const parentElement = document.getElementById('patientDetailContent') || 
-                                    document.querySelector('.patient-detail-container');
-                if (parentElement) {
-                    parentElement.appendChild(container);
-                    console.log(`已創建缺少的元素: ${elementId}`);
-                }
-            }
-        }
-    });
-}
-// 7. 錯誤處理包裝器
-function withErrorHandling(func, errorMessage = '操作失敗') {
-    return async function(...args) {
-        try {
-            return await func.apply(this, args);
-        } catch (error) {
-            console.error(`${errorMessage}:`, error);
-            showToast(`${errorMessage}，請重試`, 'error');
-        }
-    };
-}
-        
         // 登出功能
 async function logout() {
     try {
-        // 清理實時功能
-        if (window.realtimeManager && currentUserData) {
-            await window.realtimeManager.setUserOffline(currentUserData.id);
-            window.realtimeManager.cleanup();
-        }
-        
         // Firebase 登出
         if (window.firebase && window.firebase.auth) {
             await window.firebase.signOut(window.firebase.auth);
@@ -2862,6 +2729,7 @@ async function logout() {
         currentUser = null;
         currentUserData = null;
         
+        // 切換頁面
         document.getElementById('loginPage').classList.remove('hidden');
         document.getElementById('mainSystem').classList.add('hidden');
         document.getElementById('sidebar').classList.add('-translate-x-full');
@@ -3638,31 +3506,26 @@ async function selectPatientForRegistration(patientId) {
                 return;
             }
             
-    const appointment = {
-        id: Date.now(),
-        patientId: selectedPatientForRegistration.id,
-        appointmentTime: selectedTime.toISOString(),
-        appointmentDoctor: appointmentDoctor,
-        chiefComplaint: chiefComplaint || '無特殊主訴',
-        status: 'registered',
-        createdAt: new Date().toISOString(),
-        createdBy: currentUserData ? currentUserData.username : currentUser
-    };
-    
-    appointments.push(appointment);
-    localStorage.setItem('appointments', JSON.stringify(appointments));
-    
-    // 同步到實時數據庫
-    if (window.realtimeManager && window.realtimeManager.isReady) {
-        window.realtimeManager.syncAppointmentToRealtime(appointment);
-    }
-    
-    showToast(`${selectedPatientForRegistration.name} 已掛號給 ${selectedDoctor.name}醫師！`, 'success');
-    
-    closeRegistrationModal();
-    clearPatientSearch();
-    loadTodayAppointments();
-}
+            const appointment = {
+                id: Date.now(),
+                patientId: selectedPatientForRegistration.id,
+                appointmentTime: selectedTime.toISOString(),
+                appointmentDoctor: appointmentDoctor,
+                chiefComplaint: chiefComplaint || '無特殊主訴',
+                status: 'registered', // registered, waiting, consulting, completed
+                createdAt: new Date().toISOString(),
+                createdBy: currentUserData ? currentUserData.username : currentUser
+            };
+            
+            appointments.push(appointment);
+            localStorage.setItem('appointments', JSON.stringify(appointments));
+            
+            showToast(`${selectedPatientForRegistration.name} 已掛號給 ${selectedDoctor.name}醫師！`, 'success');
+            
+            closeRegistrationModal();
+            clearPatientSearch();
+            loadTodayAppointments();
+        }
         
         // 每日自動清空掛號列表
         function clearOldAppointments() {
@@ -3968,28 +3831,22 @@ async function confirmPatientArrival(appointmentId) {
         }
         
         // 更新狀態為候診中
-    appointment.status = 'waiting';
-    appointment.arrivedAt = new Date().toISOString();
-    appointment.confirmedBy = currentUserData ? currentUserData.username : currentUser;
-    
-    localStorage.setItem('appointments', JSON.stringify(appointments));
-    
-    // 更新實時狀態
-    if (window.realtimeManager) {
-        await window.realtimeManager.updateAppointmentStatus(appointmentId, 'waiting', {
-            arrivedAt: appointment.arrivedAt,
-            confirmedBy: appointment.confirmedBy
-        });
-    }
-    
-    showToast(`病人已確認到達，進入候診狀態！`, 'success');
-    loadTodayAppointments();
+        appointment.status = 'waiting';
+        appointment.arrivedAt = new Date().toISOString();
+        appointment.confirmedBy = currentUserData ? currentUserData.username : currentUser;
+        
+        // 保存狀態變更
+        localStorage.setItem('appointments', JSON.stringify(appointments));
+        
+        showToast(`${patient.name} 已確認到達，進入候診狀態！`, 'success');
+        loadTodayAppointments();
+        
     } catch (error) {
-        console.error('確認病人到達錯誤:', error);
-        // 出現任何錯誤時顯示通知，避免未處理的例外導致登入功能無法正常執行
-        showToast('確認病人到達時發生錯誤', 'error');
+        console.error('確認到達錯誤:', error);
+        showToast('處理確認到達時發生錯誤', 'error');
     }
 }
+
         
  // 5. 修改移除掛號函數，支援 Firebase
 async function removeAppointment(appointmentId) {
@@ -4148,30 +4005,24 @@ async function startConsultation(appointmentId) {
         }
         
         // 開始新的診症 - 正確設置狀態為診症中
-    appointment.status = 'consulting';
-    appointment.consultationStartTime = new Date().toISOString();
-    appointment.consultingDoctor = currentUserData ? currentUserData.username : currentUser;
-    
-    localStorage.setItem('appointments', JSON.stringify(appointments));
-    
-    // 更新實時狀態
-    if (window.realtimeManager) {
-        await window.realtimeManager.updateConsultationStatus(appointmentId, {
-            step: 'consulting',
-            doctor: currentUser,
-            patientId: appointment.patientId,
-            startTime: appointment.consultationStartTime
-        });
-    }
-    
-    currentConsultingAppointmentId = appointmentId;
-    showConsultationForm(appointment);
-    loadTodayAppointments();
-    
-    showToast(`開始診症`, 'success');
+        appointment.status = 'consulting';
+        appointment.consultationStartTime = new Date().toISOString();
+        appointment.consultingDoctor = currentUserData ? currentUserData.username : currentUser;
+        
+        // 立即保存狀態變更
+        localStorage.setItem('appointments', JSON.stringify(appointments));
+        
+        // 設置當前診症ID並顯示表單
+        currentConsultingAppointmentId = appointmentId;
+        showConsultationForm(appointment);
+        
+        // 重新載入列表以顯示正確狀態
+        loadTodayAppointments();
+        
+        showToast(`開始為 ${patient.name} 診症`, 'success');
+        
     } catch (error) {
         console.error('開始診症錯誤:', error);
-        // 出現任何錯誤時顯示通知，避免未處理的例外導致功能無法正常執行
         showToast('開始診症時發生錯誤', 'error');
     }
 }
@@ -4185,7 +4036,7 @@ async function startConsultation(appointmentId) {
             showConsultationForm(appointment);
         }
         
-// 修復診症表單顯示函數
+// 6. 修改診症表單顯示函數，支援 Firebase
 async function showConsultationForm(appointment) {
     try {
         // 從 Firebase 獲取病人資料
@@ -4208,8 +4059,49 @@ async function showConsultationForm(appointment) {
         
         // 檢查是否為編輯模式
         if (appointment.status === 'completed' && appointment.consultationId) {
-            // 編輯模式：從 Firebase 載入現有診症記錄
-            await loadConsultationForEdit(appointment.consultationId);
+            // 編輯模式：載入現有診症記錄
+            const consultation = consultations.find(c => c.id === appointment.consultationId);
+            if (consultation) {
+                // 載入診症記錄內容
+                document.getElementById('formSymptoms').value = consultation.symptoms || '';
+                document.getElementById('formTongue').value = consultation.tongue || '';
+                document.getElementById('formPulse').value = consultation.pulse || '';
+                document.getElementById('formCurrentHistory').value = consultation.currentHistory || '';
+                document.getElementById('formDiagnosis').value = consultation.diagnosis || '';
+                document.getElementById('formSyndrome').value = consultation.syndrome || '';
+                document.getElementById('formAcupunctureNotes').value = consultation.acupunctureNotes || '';
+                document.getElementById('formUsage').value = consultation.usage || '';
+                document.getElementById('formTreatmentCourse').value = consultation.treatmentCourse || '';
+                document.getElementById('formInstructions').value = consultation.instructions || '';
+                document.getElementById('formFollowUpDate').value = consultation.followUpDate || '';
+                document.getElementById('formVisitTime').value = consultation.visitTime || '';
+                
+                // 載入休息期間設定
+                if (consultation.restStartDate && consultation.restEndDate) {
+                    document.getElementById('formRestStartDate').value = consultation.restStartDate;
+                    document.getElementById('formRestEndDate').value = consultation.restEndDate;
+                    updateRestPeriod();
+                } else {
+                    // 使用預設值
+                    const startDate = new Date();
+                    const endDate = new Date();
+                    endDate.setDate(startDate.getDate() + 2);
+                    
+                    const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+                    const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+                    
+                    document.getElementById('formRestStartDate').value = startDateStr;
+                    document.getElementById('formRestEndDate').value = endDateStr;
+                    updateRestPeriod();
+                }
+                
+                // 載入處方和收費項目
+                // ... 處方和收費項目載入邏輯保持不變
+                
+                document.getElementById('consultationSaveButtonText').textContent = '更新病歷';
+            } else {
+                clearConsultationForm();
+            }
         } else {
             // 新診症模式：使用空白表單
             clearConsultationForm();
@@ -4257,164 +4149,7 @@ async function showConsultationForm(appointment) {
         showToast('載入診症表單時發生錯誤', 'error');
     }
 }
-
-// 新增：解析診症日期的通用函數
-function parseConsultationDate(dateInput) {
-    if (!dateInput) return null;
-    
-    try {
-        // 如果是 Firebase Timestamp 格式
-        if (dateInput.seconds) {
-            return new Date(dateInput.seconds * 1000);
-        }
         
-        // 如果是字符串格式
-        if (typeof dateInput === 'string') {
-            const parsed = new Date(dateInput);
-            if (!isNaN(parsed.getTime())) {
-                return parsed;
-            }
-        }
-        
-        // 如果是 Date 對象
-        if (dateInput instanceof Date) {
-            return dateInput;
-        }
-        
-        // 如果是數字格式（timestamp）
-        if (typeof dateInput === 'number') {
-            return new Date(dateInput);
-        }
-        
-        return null;
-    } catch (error) {
-        console.error('日期解析錯誤:', error, dateInput);
-        return null;
-    }
-}
-
-// 修復格式化診症日期顯示
-function formatConsultationDate(dateInput) {
-    const date = parseConsultationDate(dateInput);
-    if (!date || isNaN(date.getTime())) {
-        return '日期未知';
-    }
-    
-    return date.toLocaleDateString('zh-TW', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    });
-}
-
-function formatConsultationDateTime(dateInput) {
-    const date = parseConsultationDate(dateInput);
-    if (!date || isNaN(date.getTime())) {
-        return '時間未知';
-    }
-    
-    return date.toLocaleString('zh-TW', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
-        
-// 新增：從 Firebase 載入診症記錄進行編輯
-async function loadConsultationForEdit(consultationId) {
-    try {
-        // 先嘗試從本地找
-        let consultation = consultations.find(c => c.id === consultationId);
-        
-        // 如果本地找不到，從 Firebase 找
-        if (!consultation) {
-            const consultationResult = await window.firebaseDataManager.getConsultations();
-            if (consultationResult.success) {
-                consultation = consultationResult.data.find(c => c.id === consultationId);
-                if (consultation) {
-                    // 同步到本地
-                    consultations.push(consultation);
-                    localStorage.setItem('consultations', JSON.stringify(consultations));
-                }
-            }
-        }
-        
-        if (consultation) {
-            // 載入診症記錄內容
-            document.getElementById('formSymptoms').value = consultation.symptoms || '';
-            document.getElementById('formTongue').value = consultation.tongue || '';
-            document.getElementById('formPulse').value = consultation.pulse || '';
-            document.getElementById('formCurrentHistory').value = consultation.currentHistory || '';
-            document.getElementById('formDiagnosis').value = consultation.diagnosis || '';
-            document.getElementById('formSyndrome').value = consultation.syndrome || '';
-            document.getElementById('formAcupunctureNotes').value = consultation.acupunctureNotes || '';
-            document.getElementById('formUsage').value = consultation.usage || '';
-            document.getElementById('formTreatmentCourse').value = consultation.treatmentCourse || '';
-            document.getElementById('formInstructions').value = consultation.instructions || '';
-            document.getElementById('formFollowUpDate').value = consultation.followUpDate || '';
-            
-            // 處理到診時間 - 支援多種日期格式
-            if (consultation.visitTime) {
-                const visitTime = parseConsultationDate(consultation.visitTime);
-                if (visitTime) {
-                    const year = visitTime.getFullYear();
-                    const month = String(visitTime.getMonth() + 1).padStart(2, '0');
-                    const day = String(visitTime.getDate()).padStart(2, '0');
-                    const hours = String(visitTime.getHours()).padStart(2, '0');
-                    const minutes = String(visitTime.getMinutes()).padStart(2, '0');
-                    document.getElementById('formVisitTime').value = `${year}-${month}-${day}T${hours}:${minutes}`;
-                }
-            }
-            
-            // 載入休息期間設定
-            if (consultation.restStartDate && consultation.restEndDate) {
-                document.getElementById('formRestStartDate').value = consultation.restStartDate;
-                document.getElementById('formRestEndDate').value = consultation.restEndDate;
-                updateRestPeriod();
-            } else {
-                // 使用預設值
-                const startDate = new Date();
-                const endDate = new Date();
-                endDate.setDate(startDate.getDate() + 2);
-                
-                const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
-                const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
-                
-                document.getElementById('formRestStartDate').value = startDateStr;
-                document.getElementById('formRestEndDate').value = endDateStr;
-                updateRestPeriod();
-            }
-            
-            // 載入處方內容
-            selectedPrescriptionItems = [];
-            if (consultation.prescription) {
-                document.getElementById('formPrescription').value = consultation.prescription;
-                parsePrescriptionToItems(consultation.prescription);
-                updatePrescriptionDisplay();
-            }
-            
-            // 載入收費項目
-            selectedBillingItems = [];
-            if (consultation.billingItems) {
-                document.getElementById('formBillingItems').value = consultation.billingItems;
-                parseBillingItemsFromText(consultation.billingItems);
-                updateBillingDisplay();
-            }
-            
-            document.getElementById('consultationSaveButtonText').textContent = '更新病歷';
-        } else {
-            showToast('找不到診症記錄，將使用空白表單', 'warning');
-            clearConsultationForm();
-        }
-    } catch (error) {
-        console.error('載入診症記錄錯誤:', error);
-        showToast('載入診症記錄失敗，將使用空白表單', 'warning');
-        clearConsultationForm();
-    }
-}
 
         
         // 清空診症表單
@@ -4520,8 +4255,8 @@ async function loadConsultationForEdit(consultationId) {
             }
         }
         
-// 3. 修復 saveConsultation 函數中的 originalText 錯誤
-async function saveConsultationFixed() {
+        // 儲存診症記錄（醫師操作）
+async function saveConsultation() {
     if (!currentConsultingAppointmentId) {
         showToast('系統錯誤：找不到診症記錄！', 'error');
         return;
@@ -4535,21 +4270,8 @@ async function saveConsultationFixed() {
         return;
     }
 
-    // 安全獲取保存按鈕
-    const saveButton = document.querySelector('[onclick="saveConsultation()"]') || 
-                      document.querySelector('button[onclick="saveConsultation()"]') ||
-                      document.getElementById('consultationSaveButton');
-    
-    let originalText = '完成診症'; // 預設值
-    
-    if (saveButton) {
-        originalText = saveButton.textContent || saveButton.innerText || '完成診症';
-        saveButton.textContent = '保存中...';
-        saveButton.disabled = true;
-    }
-
     try {
-        // 獲取當前掛號信息
+        // 獲取當前掛號信息（從原始數據結構獲取，因為掛號還沒有遷移到 Firebase）
         const appointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
         if (!appointment) {
             showToast('找不到掛號記錄！', 'error');
@@ -4580,29 +4302,22 @@ async function saveConsultationFixed() {
             status: 'completed'
         };
 
+        // 顯示保存中狀態
+        const saveButton = document.querySelector('[onclick="saveConsultation()"]');
+        const originalText = saveButton.textContent;
+        saveButton.textContent = '保存中...';
+        saveButton.disabled = true;
+
         // 保存到 Firebase
         const result = await window.firebaseDataManager.addConsultation(consultation);
 
         if (result.success) {
-            // 更新本地掛號狀態
+            // 更新本地掛號狀態（暫時，直到掛號系統也遷移到 Firebase）
             appointment.status = 'completed';
             appointment.completedAt = new Date().toISOString();
             appointment.consultationId = result.id;
             appointment.completedBy = currentUser;
             localStorage.setItem('appointments', JSON.stringify(appointments));
-
-            // 更新實時狀態
-            if (window.realtimeManager && window.realtimeManager.isReady) {
-                await window.realtimeManager.updateAppointmentStatus(
-                    currentConsultingAppointmentId, 
-                    'completed',
-                    {
-                        consultationId: result.id,
-                        completedAt: appointment.completedAt,
-                        completedBy: appointment.completedBy
-                    }
-                );
-            }
 
             showToast('診症記錄已保存！', 'success');
             
@@ -4619,7 +4334,8 @@ async function saveConsultationFixed() {
         console.error('保存診症記錄錯誤:', error);
         showToast('保存時發生錯誤', 'error');
     } finally {
-        // 安全恢復按鈕狀態
+        // 恢復按鈕狀態
+        const saveButton = document.querySelector('[onclick="saveConsultation()"]');
         if (saveButton) {
             saveButton.textContent = originalText;
             saveButton.disabled = false;
@@ -4972,194 +4688,194 @@ async function viewPatientMedicalHistory(patientId) {
     }
 }
         
-// 修復病歷記錄顯示中的日期問題
-function displayConsultationMedicalHistoryPage() {
-    const contentDiv = document.getElementById('medicalHistoryContent');
-    
-    if (currentConsultationConsultations.length === 0) {
-        contentDiv.innerHTML = `
-            <div class="text-center py-12 text-gray-500">
-                <div class="text-4xl mb-4">📋</div>
-                <div class="text-lg font-medium mb-2">暫無診症記錄</div>
-                <div class="text-sm">該病人尚未有診症記錄</div>
-            </div>
-        `;
-        return;
-    }
-    
-    const consultation = currentConsultationConsultations[currentConsultationHistoryPage];
-    const totalPages = currentConsultationConsultations.length;
-    const currentPageNumber = currentConsultationHistoryPage + 1;
-    const consultationNumber = currentConsultationHistoryPage + 1;
-    
-    contentDiv.innerHTML = `
-        <!-- 分頁導航 -->
-        <div class="mb-6 flex justify-between items-center bg-gray-50 rounded-lg p-4">
-            <div class="flex items-center space-x-4">
-                <h4 class="text-lg font-semibold text-gray-800">診症記錄</h4>
-                <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                    第 ${consultationNumber} 次診症
-                </span>
-                <span class="text-sm text-gray-600">
-                    共 ${totalPages} 次診症記錄
-                </span>
-            </div>
+        function displayConsultationMedicalHistoryPage() {
+            const contentDiv = document.getElementById('medicalHistoryContent');
             
-            <div class="flex items-center space-x-2">
-                <button onclick="changeConsultationHistoryPage(-1)" 
-                        ${currentConsultationHistoryPage === 0 ? 'disabled' : ''}
-                        class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
-                    ← 較舊
-                </button>
-                <span class="text-sm text-gray-600 px-2">
-                    ${currentPageNumber} / ${totalPages}
-                </span>
-                <button onclick="changeConsultationHistoryPage(1)" 
-                        ${currentConsultationHistoryPage === totalPages - 1 ? 'disabled' : ''}
-                        class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
-                    較新 →
-                </button>
-            </div>
-        </div>
-        
-        <!-- 當前病歷記錄 -->
-        <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-            <div class="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-4 border-b border-gray-200">
-                <div class="flex justify-between items-center">
+            if (currentConsultationConsultations.length === 0) {
+                contentDiv.innerHTML = `
+                    <div class="text-center py-12 text-gray-500">
+                        <div class="text-4xl mb-4">📋</div>
+                        <div class="text-lg font-medium mb-2">暫無診症記錄</div>
+                        <div class="text-sm">該病人尚未有診症記錄</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const consultation = currentConsultationConsultations[currentConsultationHistoryPage];
+            const totalPages = currentConsultationConsultations.length;
+            const currentPageNumber = currentConsultationHistoryPage + 1;
+            const consultationNumber = currentConsultationHistoryPage + 1;
+            
+            contentDiv.innerHTML = `
+                <!-- 分頁導航 -->
+                <div class="mb-6 flex justify-between items-center bg-gray-50 rounded-lg p-4">
                     <div class="flex items-center space-x-4">
-                        <span class="font-semibold text-gray-900 text-lg">
-                            ${formatConsultationDateTime(consultation.date)}
+                        <h4 class="text-lg font-semibold text-gray-800">診症記錄</h4>
+                        <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                            第 ${consultationNumber} 次診症
                         </span>
-                        <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
-                            醫師：${getDoctorDisplayName(consultation.doctor)}
+                        <span class="text-sm text-gray-600">
+                            共 ${totalPages} 次診症記錄
                         </span>
-                        ${consultation.updatedAt ? `
-                            <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                                已修改
-                            </span>
-                        ` : ''}
-                    </div>
-                    <div class="flex space-x-2">
-                        <button onclick="printConsultationRecord(${consultation.id})" 
-                                class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded">
-                            📄 列印收據
-                        </button>
-                        <button onclick="printAttendanceCertificate(${consultation.id})" 
-                                class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded">
-                            📋 到診證明
-                        </button>
-                        ${(() => {
-                            // 檢查是否正在診症且為相同病人
-                            if (currentConsultingAppointmentId) {
-                                const currentAppointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
-                                if (currentAppointment && currentAppointment.patientId === consultation.patientId) {
-                                    return `
-                                        <button onclick="loadMedicalRecordToCurrentConsultation(${consultation.id})" 
-                                                class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded">
-                                            📋 載入病歷
-                                        </button>
-                                    `;
-                                }
-                            }
-                            return '';
-                        })()}
-                    </div>
-                </div>
-            </div>
-            
-            <div class="p-6">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div class="space-y-4">
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">主訴</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.symptoms || '無記錄'}</div>
-                        </div>
-                        
-                        ${consultation.tongue ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">舌象</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.tongue}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${consultation.pulse ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">脈象</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.pulse}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${consultation.currentHistory ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.currentHistory}</div>
-                        </div>
-                        ` : ''}
-                        
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">中醫診斷</span>
-                            <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400">${consultation.diagnosis || '無記錄'}</div>
-                        </div>
-                        
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">證型診斷</span>
-                            <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400">${consultation.syndrome || '無記錄'}</div>
-                        </div>
-                        
-                        ${consultation.acupunctureNotes ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">針灸備註</span>
-                            <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400">${consultation.acupunctureNotes}</div>
-                        </div>
-                        ` : ''}
                     </div>
                     
-                    <div class="space-y-4">
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>
-                            <div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 whitespace-pre-line">${consultation.prescription || '無記錄'}</div>
-                        </div>
-                        
-                        ${consultation.usage ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">服用方法</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.usage}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${consultation.treatmentCourse ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">療程</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.treatmentCourse}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${consultation.instructions ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">醫囑及注意事項</span>
-                            <div class="bg-red-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-red-400">${consultation.instructions}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${consultation.followUpDate ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">複診時間</span>
-                            <div class="bg-purple-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-purple-400">${formatConsultationDateTime(consultation.followUpDate)}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${consultation.billingItems ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">收費項目</span>
-                            <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 whitespace-pre-line">${consultation.billingItems}</div>
-                        </div>
-                        ` : ''}
+                    <div class="flex items-center space-x-2">
+                        <button onclick="changeConsultationHistoryPage(-1)" 
+                                ${currentConsultationHistoryPage === 0 ? 'disabled' : ''}
+                                class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
+                            ← 較舊
+                        </button>
+                        <span class="text-sm text-gray-600 px-2">
+                            ${currentPageNumber} / ${totalPages}
+                        </span>
+                        <button onclick="changeConsultationHistoryPage(1)" 
+                                ${currentConsultationHistoryPage === totalPages - 1 ? 'disabled' : ''}
+                                class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
+                            較新 →
+                        </button>
                     </div>
                 </div>
-            </div>
-        </div>
-    `;
-}
+                
+                <!-- 當前病歷記錄 -->
+                <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                    <div class="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-4 border-b border-gray-200">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center space-x-4">
+                                <span class="font-semibold text-gray-900 text-lg">
+                                    ${new Date(consultation.date).toLocaleDateString('zh-TW')} 
+                                    ${new Date(consultation.date).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit'})}
+                                </span>
+                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
+                                    醫師：${getDoctorDisplayName(consultation.doctor)}
+                                </span>
+                                ${consultation.updatedAt ? `
+                                    <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                                        已修改
+                                    </span>
+                                ` : ''}
+                            </div>
+                            <div class="flex space-x-2">
+                                <button onclick="printConsultationRecord(${consultation.id})" 
+                                        class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded">
+                                    📄 列印收據
+                                </button>
+                                <button onclick="printAttendanceCertificate(${consultation.id})" 
+                                        class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded">
+                                    📋 到診證明
+                                </button>
+                                ${(() => {
+                                    // 檢查是否正在診症且為相同病人
+                                    if (currentConsultingAppointmentId) {
+                                        const currentAppointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
+                                        if (currentAppointment && currentAppointment.patientId === consultation.patientId) {
+                                            return `
+                                                <button onclick="loadMedicalRecordToCurrentConsultation(${consultation.id})" 
+                                                        class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded">
+                                                    📋 載入病歷
+                                                </button>
+                                            `;
+                                        }
+                                    }
+                                    return '';
+                                })()}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div class="space-y-4">
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">主訴</span>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.symptoms || '無記錄'}</div>
+                                </div>
+                                
+                                ${consultation.tongue ? `
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">舌象</span>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.tongue}</div>
+                                </div>
+                                ` : ''}
+                                
+                                ${consultation.pulse ? `
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">脈象</span>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.pulse}</div>
+                                </div>
+                                ` : ''}
+                                
+                                ${consultation.currentHistory ? `
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.currentHistory}</div>
+                                </div>
+                                ` : ''}
+                                
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">中醫診斷</span>
+                                    <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400">${consultation.diagnosis || '無記錄'}</div>
+                                </div>
+                                
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">證型診斷</span>
+                                    <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400">${consultation.syndrome || '無記錄'}</div>
+                                </div>
+                                
+                                ${consultation.acupunctureNotes ? `
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">針灸備註</span>
+                                    <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400">${consultation.acupunctureNotes}</div>
+                                </div>
+                                ` : ''}
+                            </div>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>
+                                    <div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 whitespace-pre-line">${consultation.prescription || '無記錄'}</div>
+                                </div>
+                                
+                                ${consultation.usage ? `
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">服用方法</span>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.usage}</div>
+                                </div>
+                                ` : ''}
+                                
+                                ${consultation.treatmentCourse ? `
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">療程</span>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.treatmentCourse}</div>
+                                </div>
+                                ` : ''}
+                                
+                                ${consultation.instructions ? `
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">醫囑及注意事項</span>
+                                    <div class="bg-red-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-red-400">${consultation.instructions}</div>
+                                </div>
+                                ` : ''}
+                                
+                                ${consultation.followUpDate ? `
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">複診時間</span>
+                                    <div class="bg-purple-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-purple-400">${new Date(consultation.followUpDate).toLocaleString('zh-TW')}</div>
+                                </div>
+                                ` : ''}
+                                
+                                ${consultation.billingItems ? `
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">收費項目</span>
+                                    <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 whitespace-pre-line">${consultation.billingItems}</div>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
         
         function changeConsultationHistoryPage(direction) {
             const newPage = currentConsultationHistoryPage + direction;
@@ -6094,567 +5810,551 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
     }
 }
         
-// 修復病假證明函數
-async function printSickLeave(consultationId, consultationData = null) {
-    let consultation = consultationData;
-    
-    // 如果沒有提供診症資料，從本地查找
-    if (!consultation) {
-        consultation = consultations.find(c => c.id === consultationId);
-        if (!consultation) {
-            showToast('找不到診症記錄！', 'error');
-            return;
-        }
-    }
-    
+        // 列印病假證明
+        async function printSickLeave(consultationId) {
+            const consultation = consultations.find(c => c.id === consultationId);
+            if (!consultation) {
+                showToast('找不到診症記錄！', 'error');
+                return;
+            }
     try {            
-        const patientResult = await window.firebaseDataManager.getPatients();
-        if (!patientResult.success) {
-            showToast('無法讀取病人資料！', 'error');
-            return;
-        }
+const patientResult = await window.firebaseDataManager.getPatients();
+if (!patientResult.success) {
+    showToast('無法讀取病人資料！', 'error');
+    return;
+}
 
-        const patient = patientResult.data.find(p => p.id === consultation.patientId);
-        if (!patient) {
-            showToast('找不到病人資料！', 'error');
-            return;
-        }
-        
-        // 創建病假證明格式
-        const printContent = `
-            <!DOCTYPE html>
-            <html lang="zh-TW">
-            <head>
-                <meta charset="UTF-8">
-                <title>病假證明書 - ${patient.name}</title>
-                <style>
-                    body { 
-                        font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif; 
-                        margin: 0; 
-                        padding: 8px; 
-                        line-height: 1.3;
-                        font-size: 10px;
-                        background: white;
-                    }
-                    .certificate-container {
-                        width: 148mm;
-                        height: 210mm;
-                        margin: 0 auto;
-                        border: 3px solid #000;
-                        padding: 8px;
-                        background: white;
-                        position: relative;
-                        box-sizing: border-box;
-                    }
-                    .clinic-header {
-                        text-align: center;
-                        border-bottom: 2px solid #000;
-                        padding-bottom: 10px;
-                        margin-bottom: 15px;
-                    }
-                    .clinic-name {
-                        font-size: 13px;
-                        font-weight: bold;
-                        margin-bottom: 3px;
-                        letter-spacing: 1px;
-                    }
-                    .clinic-subtitle {
-                        font-size: 10px;
-                        color: #666;
-                        margin-bottom: 4px;
-                    }
-                    .certificate-title {
-                        font-size: 16px;
-                        font-weight: bold;
-                        text-align: center;
-                        margin: 8px 0;
-                        letter-spacing: 3px;
-                        color: #000;
-                    }
-                    .certificate-number {
-                        text-align: right;
-                        font-size: 10px;
-                        color: #666;
-                        margin-bottom: 10px;
-                    }
-                    .content-section {
-                        margin: 8px 0;
-                        font-size: 10px;
-                        line-height: 1.4;
-                    }
-                    .patient-info {
-                        margin: 8px 0;
-                    }
-                    .info-row {
-                        margin: 4px 0;
-                        display: flex;
-                        align-items: center;
-                    }
-                    .info-label {
-                        font-weight: bold;
-                        min-width: 80px;
-                        display: inline-block;
-                        font-size: 10px;
-                    }
-                    .info-value {
-                        border-bottom: 1px solid #000;
-                        min-width: 120px;
-                        padding: 3px 6px;
-                        margin-left: 6px;
-                        font-size: 10px;
-                    }
-                    .diagnosis-section {
-                        margin: 8px 0;
-                        background: #f9f9f9;
-                        padding: 6px;
-                        border: 1px solid #ddd;
-                        border-radius: 3px;
-                    }
-                    .rest-period {
-                        margin: 8px 0;
-                        font-size: 11px;
-                        font-weight: bold;
-                        text-align: center;
-                        background: #fff3cd;
-                        padding: 6px;
-                        border: 2px solid #ffc107;
-                        border-radius: 4px;
-                    }
-                    .doctor-signature {
-                        margin-top: 10px;
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: flex-end;
-                    }
-                    .signature-section {
-                        text-align: center;
-                    }
-                    .signature-line {
-                        border-bottom: 2px solid #000;
-                        width: 60px;
-                        height: 25px;
-                        margin: 6px auto;
-                        position: relative;
-                    }
-                    .signature-label {
-                        font-size: 9px;
-                        color: #666;
-                        margin-top: 3px;
-                    }
-                    .date-section {
-                        text-align: right;
-                        font-size: 10px;
-                    }
-                    .footer-note {
-                        margin-top: 15px;
-                        padding-top: 8px;
-                        border-top: 1px dashed #666;
-                        font-size: 8px;
-                        color: #666;
-                        text-align: center;
-                    }
-                    .watermark {
-                        position: absolute;
-                        top: 50%;
-                        left: 50%;
-                        transform: translate(-50%, -50%) rotate(-45deg);
-                        font-size: 80px;
-                        color: rgba(0, 0, 0, 0.05);
-                        font-weight: bold;
-                        z-index: 0;
-                        pointer-events: none;
-                    }
-                    .content {
-                        position: relative;
-                        z-index: 1;
-                    }
-                    @media print {
-                        @page {
-                            size: A5;
-                            margin: 10mm;
-                        }
+const patient = patientResult.data.find(p => p.id === patientId);
+if (!patient) {
+    showToast('找不到病人資料！', 'error');
+    return;
+}
+            
+            // 創建病假證明格式
+            const printContent = `
+                <!DOCTYPE html>
+                <html lang="zh-TW">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>病假證明書 - ${patient.name}</title>
+                    <style>
                         body { 
+                            font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif; 
                             margin: 0; 
-                            padding: 0; 
-                            font-size: 11px;
+                            padding: 8px; 
+                            line-height: 1.3;
+                            font-size: 10px;
+                            background: white;
                         }
-                        .certificate-container { 
+                        .certificate-container {
+                            width: 148mm;
+                            height: 210mm;
+                            margin: 0 auto;
                             border: 3px solid #000;
-                            width: 100%;
-                            height: 100%;
-                            padding: 8mm;
+                            padding: 8px;
+                            background: white;
+                            position: relative;
+                            box-sizing: border-box;
                         }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="certificate-container">
-                    <!-- 浮水印 -->
-                    <div class="watermark">病假證明</div>
-                    
-                    <div class="content">
-                        <!-- 診所標題 -->
-                        <div class="clinic-header">
-                            <div class="clinic-name">${clinicSettings.chineseName || '中醫診所系統'}</div>
-                            <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
-                            <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
-                        </div>
+                        .clinic-header {
+                            text-align: center;
+                            border-bottom: 2px solid #000;
+                            padding-bottom: 10px;
+                            margin-bottom: 15px;
+                        }
+                        .clinic-name {
+                            font-size: 13px;
+                            font-weight: bold;
+                            margin-bottom: 3px;
+                            letter-spacing: 1px;
+                        }
+                        .clinic-subtitle {
+                            font-size: 10px;
+                            color: #666;
+                            margin-bottom: 4px;
+                        }
+                        .certificate-title {
+                            font-size: 16px;
+                            font-weight: bold;
+                            text-align: center;
+                            margin: 8px 0;
+                            letter-spacing: 3px;
+                            color: #000;
+                        }
+                        .certificate-number {
+                            text-align: right;
+                            font-size: 10px;
+                            color: #666;
+                            margin-bottom: 10px;
+                        }
+                        .content-section {
+                            margin: 8px 0;
+                            font-size: 10px;
+                            line-height: 1.4;
+                        }
+                        .patient-info {
+                            margin: 8px 0;
+                        }
+                        .info-row {
+                            margin: 4px 0;
+                            display: flex;
+                            align-items: center;
+                        }
+                        .info-label {
+                            font-weight: bold;
+                            min-width: 80px;
+                            display: inline-block;
+                            font-size: 10px;
+                        }
+                        .info-value {
+                            border-bottom: 1px solid #000;
+                            min-width: 120px;
+                            padding: 3px 6px;
+                            margin-left: 6px;
+                            font-size: 10px;
+                        }
+                        .diagnosis-section {
+                            margin: 8px 0;
+                            background: #f9f9f9;
+                            padding: 6px;
+                            border: 1px solid #ddd;
+                            border-radius: 3px;
+                        }
+                        .rest-period {
+                            margin: 8px 0;
+                            font-size: 11px;
+                            font-weight: bold;
+                            text-align: center;
+                            background: #fff3cd;
+                            padding: 6px;
+                            border: 2px solid #ffc107;
+                            border-radius: 4px;
+                        }
+                        .doctor-signature {
+                            margin-top: 10px;
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: flex-end;
+                        }
+                        .signature-section {
+                            text-align: center;
+                        }
+                        .signature-line {
+                            border-bottom: 2px solid #000;
+                            width: 60px;
+                            height: 25px;
+                            margin: 6px auto;
+                            position: relative;
+                        }
+                        .signature-label {
+                            font-size: 9px;
+                            color: #666;
+                            margin-top: 3px;
+                        }
+                        .date-section {
+                            text-align: right;
+                            font-size: 10px;
+                        }
+                        .footer-note {
+                            margin-top: 15px;
+                            padding-top: 8px;
+                            border-top: 1px dashed #666;
+                            font-size: 8px;
+                            color: #666;
+                            text-align: center;
+                        }
+                        .watermark {
+                            position: absolute;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%) rotate(-45deg);
+                            font-size: 80px;
+                            color: rgba(0, 0, 0, 0.05);
+                            font-weight: bold;
+                            z-index: 0;
+                            pointer-events: none;
+                        }
+                        .content {
+                            position: relative;
+                            z-index: 1;
+                        }
+                        @media print {
+                            @page {
+                                size: A5;
+                                margin: 10mm;
+                            }
+                            body { 
+                                margin: 0; 
+                                padding: 0; 
+                                font-size: 11px;
+                            }
+                            .certificate-container { 
+                                border: 3px solid #000;
+                                width: 100%;
+                                height: 100%;
+                                padding: 8mm;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="certificate-container">
+                        <!-- 浮水印 -->
+                        <div class="watermark">病假證明</div>
                         
-                        <!-- 證明書編號 -->
-                        <div class="certificate-number">
-                            證明書編號：SL${consultation.id.toString().padStart(6, '0')}
-                        </div>
-                        
-                        <!-- 證明書標題 -->
-                        <div class="certificate-title">病假證明書</div>
-                        
-                        <!-- 病人資訊 -->
-                        <div class="patient-info">
-                            <div class="info-row">
-                                <span class="info-label">姓　　名：</span>
-                                <span class="info-value">${patient.name}</span>
+                        <div class="content">
+                            <!-- 診所標題 -->
+                            <div class="clinic-header">
+                                <div class="clinic-name">${clinicSettings.chineseName || '中醫診所系統'}</div>
+                                <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
+                                <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                             </div>
-                            <div class="info-row">
-                                <span class="info-label">性　　別：</span>
-                                <span class="info-value">${patient.gender}</span>
+                            
+                            <!-- 證明書編號 -->
+                            <div class="certificate-number">
+                                證明書編號：SL${consultation.id.toString().padStart(6, '0')}
                             </div>
-                            <div class="info-row">
-                                <span class="info-label">年　　齡：</span>
-                                <span class="info-value">${formatAge(patient.birthDate)}</span>
+                            
+                            <!-- 證明書標題 -->
+                            <div class="certificate-title">病假證明書</div>
+                            
+                            <!-- 病人資訊 -->
+                            <div class="patient-info">
+                                <div class="info-row">
+                                    <span class="info-label">姓　　名：</span>
+                                    <span class="info-value">${patient.name}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">性　　別：</span>
+                                    <span class="info-value">${patient.gender}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">年　　齡：</span>
+                                    <span class="info-value">${formatAge(patient.birthDate)}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">身分證號：</span>
+                                    <span class="info-value">${patient.idCard || '未提供'}</span>
+                                </div>
                             </div>
-                            <div class="info-row">
-                                <span class="info-label">身分證號：</span>
-                                <span class="info-value">${patient.idCard || '未提供'}</span>
+                            
+                            <!-- 診斷資訊 -->
+                            <div class="diagnosis-section">
+                                <div style="margin-bottom: 15px;">
+                                    <strong>診療日期：</strong>${(() => {
+                                        const visitDate = consultation.visitTime ? new Date(consultation.visitTime) : new Date(consultation.date);
+                                        return visitDate.toLocaleDateString('zh-TW', {
+                                            year: 'numeric',
+                                            month: '2-digit',
+                                            day: '2-digit'
+                                        });
+                                    })()}
+                                </div>
+                                <div style="margin-bottom: 15px;">
+                                    <strong>診斷結果：</strong>${consultation.diagnosis || '需要休息調養'}
+                                </div>
                             </div>
-                        </div>
-                        
-                        <!-- 診斷資訊 -->
-                        <div class="diagnosis-section">
-                            <div style="margin-bottom: 15px;">
-                                <strong>診療日期：</strong>${(() => {
-                                    const visitDate = consultation.visitTime ? new Date(consultation.visitTime) : new Date(consultation.date);
-                                    return visitDate.toLocaleDateString('zh-TW', {
-                                        year: 'numeric',
-                                        month: '2-digit',
-                                        day: '2-digit'
-                                    });
-                                })()}
-                            </div>
-                            <div style="margin-bottom: 15px;">
-                                <strong>診斷結果：</strong>${consultation.diagnosis || '需要休息調養'}
-                            </div>
-                        </div>
-                        
-                        <!-- 建議休息期間 -->
-                        <div class="rest-period">
-                            建議休息期間：${(() => {
-                                // 優先使用診症記錄中的休息期間設定
-                                if (consultation.restStartDate && consultation.restEndDate) {
-                                    const startDate = new Date(consultation.restStartDate);
-                                    const endDate = new Date(consultation.restEndDate);
-                                    const timeDiff = endDate.getTime() - startDate.getTime();
-                                    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // 包含開始和結束日期
+                            
+                            <!-- 建議休息期間 -->
+                            <div class="rest-period">
+                                建議休息期間：${(() => {
+                                    // 優先使用診症記錄中的休息期間設定
+                                    if (consultation.restStartDate && consultation.restEndDate) {
+                                        const startDate = new Date(consultation.restStartDate);
+                                        const endDate = new Date(consultation.restEndDate);
+                                        const timeDiff = endDate.getTime() - startDate.getTime();
+                                        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // 包含開始和結束日期
+                                        
+                                        return `${startDate.toLocaleDateString('zh-TW')} 至 ${endDate.toLocaleDateString('zh-TW')} (共 ${daysDiff} 天)`;
+                                    }
                                     
-                                    return `${startDate.toLocaleDateString('zh-TW')} 至 ${endDate.toLocaleDateString('zh-TW')} (共 ${daysDiff} 天)`;
-                                }
-                                
-                                // 如果沒有設定休息期間，使用舊的邏輯
-                                let restDays = consultation.restDays ? parseInt(consultation.restDays) : 3;
-                                
-                                // 如果沒有設定休息天數，則根據治療療程推算
-                                if (!consultation.restDays) {
-                                    const treatmentCourse = consultation.treatmentCourse || '一周';
+                                    // 如果沒有設定休息期間，使用舊的邏輯
+                                    let restDays = consultation.restDays ? parseInt(consultation.restDays) : 3;
                                     
-                                    if (treatmentCourse.includes('天')) {
-                                        const match = treatmentCourse.match(/(\d+)天/);
-                                        if (match) {
-                                            restDays = Math.min(parseInt(match[1]), 7); // 最多7天
-                                        }
-                                    } else if (treatmentCourse.includes('週') || treatmentCourse.includes('周')) {
-                                        const match = treatmentCourse.match(/(\d+)[週周]/);
-                                        if (match) {
-                                            restDays = Math.min(parseInt(match[1]) * 7, 7); // 最多7天
+                                    // 如果沒有設定休息天數，則根據治療療程推算
+                                    if (!consultation.restDays) {
+                                        const treatmentCourse = consultation.treatmentCourse || '一周';
+                                        
+                                        if (treatmentCourse.includes('天')) {
+                                            const match = treatmentCourse.match(/(\d+)天/);
+                                            if (match) {
+                                                restDays = Math.min(parseInt(match[1]), 7); // 最多7天
+                                            }
+                                        } else if (treatmentCourse.includes('週') || treatmentCourse.includes('周')) {
+                                            const match = treatmentCourse.match(/(\d+)[週周]/);
+                                            if (match) {
+                                                restDays = Math.min(parseInt(match[1]) * 7, 7); // 最多7天
+                                            }
                                         }
                                     }
-                                }
-                                
-                                // 使用到診時間作為起始日期，如果沒有則使用診症日期
-                                const startDate = consultation.visitTime ? new Date(consultation.visitTime) : new Date(consultation.date);
-                                const endDate = new Date(startDate);
-                                endDate.setDate(startDate.getDate() + restDays - 1);
-                                
-                                return `${startDate.toLocaleDateString('zh-TW')} 至 ${endDate.toLocaleDateString('zh-TW')} (共 ${restDays} 天)`;
-                            })()}
-                        </div>
-                        
-                        <!-- 醫囑 -->
-                        ${consultation.instructions ? `
-                        <div class="content-section">
-                            <strong>醫師建議：</strong><br>
-                            ${consultation.instructions}
-                        </div>
-                        ` : ''}
-                        
-                        <div class="content-section">
-                            <strong>特此證明。</strong>
-                        </div>
-                        
-                        <!-- 醫師簽名區 -->
-                        <div class="doctor-signature">
-                            <div class="signature-section">
-                                <div class="signature-line"></div>
-                                <div class="signature-label">主治醫師簽名</div>
-                                <div style="margin-top: 10px; font-weight: bold;">
-                                    ${getDoctorDisplayName(consultation.doctor)}
-                                </div>
-                                ${(() => {
-                                    const regNumber = getDoctorRegistrationNumber(consultation.doctor);
-                                    return regNumber ? `
-                                        <div style="margin-top: 5px; font-size: 12px; color: #666;">
-                                            註冊編號：${regNumber}
-                                        </div>
-                                    ` : '';
+                                    
+                                    // 使用到診時間作為起始日期，如果沒有則使用診症日期
+                                    const startDate = consultation.visitTime ? new Date(consultation.visitTime) : new Date(consultation.date);
+                                    const endDate = new Date(startDate);
+                                    endDate.setDate(startDate.getDate() + restDays - 1);
+                                    
+                                    return `${startDate.toLocaleDateString('zh-TW')} 至 ${endDate.toLocaleDateString('zh-TW')} (共 ${restDays} 天)`;
                                 })()}
                             </div>
                             
-                            <div class="date-section">
-                                <div style="margin-bottom: 20px;">
-                                    <strong>開立日期：</strong><br>
-                                    ${new Date().toLocaleDateString('zh-TW', {
-                                        year: 'numeric',
-                                        month: '2-digit',
-                                        day: '2-digit'
-                                    })}
+                            <!-- 醫囑 -->
+                            ${consultation.instructions ? `
+                            <div class="content-section">
+                                <strong>醫師建議：</strong><br>
+                                ${consultation.instructions}
+                            </div>
+                            ` : ''}
+                            
+                            <div class="content-section">
+                                <strong>特此證明。</strong>
+                            </div>
+                            
+                            <!-- 醫師簽名區 -->
+                            <div class="doctor-signature">
+                                <div class="signature-section">
+                                    <div class="signature-line"></div>
+                                    <div class="signature-label">主治醫師簽名</div>
+                                    <div style="margin-top: 10px; font-weight: bold;">
+                                        ${getDoctorDisplayName(consultation.doctor)}
+                                    </div>
+                                    ${(() => {
+                                        const regNumber = getDoctorRegistrationNumber(consultation.doctor);
+                                        return regNumber ? `
+                                            <div style="margin-top: 5px; font-size: 12px; color: #666;">
+                                                註冊編號：${regNumber}
+                                            </div>
+                                        ` : '';
+                                    })()}
                                 </div>
-                                <div style="border: 2px solid #000; padding: 15px; text-align: center; background: #f8f9fa;">
-                                    <div style="font-weight: bold; margin-bottom: 5px;">診所印章</div>
-                                    <div style="font-size: 12px; color: #666;">(此處應蓋診所印章)</div>
+                                
+                                <div class="date-section">
+                                    <div style="margin-bottom: 20px;">
+                                        <strong>開立日期：</strong><br>
+                                        ${new Date().toLocaleDateString('zh-TW', {
+                                            year: 'numeric',
+                                            month: '2-digit',
+                                            day: '2-digit'
+                                        })}
+                                    </div>
+                                    <div style="border: 2px solid #000; padding: 15px; text-align: center; background: #f8f9fa;">
+                                        <div style="font-weight: bold; margin-bottom: 5px;">診所印章</div>
+                                        <div style="font-size: 12px; color: #666;">(此處應蓋診所印章)</div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <!-- 頁尾說明 -->
-                        <div class="footer-note">
-                            <div>本證明書僅供請假使用，如有疑問請洽本診所</div>
-                            <div>診所電話：${clinicSettings.phone || '(852) 2345-6789'} | 營業時間：${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</div>
-                            <div style="margin-top: 10px; font-size: 10px;">
-                                證明書開立時間：${new Date().toLocaleString('zh-TW')}
+                            
+                            <!-- 頁尾說明 -->
+                            <div class="footer-note">
+                                <div>本證明書僅供請假使用，如有疑問請洽本診所</div>
+                                <div>診所電話：${clinicSettings.phone || '(852) 2345-6789'} | 營業時間：${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</div>
+                                <div style="margin-top: 10px; font-size: 10px;">
+                                    證明書開立時間：${new Date().toLocaleString('zh-TW')}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </body>
-            </html>
-        `;
-        
-        // 開啟新視窗進行列印
-        const printWindow = window.open('', '_blank', 'width=700,height=900');
-        printWindow.document.write(printContent);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
-        
-        showToast('病假證明書已準備列印！', 'success');
-        
-    } catch (error) {
+                </body>
+                </html>
+            `;
+            
+            // 開啟新視窗進行列印
+            const printWindow = window.open('', '_blank', 'width=700,height=900');
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+            printWindow.focus();
+            printWindow.print();
+            
+            showToast('病假證明書已準備列印！', 'success');
+            } catch (error) {
         console.error('讀取病人資料錯誤:', error);
         showToast('讀取病人資料失敗', 'error');
     }
-}
+        }
 
-// 修復撤回診症功能
-async function withdrawConsultation(appointmentId) {
-    const appointment = appointments.find(apt => apt.id === appointmentId);
-    if (!appointment) {
-        showToast('找不到掛號記錄！', 'error');
-        return;
-    }
-    
+        // 撤回診症功能
+        async function withdrawConsultation(appointmentId) {
+            const appointment = appointments.find(apt => apt.id === appointmentId);
+            if (!appointment) {
+                showToast('找不到掛號記錄！', 'error');
+                return;
+            }
     try {             
-        const patientResult = await window.firebaseDataManager.getPatients();
-        if (!patientResult.success) {
-            showToast('無法讀取病人資料！', 'error');
-            return;
-        }
-
-        const patient = patientResult.data.find(p => p.id === appointment.patientId);
-        if (!patient) {
-            showToast('找不到病人資料！', 'error');
-            return;
-        }
-        
-        // 詳細狀態檢查
-        console.log(`撤回診症狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}, 診症記錄ID: ${appointment.consultationId}`);
-        
-        // 只有已完成的診症才能撤回
-        if (appointment.status !== 'completed') {
-            const statusNames = {
-                'registered': '已掛號',
-                'waiting': '候診中',
-                'consulting': '診症中'
-            };
-            const currentStatusName = statusNames[appointment.status] || appointment.status;
-            showToast(`無法撤回診症！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能撤回已完成的診症。`, 'warning');
-            return;
-        }
-        
-        // 檢查是否有診症記錄
-        if (!appointment.consultationId) {
-            showToast(`無法撤回診症！病人 ${patient.name} 沒有對應的診症記錄。`, 'error');
-            return;
-        }
-        
-        const consultation = consultations.find(c => c.id === appointment.consultationId);
-        if (!consultation) {
-            showToast(`無法撤回診症！找不到病人 ${patient.name} 的診症記錄資料。`, 'error');
-            return;
-        }
-        
-        // 確認撤回操作
-        const confirmMessage = `確定要撤回 ${patient.name} 的診症嗎？\n\n` +
-                             `此操作將會：\n` +
-                             `• 刪除該次診症記錄\n` +
-                             `• 病人狀態回到「已掛號」\n` +
-                             `• 所有診症資料將永久遺失\n\n` +
-                             `診症日期：${new Date(consultation.date).toLocaleString('zh-TW')}\n` +
-                             `診斷：${consultation.diagnosis || '無記錄'}\n\n` +
-                             `注意：此操作無法復原！`;
-        
-        if (confirm(confirmMessage)) {
-            // 刪除診症記錄
-            const consultationIndex = consultations.findIndex(c => c.id === appointment.consultationId);
-            if (consultationIndex !== -1) {
-                consultations.splice(consultationIndex, 1);
-                localStorage.setItem('consultations', JSON.stringify(consultations));
-            }
-            
-            // 將掛號狀態改回已掛號
-            appointment.status = 'registered';
-            delete appointment.completedAt;
-            delete appointment.consultationId;
-            delete appointment.completedBy;
-            delete appointment.consultationStartTime;
-            delete appointment.consultingDoctor;
-            
-            // 保存狀態變更
-            localStorage.setItem('appointments', JSON.stringify(appointments));
-            
-            showToast(`已撤回 ${patient.name} 的診症，病人狀態回到已掛號`, 'success');
-            
-            // 如果正在編輯該病歷，則關閉表單
-            if (currentConsultingAppointmentId === appointmentId) {
-                closeConsultationForm();
-                currentConsultingAppointmentId = null;
-            }
-            
-            // 重新載入列表和統計
-            loadTodayAppointments();
-            updateStatistics();
-        }
-    } catch (error) {
-        console.error('讀取病人資料錯誤:', error);
-        showToast('讀取病人資料失敗', 'error');
-    }
+const patientResult = await window.firebaseDataManager.getPatients();
+if (!patientResult.success) {
+    showToast('無法讀取病人資料！', 'error');
+    return;
 }
 
-// 修復修改病歷功能
-async function editMedicalRecord(appointmentId) {
-    const appointment = appointments.find(apt => apt.id === appointmentId);
-    if (!appointment) {
-        showToast('找不到掛號記錄！', 'error');
-        return;
-    }
-    
-    try {            
-        const patientResult = await window.firebaseDataManager.getPatients();
-        if (!patientResult.success) {
-            showToast('無法讀取病人資料！', 'error');
-            return;
-        }
-
-        const patient = patientResult.data.find(p => p.id === appointment.patientId);
-        if (!patient) {
-            showToast('找不到病人資料！', 'error');
-            return;
-        }
-        
-        // 詳細狀態檢查
-        console.log(`修改病歷狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}, 診症記錄ID: ${appointment.consultationId}`);
-        
-        // 只有已完成的診症才能修改病歷
-        if (appointment.status !== 'completed') {
-            const statusNames = {
-                'registered': '已掛號',
-                'waiting': '候診中',
-                'consulting': '診症中'
-            };
-            const currentStatusName = statusNames[appointment.status] || appointment.status;
-            showToast(`無法修改病歷！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能修改已完成診症的病歷。`, 'warning');
-            return;
-        }
-        
-        // 檢查是否有診症記錄
-        if (!appointment.consultationId) {
-            showToast(`無法修改病歷！病人 ${patient.name} 沒有對應的診症記錄。`, 'error');
-            return;
-        }
-        
-        const consultation = consultations.find(c => c.id === appointment.consultationId);
-        if (!consultation) {
-            showToast(`無法修改病歷！找不到病人 ${patient.name} 的診症記錄資料。`, 'error');
-            return;
-        }
-        
-        // 檢查是否有其他病人正在診症中
-        const consultingAppointment = appointments.find(apt => 
-            apt.status === 'consulting' && 
-            new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
-        );
-        
-        if (consultingAppointment) {
-            // 從 Firebase 獲取正在診症的病人資料
-            const consultingPatient = patientResult.data.find(p => p.id === consultingAppointment.patientId);
-            const consultingPatientName = consultingPatient ? consultingPatient.name : '未知病人';
+const patient = patientResult.data.find(p => p.id === patientId);
+if (!patient) {
+    showToast('找不到病人資料！', 'error');
+    return;
+}
             
-            if (confirm(`目前 ${consultingPatientName} 正在診症中。\n\n是否要結束該病人的診症並開始修改 ${patient.name} 的病歷？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`)) {
-                // 結束當前診症的病人
-                consultingAppointment.status = 'waiting';
-                delete consultingAppointment.consultationStartTime;
-                delete consultingAppointment.consultingDoctor;
-                
-                // 關閉可能開啟的診症表單
-                if (currentConsultingAppointmentId === consultingAppointment.id) {
-                    closeConsultationForm();
+            // 詳細狀態檢查
+            console.log(`撤回診症狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}, 診症記錄ID: ${appointment.consultationId}`);
+            
+            // 只有已完成的診症才能撤回
+            if (appointment.status !== 'completed') {
+                const statusNames = {
+                    'registered': '已掛號',
+                    'waiting': '候診中',
+                    'consulting': '診症中'
+                };
+                const currentStatusName = statusNames[appointment.status] || appointment.status;
+                showToast(`無法撤回診症！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能撤回已完成的診症。`, 'warning');
+                return;
+            }
+            
+            // 檢查是否有診症記錄
+            if (!appointment.consultationId) {
+                showToast(`無法撤回診症！病人 ${patient.name} 沒有對應的診症記錄。`, 'error');
+                return;
+            }
+            
+            const consultation = consultations.find(c => c.id === appointment.consultationId);
+            if (!consultation) {
+                showToast(`無法撤回診症！找不到病人 ${patient.name} 的診症記錄資料。`, 'error');
+                return;
+            }
+            
+            // 確認撤回操作
+            const confirmMessage = `確定要撤回 ${patient.name} 的診症嗎？\n\n` +
+                                 `此操作將會：\n` +
+                                 `• 刪除該次診症記錄\n` +
+                                 `• 病人狀態回到「已掛號」\n` +
+                                 `• 所有診症資料將永久遺失\n\n` +
+                                 `診症日期：${new Date(consultation.date).toLocaleString('zh-TW')}\n` +
+                                 `診斷：${consultation.diagnosis || '無記錄'}\n\n` +
+                                 `注意：此操作無法復原！`;
+            
+            if (confirm(confirmMessage)) {
+                // 刪除診症記錄
+                const consultationIndex = consultations.findIndex(c => c.id === appointment.consultationId);
+                if (consultationIndex !== -1) {
+                    consultations.splice(consultationIndex, 1);
+                    localStorage.setItem('consultations', JSON.stringify(consultations));
                 }
                 
-                showToast(`已結束 ${consultingPatientName} 的診症`, 'info');
+                // 將掛號狀態改回已掛號
+                appointment.status = 'registered';
+                delete appointment.completedAt;
+                delete appointment.consultationId;
+                delete appointment.completedBy;
+                delete appointment.consultationStartTime;
+                delete appointment.consultingDoctor;
+                
+                // 保存狀態變更
                 localStorage.setItem('appointments', JSON.stringify(appointments));
-            } else {
-                return; // 用戶取消操作
+                
+                showToast(`已撤回 ${patient.name} 的診症，病人狀態回到已掛號`, 'success');
+                
+                // 如果正在編輯該病歷，則關閉表單
+                if (currentConsultingAppointmentId === appointmentId) {
+                    closeConsultationForm();
+                    currentConsultingAppointmentId = null;
+                }
+                
+                // 重新載入列表和統計
+                loadTodayAppointments();
+                updateStatistics();
             }
-        }
-        
-        // 設置為編輯模式
-        currentConsultingAppointmentId = appointmentId;
-        showConsultationForm(appointment);
-        
-        showToast(`進入 ${patient.name} 的病歷編輯模式`, 'info');
-        
-    } catch (error) {
+            } catch (error) {
         console.error('讀取病人資料錯誤:', error);
         showToast('讀取病人資料失敗', 'error');
     }
+        }
+
+        // 修改病歷功能
+        async function editMedicalRecord(appointmentId) {
+            const appointment = appointments.find(apt => apt.id === appointmentId);
+            if (!appointment) {
+                showToast('找不到掛號記錄！', 'error');
+                return;
+            }
+    try {            
+const patientResult = await window.firebaseDataManager.getPatients();
+if (!patientResult.success) {
+    showToast('無法讀取病人資料！', 'error');
+    return;
 }
 
-// 2. 修復診症記錄摘要函數
-async function loadPatientConsultationSummaryFixed(patientId) {
-    const summaryContainer = document.getElementById('patientConsultationSummary');
-    
-    // 檢查容器是否存在
-    if (!summaryContainer) {
-        console.error('找不到 patientConsultationSummary 元素');
-        return;
+const patient = patientResult.data.find(p => p.id === patientId);
+if (!patient) {
+    showToast('找不到病人資料！', 'error');
+    return;
+}
+            
+            // 詳細狀態檢查
+            console.log(`修改病歷狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}, 診症記錄ID: ${appointment.consultationId}`);
+            
+            // 只有已完成的診症才能修改病歷
+            if (appointment.status !== 'completed') {
+                const statusNames = {
+                    'registered': '已掛號',
+                    'waiting': '候診中',
+                    'consulting': '診症中'
+                };
+                const currentStatusName = statusNames[appointment.status] || appointment.status;
+                showToast(`無法修改病歷！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能修改已完成診症的病歷。`, 'warning');
+                return;
+            }
+            
+            // 檢查是否有診症記錄
+            if (!appointment.consultationId) {
+                showToast(`無法修改病歷！病人 ${patient.name} 沒有對應的診症記錄。`, 'error');
+                return;
+            }
+            
+            const consultation = consultations.find(c => c.id === appointment.consultationId);
+            if (!consultation) {
+                showToast(`無法修改病歷！找不到病人 ${patient.name} 的診症記錄資料。`, 'error');
+                return;
+            }
+            
+            // 檢查是否有其他病人正在診症中
+            const consultingAppointment = appointments.find(apt => 
+                apt.status === 'consulting' && 
+                new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
+            );
+            
+            if (consultingAppointment) {
+                const consultingPatient = patients.find(p => p.id === consultingAppointment.patientId);
+                const consultingPatientName = consultingPatient ? consultingPatient.name : '未知病人';
+                
+                if (confirm(`目前 ${consultingPatientName} 正在診症中。\n\n是否要結束該病人的診症並開始修改 ${patient.name} 的病歷？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`)) {
+                    // 結束當前診症的病人
+                    consultingAppointment.status = 'waiting';
+                    delete consultingAppointment.consultationStartTime;
+                    delete consultingAppointment.consultingDoctor;
+                    
+                    // 關閉可能開啟的診症表單
+                    if (currentConsultingAppointmentId === consultingAppointment.id) {
+                        closeConsultationForm();
+                    }
+                    
+                    showToast(`已結束 ${consultingPatientName} 的診症`, 'info');
+                    localStorage.setItem('appointments', JSON.stringify(appointments));
+                } else {
+                    return; // 用戶取消操作
+                }
+            }
+            
+            // 設置為編輯模式
+            currentConsultingAppointmentId = appointmentId;
+            showConsultationForm(appointment);
+            
+            showToast(`進入 ${patient.name} 的病歷編輯模式`, 'info');
+            } catch (error) {
+        console.error('讀取病人資料錯誤:', error);
+        showToast('讀取病人資料失敗', 'error');
     }
+        }
+
+
+// 載入病人診症記錄摘要
+async function loadPatientConsultationSummary(patientId) {
+    const summaryContainer = document.getElementById('patientConsultationSummary');
     
     try {
         const result = await window.firebaseDataManager.getPatientConsultations(patientId);
@@ -6697,35 +6397,14 @@ async function loadPatientConsultationSummaryFixed(patientId) {
             return;
         }
 
-        // 安全的日期處理
-        let lastConsultationDate = '日期未知';
-        try {
-            if (lastConsultation.date) {
-                if (lastConsultation.date.seconds) {
-                    lastConsultationDate = new Date(lastConsultation.date.seconds * 1000).toLocaleDateString('zh-TW');
-                } else {
-                    lastConsultationDate = new Date(lastConsultation.date).toLocaleDateString('zh-TW');
-                }
-            } else if (lastConsultation.createdAt && lastConsultation.createdAt.seconds) {
-                lastConsultationDate = new Date(lastConsultation.createdAt.seconds * 1000).toLocaleDateString('zh-TW');
-            }
-        } catch (dateError) {
-            console.error('日期解析錯誤:', dateError);
-        }
+        // 格式化最後診症日期
+        const lastConsultationDate = lastConsultation.date ? 
+            new Date(lastConsultation.date.seconds * 1000).toLocaleDateString('zh-TW') : 
+            new Date(lastConsultation.createdAt.seconds * 1000).toLocaleDateString('zh-TW');
 
-        // 安全的複診日期處理
-        let nextFollowUp = '無安排';
-        try {
-            if (lastConsultation.followUpDate) {
-                if (lastConsultation.followUpDate.seconds) {
-                    nextFollowUp = new Date(lastConsultation.followUpDate.seconds * 1000).toLocaleDateString('zh-TW');
-                } else {
-                    nextFollowUp = new Date(lastConsultation.followUpDate).toLocaleDateString('zh-TW');
-                }
-            }
-        } catch (dateError) {
-            console.error('複診日期解析錯誤:', dateError);
-        }
+        // 格式化下次複診日期
+        const nextFollowUp = lastConsultation.followUpDate ? 
+            new Date(lastConsultation.followUpDate).toLocaleDateString('zh-TW') : '無安排';
 
         summaryContainer.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -6760,14 +6439,12 @@ async function loadPatientConsultationSummaryFixed(patientId) {
 
     } catch (error) {
         console.error('載入診症記錄摘要錯誤:', error);
-        if (summaryContainer) {
-            summaryContainer.innerHTML = `
-                <div class="text-center py-8 text-gray-500">
-                    <div class="text-4xl mb-2">❌</div>
-                    <div>載入診症記錄失敗</div>
-                </div>
-            `;
-        }
+        summaryContainer.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+                <div class="text-4xl mb-2">❌</div>
+                <div>載入診症記錄失敗</div>
+            </div>
+        `;
     }
 }
 
@@ -8657,19 +8334,8 @@ if (!patient) {
                 return;
             }
             
-const patientResult = await window.firebaseDataManager.getPatients();
-if (!patientResult.success) {
-    showToast('無法讀取病人資料！', 'error');
-    return;
-}
-
-const patient = patientResult.data.find(p => p.id === consultation.patientId);
-if (!patient) {
-    showToast('找不到病人資料！', 'error');
-    return;
-}
-
-const consultationDate = new Date(consultation.date).toLocaleDateString('zh-TW');
+            const patient = patients.find(p => p.id === consultation.patientId);
+            const consultationDate = new Date(consultation.date).toLocaleDateString('zh-TW');
             
             // 確認載入操作
             const confirmMessage = `確定要載入 ${patient ? patient.name : '未知病人'} 在 ${consultationDate} 的病歷記錄嗎？\n\n` +
@@ -9819,42 +9485,6 @@ async function deleteUser(id) {
             showToast('財務報表已匯出！', 'success');
         }
 
-// 添加語音通知功能
-function playNotificationSound() {
-    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmMeCSGS1/LNeSs=');
-    audio.play().catch(console.error);
-}
-
-// 添加實時統計更新
-function createRealtimeDashboard() {
-    // 在歡迎頁面添加實時統計
-    const welcomePage = document.getElementById('welcomePage');
-    const dashboard = document.createElement('div');
-    dashboard.innerHTML = `
-        <div class="bg-white rounded-xl shadow-lg p-6 mt-8">
-            <h3 class="text-xl font-semibold mb-4">實時診所狀態</h3>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div class="text-center p-4 bg-blue-50 rounded-lg">
-                    <div class="text-2xl font-bold text-blue-600" id="realtimeOnline">0</div>
-                    <div class="text-sm text-blue-800">在線用戶</div>
-                </div>
-                <div class="text-center p-4 bg-yellow-50 rounded-lg">
-                    <div class="text-2xl font-bold text-yellow-600" id="realtimeWaiting">0</div>
-                    <div class="text-sm text-yellow-800">候診中</div>
-                </div>
-                <div class="text-center p-4 bg-green-50 rounded-lg">
-                    <div class="text-2xl font-bold text-green-600" id="realtimeConsulting">0</div>
-                    <div class="text-sm text-green-800">診症中</div>
-                </div>
-                <div class="text-center p-4 bg-purple-50 rounded-lg">
-                    <div class="text-2xl font-bold text-purple-600" id="realtimeCompleted">0</div>
-                    <div class="text-sm text-purple-800">今日完成</div>
-                </div>
-            </div>
-        </div>
-    `;
-    welcomePage.appendChild(dashboard);
-}
         
         // 套票管理函式
         function getPatientPackagesStore() {
@@ -10299,22 +9929,11 @@ class FirebaseDataManager {
 
 // 初始化數據管理器
 let firebaseDataManager;
-window.addEventListener('load', function() {
-    // 替換原有的實時管理器
-    if (window.realtimeManager) {
-        window.realtimeManager.cleanup();
-    }
-    window.realtimeManager = new RealtimeManagerFixed();
-    
-    // 替換原有函數
-    window.loadPatientConsultationSummary = withErrorHandling(loadPatientConsultationSummaryFixed, '載入診症記錄摘要失敗');
-    window.saveConsultation = withErrorHandling(saveConsultationFixed, '保存診症記錄失敗');
-    window.performLogin = withErrorHandling(performLoginFixed, '登入處理失敗');
-    
-    // 確保必需的 DOM 元素存在
-    ensureRequiredElements();
-    
-    console.log('錯誤修復已應用');
+window.addEventListener('load', () => {
+    firebaseDataManager = new FirebaseDataManager();
+    window.firebaseDataManager = firebaseDataManager; // 全域使用
+    // Firebase 資料管理器初始化完成後更新統計
+    updateStatistics();
 });
         
 // 初始化系統
@@ -10351,39 +9970,6 @@ async function initializeDataMigration() {
     }
 }
 
-// 9. 診症記錄摘要元素檢查和創建
-function ensurePatientConsultationSummaryElement() {
-    let summaryElement = document.getElementById('patientConsultationSummary');
-    
-    if (!summaryElement) {
-        // 在病人詳細資料彈窗中找到合適的位置
-        const detailContent = document.getElementById('patientDetailContent');
-        if (detailContent) {
-            // 創建診症記錄摘要容器
-            const summarySection = document.createElement('div');
-            summarySection.innerHTML = `
-                <div class="mt-6 pt-6 border-t border-gray-200">
-                    <div class="flex justify-between items-center mb-4">
-                        <h4 class="text-lg font-semibold text-gray-800">診症記錄摘要</h4>
-                    </div>
-                    <div id="patientConsultationSummary">
-                        <div class="text-center py-4">
-                            <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
-                            <div class="mt-2 text-sm">載入診症記錄中...</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            detailContent.appendChild(summarySection);
-            console.log('已創建 patientConsultationSummary 元素');
-        }
-    }
-    
-    return document.getElementById('patientConsultationSummary');
-}
-
-        
 // 遷移用戶數據到 Firebase
 async function migrateUserDataToFirebase() {
     try {
@@ -10444,730 +10030,6 @@ async function migrateUserDataToFirebase() {
         console.error('遷移用戶數據時發生錯誤:', error);
     }
 }
-
-// Firebase Realtime Database 整合模組
-// 在原有代碼中添加以下內容
-
-class RealtimeManagerFixed {
-    constructor() {
-        this.isReady = false;
-        this.currentSessionId = null;
-        this.onlineUsersRef = null;
-        this.appointmentsRef = null;
-        this.consultationStatusRef = null;
-        this.notificationsRef = null;
-        this.listeners = new Map();
-        this.initializeWhenReady();
-    }
-
-    async initializeWhenReady() {
-        // 等待 Firebase 初始化和用戶認證
-        while (!window.firebase || !window.firebase.rtdb) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        
-        // 等待用戶登入後再初始化
-        this.waitForAuthentication();
-    }
-
-    async waitForAuthentication() {
-        // 監聽認證狀態變化
-        window.firebase.onAuthStateChanged(window.firebase.auth, async (user) => {
-            if (user) {
-                console.log('用戶已認證，初始化實時功能...');
-                this.setupReferences();
-                this.isReady = true;
-                console.log('Realtime Database 管理器已準備就緒');
-            } else {
-                console.log('用戶未認證，等待登入...');
-                this.isReady = false;
-            }
-        });
-    }
-
-    setupReferences() {
-        const rtdb = window.firebase.rtdb;
-        
-        // 設置各種數據引用
-        this.onlineUsersRef = window.firebase.ref(rtdb, 'onlineUsers');
-        this.appointmentsRef = window.firebase.ref(rtdb, 'appointments');
-        this.consultationStatusRef = window.firebase.ref(rtdb, 'consultationStatus');
-        this.notificationsRef = window.firebase.ref(rtdb, 'notifications');
-        this.clinicStatusRef = window.firebase.ref(rtdb, 'clinicStatus');
-    }
-    
-   // 修復在線用戶設置函數
-    async setUserOnline(userId, userData) {
-        if (!this.isReady) {
-            console.log('實時管理器尚未準備就緒，跳過在線狀態設置');
-            return false;
-        }
-
-        // 檢查 Firebase 認證狀態
-        const currentUser = window.firebase.auth.currentUser;
-        if (!currentUser) {
-            console.log('用戶未通過 Firebase 認證，無法設置在線狀態');
-            return false;
-        }
-        
-        try {
-            this.currentSessionId = `${userId}_${Date.now()}`;
-            const userRef = window.firebase.ref(window.firebase.rtdb, `onlineUsers/${userId}`);
-            
-            const onlineData = {
-                sessionId: this.currentSessionId,
-                name: userData.name,
-                position: userData.position,
-                email: userData.email,
-                uid: currentUser.uid, // 添加 Firebase UID
-                loginTime: new Date().toISOString(),
-                lastActivity: new Date().toISOString(),
-                status: 'online',
-                currentAction: 'idle'
-            };
-            
-            await window.firebase.set(userRef, onlineData);
-            
-            // 設置離線時自動清除
-            window.firebase.onDisconnect(userRef).remove();
-            
-            // 定期更新活動時間
-            this.startActivityHeartbeat(userId);
-            
-            console.log('用戶已設置為在線:', userId);
-            return true;
-        } catch (error) {
-            console.error('設置用戶在線狀態失敗:', error);
-            
-            // 如果是權限錯誤，提供詳細說明
-            if (error.code === 'PERMISSION_DENIED') {
-                console.error('權限被拒絕，可能的原因：');
-                console.error('1. Firebase 安全規則設置不正確');
-                console.error('2. 用戶未通過 Firebase Authentication 認證');
-                console.error('3. 數據庫路徑權限問題');
-                
-                showToast('實時功能權限不足，請聯繫系統管理員', 'warning');
-            }
-            
-            return false;
-        }
-    }
-    
-    async setUserOffline(userId) {
-        if (!this.isReady || !userId) return;
-        
-        try {
-            const userRef = window.firebase.ref(window.firebase.rtdb, `onlineUsers/${userId}`);
-            await window.firebase.remove(userRef);
-            
-            this.stopActivityHeartbeat();
-            console.log('用戶已設置為離線:', userId);
-        } catch (error) {
-            console.error('設置用戶離線狀態失敗:', error);
-        }
-    }
-
-    startActivityHeartbeat(userId) {
-        this.activityInterval = setInterval(async () => {
-            if (this.isReady && userId) {
-                try {
-                    const userRef = window.firebase.ref(window.firebase.rtdb, `onlineUsers/${userId}/lastActivity`);
-                    await window.firebase.set(userRef, new Date().toISOString());
-                } catch (error) {
-                    console.error('更新活動時間失敗:', error);
-                }
-            }
-        }, 30000);
-    }
-
-    stopActivityHeartbeat() {
-        if (this.activityInterval) {
-            clearInterval(this.activityInterval);
-            this.activityInterval = null;
-        }
-    }
-
-    // 監聽在線用戶變化
-    subscribeToOnlineUsers(callback) {
-        if (!this.isReady) return;
-        
-        try {
-            const unsubscribe = window.firebase.onValue(this.onlineUsersRef, (snapshot) => {
-                const onlineUsers = snapshot.val() || {};
-                const usersList = Object.entries(onlineUsers).map(([userId, userData]) => ({
-                    userId,
-                    ...userData
-                }));
-                callback(usersList);
-            }, (error) => {
-                console.error('監聽在線用戶失敗:', error);
-            });
-            
-            this.listeners.set('onlineUsers', unsubscribe);
-            return unsubscribe;
-        } catch (error) {
-            console.error('訂閱在線用戶失敗:', error);
-        }
-    }
-
-    cleanup() {
-        this.listeners.forEach((unsubscribe) => {
-            if (typeof unsubscribe === 'function') {
-                try {
-                    unsubscribe();
-                } catch (error) {
-                    console.error('清理監聽器失敗:', error);
-                }
-            }
-        });
-        this.listeners.clear();
-        
-        this.stopActivityHeartbeat();
-        
-        if (currentUserData) {
-            this.setUserOffline(currentUserData.id);
-        }
-    }
-}
-
-    // ========== 掛號狀態實時同步 ==========
-    
-    async syncAppointmentToRealtime(appointment) {
-        if (!this.isReady) return;
-        
-        try {
-            const appointmentRef = window.firebase.ref(
-                window.firebase.rtdb, 
-                `appointments/${appointment.id}`
-            );
-            
-            const realtimeData = {
-                ...appointment,
-                lastUpdated: new Date().toISOString(),
-                updatedBy: currentUser
-            };
-            
-            await window.firebase.set(appointmentRef, realtimeData);
-            console.log('掛號資料已同步到 Realtime Database:', appointment.id);
-        } catch (error) {
-            console.error('同步掛號資料失敗:', error);
-        }
-    }
-
-    async updateAppointmentStatus(appointmentId, status, additionalData = {}) {
-        if (!this.isReady) return;
-        
-        try {
-            const statusRef = window.firebase.ref(
-                window.firebase.rtdb, 
-                `appointments/${appointmentId}`
-            );
-            
-            const updateData = {
-                status: status,
-                lastUpdated: new Date().toISOString(),
-                updatedBy: currentUser,
-                ...additionalData
-            };
-            
-            await window.firebase.update(statusRef, updateData);
-            
-            // 發送通知
-            await this.sendNotification({
-                type: 'appointment_status_change',
-                appointmentId: appointmentId,
-                status: status,
-                message: this.getStatusChangeMessage(status),
-                timestamp: new Date().toISOString()
-            });
-            
-            console.log('掛號狀態已更新:', appointmentId, status);
-        } catch (error) {
-            console.error('更新掛號狀態失敗:', error);
-        }
-    }
-
-    // 監聽掛號狀態變化
-    subscribeToAppointments(callback) {
-        if (!this.isReady) return;
-        
-        const unsubscribe = window.firebase.onValue(this.appointmentsRef, (snapshot) => {
-            const appointmentsData = snapshot.val() || {};
-            const appointmentsList = Object.values(appointmentsData);
-            callback(appointmentsList);
-        });
-        
-        this.listeners.set('appointments', unsubscribe);
-        return unsubscribe;
-    }
-
-    // ========== 診症進度實時追蹤 ==========
-    
-    async updateConsultationStatus(appointmentId, progressData) {
-        if (!this.isReady) return;
-        
-        try {
-            const statusRef = window.firebase.ref(
-                window.firebase.rtdb, 
-                `consultationStatus/${appointmentId}`
-            );
-            
-            const statusData = {
-                appointmentId: appointmentId,
-                currentStep: progressData.step, // 'registered', 'waiting', 'consulting', 'completed'
-                startTime: progressData.startTime || new Date().toISOString(),
-                lastUpdated: new Date().toISOString(),
-                doctor: progressData.doctor || currentUser,
-                patientId: progressData.patientId,
-                estimatedDuration: progressData.estimatedDuration || 30, // 分鐘
-                notes: progressData.notes || '',
-                priority: progressData.priority || 'normal' // low, normal, high, urgent
-            };
-            
-            await window.firebase.set(statusRef, statusData);
-            
-            // 更新診所整體狀態
-            await this.updateClinicStatus();
-            
-            console.log('診症進度已更新:', appointmentId, progressData.step);
-        } catch (error) {
-            console.error('更新診症進度失敗:', error);
-        }
-    }
-
-    async updateClinicStatus() {
-        if (!this.isReady) return;
-        
-        try {
-            // 獲取當前所有診症狀態
-            const statusSnapshot = await window.firebase.get(this.consultationStatusRef);
-            const allStatus = statusSnapshot.val() || {};
-            
-            // 統計各種狀態的數量
-            const stats = {
-                totalWaiting: 0,
-                totalConsulting: 0,
-                activeDoctors: new Set(),
-                lastUpdated: new Date().toISOString()
-            };
-            
-            Object.values(allStatus).forEach(status => {
-                if (status.currentStep === 'waiting') stats.totalWaiting++;
-                if (status.currentStep === 'consulting') {
-                    stats.totalConsulting++;
-                    stats.activeDoctors.add(status.doctor);
-                }
-            });
-            
-            stats.activeDoctorsCount = stats.activeDoctors.size;
-            delete stats.activeDoctors; // 不能直接存儲 Set
-            
-            const clinicRef = window.firebase.ref(window.firebase.rtdb, 'clinicStatus/current');
-            await window.firebase.set(clinicRef, stats);
-            
-        } catch (error) {
-            console.error('更新診所狀態失敗:', error);
-        }
-    }
-
-    // 監聽診症進度變化
-    subscribeToConsultationStatus(callback) {
-        if (!this.isReady) return;
-        
-        const unsubscribe = window.firebase.onValue(this.consultationStatusRef, (snapshot) => {
-            const statusData = snapshot.val() || {};
-            callback(statusData);
-        });
-        
-        this.listeners.set('consultationStatus', unsubscribe);
-        return unsubscribe;
-    }
-
-    // ========== 通知系統 ==========
-    
-    async sendNotification(notificationData) {
-        if (!this.isReady) return;
-        
-        try {
-            const notificationRef = window.firebase.push(this.notificationsRef);
-            
-            const notification = {
-                id: notificationRef.key,
-                ...notificationData,
-                read: false,
-                createdAt: new Date().toISOString(),
-                createdBy: currentUser
-            };
-            
-            await window.firebase.set(notificationRef, notification);
-            console.log('通知已發送:', notification.id);
-        } catch (error) {
-            console.error('發送通知失敗:', error);
-        }
-    }
-
-    // 監聽通知
-    subscribeToNotifications(userId, callback) {
-        if (!this.isReady) return;
-        
-        // 監聽針對特定用戶或全體的通知
-        const userNotificationsRef = window.firebase.ref(
-            window.firebase.rtdb, 
-            'notifications'
-        );
-        
-        const unsubscribe = window.firebase.onValue(userNotificationsRef, (snapshot) => {
-            const notifications = snapshot.val() || {};
-            const userNotifications = Object.values(notifications)
-                .filter(notif => !notif.targetUser || notif.targetUser === userId)
-                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            
-            callback(userNotifications);
-        });
-        
-        this.listeners.set(`notifications_${userId}`, unsubscribe);
-        return unsubscribe;
-    }
-
-    // ========== 輔助方法 ==========
-    
-    getStatusChangeMessage(status) {
-        const messages = {
-            'registered': '病人已掛號',
-            'waiting': '病人已到達，正在候診',
-            'consulting': '開始診症',
-            'completed': '診症已完成'
-        };
-        return messages[status] || '狀態已更新';
-    }
-
-    // 清理所有監聽器
-    cleanup() {
-        this.listeners.forEach((unsubscribe) => {
-            if (typeof unsubscribe === 'function') {
-                unsubscribe();
-            }
-        });
-        this.listeners.clear();
-        
-        this.stopActivityHeartbeat();
-        
-        if (currentUserData) {
-            this.setUserOffline(currentUserData.id);
-        }
-    }
-
-    // ========== 數據同步方法 ==========
-    
-    // 將本地掛號數據同步到 Realtime Database
-    async syncLocalAppointmentsToRealtime() {
-        if (!this.isReady) return;
-        
-        try {
-            const localAppointments = JSON.parse(localStorage.getItem('appointments') || '[]');
-            
-            for (const appointment of localAppointments) {
-                await this.syncAppointmentToRealtime(appointment);
-            }
-            
-            console.log('本地掛號數據已同步到 Realtime Database');
-        } catch (error) {
-            console.error('同步本地掛號數據失敗:', error);
-        }
-    }
-
-    // 從 Realtime Database 同步到本地
-    async syncRealtimeToLocal() {
-        if (!this.isReady) return;
-        
-        try {
-            const snapshot = await window.firebase.get(this.appointmentsRef);
-            const realtimeAppointments = snapshot.val() || {};
-            const appointmentsList = Object.values(realtimeAppointments);
-            
-            // 更新本地存儲
-            localStorage.setItem('appointments', JSON.stringify(appointmentsList));
-            
-            // 更新全局變量
-            appointments = appointmentsList;
-            
-            console.log('Realtime Database 數據已同步到本地');
-            return appointmentsList;
-        } catch (error) {
-            console.error('同步 Realtime Database 數據失敗:', error);
-            return [];
-        }
-    }
-}
-
-// ========== UI 組件和顯示邏輯 ==========
-
-class RealtimeUI {
-    constructor(realtimeManager) {
-        this.rtManager = realtimeManager;
-        this.setupUI();
-        this.subscribeToUpdates();
-    }
-
-    setupUI() {
-        // 創建實時狀態顯示面板
-        this.createStatusPanel();
-        this.createNotificationPanel();
-    }
-
-    createStatusPanel() {
-        // 在導航欄添加實時狀態指示器
-        const navbar = document.querySelector('nav .max-w-7xl');
-        if (navbar) {
-            const statusPanel = document.createElement('div');
-            statusPanel.id = 'realtimeStatusPanel';
-            statusPanel.className = 'flex items-center space-x-4 text-sm';
-            statusPanel.innerHTML = `
-                <div class="flex items-center space-x-2">
-                    <div id="connectionStatus" class="w-3 h-3 rounded-full bg-gray-400"></div>
-                    <span class="text-gray-600">連接狀態</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <span class="text-gray-600">在線：</span>
-                    <span id="onlineUsersCount" class="font-semibold text-blue-600">0</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <span class="text-gray-600">候診：</span>
-                    <span id="waitingCount" class="font-semibold text-yellow-600">0</span>
-                </div>
-                <div class="flex items-center space-x-2">
-                    <span class="text-gray-600">診症中：</span>
-                    <span id="consultingCount" class="font-semibold text-green-600">0</span>
-                </div>
-            `;
-            
-            // 插入到用戶角色信息前
-            const userRole = document.getElementById('userRole');
-            if (userRole) {
-                userRole.parentNode.insertBefore(statusPanel, userRole);
-            }
-        }
-    }
-
-    createNotificationPanel() {
-        // 創建通知面板
-        const notificationPanel = document.createElement('div');
-        notificationPanel.id = 'notificationPanel';
-        notificationPanel.className = 'fixed top-4 right-4 z-50 space-y-2 max-w-sm';
-        document.body.appendChild(notificationPanel);
-    }
-
-    subscribeToUpdates() {
-        // 訂閱在線用戶更新
-        this.rtManager.subscribeToOnlineUsers((users) => {
-            this.updateOnlineUsersDisplay(users);
-        });
-
-        // 訂閱診症狀態更新
-        this.rtManager.subscribeToConsultationStatus((statusData) => {
-            this.updateConsultationStatusDisplay(statusData);
-        });
-
-        // 訂閱通知
-        if (currentUserData) {
-            this.rtManager.subscribeToNotifications(currentUserData.id, (notifications) => {
-                this.showNotifications(notifications);
-            });
-        }
-
-        // 監聽連接狀態
-        this.monitorConnectionStatus();
-    }
-
-    updateOnlineUsersDisplay(users) {
-        const countElement = document.getElementById('onlineUsersCount');
-        if (countElement) {
-            countElement.textContent = users.length;
-        }
-
-        // 在側邊欄顯示在線用戶列表（可選）
-        this.updateOnlineUsersList(users);
-    }
-
-    updateOnlineUsersList(users) {
-        // 可以在側邊欄或其他地方顯示在線用戶列表
-        const onlineUsersContainer = document.getElementById('onlineUsersList');
-        if (onlineUsersContainer) {
-            onlineUsersContainer.innerHTML = users.map(user => `
-                <div class="flex items-center space-x-2 p-2 bg-green-50 rounded">
-                    <div class="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span class="text-sm text-gray-700">${user.name}</span>
-                    <span class="text-xs text-gray-500">${user.position}</span>
-                </div>
-            `).join('');
-        }
-    }
-
-    updateConsultationStatusDisplay(statusData) {
-        let waitingCount = 0;
-        let consultingCount = 0;
-
-        Object.values(statusData).forEach(status => {
-            if (status.currentStep === 'waiting') waitingCount++;
-            if (status.currentStep === 'consulting') consultingCount++;
-        });
-
-        const waitingElement = document.getElementById('waitingCount');
-        const consultingElement = document.getElementById('consultingCount');
-
-        if (waitingElement) waitingElement.textContent = waitingCount;
-        if (consultingElement) consultingElement.textContent = consultingCount;
-    }
-
-    showNotifications(notifications) {
-        const panel = document.getElementById('notificationPanel');
-        if (!panel) return;
-
-        // 只顯示最近5分鐘的未讀通知
-        const recentNotifications = notifications.filter(notif => {
-            const notifTime = new Date(notif.createdAt);
-            const now = new Date();
-            const diffMinutes = (now - notifTime) / (1000 * 60);
-            return !notif.read && diffMinutes < 5;
-        });
-
-        panel.innerHTML = recentNotifications.map(notif => `
-            <div class="bg-white border-l-4 border-blue-500 shadow-lg rounded-lg p-4 mb-2 max-w-sm">
-                <div class="flex items-start">
-                    <div class="flex-1">
-                        <p class="text-sm font-medium text-gray-900">${notif.message}</p>
-                        <p class="text-xs text-gray-500">${new Date(notif.createdAt).toLocaleTimeString('zh-TW')}</p>
-                    </div>
-                    <button onclick="this.parentElement.parentElement.remove()" 
-                            class="ml-2 text-gray-400 hover:text-gray-600">×</button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    monitorConnectionStatus() {
-        const statusIndicator = document.getElementById('connectionStatus');
-        if (!statusIndicator) return;
-
-        // 監聽 Firebase 連接狀態
-        const connectedRef = window.firebase.ref(window.firebase.rtdb, '.info/connected');
-        window.firebase.onValue(connectedRef, (snapshot) => {
-            const connected = snapshot.val();
-            if (connected) {
-                statusIndicator.className = 'w-3 h-3 rounded-full bg-green-500';
-                statusIndicator.title = '已連接到服務器';
-            } else {
-                statusIndicator.className = 'w-3 h-3 rounded-full bg-red-500';
-                statusIndicator.title = '與服務器斷開連接';
-            }
-        });
-    }
-}
-
-// ========== 整合到現有系統 ==========
-
-// 全局實例
-let realtimeManager;
-let realtimeUI;
-
-// 修改現有的登入函數
-async function performLoginWithRealtime(user) {
-    // 原有的登入邏輯
-    performLogin(user);
-    
-    // 設置實時功能
-    if (realtimeManager && realtimeManager.isReady) {
-        await realtimeManager.setUserOnline(user.id, user);
-    }
-}
-
-// 修改現有的登出函數
-async function logoutWithRealtime() {
-    // 清理實時功能
-    if (realtimeManager && currentUserData) {
-        await realtimeManager.setUserOffline(currentUserData.id);
-        realtimeManager.cleanup();
-    }
-    
-    // 原有的登出邏輯
-    logout();
-}
-
-// 修改現有的掛號確認函數
-async function confirmRegistrationWithRealtime() {
-    // 原有的掛號邏輯
-    confirmRegistration();
-    
-    // 同步到實時數據庫
-    if (realtimeManager && appointments.length > 0) {
-        const latestAppointment = appointments[appointments.length - 1];
-        await realtimeManager.syncAppointmentToRealtime(latestAppointment);
-    }
-}
-
-// 修改現有的狀態更新函數
-async function confirmPatientArrivalWithRealtime(appointmentId) {
-    // 原有的邏輯
-    confirmPatientArrival(appointmentId);
-    
-    // 更新實時狀態
-    if (realtimeManager) {
-        await realtimeManager.updateAppointmentStatus(appointmentId, 'waiting', {
-            arrivedAt: new Date().toISOString(),
-            confirmedBy: currentUser
-        });
-    }
-}
-
-async function startConsultationWithRealtime(appointmentId) {
-    // 原有的邏輯
-    startConsultation(appointmentId);
-    
-    // 更新實時狀態
-    if (realtimeManager) {
-        const appointment = appointments.find(apt => apt.id === appointmentId);
-        if (appointment) {
-            await realtimeManager.updateConsultationStatus(appointmentId, {
-                step: 'consulting',
-                doctor: currentUser,
-                patientId: appointment.patientId,
-                startTime: new Date().toISOString()
-            });
-        }
-    }
-}
-
-// 初始化實時功能
-document.addEventListener('DOMContentLoaded', async function() {
-    // 等待 Firebase 初始化
-    while (!window.firebase) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
-    // 創建實時管理器
-    realtimeManager = new RealtimeManager();
-    window.realtimeManager = realtimeManager; // 全局使用
-    
-    // 等待實時管理器準備就緒
-    while (!realtimeManager.isReady) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
-    // 創建實時 UI
-    realtimeUI = new RealtimeUI(realtimeManager);
-    
-    // 同步現有數據
-    await realtimeManager.syncLocalAppointmentsToRealtime();
-    
-    console.log('實時功能已初始化完成');
-});
-
-// 頁面關閉時清理
-window.addEventListener('beforeunload', () => {
-    if (realtimeManager) {
-        realtimeManager.cleanup();
-    }
-});        
     </script>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96abf25724ae0514',t:'MTc1NDQ1NjE3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96c38f22ee47ddc3","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96d90c272a1cdd44","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
