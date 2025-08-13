@@ -3467,7 +3467,7 @@ async function selectPatientForRegistration(patientId) {
         }
         
         // 確認掛號
-        function confirmRegistration() {
+        async function confirmRegistration() {
             if (!selectedPatientForRegistration) {
                 showToast('系統錯誤：未選擇病人！', 'error');
                 return;
@@ -3518,43 +3518,78 @@ async function selectPatientForRegistration(patientId) {
                 createdAt: new Date().toISOString(),
                 createdBy: currentUserData ? currentUserData.username : currentUser
             };
-            
-            appointments.push(appointment);
-            localStorage.setItem('appointments', JSON.stringify(appointments));
-            
-            showToast(`${selectedPatientForRegistration.name} 已掛號給 ${selectedDoctor.name}醫師！`, 'success');
-            
-            closeRegistrationModal();
-            clearPatientSearch();
-            loadTodayAppointments();
+
+            try {
+                // 加入本地陣列
+                appointments.push(appointment);
+                // 將掛號資訊存入 Firebase Realtime Database
+                const result = await window.firebaseDataManager.addAppointment(appointment);
+                // 更新本地儲存作為備份
+                localStorage.setItem('appointments', JSON.stringify(appointments));
+                if (result.success) {
+                    showToast(`${selectedPatientForRegistration.name} 已掛號給 ${selectedDoctor.name}醫師！`, 'success');
+                    closeRegistrationModal();
+                    clearPatientSearch();
+                    loadTodayAppointments();
+                } else {
+                    showToast('掛號失敗，請稍後再試', 'error');
+                }
+            } catch (error) {
+                console.error('掛號失敗:', error);
+                showToast('掛號失敗，請稍後再試', 'error');
+            }
         }
         
-        // 每日自動清空掛號列表
-        function clearOldAppointments() {
+        // 每日自動清空掛號列表（同步到 Firebase）
+        async function clearOldAppointments() {
             const today = new Date().toDateString();
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayString = yesterday.toDateString();
-            
-            // 移除昨天及更早的掛號記錄
+            // 找出早於今天的掛號記錄
+            const expired = appointments.filter(apt => {
+                const appointmentDate = new Date(apt.appointmentTime).toDateString();
+                return appointmentDate < today;
+            });
+            if (expired.length > 0) {
+                for (const apt of expired) {
+                    try {
+                        await window.firebaseDataManager.deleteAppointment(String(apt.id));
+                    } catch (error) {
+                        console.error('刪除掛號資料錯誤:', error);
+                    }
+                }
+                console.log(`已從 Firebase 清除 ${expired.length} 筆過期掛號記錄`);
+            }
             const originalLength = appointments.length;
+            // 在本地陣列中移除過期掛號
             appointments = appointments.filter(apt => {
                 const appointmentDate = new Date(apt.appointmentTime).toDateString();
-                return appointmentDate >= today; // 只保留今天及以後的掛號
+                return appointmentDate >= today;
             });
-            
-            // 如果有清除記錄，保存到本地儲存
+            // 如果有清除記錄，更新本地備份
             if (appointments.length < originalLength) {
                 localStorage.setItem('appointments', JSON.stringify(appointments));
-                console.log(`已清除 ${originalLength - appointments.length} 筆過期掛號記錄`);
             }
         }
 
 // 3. 修改今日掛號列表載入功能，確保能正確顯示病人資訊
 async function loadTodayAppointments() {
-    // 先清空過期掛號
-    clearOldAppointments();
-    
+    // 從 Firebase 讀取掛號資料
+    try {
+        const result = await window.firebaseDataManager.getAppointments();
+        if (result.success) {
+            appointments = result.data.map(apt => {
+                return { ...apt };
+            });
+            // 更新本地存儲作為備份
+            localStorage.setItem('appointments', JSON.stringify(appointments));
+        } else {
+            console.warn('無法從 Firebase 讀取掛號資料，使用本地資料');
+        }
+    } catch (error) {
+        console.error('讀取掛號資料錯誤:', error);
+    }
+    // 清除過期掛號（同步到 Firebase）
+    await clearOldAppointments();
+
     const today = new Date().toDateString();
     let todayAppointments = appointments.filter(apt => 
         new Date(apt.appointmentTime).toDateString() === today
@@ -3998,7 +4033,9 @@ async function confirmPatientArrival(appointmentId) {
         
         // 保存狀態變更
         localStorage.setItem('appointments', JSON.stringify(appointments));
-        
+        // 同步更新到 Firebase
+        await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
+
         showToast(`${patient.name} 已確認到達，進入候診狀態！`, 'success');
         loadTodayAppointments();
         
@@ -4066,7 +4103,9 @@ async function removeAppointment(appointmentId) {
             // 從掛號列表中移除
             appointments = appointments.filter(apt => apt.id !== appointmentId);
             localStorage.setItem('appointments', JSON.stringify(appointments));
-            
+            // 從遠端刪除掛號
+            await window.firebaseDataManager.deleteAppointment(String(appointmentId));
+
             showToast(`已移除 ${patient.name} 的掛號記錄`, 'success');
             loadTodayAppointments();
             
@@ -4172,6 +4211,8 @@ async function startConsultation(appointmentId) {
         
         // 立即保存狀態變更
         localStorage.setItem('appointments', JSON.stringify(appointments));
+        // 同步更新到 Firebase
+        await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
         
         // 設置當前診症ID並顯示表單
         currentConsultingAppointmentId = appointmentId;
@@ -4364,6 +4405,8 @@ if (!patient) {
                     
                     // 保存狀態變更
                     localStorage.setItem('appointments', JSON.stringify(appointments));
+                    // 同步更新到 Firebase
+                    await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
                     
                     showToast(`已取消 ${patient.name} 的診症，病人回到候診狀態`, 'info');
                     
@@ -4447,6 +4490,8 @@ async function saveConsultation() {
             appointment.consultationId = result.id;
             appointment.completedBy = currentUser;
             localStorage.setItem('appointments', JSON.stringify(appointments));
+            // 同步更新到 Firebase
+            await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
 
             showToast('診症記錄已保存！', 'success');
             
@@ -6383,6 +6428,8 @@ async function withdrawConsultation(appointmentId) {
             
             // 保存狀態變更
             localStorage.setItem('appointments', JSON.stringify(appointments));
+            // 同步更新到 Firebase
+            await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
             
             showToast(`已撤回 ${patient.name} 的診症，病人狀態回到已掛號`, 'success');
             
@@ -6474,6 +6521,8 @@ async function editMedicalRecord(appointmentId) {
                 
                 showToast(`已結束 ${consultingPatientName} 的診症`, 'info');
                 localStorage.setItem('appointments', JSON.stringify(appointments));
+                // 同步更新到 Firebase
+                await window.firebaseDataManager.updateAppointment(String(consultingAppointment.id), consultingAppointment);
             } else {
                 return; // 用戶取消操作
             }
@@ -10071,6 +10120,71 @@ class FirebaseDataManager {
             return { success: true };
         } catch (error) {
             console.error('刪除用戶數據失敗:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 掛號資料管理（使用 Realtime Database）
+    async addAppointment(appointmentData) {
+        if (!this.isReady) {
+            showToast('數據管理器尚未準備就緒', 'error');
+            return { success: false };
+        }
+        try {
+            const id = appointmentData.id;
+            // 將掛號資料存入 Realtime Database，以掛號 ID 作為鍵
+            await window.firebase.set(
+                window.firebase.ref(window.firebase.rtdb, 'appointments/' + id),
+                { ...appointmentData }
+            );
+            console.log('掛號資料已添加到 Firebase Realtime Database:', id);
+            return { success: true, id: id };
+        } catch (error) {
+            console.error('添加掛號數據失敗:', error);
+            showToast('保存掛號數據失敗', 'error');
+            return { success: false, error: error.message };
+        }
+    }
+
+    async getAppointments() {
+        if (!this.isReady) return { success: false, data: [] };
+        try {
+            const snapshot = await window.firebase.get(
+                window.firebase.ref(window.firebase.rtdb, 'appointments')
+            );
+            const data = snapshot.val() || {};
+            const appointments = Object.keys(data).map(key => {
+                return { id: key, ...data[key] };
+            });
+            console.log('已從 Firebase Realtime Database 讀取掛號數據:', appointments.length, '筆');
+            return { success: true, data: appointments };
+        } catch (error) {
+            console.error('讀取掛號數據失敗:', error);
+            return { success: false, data: [] };
+        }
+    }
+
+    async updateAppointment(id, appointmentData) {
+        try {
+            await window.firebase.update(
+                window.firebase.ref(window.firebase.rtdb, 'appointments/' + id),
+                { ...appointmentData }
+            );
+            return { success: true };
+        } catch (error) {
+            console.error('更新掛號數據失敗:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async deleteAppointment(id) {
+        try {
+            await window.firebase.remove(
+                window.firebase.ref(window.firebase.rtdb, 'appointments/' + id)
+            );
+            return { success: true };
+        } catch (error) {
+            console.error('刪除掛號數據失敗:', error);
             return { success: false, error: error.message };
         }
     }
