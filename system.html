@@ -4515,7 +4515,8 @@ async function saveConsultation() {
             return;
         }
 
-        const consultation = {
+        // Assemble consultation data common to both new and edit operations
+        const consultationData = {
             appointmentId: currentConsultingAppointmentId,
             patientId: appointment.patientId,
             symptoms: symptoms,
@@ -4534,35 +4535,62 @@ async function saveConsultation() {
             restStartDate: document.getElementById('formRestStartDate').value,
             restEndDate: document.getElementById('formRestEndDate').value,
             billingItems: document.getElementById('formBillingItems').value.trim(),
-            date: new Date(),
-            doctor: currentUser,
+            // date and doctor fields are assigned below depending on whether this is a new record or an edit
             status: 'completed'
         };
 
-        // 顯示保存中狀態：已在函式開始處處理按鈕禁用與保存原始文字
+        // Determine whether this is an edit of an existing consultation or a new one
+        const isEditing = appointment.status === 'completed' && appointment.consultationId;
+        let operationSuccess = false;
+        if (isEditing) {
+            // For editing we preserve the original date and doctor information if available
+            let existing = consultations.find(c => c.id === appointment.consultationId);
+            if (!existing) {
+                const consResult = await window.firebaseDataManager.getConsultations();
+                if (consResult && consResult.success) {
+                    existing = consResult.data.find(c => c.id === appointment.consultationId);
+                }
+            }
+            consultationData.date = existing && existing.date ? existing.date : new Date();
+            consultationData.doctor = existing && existing.doctor ? existing.doctor : currentUser;
+            // Update the existing consultation record
+            const updateResult = await window.firebaseDataManager.updateConsultation(String(appointment.consultationId), consultationData);
+            if (updateResult && updateResult.success) {
+                operationSuccess = true;
+                // Update local cache if present
+                const idx = consultations.findIndex(c => c.id === appointment.consultationId);
+                if (idx >= 0) {
+                    consultations[idx] = { ...consultations[idx], ...consultationData, updatedAt: new Date(), updatedBy: currentUser };
+                }
+                showToast('診症記錄已更新！', 'success');
+            } else {
+                showToast('更新診症記錄失敗，請稍後再試', 'error');
+            }
+        } else {
+            // New consultation: assign the current date and doctor
+            consultationData.date = new Date();
+            consultationData.doctor = currentUser;
+            const result = await window.firebaseDataManager.addConsultation(consultationData);
+            if (result && result.success) {
+                operationSuccess = true;
+                // Update appointment status and metadata
+                appointment.status = 'completed';
+                appointment.completedAt = new Date().toISOString();
+                appointment.consultationId = result.id;
+                appointment.completedBy = currentUser;
+                localStorage.setItem('appointments', JSON.stringify(appointments));
+                await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
+                showToast('診症記錄已保存！', 'success');
+            } else {
+                showToast('保存診症記錄失敗，請稍後再試', 'error');
+            }
+        }
 
-        // 保存到 Firebase
-        const result = await window.firebaseDataManager.addConsultation(consultation);
-
-        if (result.success) {
-            // 更新本地掛號狀態（暫時，直到掛號系統也遷移到 Firebase）
-            appointment.status = 'completed';
-            appointment.completedAt = new Date().toISOString();
-            appointment.consultationId = result.id;
-            appointment.completedBy = currentUser;
-            localStorage.setItem('appointments', JSON.stringify(appointments));
-            // 同步更新到 Firebase
-            await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
-
-            showToast('診症記錄已保存！', 'success');
-            
+        if (operationSuccess) {
             closeConsultationForm();
             loadTodayAppointments();
             updateStatistics();
             clearAllSearchFields();
-
-        } else {
-            showToast('保存診症記錄失敗，請稍後再試', 'error');
         }
 
     } catch (error) {
@@ -10216,12 +10244,13 @@ class FirebaseDataManager {
         }
 
         try {
+            // When creating a new consultation record we only set the createdAt timestamp
+            // and createdBy. The updatedAt field should be reserved for subsequent edits.
             const docRef = await window.firebase.addDoc(
                 window.firebase.collection(window.firebase.db, 'consultations'),
                 {
                     ...consultationData,
                     createdAt: new Date(),
-                    updatedAt: new Date(),
                     createdBy: currentUser
                 }
             );
