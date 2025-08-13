@@ -3785,194 +3785,7 @@ function formatConsultationDateTime(dateInput) {
     });
 }
 
-// 修復病歷記錄顯示中的日期問題
-function displayConsultationMedicalHistoryPage() {
-    const contentDiv = document.getElementById('medicalHistoryContent');
-    
-    if (currentConsultationConsultations.length === 0) {
-        contentDiv.innerHTML = `
-            <div class="text-center py-12 text-gray-500">
-                <div class="text-4xl mb-4">📋</div>
-                <div class="text-lg font-medium mb-2">暫無診症記錄</div>
-                <div class="text-sm">該病人尚未有診症記錄</div>
-            </div>
-        `;
-        return;
-    }
-    
-    const consultation = currentConsultationConsultations[currentConsultationHistoryPage];
-    const totalPages = currentConsultationConsultations.length;
-    const currentPageNumber = currentConsultationHistoryPage + 1;
-    const consultationNumber = currentConsultationHistoryPage + 1;
-    
-    contentDiv.innerHTML = `
-        <!-- 分頁導航 -->
-        <div class="mb-6 flex justify-between items-center bg-gray-50 rounded-lg p-4">
-            <div class="flex items-center space-x-4">
-                <h4 class="text-lg font-semibold text-gray-800">診症記錄</h4>
-                <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                    第 ${consultationNumber} 次診症
-                </span>
-                <span class="text-sm text-gray-600">
-                    共 ${totalPages} 次診症記錄
-                </span>
-            </div>
-            
-            <div class="flex items-center space-x-2">
-                <button onclick="changeConsultationHistoryPage(-1)" 
-                        ${currentConsultationHistoryPage === 0 ? 'disabled' : ''}
-                        class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
-                    ← 較舊
-                </button>
-                <span class="text-sm text-gray-600 px-2">
-                    ${currentPageNumber} / ${totalPages}
-                </span>
-                <button onclick="changeConsultationHistoryPage(1)" 
-                        ${currentConsultationHistoryPage === totalPages - 1 ? 'disabled' : ''}
-                        class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
-                    較新 →
-                </button>
-            </div>
-        </div>
-        
-        <!-- 當前病歷記錄 -->
-        <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-            <div class="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-4 border-b border-gray-200">
-                <div class="flex justify-between items-center">
-                    <div class="flex items-center space-x-4">
-                        <span class="font-semibold text-gray-900 text-lg">
-                            ${formatConsultationDateTime(consultation.date)}
-                        </span>
-                        <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
-                            醫師：${getDoctorDisplayName(consultation.doctor)}
-                        </span>
-                        ${consultation.updatedAt ? `
-                            <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                                已修改
-                            </span>
-                        ` : ''}
-                    </div>
-                    <div class="flex space-x-2">
-                        <button onclick="printConsultationRecord(${consultation.id})" 
-                                class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded">
-                            📄 列印收據
-                        </button>
-                        <button onclick="printAttendanceCertificate(${consultation.id})" 
-                                class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded">
-                            📋 到診證明
-                        </button>
-                        ${(() => {
-                            // 檢查是否正在診症且為相同病人
-                            if (currentConsultingAppointmentId) {
-                                const currentAppointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
-                                if (currentAppointment && currentAppointment.patientId === consultation.patientId) {
-                                    return `
-                                        <button onclick="loadMedicalRecordToCurrentConsultation(${consultation.id})" 
-                                                class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded">
-                                            📋 載入病歷
-                                        </button>
-                                    `;
-                                }
-                            }
-                            return '';
-                        })()}
-                    </div>
-                </div>
-            </div>
-            
-            <div class="p-6">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div class="space-y-4">
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">主訴</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.symptoms || '無記錄'}</div>
-                        </div>
-                        
-                        ${consultation.tongue ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">舌象</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.tongue}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${consultation.pulse ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">脈象</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.pulse}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${consultation.currentHistory ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.currentHistory}</div>
-                        </div>
-                        ` : ''}
-                        
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">中醫診斷</span>
-                            <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400">${consultation.diagnosis || '無記錄'}</div>
-                        </div>
-                        
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">證型診斷</span>
-                            <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400">${consultation.syndrome || '無記錄'}</div>
-                        </div>
-                        
-                        ${consultation.acupunctureNotes ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">針灸備註</span>
-                            <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400">${consultation.acupunctureNotes}</div>
-                        </div>
-                        ` : ''}
-                    </div>
-                    
-                    <div class="space-y-4">
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>
-                            <div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 whitespace-pre-line">${consultation.prescription || '無記錄'}</div>
-                        </div>
-                        
-                        ${consultation.usage ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">服用方法</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.usage}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${consultation.treatmentCourse ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">療程</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.treatmentCourse}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${consultation.instructions ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">醫囑及注意事項</span>
-                            <div class="bg-red-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-red-400">${consultation.instructions}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${consultation.followUpDate ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">複診時間</span>
-                            <div class="bg-purple-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-purple-400">${formatConsultationDateTime(consultation.followUpDate)}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${consultation.billingItems ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">收費項目</span>
-                            <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 whitespace-pre-line">${consultation.billingItems}</div>
-                        </div>
-                        ` : ''}
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-}
+
         
 // 1. 修改 createAppointmentRow 函數，確保診症記錄按鈕正確傳遞 patientId
 function createAppointmentRow(appointment, patient, index) {
@@ -5004,194 +4817,194 @@ async function viewPatientMedicalHistory(patientId) {
     }
 }
         
-        function displayConsultationMedicalHistoryPage() {
-            const contentDiv = document.getElementById('medicalHistoryContent');
+// 修復病歷記錄顯示中的日期問題
+function displayConsultationMedicalHistoryPage() {
+    const contentDiv = document.getElementById('medicalHistoryContent');
+    
+    if (currentConsultationConsultations.length === 0) {
+        contentDiv.innerHTML = `
+            <div class="text-center py-12 text-gray-500">
+                <div class="text-4xl mb-4">📋</div>
+                <div class="text-lg font-medium mb-2">暫無診症記錄</div>
+                <div class="text-sm">該病人尚未有診症記錄</div>
+            </div>
+        `;
+        return;
+    }
+    
+    const consultation = currentConsultationConsultations[currentConsultationHistoryPage];
+    const totalPages = currentConsultationConsultations.length;
+    const currentPageNumber = currentConsultationHistoryPage + 1;
+    const consultationNumber = currentConsultationHistoryPage + 1;
+    
+    contentDiv.innerHTML = `
+        <!-- 分頁導航 -->
+        <div class="mb-6 flex justify-between items-center bg-gray-50 rounded-lg p-4">
+            <div class="flex items-center space-x-4">
+                <h4 class="text-lg font-semibold text-gray-800">診症記錄</h4>
+                <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                    第 ${consultationNumber} 次診症
+                </span>
+                <span class="text-sm text-gray-600">
+                    共 ${totalPages} 次診症記錄
+                </span>
+            </div>
             
-            if (currentConsultationConsultations.length === 0) {
-                contentDiv.innerHTML = `
-                    <div class="text-center py-12 text-gray-500">
-                        <div class="text-4xl mb-4">📋</div>
-                        <div class="text-lg font-medium mb-2">暫無診症記錄</div>
-                        <div class="text-sm">該病人尚未有診症記錄</div>
-                    </div>
-                `;
-                return;
-            }
-            
-            const consultation = currentConsultationConsultations[currentConsultationHistoryPage];
-            const totalPages = currentConsultationConsultations.length;
-            const currentPageNumber = currentConsultationHistoryPage + 1;
-            const consultationNumber = currentConsultationHistoryPage + 1;
-            
-            contentDiv.innerHTML = `
-                <!-- 分頁導航 -->
-                <div class="mb-6 flex justify-between items-center bg-gray-50 rounded-lg p-4">
+            <div class="flex items-center space-x-2">
+                <button onclick="changeConsultationHistoryPage(-1)" 
+                        ${currentConsultationHistoryPage === 0 ? 'disabled' : ''}
+                        class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
+                    ← 較舊
+                </button>
+                <span class="text-sm text-gray-600 px-2">
+                    ${currentPageNumber} / ${totalPages}
+                </span>
+                <button onclick="changeConsultationHistoryPage(1)" 
+                        ${currentConsultationHistoryPage === totalPages - 1 ? 'disabled' : ''}
+                        class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
+                    較新 →
+                </button>
+            </div>
+        </div>
+        
+        <!-- 當前病歷記錄 -->
+        <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+            <div class="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-4 border-b border-gray-200">
+                <div class="flex justify-between items-center">
                     <div class="flex items-center space-x-4">
-                        <h4 class="text-lg font-semibold text-gray-800">診症記錄</h4>
-                        <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                            第 ${consultationNumber} 次診症
+                        <span class="font-semibold text-gray-900 text-lg">
+                            ${formatConsultationDateTime(consultation.date)}
                         </span>
-                        <span class="text-sm text-gray-600">
-                            共 ${totalPages} 次診症記錄
+                        <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
+                            醫師：${getDoctorDisplayName(consultation.doctor)}
                         </span>
+                        ${consultation.updatedAt ? `
+                            <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                                已修改
+                            </span>
+                        ` : ''}
                     </div>
-                    
-                    <div class="flex items-center space-x-2">
-                        <button onclick="changeConsultationHistoryPage(-1)" 
-                                ${currentConsultationHistoryPage === 0 ? 'disabled' : ''}
-                                class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
-                            ← 較舊
+                    <div class="flex space-x-2">
+                        <button onclick="printConsultationRecord(${consultation.id})" 
+                                class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded">
+                            📄 列印收據
                         </button>
-                        <span class="text-sm text-gray-600 px-2">
-                            ${currentPageNumber} / ${totalPages}
-                        </span>
-                        <button onclick="changeConsultationHistoryPage(1)" 
-                                ${currentConsultationHistoryPage === totalPages - 1 ? 'disabled' : ''}
-                                class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
-                            較新 →
+                        <button onclick="printAttendanceCertificate(${consultation.id})" 
+                                class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded">
+                            📋 到診證明
                         </button>
+                        ${(() => {
+                            // 檢查是否正在診症且為相同病人
+                            if (currentConsultingAppointmentId) {
+                                const currentAppointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
+                                if (currentAppointment && currentAppointment.patientId === consultation.patientId) {
+                                    return `
+                                        <button onclick="loadMedicalRecordToCurrentConsultation(${consultation.id})" 
+                                                class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded">
+                                            📋 載入病歷
+                                        </button>
+                                    `;
+                                }
+                            }
+                            return '';
+                        })()}
                     </div>
                 </div>
-                
-                <!-- 當前病歷記錄 -->
-                <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                    <div class="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-4 border-b border-gray-200">
-                        <div class="flex justify-between items-center">
-                            <div class="flex items-center space-x-4">
-                                <span class="font-semibold text-gray-900 text-lg">
-                                    ${new Date(consultation.date).toLocaleDateString('zh-TW')} 
-                                    ${new Date(consultation.date).toLocaleTimeString('zh-TW', {hour: '2-digit', minute: '2-digit'})}
-                                </span>
-                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
-                                    醫師：${getDoctorDisplayName(consultation.doctor)}
-                                </span>
-                                ${consultation.updatedAt ? `
-                                    <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                                        已修改
-                                    </span>
-                                ` : ''}
-                            </div>
-                            <div class="flex space-x-2">
-                                <button onclick="printConsultationRecord(${consultation.id})" 
-                                        class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded">
-                                    📄 列印收據
-                                </button>
-                                <button onclick="printAttendanceCertificate(${consultation.id})" 
-                                        class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded">
-                                    📋 到診證明
-                                </button>
-                                ${(() => {
-                                    // 檢查是否正在診症且為相同病人
-                                    if (currentConsultingAppointmentId) {
-                                        const currentAppointment = appointments.find(apt => apt.id === currentConsultingAppointmentId);
-                                        if (currentAppointment && currentAppointment.patientId === consultation.patientId) {
-                                            return `
-                                                <button onclick="loadMedicalRecordToCurrentConsultation(${consultation.id})" 
-                                                        class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded">
-                                                    📋 載入病歷
-                                                </button>
-                                            `;
-                                        }
-                                    }
-                                    return '';
-                                })()}
-                            </div>
+            </div>
+            
+            <div class="p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="space-y-4">
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 block mb-2">主訴</span>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.symptoms || '無記錄'}</div>
                         </div>
+                        
+                        ${consultation.tongue ? `
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 block mb-2">舌象</span>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.tongue}</div>
+                        </div>
+                        ` : ''}
+                        
+                        ${consultation.pulse ? `
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 block mb-2">脈象</span>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.pulse}</div>
+                        </div>
+                        ` : ''}
+                        
+                        ${consultation.currentHistory ? `
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.currentHistory}</div>
+                        </div>
+                        ` : ''}
+                        
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 block mb-2">中醫診斷</span>
+                            <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400">${consultation.diagnosis || '無記錄'}</div>
+                        </div>
+                        
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 block mb-2">證型診斷</span>
+                            <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400">${consultation.syndrome || '無記錄'}</div>
+                        </div>
+                        
+                        ${consultation.acupunctureNotes ? `
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 block mb-2">針灸備註</span>
+                            <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400">${consultation.acupunctureNotes}</div>
+                        </div>
+                        ` : ''}
                     </div>
                     
-                    <div class="p-6">
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div class="space-y-4">
-                                <div>
-                                    <span class="text-sm font-semibold text-gray-700 block mb-2">主訴</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.symptoms || '無記錄'}</div>
-                                </div>
-                                
-                                ${consultation.tongue ? `
-                                <div>
-                                    <span class="text-sm font-semibold text-gray-700 block mb-2">舌象</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.tongue}</div>
-                                </div>
-                                ` : ''}
-                                
-                                ${consultation.pulse ? `
-                                <div>
-                                    <span class="text-sm font-semibold text-gray-700 block mb-2">脈象</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.pulse}</div>
-                                </div>
-                                ` : ''}
-                                
-                                ${consultation.currentHistory ? `
-                                <div>
-                                    <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.currentHistory}</div>
-                                </div>
-                                ` : ''}
-                                
-                                <div>
-                                    <span class="text-sm font-semibold text-gray-700 block mb-2">中醫診斷</span>
-                                    <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400">${consultation.diagnosis || '無記錄'}</div>
-                                </div>
-                                
-                                <div>
-                                    <span class="text-sm font-semibold text-gray-700 block mb-2">證型診斷</span>
-                                    <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400">${consultation.syndrome || '無記錄'}</div>
-                                </div>
-                                
-                                ${consultation.acupunctureNotes ? `
-                                <div>
-                                    <span class="text-sm font-semibold text-gray-700 block mb-2">針灸備註</span>
-                                    <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400">${consultation.acupunctureNotes}</div>
-                                </div>
-                                ` : ''}
-                            </div>
-                            
-                            <div class="space-y-4">
-                                <div>
-                                    <span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>
-                                    <div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 whitespace-pre-line">${consultation.prescription || '無記錄'}</div>
-                                </div>
-                                
-                                ${consultation.usage ? `
-                                <div>
-                                    <span class="text-sm font-semibold text-gray-700 block mb-2">服用方法</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.usage}</div>
-                                </div>
-                                ` : ''}
-                                
-                                ${consultation.treatmentCourse ? `
-                                <div>
-                                    <span class="text-sm font-semibold text-gray-700 block mb-2">療程</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.treatmentCourse}</div>
-                                </div>
-                                ` : ''}
-                                
-                                ${consultation.instructions ? `
-                                <div>
-                                    <span class="text-sm font-semibold text-gray-700 block mb-2">醫囑及注意事項</span>
-                                    <div class="bg-red-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-red-400">${consultation.instructions}</div>
-                                </div>
-                                ` : ''}
-                                
-                                ${consultation.followUpDate ? `
-                                <div>
-                                    <span class="text-sm font-semibold text-gray-700 block mb-2">複診時間</span>
-                                    <div class="bg-purple-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-purple-400">${new Date(consultation.followUpDate).toLocaleString('zh-TW')}</div>
-                                </div>
-                                ` : ''}
-                                
-                                ${consultation.billingItems ? `
-                                <div>
-                                    <span class="text-sm font-semibold text-gray-700 block mb-2">收費項目</span>
-                                    <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 whitespace-pre-line">${consultation.billingItems}</div>
-                                </div>
-                                ` : ''}
-                            </div>
+                    <div class="space-y-4">
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>
+                            <div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 whitespace-pre-line">${consultation.prescription || '無記錄'}</div>
                         </div>
+                        
+                        ${consultation.usage ? `
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 block mb-2">服用方法</span>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.usage}</div>
+                        </div>
+                        ` : ''}
+                        
+                        ${consultation.treatmentCourse ? `
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 block mb-2">療程</span>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.treatmentCourse}</div>
+                        </div>
+                        ` : ''}
+                        
+                        ${consultation.instructions ? `
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 block mb-2">醫囑及注意事項</span>
+                            <div class="bg-red-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-red-400">${consultation.instructions}</div>
+                        </div>
+                        ` : ''}
+                        
+                        ${consultation.followUpDate ? `
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 block mb-2">複診時間</span>
+                            <div class="bg-purple-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-purple-400">${formatConsultationDateTime(consultation.followUpDate)}</div>
+                        </div>
+                        ` : ''}
+                        
+                        ${consultation.billingItems ? `
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 block mb-2">收費項目</span>
+                            <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 whitespace-pre-line">${consultation.billingItems}</div>
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
-            `;
-        }
+            </div>
+        </div>
+    `;
+}
         
         function changeConsultationHistoryPage(direction) {
             const newPage = currentConsultationHistoryPage + direction;
