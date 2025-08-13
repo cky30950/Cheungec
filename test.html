@@ -3751,7 +3751,14 @@ async function loadConsultationForEdit(consultationId) {
                 updateBillingDisplay();
             }
             
-            document.getElementById('consultationSaveButtonText').textContent = '更新病歷';
+            // 安全獲取診症儲存按鈕文本元素，避免為 null 時出錯
+            const saveButtonTextEl = document.getElementById('consultationSaveButtonText');
+            if (saveButtonTextEl) {
+                saveButtonTextEl.textContent = '更新病歷';
+            } else {
+                // 如果找不到元素，不抛出錯誤，而是紀錄警告，這樣使用者可繼續操作
+                console.warn('consultationSaveButtonText element not found when loading consultation for edit. Skipping text update.');
+            }
         } else {
             showToast('找不到診症記錄，將使用空白表單', 'warning');
             clearConsultationForm();
@@ -4303,7 +4310,14 @@ async function showConsultationForm(appointment) {
             // 自動添加預設診金收費項目
             addDefaultConsultationFee(patient);
             
-            document.getElementById('consultationSaveButtonText').textContent = '完成診症';
+            // 安全獲取診症儲存按鈕文本元素，避免為 null 時出錯
+            const saveButtonTextElNew = document.getElementById('consultationSaveButtonText');
+            if (saveButtonTextElNew) {
+                saveButtonTextElNew.textContent = '完成診症';
+            } else {
+                // 若找不到元素，則紀錄警告並跳過，不造成程式崩潰
+                console.warn('consultationSaveButtonText element not found when starting consultation. Skipping text update.');
+            }
         }
         
         document.getElementById('consultationForm').classList.remove('hidden');
@@ -10315,5 +10329,6 @@ async function migrateUserDataToFirebase() {
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96dd51fb1d5d84a2","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96dd62519b8eb430","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96deefe9585702cc","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e737872e69ddc3","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>
