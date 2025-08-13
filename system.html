@@ -3757,9 +3757,26 @@ async function loadConsultationForEdit(consultationId) {
             // 載入處方內容
             selectedPrescriptionItems = [];
             if (consultation.prescription) {
+                // 先將完整處方內容存入隱藏文本域
                 document.getElementById('formPrescription').value = consultation.prescription;
+                // 嘗試解析處方內容並生成處方項目列表
                 parsePrescriptionToItems(consultation.prescription);
                 updatePrescriptionDisplay();
+                // 如果未能解析出任何處方項目（例如庫中缺少相關藥材或方劑資料），
+                // 則直接將原始處方文本顯示於處方區域，避免顯示為空白
+                if (selectedPrescriptionItems.length === 0) {
+                    // 還原隱藏文本域為原始內容，因為 updatePrescriptionDisplay 會清空它
+                    document.getElementById('formPrescription').value = consultation.prescription;
+                    const container = document.getElementById('selectedPrescriptionItems');
+                    if (container) {
+                        container.innerHTML = `<div class="text-sm text-gray-900 whitespace-pre-line">${consultation.prescription}</div>`;
+                    }
+                    // 隱藏服藥天數與次數設定
+                    const medicationSettingsEl = document.getElementById('medicationSettings');
+                    if (medicationSettingsEl) {
+                        medicationSettingsEl.style.display = 'none';
+                    }
+                }
             }
             
             // 載入收費項目
@@ -4877,11 +4894,24 @@ async function viewPatientMedicalHistory(patientId) {
             showToast('無法讀取診症記錄', 'error');
             return;
         }
-        
-        currentConsultationConsultations = consultationResult.data;
-        
-        // 預設顯示最新的病歷（最近一次診症）
-        currentConsultationHistoryPage = 0; // Firebase 已經按時間排序，最新在前
+
+        /**
+         * Firebase 回傳的診症記錄預設按照日期降序（最新在前），
+         * 但在病歷瀏覽頁面中希望將順序調整為「較舊在左、最新在右」。
+         * 因此這裡先複製一份資料，再使用日期進行升序排序，
+         * 並將當前頁索引設為最後一筆，確保進入頁面時顯示最新的一次診症。
+         */
+        currentConsultationConsultations = consultationResult.data.slice().sort((a, b) => {
+            const dateA = parseConsultationDate(a.date);
+            const dateB = parseConsultationDate(b.date);
+            // 若其中一個日期無法解析，將其放到較後面
+            if (!dateA || isNaN(dateA.getTime())) return 1;
+            if (!dateB || isNaN(dateB.getTime())) return -1;
+            return dateA - dateB;
+        });
+
+        // 預設顯示最新的病歷（最近一次診症在最右）
+        currentConsultationHistoryPage = currentConsultationConsultations.length - 1;
         
         // 設置標題
         document.getElementById('medicalHistoryTitle').textContent = `${patient.name} 的診症記錄`;
@@ -6470,19 +6500,31 @@ async function withdrawConsultation(appointmentId) {
             return;
         }
         
-        const consultation = consultations.find(c => c.id === appointment.consultationId);
+        // 嘗試從本地或 Firebase 取得診症記錄
+        let consultation = consultations.find(c => c.id === appointment.consultationId);
+        if (!consultation) {
+            // 如果本地沒有，從 Firebase 讀取所有診症記錄並搜尋
+            const consResult = await window.firebaseDataManager.getConsultations();
+            if (consResult && consResult.success) {
+                consultation = consResult.data.find(c => c.id === appointment.consultationId);
+                if (consultation) {
+                    consultations.push(consultation);
+                    localStorage.setItem('consultations', JSON.stringify(consultations));
+                }
+            }
+        }
         if (!consultation) {
             showToast(`無法撤回診症！找不到病人 ${patient.name} 的診症記錄資料。`, 'error');
             return;
         }
         
         // 確認撤回操作
+        // 修正：撤回診症提示通知不再包含診症日期
         const confirmMessage = `確定要撤回 ${patient.name} 的診症嗎？\n\n` +
                              `此操作將會：\n` +
                              `• 刪除該次診症記錄\n` +
                              `• 病人狀態回到「已掛號」\n` +
                              `• 所有診症資料將永久遺失\n\n` +
-                             `診症日期：${new Date(consultation.date).toLocaleString('zh-TW')}\n` +
                              `診斷：${consultation.diagnosis || '無記錄'}\n\n` +
                              `注意：此操作無法復原！`;
         
@@ -6567,8 +6609,22 @@ async function editMedicalRecord(appointmentId) {
             return;
         }
         
-        const consultation = consultations.find(c => c.id === appointment.consultationId);
+        // 嘗試從本地或 Firebase 取得診症記錄
+        let consultation = consultations.find(c => c.id === appointment.consultationId);
         if (!consultation) {
+            // 如果本地沒有，則從 Firebase 讀取所有診症記錄並搜尋
+            const consResult = await window.firebaseDataManager.getConsultations();
+            if (consResult && consResult.success) {
+                consultation = consResult.data.find(c => c.id === appointment.consultationId);
+                if (consultation) {
+                    // 將查找到的診症記錄寫入本地緩存，以便後續使用
+                    consultations.push(consultation);
+                    localStorage.setItem('consultations', JSON.stringify(consultations));
+                }
+            }
+        }
+        if (!consultation) {
+            // 如果仍然找不到診症記錄，提示錯誤後結束
             showToast(`無法修改病歷！找不到病人 ${patient.name} 的診症記錄資料。`, 'error');
             return;
         }
@@ -8692,14 +8748,27 @@ const consultationDate = (() => {
             // 載入處方內容
             selectedPrescriptionItems = [];
             if (consultation.prescription) {
-                // 直接將處方內容設置到隱藏文本域
+                // 先將完整處方內容存入隱藏文本域
                 document.getElementById('formPrescription').value = consultation.prescription;
                 
-                // 解析處方內容並重建處方項目
+                // 嘗試解析處方內容並重建處方項目列表
                 parsePrescriptionToItems(consultation.prescription);
-                
-                // 更新處方顯示
                 updatePrescriptionDisplay();
+                
+                // 若解析後沒有任何處方項目（可能中藥庫未包含相關藥材），
+                // 則直接顯示原始處方內容，避免呈現空白
+                if (selectedPrescriptionItems.length === 0) {
+                    // 還原隱藏文本域為原始內容
+                    document.getElementById('formPrescription').value = consultation.prescription;
+                    const container = document.getElementById('selectedPrescriptionItems');
+                    if (container) {
+                        container.innerHTML = `<div class="text-sm text-gray-900 whitespace-pre-line">${consultation.prescription}</div>`;
+                    }
+                    const medicationSettingsEl = document.getElementById('medicationSettings');
+                    if (medicationSettingsEl) {
+                        medicationSettingsEl.style.display = 'none';
+                    }
+                }
             } else {
                 // 清空處方
                 document.getElementById('formPrescription').value = '';
@@ -10481,5 +10550,7 @@ async function migrateUserDataToFirebase() {
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96deefe9585702cc","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e737872e69ddc3","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e7cf3ffa4a02da","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e8b85e7a146682","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e8ce9b18e9dd9a","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>
