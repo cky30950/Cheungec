@@ -6470,7 +6470,19 @@ async function withdrawConsultation(appointmentId) {
             return;
         }
         
-        const consultation = consultations.find(c => c.id === appointment.consultationId);
+        // 嘗試從本地或 Firebase 取得診症記錄
+        let consultation = consultations.find(c => c.id === appointment.consultationId);
+        if (!consultation) {
+            // 如果本地沒有，從 Firebase 讀取所有診症記錄並搜尋
+            const consResult = await window.firebaseDataManager.getConsultations();
+            if (consResult && consResult.success) {
+                consultation = consResult.data.find(c => c.id === appointment.consultationId);
+                if (consultation) {
+                    consultations.push(consultation);
+                    localStorage.setItem('consultations', JSON.stringify(consultations));
+                }
+            }
+        }
         if (!consultation) {
             showToast(`無法撤回診症！找不到病人 ${patient.name} 的診症記錄資料。`, 'error');
             return;
@@ -6567,8 +6579,22 @@ async function editMedicalRecord(appointmentId) {
             return;
         }
         
-        const consultation = consultations.find(c => c.id === appointment.consultationId);
+        // 嘗試從本地或 Firebase 取得診症記錄
+        let consultation = consultations.find(c => c.id === appointment.consultationId);
         if (!consultation) {
+            // 如果本地沒有，則從 Firebase 讀取所有診症記錄並搜尋
+            const consResult = await window.firebaseDataManager.getConsultations();
+            if (consResult && consResult.success) {
+                consultation = consResult.data.find(c => c.id === appointment.consultationId);
+                if (consultation) {
+                    // 將查找到的診症記錄寫入本地緩存，以便後續使用
+                    consultations.push(consultation);
+                    localStorage.setItem('consultations', JSON.stringify(consultations));
+                }
+            }
+        }
+        if (!consultation) {
+            // 如果仍然找不到診症記錄，提示錯誤後結束
             showToast(`無法修改病歷！找不到病人 ${patient.name} 的診症記錄資料。`, 'error');
             return;
         }
