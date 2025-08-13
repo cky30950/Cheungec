@@ -9234,7 +9234,7 @@ async function deleteUser(id) {
         let currentFinancialTabType = 'summary';
         
         // 載入財務報表頁面
-        function loadFinancialReports() {
+        async function loadFinancialReports() {
             // 設置預設日期範圍（本月）
             const today = new Date();
             const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -9243,9 +9243,15 @@ async function deleteUser(id) {
             document.getElementById('startDate').value = formatFinancialDate(firstDayOfMonth);
             document.getElementById('endDate').value = formatFinancialDate(lastDayOfMonth);
             
+            // 從 Firebase 更新用戶與診症資料（如可用）
+            if (typeof loadUsersForFinancial === 'function') {
+                await loadUsersForFinancial();
+            }
+            if (typeof loadConsultationsForFinancial === 'function') {
+                await loadConsultationsForFinancial();
+            }
             // 載入醫師選項
             loadFinancialDoctorOptions();
-            
             // 生成初始報表
             generateFinancialReport();
         }
@@ -9272,6 +9278,73 @@ async function deleteUser(id) {
                 option.textContent = `${doctor.name}`;
                 doctorSelect.appendChild(option);
             });
+        }
+
+        // 從 Firebase 載入用戶資料以供財務報表使用
+        async function loadUsersForFinancial() {
+            // 如果 Firebase 數據管理器尚未準備或不存在，跳過
+            if (!window.firebaseDataManager || !window.firebaseDataManager.isReady) {
+                return;
+            }
+            try {
+                const result = await window.firebaseDataManager.getUsers();
+                if (result.success) {
+                    // 更新全局 users 變數以供其他函式使用
+                    users = result.data.map(user => {
+                        // 轉換時間戳為 ISO 字串，兼容不同數據類型
+                        const createdAt = user.createdAt
+                            ? (user.createdAt.seconds
+                                ? new Date(user.createdAt.seconds * 1000).toISOString()
+                                : user.createdAt)
+                            : new Date().toISOString();
+                        const updatedAt = user.updatedAt
+                            ? (user.updatedAt.seconds
+                                ? new Date(user.updatedAt.seconds * 1000).toISOString()
+                                : user.updatedAt)
+                            : new Date().toISOString();
+                        const lastLogin = user.lastLogin
+                            ? (user.lastLogin.seconds
+                                ? new Date(user.lastLogin.seconds * 1000).toISOString()
+                                : user.lastLogin)
+                            : null;
+                        return { ...user, createdAt, updatedAt, lastLogin };
+                    });
+                }
+            } catch (error) {
+                console.error('載入 Firebase 用戶資料失敗:', error);
+            }
+        }
+
+        // 從 Firebase 載入診症記錄以供財務報表使用
+        async function loadConsultationsForFinancial() {
+            if (!window.firebaseDataManager || !window.firebaseDataManager.isReady) {
+                return;
+            }
+            try {
+                const result = await window.firebaseDataManager.getConsultations();
+                if (result.success) {
+                    // 轉換 Firebase Timestamp 為 ISO 字串
+                    consultations = result.data.map(item => {
+                        let dateStr = null;
+                        if (item.date) {
+                            if (typeof item.date === 'object' && item.date.seconds) {
+                                dateStr = new Date(item.date.seconds * 1000).toISOString();
+                            } else {
+                                dateStr = item.date;
+                            }
+                        } else if (item.createdAt) {
+                            if (typeof item.createdAt === 'object' && item.createdAt.seconds) {
+                                dateStr = new Date(item.createdAt.seconds * 1000).toISOString();
+                            } else {
+                                dateStr = item.createdAt;
+                            }
+                        }
+                        return { ...item, date: dateStr };
+                    });
+                }
+            } catch (error) {
+                console.error('載入 Firebase 診症資料失敗:', error);
+            }
         }
 
         // 快速日期選擇
