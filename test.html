@@ -3338,11 +3338,17 @@ async function searchPatientsForRegistration() {
         
 // 2. 修改選擇病人進行掛號函數
 async function selectPatientForRegistration(patientId) {
-    // 檢查是否有病人正在診症中
-    const consultingAppointment = appointments.find(apt => 
-        apt.status === 'consulting' && 
-        new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
-    );
+    // 檢查是否需要限制醫師掛號操作：只有醫師在診症時才限制
+    let consultingAppointment = null;
+    const isDoctorUser = currentUserData && currentUserData.position === '醫師';
+    if (isDoctorUser) {
+        // 檢查當天是否有同一醫師正在診症
+        consultingAppointment = appointments.find(apt =>
+            apt.status === 'consulting' &&
+            apt.appointmentDoctor === currentUserData.username &&
+            new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
+        );
+    }
     
     if (consultingAppointment) {
         try {
@@ -3351,7 +3357,7 @@ async function selectPatientForRegistration(patientId) {
             if (result.success) {
                 const consultingPatient = result.data.find(p => p.id === consultingAppointment.patientId);
                 const consultingPatientName = consultingPatient ? consultingPatient.name : '某位病人';
-                showToast(`無法進行掛號！${consultingPatientName}正在診症中，請等待診症完成後再進行掛號操作。`, 'warning');
+                showToast(`無法進行掛號！您目前正在為 ${consultingPatientName} 診症中，請完成後再進行掛號操作。`, 'warning');
                 return;
             }
         } catch (error) {
@@ -3883,9 +3889,12 @@ function createAppointmentRow(appointment, patient, index) {
 function getOperationButtons(appointment, patient = null) {
     const buttons = [];
     
-    // 檢查是否有病人正在診症中
-    const isAnyoneConsulting = appointments.some(apt => 
-        apt.status === 'consulting' && 
+    // 檢查目前用戶是否為醫師
+    const isDoctorUser = currentUserData && currentUserData.position === '醫師';
+    // 檢查同一醫師是否有病人在今日診症中
+    const isDoctorConsulting = isDoctorUser && appointments.some(apt =>
+        apt.status === 'consulting' &&
+        apt.appointmentDoctor === currentUserData.username &&
         new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
     );
     
@@ -3909,15 +3918,12 @@ function getOperationButtons(appointment, patient = null) {
     // 所有狀態都可以查看診症記錄
     buttons.push(`<button onclick="viewPatientMedicalHistory('${patientId}')" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition duration-200">診症記錄</button>`);
     
-    // 如果有人在診症中且不是當前病人，則其他操作都被禁用
-    const isDisabled = isAnyoneConsulting && !isCurrentConsulting;
+    // 僅當醫師正在為其他病人診症時禁用其對其他掛號的操作
+    const isDisabled = isDoctorConsulting && !isCurrentConsulting;
     let disabledTooltip = '';
     if (isDisabled) {
-        const consultingAppointment = appointments.find(apt => 
-            apt.status === 'consulting' && 
-            new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
-        );
-        disabledTooltip = `title="有病人正在診症中，操作暫時禁用"`;
+        // 提示醫師目前正在診症中
+        disabledTooltip = `title="您正在診症中，操作暫時禁用"`;
     }
     
     switch (appointment.status) {
@@ -6502,18 +6508,23 @@ async function editMedicalRecord(appointmentId) {
             return;
         }
         
-        // 檢查是否有其他病人正在診症中
-        const consultingAppointment = appointments.find(apt => 
-            apt.status === 'consulting' && 
-            new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
-        );
+        // 檢查是否有其他病人正在診症中（僅限制同一醫師）
+        let consultingAppointment = null;
+        const isDoctorUser = currentUserData && currentUserData.position === '醫師';
+        if (isDoctorUser) {
+            consultingAppointment = appointments.find(apt =>
+                apt.status === 'consulting' &&
+                apt.appointmentDoctor === currentUserData.username &&
+                new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
+            );
+        }
         
         if (consultingAppointment) {
             // 從 Firebase 獲取正在診症的病人資料
             const consultingPatient = patientResult.data.find(p => p.id === consultingAppointment.patientId);
             const consultingPatientName = consultingPatient ? consultingPatient.name : '未知病人';
             
-            if (confirm(`目前 ${consultingPatientName} 正在診症中。\n\n是否要結束該病人的診症並開始修改 ${patient.name} 的病歷？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`)) {
+            if (confirm(`您目前正在為 ${consultingPatientName} 診症。\n\n是否要結束該病人的診症並開始修改 ${patient.name} 的病歷？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`)) {
                 // 結束當前診症的病人
                 consultingAppointment.status = 'waiting';
                 delete consultingAppointment.consultationStartTime;
