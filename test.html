@@ -52,6 +52,51 @@ const firebaseConfig = {
     });
 
     console.log('Firebase 初始化完成');
+
+    // 每日自動清空 Realtime Database
+    // 此函式會檢查今天是否已經清空過，如果沒有則立即清空，並排程在午夜時再次清空。
+    function scheduleDailyRealtimeDatabaseClear() {
+        // 定義清空資料庫的函式
+        const clearDatabase = async () => {
+            try {
+                // 使用 remove 刪除根路徑下的所有資料
+                await remove(ref(rtdb));
+                console.log('Realtime Database 已清空');
+            } catch (error) {
+                console.error('清空 Realtime Database 失敗', error);
+            }
+        };
+
+        // 取得當天日期字串（YYYY-MM-DD），用於比較是否已清空
+        const todayStr = new Date().toISOString().split('T')[0];
+        const lastClear = localStorage.getItem('lastRtdbClearDate');
+        // 若今天尚未清空，立即執行一次清空並記錄日期
+        if (lastClear !== todayStr) {
+            clearDatabase();
+            localStorage.setItem('lastRtdbClearDate', todayStr);
+        }
+
+        // 計算距離下一次午夜的毫秒數
+        function getMsUntilNextMidnight() {
+            const now = new Date();
+            const next = new Date(now);
+            // 設定為下一天的午夜
+            next.setHours(24, 0, 0, 0);
+            return next - now;
+        }
+        // 在午夜時再次執行清空，之後每隔 24 小時執行一次
+        setTimeout(() => {
+            clearDatabase();
+            localStorage.setItem('lastRtdbClearDate', new Date().toISOString().split('T')[0]);
+            setInterval(() => {
+                clearDatabase();
+                localStorage.setItem('lastRtdbClearDate', new Date().toISOString().split('T')[0]);
+            }, 24 * 60 * 60 * 1000);
+        }, getMsUntilNextMidnight());
+    }
+
+    // 呼叫排程函式，啟動每日清空機制
+    scheduleDailyRealtimeDatabaseClear();
 </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
