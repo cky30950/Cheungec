@@ -3630,10 +3630,12 @@ async function selectPatientForRegistration(patientId) {
         async function clearAppointmentsDaily() {
             try {
                 // 讀取 Firebase 伺服器時間偏移量
-                // 使用帶斜線的 /.info/serverTimeOffset 路徑以避免 Invalid token in path 錯誤
-                // Firebase 文件指出可以在 /.info/serverTimeOffset 讀取伺服器時間偏移量【356185150669680†L1625-L1627】
+                // 注意：在模組化 Firebase SDK 中，ref 的路徑參數不應以斜線開頭。
+                // Firebase 官方文件建議使用 .info/serverTimeOffset 來取得伺服器時間偏移量【481019140091002†L1425-L1440】。
+                // 若路徑前面加上斜線（/.info/serverTimeOffset）會導致 "Invalid token in path" 錯誤，
+                // 因此此處改為 '.info/serverTimeOffset'。
                 // 先取得對應參考，再讀取快照
-                const offsetRef = window.firebase.ref(window.firebase.rtdb, '/.info/serverTimeOffset');
+                const offsetRef = window.firebase.ref(window.firebase.rtdb, '.info/serverTimeOffset');
                 const offsetSnapshot = await window.firebase.get(offsetRef);
                 const offset = offsetSnapshot && typeof offsetSnapshot.val === 'function' ? offsetSnapshot.val() : (offsetSnapshot && offsetSnapshot.val);
                 const serverOffset = (typeof offset === 'number') ? offset : 0;
@@ -10682,5 +10684,6 @@ async function migrateUserDataToFirebase() {
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e9acf69ccb8cae","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e9bd91ff94c5e8","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96ec2e89dbd70713","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96edb4405fb064c8","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>
