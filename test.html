@@ -1494,23 +1494,6 @@ const firebaseConfig = {
                 <h2 class="text-2xl font-bold text-gray-800 mb-6">系統管理</h2>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-gray-50 rounded-lg p-6">
-                        <h3 class="text-lg font-semibold mb-4">診所統計</h3>
-                        <div class="space-y-3">
-                            <div class="flex justify-between">
-                                <span>總病人數：</span>
-                                <span id="totalPatients" class="font-semibold">0</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>今日診症：</span>
-                                <span id="todayConsultations" class="font-semibold">0</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>本月診症：</span>
-                                <span id="monthlyConsultations" class="font-semibold">0</span>
-                            </div>
-                        </div>
-                    </div>
                     
                     <div class="bg-gray-50 rounded-lg p-6">
                         <h3 class="text-lg font-semibold mb-4">診所設定</h3>
@@ -1527,20 +1510,6 @@ const firebaseConfig = {
                         </div>
                     </div>
                     
-                    <div class="bg-gray-50 rounded-lg p-6">
-                        <h3 class="text-lg font-semibold mb-4">資料管理</h3>
-                        <div class="space-y-3">
-                            <button onclick="exportData()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-200">
-                                匯出資料
-                            </button>
-                            <button onclick="backupData()" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition duration-200">
-                                備份資料
-                            </button>
-                            <button onclick="clearData()" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition duration-200">
-                                清除資料
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -2820,9 +2789,9 @@ async function logout() {
                 if (position === '診所管理') {
                     return [...basePermissions, 'financialReports', 'userManagement', 'systemManagement'];
                 }
-                // 醫師職位亦可管理用戶，因此加入 userManagement 權限
+                // 醫師職位亦可管理用戶與系統，因此加入 userManagement 和 systemManagement 權限
                 if (position === '醫師') {
-                    return [...basePermissions, 'userManagement'];
+                    return [...basePermissions, 'userManagement', 'systemManagement'];
                 }
                 // 其他職位僅具備基本功能
                 return basePermissions;
@@ -2857,10 +2826,17 @@ async function logout() {
 
         // 顯示指定區域
         function showSection(sectionId) {
-            // 若為財務報表或系統管理，僅限診所管理存取
-            if (['financialReports', 'systemManagement'].includes(sectionId)) {
+            // 若為財務報表，僅限診所管理存取
+            if (sectionId === 'financialReports') {
                 if (!currentUserData || currentUserData.position !== '診所管理') {
                     showToast('權限不足，僅診所管理可使用此功能', 'error');
+                    return;
+                }
+            }
+            // 若為系統管理，診所管理及醫師皆可存取
+            if (sectionId === 'systemManagement') {
+                if (!currentUserData || !['診所管理', '醫師'].includes(currentUserData.position)) {
+                    showToast('權限不足，僅診所管理或醫師可使用此功能', 'error');
                     return;
                 }
             }
@@ -10694,5 +10670,6 @@ async function migrateUserDataToFirebase() {
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96edc9bb6b681053","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96ee04dd0ce1e6c6","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96ee25e61cd4b929","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96f0d9617feb04c3","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>
