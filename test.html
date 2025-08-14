@@ -9,7 +9,7 @@
 <script type="module">
     // Import Firebase functions
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, setDoc, onSnapshot, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, setDoc, getDoc, onSnapshot, query, where, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
     import { getDatabase, ref, set, get, child, push, update, remove, onValue, off } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
     import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
@@ -10449,7 +10449,21 @@ class FirebaseDataManager {
                     createdBy: currentUser || 'system'
                 }
             );
-            
+            /*
+             * 在 roles 集合下建立或更新以 uid 為 ID 的角色文檔。透過 roles/{uid} 存放職位與啟用狀態，
+             * 便於在 Firestore 安全規則中快速取得目前登入者的職位。
+             */
+            if (userData.uid) {
+                await window.firebase.setDoc(
+                    window.firebase.doc(window.firebase.db, 'roles', userData.uid),
+                    {
+                        position: userData.position || '',
+                        active: userData.active !== undefined ? userData.active : true,
+                        updatedAt: new Date()
+                    }
+                );
+            }
+
             console.log('用戶數據已添加到 Firebase:', docRef.id);
             return { success: true, id: docRef.id };
         } catch (error) {
@@ -10490,6 +10504,18 @@ class FirebaseDataManager {
                     updatedBy: currentUser || 'system'
                 }
             );
+            // 同時更新 roles/{uid} 的職位與啟用狀態，保持前後端一致
+            if (userData.uid) {
+                await window.firebase.setDoc(
+                    window.firebase.doc(window.firebase.db, 'roles', userData.uid),
+                    {
+                        position: userData.position || '',
+                        active: userData.active !== undefined ? userData.active : true,
+                        updatedAt: new Date()
+                    },
+                    { merge: true }
+                );
+            }
             return { success: true };
         } catch (error) {
             console.error('更新用戶數據失敗:', error);
@@ -10499,9 +10525,33 @@ class FirebaseDataManager {
 
     async deleteUser(userId) {
         try {
-            await window.firebase.deleteDoc(
-                window.firebase.doc(window.firebase.db, 'users', userId)
-            );
+            // 先取得用戶文檔的 uid，再刪除用戶與對應角色文檔
+            let uidToDelete = null;
+            const userRef = window.firebase.doc(window.firebase.db, 'users', userId);
+            try {
+                const userSnapshot = await window.firebase.getDoc(userRef);
+                if (userSnapshot.exists()) {
+                    const data = userSnapshot.data();
+                    uidToDelete = data && data.uid ? data.uid : null;
+                }
+            } catch (e) {
+                // 無法取得用戶資料時忽略 uid
+                uidToDelete = null;
+            }
+
+            // 刪除 users/{userId}
+            await window.firebase.deleteDoc(userRef);
+
+            // 刪除 roles/{uid}，確保安全規則不再包含此使用者的權限
+            if (uidToDelete) {
+                try {
+                    await window.firebase.deleteDoc(
+                        window.firebase.doc(window.firebase.db, 'roles', uidToDelete)
+                    );
+                } catch (e) {
+                    // 若角色文檔不存在，忽略錯誤
+                }
+            }
             return { success: true };
         } catch (error) {
             console.error('刪除用戶數據失敗:', error);
