@@ -3596,11 +3596,82 @@ async function selectPatientForRegistration(patientId) {
             }
         }
         
-        // 每日自動清空過期掛號列表（同步到 Firebase）
-        async function clearOldAppointments() {
-            // 此功能已停用，留下空函式以避免錯誤
-            return;
-        }
+            // 每日自動清空過期掛號列表（同步到 Firebase）
+            async function clearOldAppointments() {
+                /**
+                 * 從 Firebase Realtime Database 讀取所有掛號記錄，
+                 * 將掛號時間早於今日 00:00:00 的記錄刪除。
+                 *
+                 * 判斷邏輯：
+                 *  - 取得今天的開始時間（本地時間）
+                 *  - 對每筆掛號紀錄解析其 appointmentTime
+                 *  - 若該時間早於今日，則將這筆資料從 Realtime Database 刪除
+                 *
+                 * 此函式會同步更新本地的 appointments 陣列與 localStorage。
+                 */
+                try {
+                    // 讀取所有掛號資料
+                    const snapshot = await window.firebase.get(
+                        window.firebase.ref(window.firebase.rtdb, 'appointments')
+                    );
+                    const data = (snapshot && typeof snapshot.val === 'function'
+                        ? snapshot.val()
+                        : snapshot && snapshot.val) || {};
+
+                    // 計算今日凌晨時間（本地時區）
+                    const now = new Date();
+                    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+                    const idsToRemove = [];
+                    for (const id in data) {
+                        if (!Object.prototype.hasOwnProperty.call(data, id)) continue;
+                        const apt = data[id] || {};
+                        const timeValue = apt.appointmentTime;
+                        // 如果沒有 appointmentTime，視為過期資料
+                        if (!timeValue) {
+                            idsToRemove.push(id);
+                            continue;
+                        }
+                        const aptDate = new Date(timeValue);
+                        if (isNaN(aptDate.getTime())) {
+                            // 無法解析日期，視為過期
+                            idsToRemove.push(id);
+                            continue;
+                        }
+                        // 如果掛號時間在今日凌晨之前（昨天或更早），則刪除
+                        if (aptDate < startOfToday) {
+                            idsToRemove.push(id);
+                        }
+                    }
+
+                    // 若沒有需要刪除的掛號，直接返回
+                    if (idsToRemove.length === 0) {
+                        console.log('沒有過期掛號需要清除。');
+                        return;
+                    }
+
+                    // 刪除每筆過期的掛號
+                    for (const id of idsToRemove) {
+                        try {
+                            await window.firebase.remove(
+                                window.firebase.ref(window.firebase.rtdb, 'appointments/' + id)
+                            );
+                        } catch (removeError) {
+                            console.error('刪除過期掛號失敗:', id, removeError);
+                        }
+                    }
+
+                    // 更新本地 appointments 陣列
+                    if (typeof appointments !== 'undefined' && Array.isArray(appointments)) {
+                        appointments = appointments.filter(apt => !idsToRemove.includes(String(apt.id)));
+                        localStorage.setItem('appointments', JSON.stringify(appointments));
+                    }
+
+                    console.log(`清除 ${idsToRemove.length} 筆過期掛號完成。`);
+                } catch (error) {
+                    console.error('清除過期掛號時發生錯誤:', error);
+                }
+            }
 
         // 每日自動清空掛號列表：根據 Firebase Realtime Database 的伺服器時間判斷是否需要清空
         async function clearAppointmentsDaily() {
@@ -10670,5 +10741,6 @@ async function migrateUserDataToFirebase() {
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96ec2e89dbd70713","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96edc9bb6b681053","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96ee04dd0ce1e6c6","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96ee25e61cd4b929","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>
