@@ -3596,7 +3596,7 @@ async function selectPatientForRegistration(patientId) {
             }
         }
         
-        // 每日自動清空掛號列表（同步到 Firebase）
+        // 每日自動清空過期掛號列表（同步到 Firebase）
         async function clearOldAppointments() {
             const today = new Date().toDateString();
             // 找出早於今天的掛號記錄
@@ -3623,6 +3623,29 @@ async function selectPatientForRegistration(patientId) {
             // 如果有清除記錄，更新本地備份
             if (appointments.length < originalLength) {
                 localStorage.setItem('appointments', JSON.stringify(appointments));
+            }
+        }
+
+        // 每日自動清空掛號列表（完全清空 Firebase Realtime Database 中的 appointments 節點）
+        // 此函式會檢查 localStorage 中最後清空日期，如果不是今天，則清空掛號資料
+        async function clearAppointmentsDaily() {
+            const today = new Date().toDateString();
+            const lastClear = localStorage.getItem('appointmentsLastClearDate');
+            if (lastClear !== today) {
+                try {
+                    // 清空 Realtime Database 中所有掛號資料
+                    await window.firebase.remove(
+                        window.firebase.ref(window.firebase.rtdb, 'appointments')
+                    );
+                    console.log('已自動清空 Firebase 中的掛號資料');
+                    // 清空本地陣列和備份
+                    appointments = [];
+                    localStorage.setItem('appointments', JSON.stringify([]));
+                    // 更新最後清空日期
+                    localStorage.setItem('appointmentsLastClearDate', today);
+                } catch (error) {
+                    console.error('每日自動清空掛號資料失敗:', error);
+                }
             }
         }
 
@@ -10540,6 +10563,8 @@ window.addEventListener('load', () => {
 document.addEventListener('DOMContentLoaded', function() {
     // 系統啟動時清空過期掛號
     clearOldAppointments();
+    // 每日自動清空掛號列表（如果上次清空日期不是今天，將會清空 Firebase Realtime Database 中的掛號資料）
+    clearAppointmentsDaily();
     
     updateClinicSettingsDisplay();
     
