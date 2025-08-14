@@ -3630,9 +3630,11 @@ async function selectPatientForRegistration(patientId) {
         async function clearAppointmentsDaily() {
             try {
                 // 讀取 Firebase 伺服器時間偏移量
-                const offsetSnapshot = await window.firebase.get(
-                    window.firebase.ref(window.firebase.rtdb, '.info/serverTimeOffset')
-                );
+                // 使用帶斜線的 /.info/serverTimeOffset 路徑以避免 Invalid token in path 錯誤
+                // Firebase 文件指出可以在 /.info/serverTimeOffset 讀取伺服器時間偏移量【356185150669680†L1625-L1627】
+                // 先取得對應參考，再讀取快照
+                const offsetRef = window.firebase.ref(window.firebase.rtdb, '/.info/serverTimeOffset');
+                const offsetSnapshot = await window.firebase.get(offsetRef);
                 const offset = offsetSnapshot && typeof offsetSnapshot.val === 'function' ? offsetSnapshot.val() : (offsetSnapshot && offsetSnapshot.val);
                 const serverOffset = (typeof offset === 'number') ? offset : 0;
                 // 以伺服器時間計算今天日期字串
