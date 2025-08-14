@@ -3676,6 +3676,10 @@ async function selectPatientForRegistration(patientId) {
 
 // 3. 修改今日掛號列表載入功能，確保能正確顯示病人資訊
 async function loadTodayAppointments() {
+    // 在讀取掛號資料之前，先清除過期掛號（同步到 Firebase）。
+    // 如果掛號時間在昨日或更早（即早於今天 00:00:00），會從 Realtime Database 中刪除。
+    await clearOldAppointments();
+
     // 從 Firebase 讀取掛號資料
     try {
         const result = await window.firebaseDataManager.getAppointments();
@@ -3691,8 +3695,6 @@ async function loadTodayAppointments() {
     } catch (error) {
         console.error('讀取掛號資料錯誤:', error);
     }
-    // 清除過期掛號（同步到 Firebase）
-    // await clearOldAppointments(); // 每日清空功能已移除，不再自動清空掛號
 
     const today = new Date().toDateString();
     let todayAppointments = appointments.filter(apt => 
