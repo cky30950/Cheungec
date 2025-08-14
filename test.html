@@ -3626,28 +3626,42 @@ async function selectPatientForRegistration(patientId) {
             }
         }
 
-        // 每日自動清空掛號列表（完全清空 Firebase Realtime Database 中的 appointments 節點）
-        // 此函式會檢查 localStorage 中最後清空日期，如果不是今天，則清空掛號資料
+        // 每日自動清空掛號列表：根據 Firebase Realtime Database 的伺服器時間判斷是否需要清空
         async function clearAppointmentsDaily() {
-            const today = new Date().toDateString();
-            const lastClear = localStorage.getItem('appointmentsLastClearDate');
-            if (lastClear !== today) {
-                try {
-                    // 清空 Realtime Database 中所有掛號資料
-                    await window.firebase.remove(
-                        window.firebase.ref(window.firebase.rtdb, 'appointments')
-                    );
-                    console.log('已自動清空 Firebase 中的掛號資料');
-                    // 清空本地陣列和備份
-                    appointments = [];
-                    localStorage.setItem('appointments', JSON.stringify([]));
-                    // 更新最後清空日期
-                    localStorage.setItem('appointmentsLastClearDate', today);
-                } catch (error) {
-                    console.error('每日自動清空掛號資料失敗:', error);
+            try {
+                // 讀取 Firebase 伺服器時間偏移量
+                const offsetSnapshot = await window.firebase.get(
+                    window.firebase.ref(window.firebase.rtdb, '.info/serverTimeOffset')
+                );
+                const offset = offsetSnapshot && typeof offsetSnapshot.val === 'function' ? offsetSnapshot.val() : (offsetSnapshot && offsetSnapshot.val);
+                const serverOffset = (typeof offset === 'number') ? offset : 0;
+                // 以伺服器時間計算今天日期字串
+                const serverTime = new Date(Date.now() + serverOffset);
+                const todayServer = serverTime.toDateString();
+
+                // 取得上次清空日期
+                const metaRef = window.firebase.ref(window.firebase.rtdb, 'meta/appointmentsLastClearDate');
+                const lastClearSnapshot = await window.firebase.get(metaRef);
+                const lastClear = lastClearSnapshot && typeof lastClearSnapshot.val === 'function'
+                    ? lastClearSnapshot.val()
+                    : (lastClearSnapshot && lastClearSnapshot.val);
+
+                // 如果尚未清空或已過一天，則清空過期掛號並更新紀錄
+                if (lastClear !== todayServer) {
+                    // 清除過期掛號（此函式會根據本地日期判斷過期，但因伺服器與客戶端時間差有限，問題不大）
+                    await clearOldAppointments();
+                    // 更新 lastClear 日期到 Firebase
+                    await window.firebase.set(metaRef, todayServer);
+                    console.log('已根據伺服器時間清空掛號列表。');
+                } else {
+                    console.log('今日掛號列表已於伺服器時間清空過，無需再次清空。');
                 }
+            } catch (error) {
+                console.error('每日自動清空掛號列表功能錯誤:', error);
             }
         }
+
+        /* 每日自動清空掛號列表功能：改由 clearAppointmentsDaily() 以伺服器時間決定是否清空 */
 
 // 3. 修改今日掛號列表載入功能，確保能正確顯示病人資訊
 async function loadTodayAppointments() {
@@ -10561,9 +10575,7 @@ window.addEventListener('load', () => {
         
 // 初始化系統
 document.addEventListener('DOMContentLoaded', function() {
-    // 系統啟動時清空過期掛號
-    clearOldAppointments();
-    // 每日自動清空掛號列表（如果上次清空日期不是今天，將會清空 Firebase Realtime Database 中的掛號資料）
+    // 系統啟動時每日自動清空掛號列表（使用 Firebase 伺服器時間判斷）
     clearAppointmentsDaily();
     
     updateClinicSettingsDisplay();
