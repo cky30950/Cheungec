@@ -3598,48 +3598,32 @@ async function selectPatientForRegistration(patientId) {
         
         // 每日自動清空過期掛號列表（同步到 Firebase）
         async function clearOldAppointments() {
-            const today = new Date().toDateString();
-            // 找出早於今天的掛號記錄
-            const expired = appointments.filter(apt => {
-                const appointmentDate = new Date(apt.appointmentTime).toDateString();
-                return appointmentDate < today;
-            });
-            if (expired.length > 0) {
-                for (const apt of expired) {
-                    try {
-                        await window.firebaseDataManager.deleteAppointment(String(apt.id));
-                    } catch (error) {
-                        console.error('刪除掛號資料錯誤:', error);
-                    }
-                }
-                console.log(`已從 Firebase 清除 ${expired.length} 筆過期掛號記錄`);
-            }
-            const originalLength = appointments.length;
-            // 在本地陣列中移除過期掛號
-            appointments = appointments.filter(apt => {
-                const appointmentDate = new Date(apt.appointmentTime).toDateString();
-                return appointmentDate >= today;
-            });
-            // 如果有清除記錄，更新本地備份
-            if (appointments.length < originalLength) {
-                localStorage.setItem('appointments', JSON.stringify(appointments));
-            }
+            // 此功能已停用，留下空函式以避免錯誤
+            return;
         }
 
         // 每日自動清空掛號列表：根據 Firebase Realtime Database 的伺服器時間判斷是否需要清空
         async function clearAppointmentsDaily() {
             try {
-                // 讀取 Firebase 伺服器時間偏移量
-                // 注意：在模組化 Firebase SDK 中，ref 的路徑參數不應以斜線開頭。
-                // Firebase 官方文件建議使用 .info/serverTimeOffset 來取得伺服器時間偏移量【481019140091002†L1425-L1440】。
-                // 若路徑前面加上斜線（/.info/serverTimeOffset）會導致 "Invalid token in path" 錯誤，
-                // 因此此處改為 '.info/serverTimeOffset'。
-                // 先取得對應參考，再讀取快照
-                const offsetRef = window.firebase.ref(window.firebase.rtdb, '.info/serverTimeOffset');
-                const offsetSnapshot = await window.firebase.get(offsetRef);
-                const offset = offsetSnapshot && typeof offsetSnapshot.val === 'function' ? offsetSnapshot.val() : (offsetSnapshot && offsetSnapshot.val);
-                const serverOffset = (typeof offset === 'number') ? offset : 0;
-                // 以伺服器時間計算今天日期字串
+                // 先嘗試從 Firebase 讀取伺服器時間偏移量，如果失敗則回退使用本地時間。
+                let serverOffset = 0;
+                try {
+                    // 在 Realtime Database 中，ref() 的路徑不應以斜線開頭【481019140091002†L1434-L1440】。
+                    // 使用 `.info/serverTimeOffset` 取得伺服器與本地時鐘的偏移量。
+                    const offsetRef = window.firebase.ref(window.firebase.rtdb, '.info/serverTimeOffset');
+                    const offsetSnapshot = await window.firebase.get(offsetRef);
+                    const value = offsetSnapshot && typeof offsetSnapshot.val === 'function'
+                        ? offsetSnapshot.val()
+                        : (offsetSnapshot && offsetSnapshot.val);
+                    if (typeof value === 'number') {
+                        serverOffset = value;
+                    }
+                } catch (offsetError) {
+                    // 如果讀取失敗（例如路徑錯誤），記錄警告並使用本地時間。
+                    console.warn('無法讀取伺服器時間偏移量，將使用本地時間。', offsetError);
+                    serverOffset = 0;
+                }
+                // 根據伺服器偏移量計算當前日期字串；若偏移量為 0 則相當於本地時間
                 const serverTime = new Date(Date.now() + serverOffset);
                 const todayServer = serverTime.toDateString();
 
@@ -3685,7 +3669,7 @@ async function loadTodayAppointments() {
         console.error('讀取掛號資料錯誤:', error);
     }
     // 清除過期掛號（同步到 Firebase）
-    await clearOldAppointments();
+    // await clearOldAppointments(); // 每日清空功能已移除，不再自動清空掛號
 
     const today = new Date().toDateString();
     let todayAppointments = appointments.filter(apt => 
@@ -10579,8 +10563,8 @@ window.addEventListener('load', () => {
         
 // 初始化系統
 document.addEventListener('DOMContentLoaded', function() {
-    // 系統啟動時每日自動清空掛號列表（使用 Firebase 伺服器時間判斷）
-    clearAppointmentsDaily();
+    // 系統啟動時每日自動清空掛號列表已移除，不再自動清空掛號
+    // clearAppointmentsDaily();
     
     updateClinicSettingsDisplay();
     
@@ -10684,6 +10668,7 @@ async function migrateUserDataToFirebase() {
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e9acf69ccb8cae","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e9bd91ff94c5e8","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96ec2e89dbd70713","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
-<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96edb4405fb064c8","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96edc9bb6b681053","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96edd1bdae3db6a7","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>
