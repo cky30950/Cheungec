@@ -493,9 +493,6 @@ const firebaseConfig = {
                                 <!-- 新增更新掛號列表按鈕：呼叫 loadTodayAppointments 重新載入當日掛號資料 -->
                                 <!-- 更新掛號列表按鈕設計簡潔、以白色為主 -->
                                 <!-- 將更新掛號列表按鈕尺寸調整為較小：減少內距、降低圓角、使用較小文字 -->
-                                <button onclick="loadTodayAppointments()" class="bg-white hover:bg-gray-100 text-green-600 border border-green-600 px-2 py-1 text-sm rounded-md transition duration-200 flex items-center">
-                                    <span class="mr-1">🔄</span>更新掛號列表
-                                </button>
                                 <span>
                                     總計：<span id="todayTotal" class="font-semibold text-blue-600">0</span> 人
                                 </span>
@@ -3720,6 +3717,32 @@ async function loadTodayAppointments() {
             </tr>
         `;
     }
+}
+
+// 新增：訂閱 Firebase Realtime Database 的掛號變動，實時更新今日掛號列表
+function subscribeToAppointments() {
+    // 監聽 appointments 資料變化
+    const appointmentsRef = window.firebase.ref(window.firebase.rtdb, 'appointments');
+    // 如果先前已經有監聽器，先取消以避免重複觸發
+    if (window.appointmentsListener) {
+        window.firebase.off(appointmentsRef, 'value', window.appointmentsListener);
+    }
+    // 建立新的監聽回調
+    window.appointmentsListener = (snapshot) => {
+        const data = snapshot.val() || {};
+        // 將資料轉換為陣列並保存到全域變數
+        appointments = Object.keys(data).map(key => {
+            return { id: key, ...data[key] };
+        });
+        // 儲存到本地作為備份
+        localStorage.setItem('appointments', JSON.stringify(appointments));
+        // 重新載入今日掛號列表
+        loadTodayAppointments();
+        // 更新統計資訊
+        updateStatistics();
+    };
+    // 設置監聽器
+    window.firebase.onValue(appointmentsRef, window.appointmentsListener);
 }
 
 
@@ -10509,6 +10532,8 @@ window.addEventListener('load', () => {
     window.firebaseDataManager = firebaseDataManager; // 全域使用
     // Firebase 資料管理器初始化完成後更新統計
     updateStatistics();
+    // 啟動實時掛號監聽，無需手動更新今日掛號列表
+    subscribeToAppointments();
 });
         
 // 初始化系統
@@ -10617,5 +10642,6 @@ async function migrateUserDataToFirebase() {
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e8ce9b18e9dd9a","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e9acf69ccb8cae","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96e9bd91ff94c5e8","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96ec2e89dbd70713","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.7.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>
