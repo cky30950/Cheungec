@@ -4853,6 +4853,7 @@ async function loadPatientConsultationSummary(patientId) {
                                 `;
                             }).join('')}
                         </div>`;
+                } else {
                     // 有套票記錄但已全數用盡
                     packageStatusHtml = `
                         <div class="bg-gray-50 border-gray-200 border rounded-lg p-3 text-center">
