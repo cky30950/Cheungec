@@ -14,70 +14,80 @@ let consultationCache = null;
 let userCache = null;
 
 /**
+ * 通用的資料快取器。
+ *
+ * 許多讀取資料的函式僅在快取不存在或強制重新讀取時才從資料庫取得資料。
+ * 這個工具函式用來簡化這類模式，避免在不同地方重複撰寫快取邏輯。
+ *
+ * @param {any} cache 當前快取資料
+ * @param {Function} fetchFunc 回傳 Promise 的函式，用於從資料庫載入資料
+ * @param {boolean} forceRefresh 是否強制重新載入
+ * @returns {Promise<any[]>} 最新的資料陣列
+ */
+async function fetchDataWithCache(cache, fetchFunc, forceRefresh = false) {
+    try {
+        // 若需要重新讀取，或快取為空則從資料庫讀取
+        if (forceRefresh || !cache) {
+            const result = await fetchFunc();
+            if (result && result.success) {
+                cache = result.data;
+            } else {
+                cache = null;
+            }
+        }
+        return cache || [];
+    } catch (error) {
+        console.error('資料載入失敗:', error);
+        return [];
+    }
+}
+
+/**
  * 取得病人列表並使用本地快取。
+ * 利用 `fetchDataWithCache` 函式統一讀取邏輯。
+ *
  * @param {boolean} forceRefresh 是否強制重新從 Firestore 讀取資料
  * @returns {Promise<Array>} 病人資料陣列
  */
 async function fetchPatients(forceRefresh = false) {
-    try {
-        if (forceRefresh || !patientCache) {
-            const result = await window.firebaseDataManager.getPatients();
-            if (result && result.success) {
-                patientCache = result.data;
-            } else {
-                patientCache = null;
-            }
-        }
-        return patientCache || [];
-    } catch (error) {
-        console.error('取得病人資料失敗:', error);
-        // 回傳空陣列避免程式崩潰
-        return [];
-    }
+    patientCache = await fetchDataWithCache(
+        patientCache,
+        () => window.firebaseDataManager.getPatients(),
+        forceRefresh
+    );
+    return patientCache;
 }
 
 /**
  * 取得診症記錄列表並使用本地快取。
+ * 利用 `fetchDataWithCache` 函式統一讀取邏輯。
+ *
  * @param {boolean} forceRefresh 是否強制重新從 Firestore 讀取資料
  * @returns {Promise<Array>} 診症資料陣列
  */
 async function fetchConsultations(forceRefresh = false) {
-    try {
-        if (forceRefresh || !consultationCache) {
-            const result = await window.firebaseDataManager.getConsultations();
-            if (result && result.success) {
-                consultationCache = result.data;
-            } else {
-                consultationCache = null;
-            }
-        }
-        return consultationCache || [];
-    } catch (error) {
-        console.error('取得診症資料失敗:', error);
-        return [];
-    }
+    consultationCache = await fetchDataWithCache(
+        consultationCache,
+        () => window.firebaseDataManager.getConsultations(),
+        forceRefresh
+    );
+    return consultationCache;
 }
 
 /**
  * 取得用戶列表並使用本地快取。
+ * 利用 `fetchDataWithCache` 函式統一讀取邏輯。
+ *
  * @param {boolean} forceRefresh 是否強制重新從 Firestore 讀取資料
  * @returns {Promise<Array>} 用戶資料陣列
  */
 async function fetchUsers(forceRefresh = false) {
-    try {
-        if (forceRefresh || !userCache) {
-            const result = await window.firebaseDataManager.getUsers();
-            if (result && result.success) {
-                userCache = result.data;
-            } else {
-                userCache = null;
-            }
-        }
-        return userCache || [];
-    } catch (error) {
-        console.error('取得用戶資料失敗:', error);
-        return [];
-    }
+    userCache = await fetchDataWithCache(
+        userCache,
+        () => window.firebaseDataManager.getUsers(),
+        forceRefresh
+    );
+    return userCache;
 }
         
         // 診所設定
@@ -136,6 +146,98 @@ async function fetchUsers(forceRefresh = false) {
             }, 2000);
         }
         
+        // 按鈕讀取狀態控制函數
+        // 在按鈕上顯示一個半透明的旋轉小圈，以顯示正在讀取中。
+        // 原始內容將儲存在 data-originalHtml 中，完成後可復原。
+        function setButtonLoading(button, loadingText) {
+            if (!button) return;
+            // Save the original HTML so we can restore it later. Preserve the button's
+            // text and any nested elements for restoration once loading is complete.
+            if (!button.dataset.originalHtml) {
+                button.dataset.originalHtml = button.innerHTML;
+            }
+            /*
+             * Capture and store the button's current width and height the first time we set
+             * loading. Without setting these explicitly, replacing the button's content with
+             * only a small spinner element can cause the element to shrink, which in turn
+             * shifts surrounding layout and alters the button's size. By explicitly setting
+             * both dimensions, we ensure the button occupies the same space during loading.
+             */
+            if (!button.dataset.originalWidth || !button.dataset.originalHeight) {
+                const computedWidth = button.offsetWidth;
+                const computedHeight = button.offsetHeight;
+                // Store and set width if it's a valid positive number
+                if (computedWidth > 0) {
+                    button.dataset.originalWidth = computedWidth + 'px';
+                    button.style.width = button.dataset.originalWidth;
+                }
+                // Store and set height if it's a valid positive number
+                if (computedHeight > 0) {
+                    button.dataset.originalHeight = computedHeight + 'px';
+                    button.style.height = button.dataset.originalHeight;
+                }
+            }
+            // Always disable the button while loading to prevent further clicks
+            button.disabled = true;
+            /*
+             * Only show a spinning indicator while loading. We intentionally do not display any
+             * loading text here (including the value passed in via `loadingText`) to satisfy
+             * the requirement of "只需顯示讀取圈" (only show the spinner). To avoid affecting
+             * the button's intrinsic size, we've captured its original width and height above.
+             */
+            // To avoid layout shifts, we center the spinner by converting the button into a flex container.
+            // Save existing layout-related styles so they can be restored later.
+            if (!button.dataset.originalDisplay) {
+                button.dataset.originalDisplay = button.style.display || '';
+                button.dataset.originalAlignItems = button.style.alignItems || '';
+                button.dataset.originalJustifyContent = button.style.justifyContent || '';
+            }
+            // Set up flexbox centering for the spinner
+            button.style.display = 'flex';
+            button.style.alignItems = 'center';
+            button.style.justifyContent = 'center';
+            // Replace the button's content with a spinner using Tailwind classes. Remove margin since
+            // there's no text to align next to it.
+            button.innerHTML = `<div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white opacity-50"></div>`;
+        }
+
+        // 清除按鈕讀取狀態，還原原始內容
+        function clearButtonLoading(button) {
+            if (!button) return;
+            // Restore the original HTML content if we stored it
+            if (button.dataset.originalHtml) {
+                button.innerHTML = button.dataset.originalHtml;
+                delete button.dataset.originalHtml;
+            }
+            // Restore the button's width if we stored it previously
+            if (button.dataset.originalWidth) {
+                // Clear the inline width style so the button can size itself based on its content again
+                button.style.width = '';
+                delete button.dataset.originalWidth;
+            }
+            // Restore the button's height if we stored it previously
+            if (button.dataset.originalHeight) {
+                // Clear the inline height style so the button can size itself based on its content again
+                button.style.height = '';
+                delete button.dataset.originalHeight;
+            }
+            // Restore display and alignment properties if they were modified
+            if (button.dataset.originalDisplay !== undefined) {
+                button.style.display = button.dataset.originalDisplay;
+                delete button.dataset.originalDisplay;
+            }
+            if (button.dataset.originalAlignItems !== undefined) {
+                button.style.alignItems = button.dataset.originalAlignItems;
+                delete button.dataset.originalAlignItems;
+            }
+            if (button.dataset.originalJustifyContent !== undefined) {
+                button.style.justifyContent = button.dataset.originalJustifyContent;
+                delete button.dataset.originalJustifyContent;
+            }
+            // Re-enable the button
+            button.disabled = false;
+        }
+
         // 計算年齡函數
         function calculateAge(birthDate) {
             const birth = new Date(birthDate);
@@ -189,18 +291,8 @@ async function fetchUsers(forceRefresh = false) {
             }
         }
         
-        // 生成病人編號函數
-        function generatePatientNumber() {
-            const existingNumbers = patients
-                .map(p => p.patientNumber)
-                .filter(num => num && num.startsWith('P'))
-                .map(num => parseInt(num.substring(1)))
-                .filter(num => !isNaN(num));
-            
-            const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
-            const newNumber = maxNumber + 1;
-            return `P${newNumber.toString().padStart(6, '0')}`;
-        }
+        // 移除原先依賴全域 patients 陣列產生病人編號的函式，以避免使用未同步的本地資料。
+        // 目前系統僅透過 generatePatientNumberFromFirebase 取得新編號。
 
 
         // 初始化中藥庫資料
@@ -235,7 +327,8 @@ async function fetchUsers(forceRefresh = false) {
             }
         }
 
-        const defaultBillingItems = [];
+        // 預設收費項目資料（目前未使用，但保留以備日後擴充）
+        // 移除未使用的預設收費項目陣列以減少程式碼冗餘
 
         // 初始化收費項目資料
         let billingItems = [];
@@ -268,7 +361,8 @@ async function fetchUsers(forceRefresh = false) {
             }
         }
 
-        const defaultUsers = [];
+        // 預設用戶資料（目前未使用，但保留以備日後擴充）
+        // 移除未使用的預設用戶陣列以減少程式碼冗餘
 
         // 初始化用戶資料：不使用本地預設，用空陣列代替，待由 Firebase 載入
         let users = [];
@@ -285,11 +379,9 @@ async function attemptMainLogin() {
         return;
     }
 
-    // 顯示載入狀態
+    // 顯示載入狀態：在按鈕中顯示旋轉小圈並禁用按鈕
     const loginButton = document.querySelector('button[onclick="attemptMainLogin()"]');
-    const originalText = loginButton.textContent;
-    loginButton.textContent = '登入中...';
-    loginButton.disabled = true;
+    setButtonLoading(loginButton, '登入中...');
 
     try {
         // 等待 Firebase 初始化
@@ -410,9 +502,8 @@ async function attemptMainLogin() {
         showToast(errorMessage, 'error');
         document.getElementById('mainLoginPassword').value = '';
     } finally {
-        // 恢復按鈕狀態
-        loginButton.textContent = originalText;
-        loginButton.disabled = false;
+        // 恢復按鈕狀態與內容
+        clearButtonLoading(loginButton);
     }
 }
 
@@ -619,28 +710,34 @@ async function logout() {
             });
         }
 
+        /**
+         * 判斷當前用戶是否具備指定的角色權限。
+         *
+         * 在多處需要檢查用戶角色是否符合存取資格，故抽出此函式簡化條件判斷。
+         *
+         * @param {string[]} allowedRoles 允許存取的職位陣列
+         * @returns {boolean} 若當前用戶存在且職位在允許名單中則回傳 true
+         */
+        function hasPermission(allowedRoles) {
+            return currentUserData && Array.isArray(allowedRoles) && allowedRoles.includes(currentUserData.position);
+        }
+
         // 顯示指定區域
         function showSection(sectionId) {
             // 若為財務報表，僅限診所管理存取
-            if (sectionId === 'financialReports') {
-                if (!currentUserData || currentUserData.position !== '診所管理') {
-                    showToast('權限不足，僅診所管理可使用此功能', 'error');
-                    return;
-                }
+            if (sectionId === 'financialReports' && !hasPermission(['診所管理'])) {
+                showToast('權限不足，僅診所管理可使用此功能', 'error');
+                return;
             }
             // 若為系統管理，診所管理及醫師皆可存取
-            if (sectionId === 'systemManagement') {
-                if (!currentUserData || !['診所管理', '醫師'].includes(currentUserData.position)) {
-                    showToast('權限不足，僅診所管理或醫師可使用此功能', 'error');
-                    return;
-                }
+            if (sectionId === 'systemManagement' && !hasPermission(['診所管理', '醫師'])) {
+                showToast('權限不足，僅診所管理或醫師可使用此功能', 'error');
+                return;
             }
             // 若為用戶管理，診所管理及醫師皆可存取
-            if (sectionId === 'userManagement') {
-                if (!currentUserData || !['診所管理', '醫師'].includes(currentUserData.position)) {
-                    showToast('權限不足，僅診所管理或醫師可使用此功能', 'error');
-                    return;
-                }
+            if (sectionId === 'userManagement' && !hasPermission(['診所管理', '醫師'])) {
+                showToast('權限不足，僅診所管理或醫師可使用此功能', 'error');
+                return;
             }
 
             hideAllSections();
@@ -749,6 +846,14 @@ async function savePatient() {
 
     // 不限制身分證字號格式，因此無需檢查格式
 
+    // 顯示載入中狀態：根據是新增或更新顯示不同文字
+    const saveButton = document.querySelector('[onclick="savePatient()"]');
+    if (saveButton) {
+        // 若正在編輯，顯示「更新中...」，否則顯示「儲存中...」
+        const loadingText = (typeof editingPatientId !== 'undefined' && editingPatientId) ? '更新中...' : '儲存中...';
+        setButtonLoading(saveButton, loadingText);
+    }
+
     try {
         if (editingPatientId) {
             // 更新現有病人
@@ -784,6 +889,11 @@ async function savePatient() {
     } catch (error) {
         console.error('保存病人資料錯誤:', error);
         showToast('保存時發生錯誤，請稍後再試', 'error');
+    } finally {
+        // 還原按鈕狀態與內容
+        if (saveButton) {
+            clearButtonLoading(saveButton);
+        }
     }
 }
 
@@ -1450,20 +1560,22 @@ async function loadTodayAppointments() {
     // 如果掛號時間在昨日或更早（即早於今天 00:00:00），會從 Realtime Database 中刪除。
     await clearOldAppointments();
 
-    // 從 Firebase 讀取掛號資料
-    try {
-        const result = await window.firebaseDataManager.getAppointments();
-        if (result.success) {
-            appointments = result.data.map(apt => {
-                return { ...apt };
-            });
-            // 更新本地存儲作為備份
-            localStorage.setItem('appointments', JSON.stringify(appointments));
-        } else {
-            console.warn('無法從 Firebase 讀取掛號資料，使用本地資料');
+    // 如果全域 appointments 尚未有資料，則從 Firebase 讀取掛號資料。若已有資料則直接使用，避免重複讀取。
+    if (!Array.isArray(appointments) || appointments.length === 0) {
+        try {
+            const result = await window.firebaseDataManager.getAppointments();
+            if (result.success) {
+                appointments = result.data.map(apt => {
+                    return { ...apt };
+                });
+                // 更新本地存儲作為備份
+                localStorage.setItem('appointments', JSON.stringify(appointments));
+            } else {
+                console.warn('無法從 Firebase 讀取掛號資料，使用本地資料');
+            }
+        } catch (error) {
+            console.error('讀取掛號資料錯誤:', error);
         }
-    } catch (error) {
-        console.error('讀取掛號資料錯誤:', error);
     }
 
     const today = new Date().toDateString();
@@ -1499,16 +1611,15 @@ async function loadTodayAppointments() {
     }
     
     try {
-        // 從 Firebase 獲取所有病人資料
-        const result = await window.firebaseDataManager.getPatients();
-        const patientsData = result.success ? result.data : [];
+        // 優先使用快取的病人資料來避免重複從 Firebase 讀取。
+        const patientsData = await fetchPatients();
         
         tbody.innerHTML = todayAppointments.map((appointment, index) => {
-            // 從 Firebase 資料中尋找對應病人
+            // 從資料集中尋找對應病人
             const patient = patientsData.find(p => p.id === appointment.patientId);
             
             if (!patient) {
-                // 如果在 Firebase 找不到，嘗試從本地陣列找（向後兼容）
+                // 如果在快取找不到，嘗試從全域陣列找（向後兼容）
                 const localPatient = patients.find(p => p.id === appointment.patientId);
                 if (!localPatient) {
                     return `
@@ -1523,7 +1634,7 @@ async function loadTodayAppointments() {
                 return createAppointmentRow(appointment, localPatient, index);
             }
             
-            // 使用 Firebase 病人資料
+            // 使用快取病人資料
             return createAppointmentRow(appointment, patient, index);
         }).join('');
         
@@ -1951,7 +2062,19 @@ async function confirmPatientArrival(appointmentId) {
         showToast('找不到掛號記錄！', 'error');
         return;
     }
-    
+    // 取得觸發按鈕：優先使用事件目標，其次透過 DOM 查找
+    let loadingButton = null;
+    try {
+        if (typeof event !== 'undefined' && event && event.currentTarget) {
+            loadingButton = event.currentTarget;
+        }
+    } catch (_e) {}
+    if (!loadingButton) {
+        loadingButton = document.querySelector('button[onclick="confirmPatientArrival(' + appointmentId + ')"]');
+    }
+    if (loadingButton) {
+        setButtonLoading(loadingButton, '處理中...');
+    }
     try {
         // 從 Firebase 獲取病人資料
         const result = await window.firebaseDataManager.getPatients();
@@ -1959,16 +2082,13 @@ async function confirmPatientArrival(appointmentId) {
             showToast('無法讀取病人資料！', 'error');
             return;
         }
-        
         const patient = result.data.find(p => p.id === appointment.patientId);
         if (!patient) {
             showToast('找不到病人資料！', 'error');
             return;
         }
-        
         // 詳細狀態檢查
         console.log(`確認到達狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}`);
-        
         // 只有已掛號狀態才能確認到達
         if (appointment.status !== 'registered') {
             const statusNames = {
@@ -1980,23 +2100,22 @@ async function confirmPatientArrival(appointmentId) {
             showToast(`無法確認到達！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能對「已掛號」的病人確認到達。`, 'warning');
             return;
         }
-        
         // 更新狀態為候診中
         appointment.status = 'waiting';
         appointment.arrivedAt = new Date().toISOString();
         appointment.confirmedBy = currentUserData ? currentUserData.username : currentUser;
-        
         // 保存狀態變更
         localStorage.setItem('appointments', JSON.stringify(appointments));
-        // 同步更新到 Firebase
         await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
-
         showToast(`${patient.name} 已確認到達，進入候診狀態！`, 'success');
         loadTodayAppointments();
-        
     } catch (error) {
         console.error('確認到達錯誤:', error);
         showToast('處理確認到達時發生錯誤', 'error');
+    } finally {
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
 }
 
@@ -2008,7 +2127,19 @@ async function removeAppointment(appointmentId) {
         showToast('找不到掛號記錄！', 'error');
         return;
     }
-    
+    // 取得觸發按鈕
+    let loadingButton = null;
+    try {
+        if (typeof event !== 'undefined' && event && event.currentTarget) {
+            loadingButton = event.currentTarget;
+        }
+    } catch (_e) {}
+    if (!loadingButton) {
+        loadingButton = document.querySelector('button[onclick="removeAppointment(' + appointmentId + ')"]');
+    }
+    if (loadingButton) {
+        setButtonLoading(loadingButton, '處理中...');
+    }
     try {
         // 從 Firebase 獲取病人資料
         const result = await window.firebaseDataManager.getPatients();
@@ -2016,65 +2147,57 @@ async function removeAppointment(appointmentId) {
             showToast('無法讀取病人資料！', 'error');
             return;
         }
-        
         const patient = result.data.find(p => p.id === appointment.patientId);
         if (!patient) {
             showToast('找不到病人資料！', 'error');
             return;
         }
-        
         // 詳細狀態檢查
         console.log(`移除掛號狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}`);
-        
         // 檢查是否可以移除
         if (appointment.status === 'waiting') {
             showToast(`無法移除掛號！病人 ${patient.name} 已確認到達候診中，請聯繫醫師處理。`, 'warning');
             return;
         }
-        
         if (appointment.status === 'consulting') {
             showToast(`無法移除掛號！病人 ${patient.name} 目前正在診症中，請先結束診症後再移除。`, 'warning');
             return;
         }
-        
         if (appointment.status === 'completed') {
             showToast(`無法移除掛號！病人 ${patient.name} 已完成診症，已完成的記錄無法移除。`, 'warning');
             return;
         }
-        
         // 確認移除
         const statusNames = {
             'registered': '已掛號',
             'waiting': '候診中'
         };
         const statusText = statusNames[appointment.status] || appointment.status;
-        
         const confirmMessage = `確定要移除 ${patient.name} 的掛號嗎？\n\n` +
                              `狀態：${statusText}\n` +
                              `掛號時間：${new Date(appointment.appointmentTime).toLocaleString('zh-TW')}\n\n` +
                              `注意：此操作無法復原！`;
-        
         if (confirm(confirmMessage)) {
             // 從掛號列表中移除
             appointments = appointments.filter(apt => apt.id !== appointmentId);
             localStorage.setItem('appointments', JSON.stringify(appointments));
             // 從遠端刪除掛號
             await window.firebaseDataManager.deleteAppointment(String(appointmentId));
-
             showToast(`已移除 ${patient.name} 的掛號記錄`, 'success');
             loadTodayAppointments();
-            
             // 如果正在診症表單中顯示該病人，則關閉表單
-            // 使用字串比較，避免數字與字串類型不一致導致無法匹配
             if (String(currentConsultingAppointmentId) === String(appointmentId)) {
                 closeConsultationForm();
                 currentConsultingAppointmentId = null;
             }
         }
-        
     } catch (error) {
         console.error('移除掛號錯誤:', error);
         showToast('移除掛號時發生錯誤', 'error');
+    } finally {
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
 }
 
@@ -2088,7 +2211,19 @@ async function startConsultation(appointmentId) {
         showToast('找不到掛號記錄！', 'error');
         return;
     }
-    
+    // 取得觸發按鈕
+    let loadingButton = null;
+    try {
+        if (typeof event !== 'undefined' && event && event.currentTarget) {
+            loadingButton = event.currentTarget;
+        }
+    } catch (_e) {}
+    if (!loadingButton) {
+        loadingButton = document.querySelector('button[onclick="startConsultation(' + appointmentId + ')"]');
+    }
+    if (loadingButton) {
+        setButtonLoading(loadingButton, '處理中...');
+    }
     try {
         // 從 Firebase 獲取病人資料
         const result = await window.firebaseDataManager.getPatients();
@@ -2096,22 +2231,18 @@ async function startConsultation(appointmentId) {
             showToast('無法讀取病人資料！', 'error');
             return;
         }
-        
         const patient = result.data.find(p => p.id === appointment.patientId);
         if (!patient) {
             showToast('找不到病人資料！', 'error');
             return;
         }
-        
         // 檢查當前用戶是否為該掛號的醫師
         if (!currentUserData || currentUserData.position !== '醫師' || appointment.appointmentDoctor !== currentUserData.username) {
             showToast('只有該掛號的醫師才能開始診症！', 'error');
             return;
         }
-        
         // 詳細狀態檢查
         console.log(`開始診症狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}`);
-        
         // 檢查病人狀態是否允許開始診症
         if (!['waiting', 'registered'].includes(appointment.status)) {
             const statusNames = {
@@ -2122,78 +2253,91 @@ async function startConsultation(appointmentId) {
             showToast(`無法開始診症！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能對「已掛號」或「候診中」的病人開始診症。`, 'error');
             return;
         }
-        
         // 如果是已掛號狀態，自動確認到達
         if (appointment.status === 'registered') {
             appointment.arrivedAt = new Date().toISOString();
             appointment.confirmedBy = currentUserData ? currentUserData.username : currentUser;
             showToast(`${patient.name} 已自動確認到達`, 'info');
         }
-        
         // 檢查是否已有其他病人在診症中（只檢查同一醫師的病人）
         const consultingAppointment = appointments.find(apt =>
             apt &&
             apt.status === 'consulting' &&
-            // 使用字串比較避免類型不一致
             String(apt.id) !== String(appointmentId) &&
             apt.appointmentDoctor === currentUserData.username &&
             new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
         );
-        
         if (consultingAppointment) {
-            // 從 Firebase 獲取正在診症的病人資料
             const consultingPatient = result.data.find(p => p.id === consultingAppointment.patientId);
             const consultingPatientName = consultingPatient ? consultingPatient.name : '未知病人';
-            
             if (confirm(`您目前正在為 ${consultingPatientName} 診症。\n\n是否要結束該病人的診症並開始為 ${patient.name} 診症？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`)) {
-                // 結束當前診症的病人
                 consultingAppointment.status = 'waiting';
                 delete consultingAppointment.consultationStartTime;
                 delete consultingAppointment.consultingDoctor;
-                
-                // 關閉可能開啟的診症表單
                 if (String(currentConsultingAppointmentId) === String(consultingAppointment.id)) {
                     closeConsultationForm();
                 }
-                
                 showToast(`已結束 ${consultingPatientName} 的診症`, 'info');
             } else {
-                return; // 用戶取消操作
+                return;
             }
         }
-        
-        // 開始新的診症 - 正確設置狀態為診症中
+        // 開始新的診症
         appointment.status = 'consulting';
         appointment.consultationStartTime = new Date().toISOString();
         appointment.consultingDoctor = currentUserData ? currentUserData.username : currentUser;
-        
-        // 立即保存狀態變更
         localStorage.setItem('appointments', JSON.stringify(appointments));
-        // 同步更新到 Firebase
         await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
-        
-        // 設置當前診症ID並顯示表單
         currentConsultingAppointmentId = appointmentId;
         showConsultationForm(appointment);
-        
-        // 重新載入列表以顯示正確狀態
         loadTodayAppointments();
-        
         showToast(`開始為 ${patient.name} 診症`, 'success');
-        
     } catch (error) {
         console.error('開始診症錯誤:', error);
         showToast('開始診症時發生錯誤', 'error');
+    } finally {
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
 }
         
         // 繼續診症
-        function continueConsultation(appointmentId) {
-            const appointment = appointments.find(apt => apt && String(apt.id) === String(appointmentId));
-            if (!appointment) return;
-            
-            currentConsultingAppointmentId = appointmentId;
-            showConsultationForm(appointment);
+        async function continueConsultation(appointmentId) {
+            // 取得按鈕並顯示讀取狀態
+            let loadingButton = null;
+            try {
+                if (typeof event !== 'undefined' && event && event.currentTarget) {
+                    loadingButton = event.currentTarget;
+                }
+            } catch (_e) {}
+            if (!loadingButton) {
+                try {
+                    loadingButton = document.querySelector('button[onclick="continueConsultation(' + appointmentId + ')"]');
+                } catch (_e) {
+                    loadingButton = null;
+                }
+            }
+            if (loadingButton) {
+                setButtonLoading(loadingButton, '處理中...');
+            }
+            try {
+                const appointment = appointments.find(apt => apt && String(apt.id) === String(appointmentId));
+                if (!appointment) {
+                    showToast('找不到掛號記錄！', 'error');
+                    return;
+                }
+                currentConsultingAppointmentId = appointmentId;
+                // 等待顯示表單完成，因其可能涉及異步操作
+                await showConsultationForm(appointment);
+            } catch (error) {
+                console.error('繼續診症錯誤:', error);
+                showToast('繼續診症時發生錯誤', 'error');
+            } finally {
+                if (loadingButton) {
+                    clearButtonLoading(loadingButton);
+                }
+            }
         }
         
 // 修復診症表單顯示函數
@@ -2468,14 +2612,10 @@ async function saveConsultation() {
         }
     }
 
-    // 在進入 try 區塊之前禁用保存按鈕並記錄原始按鈕文字，
-    // 以避免 finally 區塊無法存取 originalText 的錯誤（參考語法：let/const 具有塊級作用域）
+    // 在進入 try 區塊之前禁用保存按鈕並顯示讀取中小圈
     const saveButton = document.querySelector('[onclick="saveConsultation()"]');
-    let originalText = '';
     if (saveButton) {
-        originalText = saveButton.textContent;
-        saveButton.textContent = '保存中...';
-        saveButton.disabled = true;
+        setButtonLoading(saveButton, '保存中...');
     }
     try {
         // 確認預先取得的 appointment 是否存在，若不存在則提示錯誤
@@ -2568,11 +2708,10 @@ async function saveConsultation() {
         console.error('保存診症記錄錯誤:', error);
         showToast('保存時發生錯誤', 'error');
     } finally {
-        // 恢復按鈕狀態
+        // 恢復按鈕狀態與內容
         const saveButton = document.querySelector('[onclick="saveConsultation()"]');
         if (saveButton) {
-            saveButton.textContent = originalText;
-            saveButton.disabled = false;
+            clearButtonLoading(saveButton);
         }
     }
 }
@@ -2873,6 +3012,23 @@ if (!patient) {
         
 // 5. 修改查看病人診症記錄功能
 async function viewPatientMedicalHistory(patientId) {
+    // 取得觸發按鈕：優先使用事件目標，其次透過 DOM 查找
+    let loadingButton = null;
+    try {
+        if (typeof event !== 'undefined' && event && event.currentTarget) {
+            loadingButton = event.currentTarget;
+        }
+    } catch (_e) {}
+    if (!loadingButton) {
+        try {
+            loadingButton = document.querySelector(`button[onclick="viewPatientMedicalHistory('${patientId}')"]`);
+        } catch (_e) {
+            loadingButton = null;
+        }
+    }
+    if (loadingButton) {
+        setButtonLoading(loadingButton, '讀取中...');
+    }
     try {
         // 從 Firebase 獲取病人資料
         const patientResult = await window.firebaseDataManager.getPatients();
@@ -2951,6 +3107,11 @@ async function viewPatientMedicalHistory(patientId) {
     } catch (error) {
         console.error('查看病人診症記錄錯誤:', error);
         showToast('讀取病人資料失敗', 'error');
+    } finally {
+        // 清除按鈕的讀取狀態
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
 }
         
@@ -3165,12 +3326,28 @@ async function printReceiptFromAppointment(appointmentId) {
         showToast('找不到掛號記錄！', 'error');
         return;
     }
-    
+    // 只能列印已完成診症的收據
     if (appointment.status !== 'completed' || !appointment.consultationId) {
         showToast('只能列印已完成診症的收據！', 'error');
         return;
     }
-    
+    // 取得觸發按鈕，優先使用事件目標，其次透過 DOM 查找
+    let loadingButton = null;
+    try {
+        if (typeof event !== 'undefined' && event && event.currentTarget) {
+            loadingButton = event.currentTarget;
+        }
+    } catch (_e) {}
+    if (!loadingButton) {
+        try {
+            loadingButton = document.querySelector('button[onclick="printReceiptFromAppointment(' + appointmentId + ')"]');
+        } catch (_e) {
+            loadingButton = null;
+        }
+    }
+    if (loadingButton) {
+        setButtonLoading(loadingButton, '列印中...');
+    }
     try {
         // 從 Firebase 獲取診症記錄
         const consultationResult = await window.firebaseDataManager.getConsultations();
@@ -3178,19 +3355,20 @@ async function printReceiptFromAppointment(appointmentId) {
             showToast('無法讀取診症記錄！', 'error');
             return;
         }
-        
         const consultation = consultationResult.data.find(c => c.id === appointment.consultationId);
         if (!consultation) {
             showToast('找不到對應的診症記錄！', 'error');
             return;
         }
-        
         // 直接調用現有的列印功能
         await printConsultationRecord(consultation.id, consultation);
-        
     } catch (error) {
         console.error('列印收據錯誤:', error);
         showToast('列印收據時發生錯誤', 'error');
+    } finally {
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
 }
 
@@ -3202,12 +3380,28 @@ async function printAttendanceCertificateFromAppointment(appointmentId) {
         showToast('找不到掛號記錄！', 'error');
         return;
     }
-    
+    // 只能列印已完成診症的到診證明
     if (appointment.status !== 'completed' || !appointment.consultationId) {
         showToast('只能列印已完成診症的到診證明！', 'error');
         return;
     }
-    
+    // 取得觸發按鈕
+    let loadingButton = null;
+    try {
+        if (typeof event !== 'undefined' && event && event.currentTarget) {
+            loadingButton = event.currentTarget;
+        }
+    } catch (_e) {}
+    if (!loadingButton) {
+        try {
+            loadingButton = document.querySelector('button[onclick="printAttendanceCertificateFromAppointment(' + appointmentId + ')"]');
+        } catch (_e) {
+            loadingButton = null;
+        }
+    }
+    if (loadingButton) {
+        setButtonLoading(loadingButton, '列印中...');
+    }
     try {
         // 從 Firebase 獲取診症記錄
         const consultationResult = await window.firebaseDataManager.getConsultations();
@@ -3215,19 +3409,20 @@ async function printAttendanceCertificateFromAppointment(appointmentId) {
             showToast('無法讀取診症記錄！', 'error');
             return;
         }
-        
         const consultation = consultationResult.data.find(c => c.id === appointment.consultationId);
         if (!consultation) {
             showToast('找不到對應的診症記錄！', 'error');
             return;
         }
-        
         // 直接調用到診證明列印功能
         await printAttendanceCertificate(consultation.id, consultation);
-        
     } catch (error) {
         console.error('列印到診證明錯誤:', error);
         showToast('列印到診證明時發生錯誤', 'error');
+    } finally {
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
 }
         
@@ -3238,12 +3433,28 @@ async function printSickLeaveFromAppointment(appointmentId) {
         showToast('找不到掛號記錄！', 'error');
         return;
     }
-    
+    // 只能列印已完成診症的病假證明
     if (appointment.status !== 'completed' || !appointment.consultationId) {
         showToast('只能列印已完成診症的病假證明！', 'error');
         return;
     }
-    
+    // 取得觸發按鈕
+    let loadingButton = null;
+    try {
+        if (typeof event !== 'undefined' && event && event.currentTarget) {
+            loadingButton = event.currentTarget;
+        }
+    } catch (_e) {}
+    if (!loadingButton) {
+        try {
+            loadingButton = document.querySelector('button[onclick="printSickLeaveFromAppointment(' + appointmentId + ')"]');
+        } catch (_e) {
+            loadingButton = null;
+        }
+    }
+    if (loadingButton) {
+        setButtonLoading(loadingButton, '列印中...');
+    }
     try {
         // 從 Firebase 獲取診症記錄
         const consultationResult = await window.firebaseDataManager.getConsultations();
@@ -3251,19 +3462,20 @@ async function printSickLeaveFromAppointment(appointmentId) {
             showToast('無法讀取診症記錄！', 'error');
             return;
         }
-        
         const consultation = consultationResult.data.find(c => c.id === appointment.consultationId);
         if (!consultation) {
             showToast('找不到對應的診症記錄！', 'error');
             return;
         }
-        
         // 直接調用病假證明列印功能
         await printSickLeave(consultation.id, consultation);
-        
     } catch (error) {
         console.error('列印病假證明錯誤:', error);
         showToast('列印病假證明時發生錯誤', 'error');
+    } finally {
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
 }
         
@@ -3644,11 +3856,15 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                                 result += line;
                             });
                             
-                            // 然後顯示所有項目（包括方劑和藥材），每行4個橫向排列
+                            // 然後顯示所有項目（包括方劑和藥材），每行最多 4 個，並平均分布整個寬度
                             if (regularItems.length > 0) {
                                 for (let j = 0; j < regularItems.length; j += 4) {
                                     const lineItems = regularItems.slice(j, j + 4);
-                                    result += `<div style="margin: 2px 0;">${lineItems.join('　')}</div>`;
+                                    // 為了讓藥名在收據中平均分佈整個可用寬度，我們使用等寬分欄的 CSS Grid。
+                                    // 計算當前行的項目數，並動態設置 grid-template-columns，使每一個藥材/方劑在一行內平分可用空間。
+                                    const columns = lineItems.length;
+                                    const itemsHtml = lineItems.map(item => `<span>${item}</span>`).join('');
+                                    result += `<div style="margin: 2px 0; display: grid; grid-template-columns: repeat(${columns}, 1fr);">${itemsHtml}</div>`;
                                 }
                             }
                             
@@ -4459,54 +4675,66 @@ async function printSickLeave(consultationId, consultationData = null) {
 
 // 修復撤回診症功能
 async function withdrawConsultation(appointmentId) {
-    // 確保全域變數已初始化
-    if (!Array.isArray(appointments)) {
+    // 取得觸發按鈕並顯示讀取狀態
+    let loadingButton = null;
+    try {
+        if (typeof event !== 'undefined' && event && event.currentTarget) {
+            loadingButton = event.currentTarget;
+        }
+    } catch (_e) {}
+    if (!loadingButton) {
         try {
-            const appointmentResult = await window.firebaseDataManager.getAppointments();
-            if (appointmentResult.success) {
-                appointments = appointmentResult.data;
-            } else {
+            loadingButton = document.querySelector('button[onclick="withdrawConsultation(' + appointmentId + ')"]');
+        } catch (_e) {
+            loadingButton = null;
+        }
+    }
+    if (loadingButton) {
+        setButtonLoading(loadingButton, '處理中...');
+    }
+    try {
+        // 確保全域變數已初始化
+        if (!Array.isArray(appointments)) {
+            try {
+                const appointmentResult = await window.firebaseDataManager.getAppointments();
+                if (appointmentResult.success) {
+                    appointments = appointmentResult.data;
+                } else {
+                    appointments = [];
+                }
+            } catch (error) {
                 appointments = [];
             }
-        } catch (error) {
-            appointments = [];
         }
-    }
-    
-    if (!Array.isArray(consultations)) {
-        try {
-            const consultationResult = await window.firebaseDataManager.getConsultations();
-            if (consultationResult.success) {
-                consultations = consultationResult.data;
-            } else {
+        if (!Array.isArray(consultations)) {
+            try {
+                const consultationResult = await window.firebaseDataManager.getConsultations();
+                if (consultationResult.success) {
+                    consultations = consultationResult.data;
+                } else {
+                    consultations = [];
+                }
+            } catch (error) {
                 consultations = [];
             }
-        } catch (error) {
-            consultations = [];
         }
-    }
-    const appointment = appointments.find(apt => apt && String(apt.id) === String(appointmentId));
-    if (!appointment) {
-        showToast('找不到掛號記錄！', 'error');
-        return;
-    }
-    
-    try {             
+        const appointment = appointments.find(apt => apt && String(apt.id) === String(appointmentId));
+        if (!appointment) {
+            showToast('找不到掛號記錄！', 'error');
+            return;
+        }
         const patientResult = await window.firebaseDataManager.getPatients();
         if (!patientResult.success) {
             showToast('無法讀取病人資料！', 'error');
             return;
         }
-
         const patient = patientResult.data.find(p => p.id === appointment.patientId);
         if (!patient) {
             showToast('找不到病人資料！', 'error');
             return;
         }
-        
         // 詳細狀態檢查
         console.log(`撤回診症狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}, 診症記錄ID: ${appointment.consultationId}`);
-        
         // 只有已完成的診症才能撤回
         if (appointment.status !== 'completed') {
             const statusNames = {
@@ -4518,13 +4746,11 @@ async function withdrawConsultation(appointmentId) {
             showToast(`無法撤回診症！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能撤回已完成的診症。`, 'warning');
             return;
         }
-        
         // 檢查是否有診症記錄
         if (!appointment.consultationId) {
             showToast(`無法撤回診症！病人 ${patient.name} 沒有對應的診症記錄。`, 'error');
             return;
         }
-        
         // 嘗試從本地或 Firebase 取得診症記錄
         let consultation = consultations.find(c => c.id === appointment.consultationId);
         if (!consultation) {
@@ -4542,9 +4768,7 @@ async function withdrawConsultation(appointmentId) {
             showToast(`無法撤回診症！找不到病人 ${patient.name} 的診症記錄資料。`, 'error');
             return;
         }
-        
         // 確認撤回操作
-        // 修正：撤回診症提示通知不再包含診症日期
         const confirmMessage = `確定要撤回 ${patient.name} 的診症嗎？\n\n` +
                              `此操作將會：\n` +
                              `• 刪除該次診症記錄\n` +
@@ -4552,7 +4776,6 @@ async function withdrawConsultation(appointmentId) {
                              `• 所有診症資料將永久遺失\n\n` +
                              `診斷：${consultation.diagnosis || '無記錄'}\n\n` +
                              `注意：此操作無法復原！`;
-        
         if (confirm(confirmMessage)) {
             // 刪除診症記錄
             const consultationIndex = consultations.findIndex(c => c.id === appointment.consultationId);
@@ -4560,7 +4783,6 @@ async function withdrawConsultation(appointmentId) {
                 consultations.splice(consultationIndex, 1);
                 localStorage.setItem('consultations', JSON.stringify(consultations));
             }
-            
             // 將掛號狀態改回已掛號
             appointment.status = 'registered';
             delete appointment.completedAt;
@@ -4568,20 +4790,16 @@ async function withdrawConsultation(appointmentId) {
             delete appointment.completedBy;
             delete appointment.consultationStartTime;
             delete appointment.consultingDoctor;
-            
             // 保存狀態變更
             localStorage.setItem('appointments', JSON.stringify(appointments));
             // 同步更新到 Firebase
             await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
-            
             showToast(`已撤回 ${patient.name} 的診症，病人狀態回到已掛號`, 'success');
-            
             // 如果正在編輯該病歷，則關閉表單。使用字串比較，避免 ID 類型不一致導致無法匹配
             if (String(currentConsultingAppointmentId) === String(appointmentId)) {
                 closeConsultationForm();
                 currentConsultingAppointmentId = null;
             }
-            
             // 重新載入列表和統計
             loadTodayAppointments();
             updateStatistics();
@@ -4589,61 +4807,78 @@ async function withdrawConsultation(appointmentId) {
     } catch (error) {
         console.error('讀取病人資料錯誤:', error);
         showToast('讀取病人資料失敗', 'error');
+    } finally {
+        // 清除按鈕的讀取狀態
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
 }
 
 // 修復修改病歷功能
 async function editMedicalRecord(appointmentId) {
-    // 確保全域變數已初始化
-    if (!Array.isArray(appointments)) {
+    // 取得觸發按鈕並顯示讀取狀態
+    let loadingButton = null;
+    try {
+        if (typeof event !== 'undefined' && event && event.currentTarget) {
+            loadingButton = event.currentTarget;
+        }
+    } catch (_e) {}
+    if (!loadingButton) {
         try {
-            const appointmentResult = await window.firebaseDataManager.getAppointments();
-            if (appointmentResult.success) {
-                appointments = appointmentResult.data;
-            } else {
+            loadingButton = document.querySelector('button[onclick="editMedicalRecord(' + appointmentId + ')"]');
+        } catch (_e) {
+            loadingButton = null;
+        }
+    }
+    if (loadingButton) {
+        setButtonLoading(loadingButton, '處理中...');
+    }
+    try {
+        // 確保全域變數已初始化
+        if (!Array.isArray(appointments)) {
+            try {
+                const appointmentResult = await window.firebaseDataManager.getAppointments();
+                if (appointmentResult.success) {
+                    appointments = appointmentResult.data;
+                } else {
+                    appointments = [];
+                }
+            } catch (error) {
+                console.error('初始化掛號數據錯誤:', error);
                 appointments = [];
             }
-        } catch (error) {
-            console.error('初始化掛號數據錯誤:', error);
-            appointments = [];
         }
-    }
-    
-    if (!Array.isArray(consultations)) {
-        try {
-            const consultationResult = await window.firebaseDataManager.getConsultations();
-            if (consultationResult.success) {
-                consultations = consultationResult.data;
-            } else {
+        if (!Array.isArray(consultations)) {
+            try {
+                const consultationResult = await window.firebaseDataManager.getConsultations();
+                if (consultationResult.success) {
+                    consultations = consultationResult.data;
+                } else {
+                    consultations = [];
+                }
+            } catch (error) {
+                console.error('初始化診療記錄錯誤:', error);
                 consultations = [];
             }
-        } catch (error) {
-            console.error('初始化診療記錄錯誤:', error);
-            consultations = [];
         }
-    }
-    const appointment = appointments.find(apt => apt && String(apt.id) === String(appointmentId));
-    if (!appointment) {
-        showToast('找不到掛號記錄！', 'error');
-        return;
-    }
-    
-    try {            
+        const appointment = appointments.find(apt => apt && String(apt.id) === String(appointmentId));
+        if (!appointment) {
+            showToast('找不到掛號記錄！', 'error');
+            return;
+        }
         const patientResult = await window.firebaseDataManager.getPatients();
         if (!patientResult.success) {
             showToast('無法讀取病人資料！', 'error');
             return;
         }
-
         const patient = patientResult.data.find(p => p.id === appointment.patientId);
         if (!patient) {
             showToast('找不到病人資料！', 'error');
             return;
         }
-        
         // 詳細狀態檢查
         console.log(`修改病歷狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}, 診症記錄ID: ${appointment.consultationId}`);
-        
         // 只有已完成的診症才能修改病歷
         if (appointment.status !== 'completed') {
             const statusNames = {
@@ -4655,25 +4890,23 @@ async function editMedicalRecord(appointmentId) {
             showToast(`無法修改病歷！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能修改已完成診症的病歷。`, 'warning');
             return;
         }
-        
         // 檢查是否有診症記錄
         if (!appointment.consultationId) {
             showToast(`無法修改病歷！病人 ${patient.name} 沒有對應的診症記錄。`, 'error');
             return;
         }
-
         // 嘗試從本地或 Firebase 取得診療記錄
-let consultation = null;
-try {
-    const consResult = await window.firebaseDataManager.getConsultations();
-    if (consResult && consResult.success) {
-        consultation = consResult.data.find(c => c.id === appointment.consultationId);
-        // 同步更新全域變數
-        consultations = consResult.data;
-    }
-} catch (error) {
-    console.error('讀取診療記錄錯誤:', error);
-}
+        let consultation = null;
+        try {
+            const consResult = await window.firebaseDataManager.getConsultations();
+            if (consResult && consResult.success) {
+                consultation = consResult.data.find(c => c.id === appointment.consultationId);
+                // 同步更新全域變數
+                consultations = consResult.data;
+            }
+        } catch (error) {
+            console.error('讀取診療記錄錯誤:', error);
+        }
         if (!consultation) {
             // 如果本地沒有，則從 Firebase 讀取所有診症記錄並搜尋
             const consResult = await window.firebaseDataManager.getConsultations();
@@ -4691,7 +4924,6 @@ try {
             showToast(`無法修改病歷！找不到病人 ${patient.name} 的診症記錄資料。`, 'error');
             return;
         }
-        
         // 檢查是否有其他病人正在診症中（僅限制同一醫師）
         let consultingAppointment = null;
         const isDoctorUser = currentUserData && currentUserData.position === '醫師';
@@ -4702,24 +4934,20 @@ try {
                 new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
             );
         }
-        
         if (consultingAppointment) {
             // 從 Firebase 獲取正在診症的病人資料
             const consultingPatient = patientResult.data.find(p => p.id === consultingAppointment.patientId);
             const consultingPatientName = consultingPatient ? consultingPatient.name : '未知病人';
-            
             if (confirm(`您目前正在為 ${consultingPatientName} 診症。\n\n是否要結束該病人的診症並開始修改 ${patient.name} 的病歷？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`)) {
                 // 結束當前診症的病人
                 consultingAppointment.status = 'waiting';
                 delete consultingAppointment.consultationStartTime;
                 delete consultingAppointment.consultingDoctor;
-                
                 // 關閉可能開啟的診症表單
                 // 使用字串比較，避免 ID 類型不一致導致無法匹配
                 if (String(currentConsultingAppointmentId) === String(consultingAppointment.id)) {
                     closeConsultationForm();
                 }
-                
                 showToast(`已結束 ${consultingPatientName} 的診症`, 'info');
                 localStorage.setItem('appointments', JSON.stringify(appointments));
                 // 同步更新到 Firebase
@@ -4728,16 +4956,18 @@ try {
                 return; // 用戶取消操作
             }
         }
-        
         // 設置為編輯模式
         currentConsultingAppointmentId = appointmentId;
         showConsultationForm(appointment);
-        
         showToast(`進入 ${patient.name} 的病歷編輯模式`, 'info');
-        
     } catch (error) {
         console.error('讀取病人資料錯誤:', error);
         showToast('讀取病人資料失敗', 'error');
+    } finally {
+        // 清除按鈕的讀取狀態
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
 }
 // 載入病人診療記錄摘要
@@ -5001,41 +5231,70 @@ async function updateStatistics() {
             console.log('Firebase 數據管理器尚未準備就緒，統計資訊將稍後更新');
             return;
         }
-        // 從 Firebase 獲取病人總數
-        const result = await window.firebaseDataManager.getPatients();
-        const totalPatients = result.success ? result.data.length : 0;
-        
+        // 為避免在主頁多次從 Firebase 讀取掛號和病人資料，這裡優先使用已緩存或本地儲存的資料計算統計。
+        let totalPatients = 0;
+        try {
+            // 如果全域 patients 已載入且非空，直接使用其長度
+            if (Array.isArray(patients) && patients.length > 0) {
+                totalPatients = patients.length;
+            } else if (Array.isArray(patientCache) && patientCache.length > 0) {
+                // 如果有快取，使用快取長度
+                totalPatients = patientCache.length;
+            } else {
+                // 最後檢查本地存儲
+                const storedPatients = localStorage.getItem('patients');
+                if (storedPatients) {
+                    try {
+                        const parsed = JSON.parse(storedPatients);
+                        if (Array.isArray(parsed)) {
+                            totalPatients = parsed.length;
+                        }
+                    } catch (parseError) {
+                        // ignore JSON parse error
+                    }
+                }
+            }
+        } catch (countError) {
+            console.error('計算病人數量錯誤:', countError);
+            totalPatients = 0;
+        }
         // 更新病人總數顯示
         const totalPatientsElement = document.getElementById('totalPatients');
         if (totalPatientsElement) {
             totalPatientsElement.textContent = totalPatients;
         }
-        
-        // 從 Firebase 獲取掛號數據
+        // 處理掛號資料：優先使用全域 appointments，如果不存在再使用本地儲存。
         let appointmentsData = [];
         try {
-            const appointmentResult = await window.firebaseDataManager.getAppointments();
-            if (appointmentResult.success) {
-                appointmentsData = appointmentResult.data;
-                // 同步更新全域變數
-                appointments = appointmentsData;
+            if (Array.isArray(appointments) && appointments.length > 0) {
+                appointmentsData = appointments;
+            } else {
+                const storedApts = localStorage.getItem('appointments');
+                if (storedApts) {
+                    try {
+                        const parsedApt = JSON.parse(storedApts);
+                        if (Array.isArray(parsedApt)) {
+                            appointmentsData = parsedApt;
+                        }
+                    } catch (parseErr) {
+                        // ignore JSON parse error
+                    }
+                }
             }
-        } catch (error) {
-            console.error('獲取掛號數據錯誤:', error);
+        } catch (aptError) {
+            console.error('讀取掛號資料錯誤:', aptError);
+            appointmentsData = [];
         }
-        
         // 計算今日診療數（從掛號數據計算）
         const today = new Date().toDateString();
         const todayConsultations = appointmentsData.filter(apt => 
             apt.status === 'completed' && 
             new Date(apt.appointmentTime).toDateString() === today
         ).length;
-        
         const todayConsultationsElement = document.getElementById('todayConsultations');
         if (todayConsultationsElement) {
             todayConsultationsElement.textContent = todayConsultations;
         }
-        
         // 計算本月診療數
         const thisMonth = new Date();
         const monthlyConsultations = appointmentsData.filter(apt => 
@@ -5043,15 +5302,13 @@ async function updateStatistics() {
             new Date(apt.appointmentTime).getMonth() === thisMonth.getMonth() &&
             new Date(apt.appointmentTime).getFullYear() === thisMonth.getFullYear()
         ).length;
-        
         const monthlyConsultationsElement = document.getElementById('monthlyConsultations');
         if (monthlyConsultationsElement) {
             monthlyConsultationsElement.textContent = monthlyConsultations;
         }
-        
     } catch (error) {
         console.error('更新統計錯誤:', error);
-        // 如果 Firebase 讀取失敗，顯示 0
+        // 如果計算失敗，顯示 0
         const totalPatientsElement = document.getElementById('totalPatients');
         if (totalPatientsElement) {
             totalPatientsElement.textContent = '0';
@@ -5068,36 +5325,25 @@ async function initializeSystemAfterLogin() {
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     try {
-        // 載入掛號數據
-        const appointmentResult = await window.firebaseDataManager.getAppointments();
-        if (appointmentResult && appointmentResult.success) {
-            appointments = appointmentResult.data;
-        } else {
-            appointments = [];
-        }
-        // 載入診療記錄
-        const consultationResult = await window.firebaseDataManager.getConsultations();
-        if (consultationResult && consultationResult.success) {
-            consultations = consultationResult.data;
-        } else {
+        // 僅在登入後初始化必要的資料。為了避免在進入主頁時重複讀取掛號與病人資料，
+        // 此處僅讀取診療記錄，掛號與病人資料將透過實時監聽或功能頁面再讀取。
+        try {
+            const consultationResult = await window.firebaseDataManager.getConsultations();
+            if (consultationResult && consultationResult.success) {
+                consultations = consultationResult.data;
+            } else {
+                consultations = [];
+            }
+        } catch (consultError) {
+            console.error('讀取診療記錄失敗:', consultError);
             consultations = [];
-        }
-        // 載入患者數據
-        const patientResult = await window.firebaseDataManager.getPatients();
-        if (patientResult && patientResult.success) {
-            patients = patientResult.data;
-        } else {
-            patients = [];
         }
         console.log('登入後系統資料初始化完成');
     } catch (error) {
         console.error('初始化系統資料失敗:', error);
-        appointments = [];
         consultations = [];
-        patients = [];
     }
-    // 更新統計
-    updateStatistics();
+    // 不在此處更新統計或讀取掛號/病人資料。實時掛號監聽將在後續處理。
     // 啟動實時掛號監聽，無需手動更新今日掛號列表
     subscribeToAppointments();
 }
@@ -5304,8 +5550,7 @@ async function initializeSystemAfterLogin() {
                     </div>
                     
                     <div class="space-y-2 text-sm">
-                        ${herb.nature ? `<div><span class="font-medium text-gray-700">性味：</span>${herb.nature}</div>` : ''}
-                        ${herb.meridian ? `<div><span class="font-medium text-gray-700">歸經：</span>${herb.meridian}</div>` : ''}
+                        <!-- 移除性味與歸經顯示 -->
                         ${herb.effects ? `<div><span class="font-medium text-gray-700">功效：</span>${herb.effects}</div>` : ''}
                         ${herb.dosage ? `<div><span class="font-medium text-gray-700">劑量：</span><span class="text-blue-600 font-medium">${herb.dosage}</span></div>` : ''}
                         ${herb.cautions ? `<div><span class="font-medium text-red-600">注意：</span><span class="text-red-700">${herb.cautions}</span></div>` : ''}
@@ -5330,14 +5575,14 @@ async function initializeSystemAfterLogin() {
                     
                     <div class="space-y-3 text-sm">
                         ${formula.effects ? `<div><span class="font-medium text-gray-700">功效：</span>${formula.effects}</div>` : ''}
-                        ${formula.indications ? `<div><span class="font-medium text-gray-700">主治：</span>${formula.indications}</div>` : ''}
+                        <!-- 移除主治顯示 -->
                         ${formula.composition ? `
                             <div>
                                 <span class="font-medium text-gray-700">組成：</span>
                                 <div class="mt-1 p-2 bg-yellow-50 rounded text-xs whitespace-pre-line border-l-2 border-yellow-400">${formula.composition}</div>
                             </div>
                         ` : ''}
-                        ${formula.usage ? `<div><span class="font-medium text-gray-700">用法：</span>${formula.usage}</div>` : ''}
+                        <!-- 移除用法顯示 -->
                         ${formula.cautions ? `<div><span class="font-medium text-red-600">注意：</span><span class="text-red-700">${formula.cautions}</span></div>` : ''}
                     </div>
                 </div>
@@ -5360,7 +5605,8 @@ async function initializeSystemAfterLogin() {
         }
         
         function clearHerbForm() {
-            ['herbName', 'herbAlias', 'herbNature', 'herbMeridian', 'herbEffects', 'herbIndications', 'herbDosage', 'herbCautions'].forEach(id => {
+            // 移除性味、歸經與主治欄位，僅清除仍使用的欄位
+            ['herbName', 'herbAlias', 'herbEffects', 'herbDosage', 'herbCautions'].forEach(id => {
                 document.getElementById(id).value = '';
             });
         }
@@ -5375,10 +5621,9 @@ async function initializeSystemAfterLogin() {
             
             document.getElementById('herbName').value = herb.name || '';
             document.getElementById('herbAlias').value = herb.alias || '';
-            document.getElementById('herbNature').value = herb.nature || '';
-            document.getElementById('herbMeridian').value = herb.meridian || '';
+            // 不再處理性味與歸經欄位
             document.getElementById('herbEffects').value = herb.effects || '';
-            document.getElementById('herbIndications').value = herb.indications || '';
+            // 主治欄位已移除
             document.getElementById('herbDosage').value = herb.dosage || '';
             document.getElementById('herbCautions').value = herb.cautions || '';
             
@@ -5393,15 +5638,13 @@ async function initializeSystemAfterLogin() {
                 return;
             }
             
+            // 組合中藥物件時，不再包含性味、歸經與主治欄位
             const herb = {
                 id: editingHerbId || Date.now(),
                 type: 'herb',
                 name: name,
                 alias: document.getElementById('herbAlias').value.trim(),
-                nature: document.getElementById('herbNature').value.trim(),
-                meridian: document.getElementById('herbMeridian').value.trim(),
                 effects: document.getElementById('herbEffects').value.trim(),
-                indications: document.getElementById('herbIndications').value.trim(),
                 dosage: document.getElementById('herbDosage').value.trim(),
                 cautions: document.getElementById('herbCautions').value.trim(),
                 createdAt: editingHerbId ? herbLibrary.find(h => h.id === editingHerbId).createdAt : new Date().toISOString(),
@@ -5446,7 +5689,8 @@ async function initializeSystemAfterLogin() {
         }
         
         function clearFormulaForm() {
-            ['formulaName', 'formulaSource', 'formulaEffects', 'formulaIndications', 'formulaComposition', 'formulaUsage', 'formulaCautions'].forEach(id => {
+            // 只清除仍使用的欄位，移除主治與用法
+            ['formulaName', 'formulaSource', 'formulaEffects', 'formulaComposition', 'formulaCautions'].forEach(id => {
                 document.getElementById(id).value = '';
             });
         }
@@ -5462,9 +5706,8 @@ async function initializeSystemAfterLogin() {
             document.getElementById('formulaName').value = formula.name || '';
             document.getElementById('formulaSource').value = formula.source || '';
             document.getElementById('formulaEffects').value = formula.effects || '';
-            document.getElementById('formulaIndications').value = formula.indications || '';
+            // 主治與用法欄位已移除，不再填入
             document.getElementById('formulaComposition').value = formula.composition || '';
-            document.getElementById('formulaUsage').value = formula.usage || '';
             document.getElementById('formulaCautions').value = formula.cautions || '';
             
             document.getElementById('addFormulaModal').classList.remove('hidden');
@@ -5484,15 +5727,14 @@ async function initializeSystemAfterLogin() {
                 return;
             }
             
+            // 組合方劑物件時，不再包含主治與用法欄位
             const formula = {
                 id: editingFormulaId || Date.now(),
                 type: 'formula',
                 name: name,
                 source: document.getElementById('formulaSource').value.trim(),
                 effects: document.getElementById('formulaEffects').value.trim(),
-                indications: document.getElementById('formulaIndications').value.trim(),
                 composition: composition,
-                usage: document.getElementById('formulaUsage').value.trim(),
                 cautions: document.getElementById('formulaCautions').value.trim(),
                 createdAt: editingFormulaId ? herbLibrary.find(f => f.id === editingFormulaId).createdAt : new Date().toISOString(),
                 updatedAt: new Date().toISOString()
@@ -6419,6 +6661,11 @@ async function initializeSystemAfterLogin() {
                                         onclick="undoPackageUse('${patientIdForUndo}', '${packageRecordIdForUndo}', '${item.id}')"
                                     >取消使用</button>
                                 ` : '';
+                        // 根據項目是否為套票使用決定是否顯示刪除按鈕
+                        // 若為套票使用 (packageUse)，刪除按鈕會被隱藏，以免與「取消使用」功能重複
+                        const removeBtn = isPackageUse
+                            ? ''
+                            : `<button onclick="removeBillingItem(${originalIndex})" class="text-red-500 hover:text-red-700 font-bold text-lg px-2">×</button>`;
                         // 數量控制區：套票使用項目僅顯示次數，不提供加減按鈕
                         const quantityControls = isPackageUse ? `
                                 <div class="flex items-center space-x-2 mr-3">
@@ -6467,7 +6714,7 @@ async function initializeSystemAfterLogin() {
                                 <div class="mr-3 text-right">
                                     <div class="font-bold ${subtotal < 0 ? 'text-red-600' : 'text-green-600'}">${subtotalDisplay}</div>
                                 </div>
-                                ${undoBtn}<button onclick="removeBillingItem(${originalIndex})" class="text-red-500 hover:text-red-700 font-bold text-lg px-2">×</button>
+                                ${undoBtn}${removeBtn}
                             </div>
                         `;
                     }).join('')}
@@ -6643,67 +6890,73 @@ async function initializeSystemAfterLogin() {
         
         // 載入上次處方內容（按鈕觸發）
         async function loadPreviousPrescription() {
+            // 先檢查是否有正在診症的掛號
             if (!currentConsultingAppointmentId) {
                 showToast('請先開始診症！', 'error');
                 return;
             }
-            
             // 使用字串比較 ID，避免類型不一致導致匹配失敗
             const appointment = appointments.find(apt => apt && String(apt.id) === String(currentConsultingAppointmentId));
             if (!appointment) {
                 showToast('找不到當前診症記錄！', 'error');
                 return;
             }
-    try {            
-const patientResult = await window.firebaseDataManager.getPatients();
-if (!patientResult.success) {
-    showToast('無法讀取病人資料！', 'error');
-    return;
-}
-
-// 使用 appointment.patientId 作為查詢依據，避免未定義的 patientId 變數
-const patient = patientResult.data.find(p => p.id === appointment.patientId);
-if (!patient) {
-    showToast('找不到病人資料！', 'error');
-    return;
-}
-
-// 從 Firebase 取得病人的診症記錄並按日期排序
-const consultationResult = await window.firebaseDataManager.getPatientConsultations(patient.id);
-if (!consultationResult.success) {
-    showToast('無法讀取診症記錄！', 'error');
-    return;
-}
-
-// 排除當前正在編輯的診症記錄（如果有）
-let patientConsultations = consultationResult.data || [];
-if (appointment.consultationId) {
-    patientConsultations = patientConsultations.filter(c => c.id !== appointment.consultationId);
-}
-
-// 取得最近一次診症記錄
-const lastConsultation = patientConsultations.length > 0 ? patientConsultations[0] : null;
-
-if (!lastConsultation || !lastConsultation.prescription) {
-    showToast(`${patient.name} 沒有上次處方記錄可載入`, 'warning');
-    return;
-}
-
-// 直接載入，不需要確認
-// 清空現有處方項目
-selectedPrescriptionItems = [];
-
-// 解析上次處方內容，重建處方項目
-parsePrescriptionToItems(lastConsultation.prescription);
-
-// 更新處方顯示
-updatePrescriptionDisplay();
-
-// showToast(`已載入 ${patient.name} 上次的處方內容`, 'success');
+            // 取得觸發按鈕：優先使用事件目標，若不存在則從 DOM 查找
+            let loadingButton = null;
+            try {
+                if (typeof event !== 'undefined' && event && event.currentTarget) {
+                    loadingButton = event.currentTarget;
+                }
+            } catch (_e) {
+                // 忽略事件取得失敗
+            }
+            if (!loadingButton) {
+                loadingButton = document.querySelector('button[onclick="loadPreviousPrescription()"]');
+            }
+            if (loadingButton) {
+                setButtonLoading(loadingButton, '讀取中...');
+            }
+            try {
+                const patientResult = await window.firebaseDataManager.getPatients();
+                if (!patientResult.success) {
+                    showToast('無法讀取病人資料！', 'error');
+                    return;
+                }
+                // 依據 appointment.patientId 找到病人
+                const patient = patientResult.data.find(p => p.id === appointment.patientId);
+                if (!patient) {
+                    showToast('找不到病人資料！', 'error');
+                    return;
+                }
+                // 讀取病人的診症記錄
+                const consultationResult = await window.firebaseDataManager.getPatientConsultations(patient.id);
+                if (!consultationResult.success) {
+                    showToast('無法讀取診症記錄！', 'error');
+                    return;
+                }
+                // 排除當前正在編輯的診症記錄（如果有）
+                let patientConsultations = consultationResult.data || [];
+                if (appointment.consultationId) {
+                    patientConsultations = patientConsultations.filter(c => c.id !== appointment.consultationId);
+                }
+                // 取得最近一次診症記錄
+                const lastConsultation = patientConsultations.length > 0 ? patientConsultations[0] : null;
+                if (!lastConsultation || !lastConsultation.prescription) {
+                    showToast(`${patient.name} 沒有上次處方記錄可載入`, 'warning');
+                    return;
+                }
+                // 清空並解析處方
+                selectedPrescriptionItems = [];
+                parsePrescriptionToItems(lastConsultation.prescription);
+                updatePrescriptionDisplay();
             } catch (error) {
-        console.error('讀取病人資料錯誤:', error);
-        showToast('讀取病人資料失敗', 'error');
-    }
+                console.error('讀取病人資料錯誤:', error);
+                showToast('讀取病人資料失敗', 'error');
+            } finally {
+                if (loadingButton) {
+                    clearButtonLoading(loadingButton);
+                }
+            }
         }
         
         // 解析處方內容並重建處方項目
@@ -6804,70 +7057,76 @@ updatePrescriptionDisplay();
         
         // 載入上次收費項目（按鈕觸發）
         async function loadPreviousBillingItems() {
+            // 先檢查是否有正在診症的掛號
             if (!currentConsultingAppointmentId) {
                 showToast('請先開始診症！', 'error');
                 return;
             }
-            
-            // 使用字串比較 ID，避免類型不一致導致匹配失敗
             const appointment = appointments.find(apt => apt && String(apt.id) === String(currentConsultingAppointmentId));
             if (!appointment) {
                 showToast('找不到當前診症記錄！', 'error');
                 return;
             }
-    try {             
-const patientResult = await window.firebaseDataManager.getPatients();
-if (!patientResult.success) {
-    showToast('無法讀取病人資料！', 'error');
-    return;
-}
-
-// 使用 appointment.patientId 取得病人資料
-const patient = patientResult.data.find(p => p.id === appointment.patientId);
-if (!patient) {
-    showToast('找不到病人資料！', 'error');
-    return;
-}
-
-// 從 Firebase 取得病人的診症記錄並按日期排序
-const consultationResult = await window.firebaseDataManager.getPatientConsultations(patient.id);
-if (!consultationResult.success) {
-    showToast('無法讀取診症記錄！', 'error');
-    return;
-}
-
-let patientConsultations = consultationResult.data || [];
-if (appointment.consultationId) {
-    patientConsultations = patientConsultations.filter(c => c.id !== appointment.consultationId);
-}
-// 最近一次診症記錄
-const lastConsultation = patientConsultations.length > 0 ? patientConsultations[0] : null;
-
-if (!lastConsultation || !lastConsultation.billingItems) {
-    showToast(`${patient.name} 沒有上次收費記錄可載入`, 'warning');
-    return;
-}
-
-// 直接載入，不需要確認
-// 清空現有收費項目
-selectedBillingItems = [];
-
-    // 解析並載入上次收費項目
-    parseBillingItemsFromText(lastConsultation.billingItems);
-    
-    // 根據要求：載入上次收費時，排除任何「使用套票」的抵扣項目。
-    // 這些項目在 parseBillingItemsFromText 中會被標記為 category === 'packageUse'。
-    // 套票本身的購買（category === 'package'）仍然會被載入。
-    if (Array.isArray(selectedBillingItems) && selectedBillingItems.length > 0) {
-        selectedBillingItems = selectedBillingItems.filter(item => item.category !== 'packageUse');
-    }
-
-    // 更新顯示
-    updateBillingDisplay();
+            // 取得觸發按鈕
+            let loadingButton = null;
+            try {
+                if (typeof event !== 'undefined' && event && event.currentTarget) {
+                    loadingButton = event.currentTarget;
+                }
+            } catch (_e) {}
+            if (!loadingButton) {
+                loadingButton = document.querySelector('button[onclick="loadPreviousBillingItems()"]');
+            }
+            if (loadingButton) {
+                setButtonLoading(loadingButton, '讀取中...');
+            }
+            try {
+                const patientResult = await window.firebaseDataManager.getPatients();
+                if (!patientResult.success) {
+                    showToast('無法讀取病人資料！', 'error');
+                    return;
+                }
+                // 使用 appointment.patientId 取得病人資料
+                const patient = patientResult.data.find(p => p.id === appointment.patientId);
+                if (!patient) {
+                    showToast('找不到病人資料！', 'error');
+                    return;
+                }
+                // 從 Firebase 取得病人的診症記錄並按日期排序
+                const consultationResult = await window.firebaseDataManager.getPatientConsultations(patient.id);
+                if (!consultationResult.success) {
+                    showToast('無法讀取診症記錄！', 'error');
+                    return;
+                }
+                let patientConsultations = consultationResult.data || [];
+                if (appointment.consultationId) {
+                    patientConsultations = patientConsultations.filter(c => c.id !== appointment.consultationId);
+                }
+                // 最近一次診症記錄
+                const lastConsultation = patientConsultations.length > 0 ? patientConsultations[0] : null;
+                if (!lastConsultation || !lastConsultation.billingItems) {
+                    showToast(`${patient.name} 沒有上次收費記錄可載入`, 'warning');
+                    return;
+                }
+                // 清空現有收費項目並解析
+                selectedBillingItems = [];
+                parseBillingItemsFromText(lastConsultation.billingItems);
+                // 根據要求：載入上次收費時，排除任何「使用套票」的抵扣項目與套票購買項目。
+                // 原先僅排除 category 為 'packageUse' 的項目（即使用套票時產生的抵扣），
+                // 但後續需求也要排除 category 為 'package' 的項目（即購買套票的收費項目）。
+                if (Array.isArray(selectedBillingItems) && selectedBillingItems.length > 0) {
+                    selectedBillingItems = selectedBillingItems.filter(item => item.category !== 'packageUse' && item.category !== 'package');
+                }
+                // 更新顯示
+                updateBillingDisplay();
             } catch (error) {
-        console.error('讀取病人資料錯誤:', error);
-        showToast('讀取病人資料失敗', 'error');
-    }
+                console.error('讀取病人資料錯誤:', error);
+                showToast('讀取病人資料失敗', 'error');
+            } finally {
+                if (loadingButton) {
+                    clearButtonLoading(loadingButton);
+                }
+            }
         }
         
 // 解析收費項目文字並載入
@@ -6933,9 +7192,13 @@ function parseBillingItemsFromText(billingText) {
         
         // 載入上次收費項目（內部函數 - 保留向後兼容）
         function loadPreviousBillingItemsFromConsultation(lastConsultation) {
-            selectedBillingItems = [];
-            parseBillingItemsFromText(lastConsultation.billingItems);
-            updateBillingDisplay();
+    selectedBillingItems = [];
+    parseBillingItemsFromText(lastConsultation.billingItems);
+    // 排除載入舊病歷時的套票抵扣和購買項目，避免重複加載。
+    if (Array.isArray(selectedBillingItems) && selectedBillingItems.length > 0) {
+        selectedBillingItems = selectedBillingItems.filter(item => item.category !== 'packageUse' && item.category !== 'package');
+    }
+    updateBillingDisplay();
         }
         
         // 載入指定病歷記錄到當前診症
@@ -7464,11 +7727,9 @@ async function saveUser() {
         }
     }
 
-    // 顯示保存中狀態
+    // 顯示保存中狀態：在按鈕中顯示旋轉小圈並禁用按鈕
     const saveButton = document.querySelector('[onclick="saveUser()"]');
-    const originalText = saveButton.textContent;
-    saveButton.textContent = '保存中...';
-    saveButton.disabled = true;
+    setButtonLoading(saveButton, '保存中...');
 
     try {
         if (editingUserId) {
@@ -7556,9 +7817,8 @@ async function saveUser() {
         console.error('保存用戶資料錯誤:', error);
         showToast('保存時發生錯誤', 'error');
     } finally {
-        // 恢復按鈕狀態
-        saveButton.textContent = originalText;
-        saveButton.disabled = false;
+        // 恢復按鈕狀態與內容
+        clearButtonLoading(saveButton);
     }
 }
 
@@ -8377,164 +8637,215 @@ async function refreshPatientPackagesUI() {
 }
 
 async function useOnePackage(patientId, packageRecordId) {
-    const res = await consumePackage(patientId, packageRecordId);
-    if (!res.ok) {
-        showToast(res.msg || '套票不可用', 'warning');
-        return;
+    // 在按鈕上顯示讀取狀態：嘗試從事件對象取得當前按鈕，若無則從 DOM 查找
+    let loadingButton = null;
+    try {
+        if (typeof event !== 'undefined' && event && event.currentTarget) {
+            loadingButton = event.currentTarget;
+        }
+    } catch (_e) {}
+    if (!loadingButton) {
+        try {
+            // 透過 onclick 屬性匹配對應按鈕（使用模板字串避免引號問題）
+            const selector = `button[onclick="useOnePackage('${patientId}', '${packageRecordId}')"]`;
+            loadingButton = document.querySelector(selector);
+        } catch (_e) {
+            loadingButton = null;
+        }
     }
-    const usedName = `${res.record.name} (使用套票)`;
-    
-    selectedBillingItems.push({
-        id: `use-${res.record.id}-${Date.now()}`,
-        name: usedName,
-        category: 'packageUse',
-        price: 0,
-        unit: '次',
-        description: '套票抵扣一次',
-        quantity: 1,
-        patientId: patientId,
-        packageRecordId: res.record.id
-    });
-    updateBillingDisplay();
-    await refreshPatientPackagesUI();
-    showToast(`已使用套票：${res.record.name}，剩餘 ${res.record.remainingUses} 次`, 'success');
+    if (loadingButton) {
+        setButtonLoading(loadingButton, '處理中...');
+    }
+    try {
+        const res = await consumePackage(patientId, packageRecordId);
+        if (!res.ok) {
+            showToast(res.msg || '套票不可用', 'warning');
+            return;
+        }
+        const usedName = `${res.record.name} (使用套票)`;
+        selectedBillingItems.push({
+            id: `use-${res.record.id}-${Date.now()}`,
+            name: usedName,
+            category: 'packageUse',
+            price: 0,
+            unit: '次',
+            description: '套票抵扣一次',
+            quantity: 1,
+            patientId: patientId,
+            packageRecordId: res.record.id
+        });
+        updateBillingDisplay();
+        await refreshPatientPackagesUI();
+        showToast(`已使用套票：${res.record.name}，剩餘 ${res.record.remainingUses} 次`, 'success');
+    } catch (error) {
+        console.error('使用套票時發生錯誤:', error);
+        showToast('使用套票時發生錯誤', 'error');
+    } finally {
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
+    }
 }
 
 async function undoPackageUse(patientId, packageRecordId, usageItemId) {
-    // 等待 Firebase 數據管理器準備好，避免在初始化過程中無法更新套票
-    if (!window.firebaseDataManager || !window.firebaseDataManager.isReady) {
-        for (let i = 0; i < 100 && (!window.firebaseDataManager || !window.firebaseDataManager.isReady); i++) {
-            await new Promise(resolve => setTimeout(resolve, 50));
-        }
-    }
-    // 先取得對應的項目
-    const item = selectedBillingItems.find(it => it.id === usageItemId);
-    if (!item) {
-        // 找不到項目，可能已被刪除
-        showToast('找不到套票使用項目', 'warning');
-        return;
-    }
-    // 推斷病人 ID：優先使用項目中的 patientId，其次使用傳入的參數，再退而從當前掛號推斷
-    let resolvedPatientId = item.patientId || patientId;
-    if (!resolvedPatientId) {
-        try {
-            if (typeof currentConsultingAppointmentId !== 'undefined' && Array.isArray(appointments)) {
-                // 使用字串比較 ID，避免類型不一致導致匹配失敗
-                const currAppt = appointments.find(appt => appt && String(appt.id) === String(currentConsultingAppointmentId));
-                if (currAppt) {
-                    resolvedPatientId = currAppt.patientId;
-                }
-            }
-        } catch (e) {
-            // 忽略錯誤，保持 resolvedPatientId 為 undefined
-        }
-    }
-    // 嘗試恢復缺失的套票 meta，以便舊病歷也能取消使用
+    // 先取得觸發按鈕：優先使用事件目標，其次透過 DOM 查找
+    let loadingButton = null;
     try {
-        // restorePackageUseMeta 會根據 resolvedPatientId 嘗試為所有缺失的套票使用項目補全 patientId 和 packageRecordId
-        if (typeof restorePackageUseMeta === 'function' && resolvedPatientId) {
-            await restorePackageUseMeta(resolvedPatientId);
+        if (typeof event !== 'undefined' && event && event.currentTarget) {
+            loadingButton = event.currentTarget;
         }
-    } catch (e) {
-        console.error('恢復套票使用 meta 錯誤:', e);
-    }
-    // 若 patientId 或 packageRecordId 缺失，嘗試使用傳入的參數填充
-    if (!item.patientId && resolvedPatientId) {
-        item.patientId = resolvedPatientId;
-    }
-    if (!item.packageRecordId && packageRecordId) {
-        item.packageRecordId = packageRecordId;
-    }
-    // 如果成功補齊 meta，取消歷史標記
-    if (item.isHistorical && item.patientId && item.packageRecordId) {
-        item.isHistorical = false;
-    }
-    // 如果仍然缺少 meta，嘗試根據名稱匹配患者的套票以恢復 packageRecordId
-    // 先使用傳入的 patientId 參數填補 item.patientId（若缺失）
-    if (!item.patientId && resolvedPatientId) {
-        item.patientId = resolvedPatientId;
-    }
-    // 若缺少 packageRecordId，嘗試透過名稱匹配
-    if (!item.packageRecordId && item.patientId) {
+    } catch (_e) {}
+    if (!loadingButton) {
         try {
-            const pkgsForUndo = await getPatientPackages(item.patientId);
-            let baseName = item.name;
-            // 移除名稱中的「使用套票」及前一個括號（若存在）
-            const idx = baseName.indexOf('使用套票');
-            if (idx !== -1) {
-                if (idx > 0 && (baseName[idx - 1] === '(' || baseName[idx - 1] === '（')) {
-                    baseName = baseName.substring(0, idx - 1).trim();
-                } else {
-                    baseName = baseName.substring(0, idx).trim();
-                }
-            }
-            const candidatesForUndo = pkgsForUndo.filter(p => p.name === baseName);
-            if (candidatesForUndo.length === 1) {
-                item.packageRecordId = candidatesForUndo[0].id;
-                item.isHistorical = false;
-            } else if (candidatesForUndo.length > 1) {
-                let chosenPkg = candidatesForUndo[0];
-                for (const cPkg of candidatesForUndo) {
-                    const usedCount = (cPkg.totalUses || 0) - (cPkg.remainingUses || 0);
-                    const chosenUsed = (chosenPkg.totalUses || 0) - (chosenPkg.remainingUses || 0);
-                    if (usedCount > chosenUsed) {
-                        chosenPkg = cPkg;
-                    }
-                }
-                item.packageRecordId = chosenPkg.id;
-                item.isHistorical = false;
-            }
-        } catch (e) {
-            console.error('套票名稱匹配錯誤:', e);
+            // 使用部分匹配，以 usageItemId 為關鍵字查找對應的取消按鈕
+            loadingButton = document.querySelector(`button[onclick*="undoPackageUse("][onclick*="'${usageItemId}'"]`);
+        } catch (_e) {
+            loadingButton = null;
         }
     }
-    // 如果嘗試補全後仍缺少 meta，則移除項目但不嘗試退回次數
-    if (!item.patientId || !item.packageRecordId) {
-        selectedBillingItems = selectedBillingItems.filter(it => it.id !== usageItemId);
-        updateBillingDisplay();
-        showToast('已移除套票使用項目，未退回次數', 'info');
-        return;
+    if (loadingButton) {
+        setButtonLoading(loadingButton, '處理中...');
     }
-    // 以項目中的 packageRecordId 為準
-    const pkgId = item.packageRecordId;
     try {
-        // 取得病人的套票，如果沒有取得則重試一次
-        const packages = await getPatientPackages(item.patientId);
-        const pkg = packages.find(p => p.id === pkgId);
-        if (!pkg) {
-            // 找不到對應的套票，直接移除項目
-            selectedBillingItems = selectedBillingItems.filter(it => it.id !== usageItemId);
-            updateBillingDisplay();
-            showToast('找不到對應的套票，已移除項目', 'warning');
+        // 等待 Firebase 數據管理器準備好，避免在初始化過程中無法更新套票
+        if (!window.firebaseDataManager || !window.firebaseDataManager.isReady) {
+            for (let i = 0; i < 100 && (!window.firebaseDataManager || !window.firebaseDataManager.isReady); i++) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+        }
+        // 先取得對應的項目
+        const item = selectedBillingItems.find(it => it.id === usageItemId);
+        if (!item) {
+            // 找不到項目，可能已被刪除
+            showToast('找不到套票使用項目', 'warning');
             return;
         }
-        const updatedPackage = {
-            ...pkg,
-            // 將剩餘次數加 1，如果不存在則視為 0
-            remainingUses: (pkg.remainingUses || 0) + 1
-        };
-        const result = await window.firebaseDataManager.updatePatientPackage(pkgId, updatedPackage);
-        if (result && result.success) {
-            /*
-             * 如果套票使用項目的數量大於 1，代表當次診症已抵扣多次。
-             * 此時取消使用只應減少數量並退回一次，並保留項目；
-             * 若數量為 1，則從列表中移除該項目。
-             */
-            const currentItem = selectedBillingItems.find(it => it.id === usageItemId);
-            if (currentItem && typeof currentItem.quantity === 'number' && currentItem.quantity > 1) {
-                currentItem.quantity -= 1;
-            } else {
-                selectedBillingItems = selectedBillingItems.filter(it => it.id !== usageItemId);
+        // 推斷病人 ID：優先使用項目中的 patientId，其次使用傳入的參數，再退而從當前掛號推斷
+        let resolvedPatientId = item.patientId || patientId;
+        if (!resolvedPatientId) {
+            try {
+                if (typeof currentConsultingAppointmentId !== 'undefined' && Array.isArray(appointments)) {
+                    // 使用字串比較 ID，避免類型不一致導致匹配失敗
+                    const currAppt = appointments.find(appt => appt && String(appt.id) === String(currentConsultingAppointmentId));
+                    if (currAppt) {
+                        resolvedPatientId = currAppt.patientId;
+                    }
+                }
+            } catch (e) {
+                // 忽略錯誤，保持 resolvedPatientId 為 undefined
             }
-            updateBillingDisplay();
-            await refreshPatientPackagesUI();
-            showToast('已取消本次套票使用，次數已退回', 'success');
-        } else {
-            showToast('取消套票使用失敗', 'error');
         }
-    } catch (error) {
-        console.error('取消套票使用錯誤:', error);
-        showToast('取消套票使用時發生錯誤', 'error');
+        // 嘗試恢復缺失的套票 meta，以便舊病歷也能取消使用
+        try {
+            // restorePackageUseMeta 會根據 resolvedPatientId 嘗試為所有缺失的套票使用項目補全 patientId 和 packageRecordId
+            if (typeof restorePackageUseMeta === 'function' && resolvedPatientId) {
+                await restorePackageUseMeta(resolvedPatientId);
+            }
+        } catch (e) {
+            console.error('恢復套票使用 meta 錯誤:', e);
+        }
+        // 若 patientId 或 packageRecordId 缺失，嘗試使用傳入的參數填充
+        if (!item.patientId && resolvedPatientId) {
+            item.patientId = resolvedPatientId;
+        }
+        if (!item.packageRecordId && packageRecordId) {
+            item.packageRecordId = packageRecordId;
+        }
+        // 如果成功補齊 meta，取消歷史標記
+        if (item.isHistorical && item.patientId && item.packageRecordId) {
+            item.isHistorical = false;
+        }
+        // 如果仍然缺少 meta，嘗試根據名稱匹配患者的套票以恢復 packageRecordId
+        // 先使用傳入的 patientId 參數填補 item.patientId（若缺失）
+        if (!item.patientId && resolvedPatientId) {
+            item.patientId = resolvedPatientId;
+        }
+        // 若缺少 packageRecordId，嘗試透過名稱匹配
+        if (!item.packageRecordId && item.patientId) {
+            try {
+                const pkgsForUndo = await getPatientPackages(item.patientId);
+                let baseName = item.name;
+                // 移除名稱中的「使用套票」及前一個括號（若存在）
+                const idx = baseName.indexOf('使用套票');
+                if (idx !== -1) {
+                    if (idx > 0 && (baseName[idx - 1] === '(' || baseName[idx - 1] === '（')) {
+                        baseName = baseName.substring(0, idx - 1).trim();
+                    } else {
+                        baseName = baseName.substring(0, idx).trim();
+                    }
+                }
+                const candidatesForUndo = pkgsForUndo.filter(p => p.name === baseName);
+                if (candidatesForUndo.length === 1) {
+                    item.packageRecordId = candidatesForUndo[0].id;
+                    item.isHistorical = false;
+                } else if (candidatesForUndo.length > 1) {
+                    let chosenPkg = candidatesForUndo[0];
+                    for (const cPkg of candidatesForUndo) {
+                        const usedCount = (cPkg.totalUses || 0) - (cPkg.remainingUses || 0);
+                        const chosenUsed = (chosenPkg.totalUses || 0) - (chosenPkg.remainingUses || 0);
+                        if (usedCount > chosenUsed) {
+                            chosenPkg = cPkg;
+                        }
+                    }
+                    item.packageRecordId = chosenPkg.id;
+                    item.isHistorical = false;
+                }
+            } catch (e) {
+                console.error('套票名稱匹配錯誤:', e);
+            }
+        }
+        // 如果嘗試補全後仍缺少 meta，則移除項目但不嘗試退回次數
+        if (!item.patientId || !item.packageRecordId) {
+            selectedBillingItems = selectedBillingItems.filter(it => it.id !== usageItemId);
+            updateBillingDisplay();
+            showToast('已移除套票使用項目，未退回次數', 'info');
+            return;
+        }
+        // 以項目中的 packageRecordId 為準
+        const pkgId = item.packageRecordId;
+        try {
+            // 取得病人的套票，如果沒有取得則重試一次
+            const packages = await getPatientPackages(item.patientId);
+            const pkg = packages.find(p => p.id === pkgId);
+            if (!pkg) {
+                // 找不到對應的套票，直接移除項目
+                selectedBillingItems = selectedBillingItems.filter(it => it.id !== usageItemId);
+                updateBillingDisplay();
+                showToast('找不到對應的套票，已移除項目', 'warning');
+                return;
+            }
+            const updatedPackage = {
+                ...pkg,
+                // 將剩餘次數加 1，如果不存在則視為 0
+                remainingUses: (pkg.remainingUses || 0) + 1
+            };
+            const result = await window.firebaseDataManager.updatePatientPackage(pkgId, updatedPackage);
+            if (result && result.success) {
+                /*
+                 * 如果套票使用項目的數量大於 1，代表當次診症已抵扣多次。
+                 * 此時取消使用只應減少數量並退回一次，並保留項目；
+                 * 若數量為 1，則從列表中移除該項目。
+                 */
+                const currentItem = selectedBillingItems.find(it => it.id === usageItemId);
+                if (currentItem && typeof currentItem.quantity === 'number' && currentItem.quantity > 1) {
+                    currentItem.quantity -= 1;
+                } else {
+                    selectedBillingItems = selectedBillingItems.filter(it => it.id !== usageItemId);
+                }
+                updateBillingDisplay();
+                await refreshPatientPackagesUI();
+                showToast('已取消本次套票使用，次數已退回', 'success');
+            } else {
+                showToast('取消套票使用失敗', 'error');
+            }
+        } catch (error) {
+            console.error('取消套票使用錯誤:', error);
+            showToast('取消套票使用時發生錯誤', 'error');
+        }
+    } finally {
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
 }
 
@@ -9015,6 +9326,20 @@ window.addEventListener('load', async () => {
 document.addEventListener('DOMContentLoaded', function() {
     
     updateClinicSettingsDisplay();
+
+    // 隱藏不再使用的中藥材及方劑欄位：性味、歸經、主治、用法
+    ['herbNature', 'herbMeridian', 'herbIndications', 'formulaIndications', 'formulaUsage'].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) {
+            // 嘗試隱藏包含此輸入的父層容器（通常為欄位區塊）。
+            const container = el.closest('div');
+            if (container) {
+                container.style.display = 'none';
+            } else {
+                el.style.display = 'none';
+            }
+        }
+    });
     
     
     // 自動聚焦到電子郵件輸入框
