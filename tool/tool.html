@@ -1,0 +1,2192 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中藥資料庫 - 雲端版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, get, push, onValue, remove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBtUcrBYiE4B1O4xkvIqwxM52Hrh-i6pL8",
+            authDomain: "cheungec-ea477.firebaseapp.com",
+            databaseURL: "https://cheungec-ea477-default-rtdb.firebaseio.com/",
+            projectId: "cheungec-ea477",
+            storageBucket: "cheungec-ea477.firebasestorage.app",
+            messagingSenderId: "986510230799",
+            appId: "1:986510230799:web:f603e67b605e71294f2a7a"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        
+        // Make Firebase functions globally available
+        window.firebaseDB = {
+            ref: ref,
+            set: set,
+            get: get,
+            push: push,
+            onValue: onValue,
+            remove: remove,
+            database: database
+        };
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-6xl mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold">中</span>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-900">中藥資料庫</h1>
+                        <p class="text-sm text-gray-600">雲端版</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="connectionStatus" class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                        <span class="text-sm text-gray-600">連線中</span>
+                    </div>
+                    <div class="text-sm text-gray-500">v2.0</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto px-6 py-8">
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
+            <div class="text-center">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-600">正在載入資料...</p>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div id="mainContent" class="grid grid-cols-1 lg:grid-cols-3 gap-8 hidden">
+            
+            <!-- Left Panel - Search -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Search Section -->
+                <div class="bg-white rounded-lg shadow-sm border p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        搜尋功能
+                    </h2>
+                    
+                    <div class="mb-4">
+                        <input 
+                            type="text" 
+                            id="searchInput" 
+                            placeholder="輸入中藥名稱或症狀..."
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                        >
+                    </div>
+
+                    <div class="flex space-x-3">
+                        <button id="searchBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                            🔍 搜尋
+                        </button>
+                        <button id="clearBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                            清除
+                        </button>
+                    </div>
+                </div>
+
+
+            </div>
+
+            <!-- Right Panel - Data Import -->
+            <div class="space-y-6">
+                <!-- Data Import Section -->
+                <div class="bg-white rounded-lg shadow-sm border p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        資料導入
+                    </h2>
+                    
+                    <!-- Smart Input Area -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            智能格式識別
+                        </label>
+                        <div class="flex items-center justify-between mb-2">
+                            <div id="formatHint" class="text-xs text-blue-600"></div>
+                        </div>
+                        <textarea 
+                            id="importData" 
+                            placeholder="支援多種格式，例如：&#10;冒號格式：當歸：補血調經，活血止痛&#10;逗號格式：黃芪,補氣固表、利尿托毒&#10;箭頭格式：人參→大補元氣，復脈固脫&#10;標點符號：白芍：養血柔肝。緩中止痛！斂陰收汗？&#10;混合分隔：丹參：活血化瘀，涼血消癰；除煩安神"
+                            class="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none text-sm"
+                        ></textarea>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="space-y-3">
+                        <button id="importBtn" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium transition-colors">
+                            ⬆️ 智能導入到雲端
+                        </button>
+                        
+                        <!-- Progress Bar -->
+                        <div id="progressContainer" class="hidden bg-gray-50 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span id="progressText" class="text-sm text-gray-600">準備導入...</span>
+                                <span id="progressPercent" class="text-sm font-medium text-blue-600">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        
+                        <button id="clearAllBtn" class="w-full bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg font-medium transition-colors">
+                            🗑️ 清空輸入
+                        </button>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="editModeBtn" class="bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-medium transition-colors text-sm">
+                                ✏️ 編輯模式
+                            </button>
+                            <button id="clearDatabaseBtn" class="bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-medium transition-colors text-sm">
+                                💥 清空資料庫
+                            </button>
+                        </div>
+                        
+                        <button id="exportDataBtn" class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-medium transition-colors">
+                            📤 導出資料 (TXT)
+                        </button>
+                        </div>
+                    </div>
+                    
+
+                </div>
+
+                <!-- Statistics -->
+                <div class="bg-white rounded-lg shadow-sm border p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        統計資訊
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">中藥數量</span>
+                            <span id="herbCount" class="font-semibold text-blue-600">載入中...</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">症狀數量</span>
+                            <span id="symptomCount" class="font-semibold text-green-600">載入中...</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">總記錄數</span>
+                            <span id="recordCount" class="font-semibold text-purple-600">載入中...</span>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+
+        <!-- Data Display -->
+        <div id="dataDisplay" class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8 hidden">
+            <!-- Herbs List -->
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <div class="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                    中藥列表
+                </h3>
+                <div id="herbsList" class="max-h-64 overflow-y-auto space-y-2">
+                    <p class="text-gray-500 text-center py-8">載入中...</p>
+                </div>
+            </div>
+
+            <!-- Symptoms List -->
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                    症狀列表
+                </h3>
+                <div id="symptomsList" class="max-h-64 overflow-y-auto space-y-2">
+                    <p class="text-gray-500 text-center py-8">載入中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Results Modal -->
+    <div id="searchModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">搜尋結果</h3>
+                        <p id="modalSearchQuery" class="text-sm text-gray-600"></p>
+                    </div>
+                </div>
+                <button id="closeModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Modal Content -->
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                <div id="modalResultsContainer">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+            
+            <!-- Modal Footer -->
+            <div class="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+                <div class="flex items-center space-x-4">
+                    <span id="modalResultCount" class="text-sm text-gray-600"></span>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span class="text-xs text-gray-500">中藥</span>
+                        <div class="w-3 h-3 bg-green-500 rounded-full ml-4"></div>
+                        <span class="text-xs text-gray-500">症狀</span>
+                    </div>
+                </div>
+                <button id="newSearchBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                    🔍 新搜尋
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-hidden">
+            <!-- Edit Modal Header -->
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">編輯資料</h3>
+                        <p class="text-sm text-gray-600">修改中藥和症狀資料</p>
+                    </div>
+                </div>
+                <button id="closeEditModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Edit Modal Content -->
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+                <!-- Search and Filter -->
+                <div class="mb-6">
+                    <div class="flex space-x-4 mb-4">
+                        <input 
+                            type="text" 
+                            id="editSearchInput" 
+                            placeholder="搜尋要編輯的項目..."
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                        >
+                        <select id="editTypeFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none">
+                            <option value="all">全部</option>
+                            <option value="herb">中藥</option>
+                            <option value="symptom">症狀</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Edit Items List -->
+                <div id="editItemsList" class="space-y-3">
+                    <!-- Items will be populated here -->
+                </div>
+            </div>
+            
+            <!-- Edit Modal Footer -->
+            <div class="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+                <div class="flex items-center space-x-4">
+                    <span id="editItemCount" class="text-sm text-gray-600">載入中...</span>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span class="text-xs text-gray-500">中藥</span>
+                        <div class="w-3 h-3 bg-green-500 rounded-full ml-4"></div>
+                        <span class="text-xs text-gray-500">症狀</span>
+                    </div>
+                </div>
+                <button id="closeEditModalBtn" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                    關閉
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Item Detail Modal -->
+    <div id="editDetailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] hidden">
+        <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+            <!-- Detail Modal Header -->
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <div class="flex items-center space-x-3">
+                    <div id="editDetailIcon" class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold">編</span>
+                    </div>
+                    <div>
+                        <h3 id="editDetailTitle" class="text-lg font-semibold text-gray-900">編輯項目</h3>
+                        <p id="editDetailSubtitle" class="text-sm text-gray-600">修改名稱和關聯項目</p>
+                    </div>
+                </div>
+                <button id="closeEditDetailModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- Detail Modal Content -->
+            <div class="p-6 overflow-y-auto max-h-[calc(80vh-180px)]">
+                <!-- Name Edit -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">名稱</label>
+                    <input 
+                        type="text" 
+                        id="editItemName" 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+                        placeholder="輸入新名稱..."
+                    >
+                </div>
+                
+                <!-- Related Items Edit -->
+                <div class="mb-6">
+                    <label id="editRelatedLabel" class="block text-sm font-medium text-gray-700 mb-2">關聯項目</label>
+                    <div class="space-y-2 mb-4">
+                        <div id="editRelatedItems" class="space-y-2">
+                            <!-- Related items will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Add New Related Item -->
+                    <div class="flex space-x-2">
+                        <input 
+                            type="text" 
+                            id="newRelatedItem" 
+                            placeholder="新增關聯項目..."
+                            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm"
+                        >
+                        <button id="addRelatedItemBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            新增
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Detail Modal Footer -->
+            <div class="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+                <button id="deleteItemBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                    🗑️ 刪除項目
+                </button>
+                <div class="flex space-x-3">
+                    <button id="cancelEditBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        取消
+                    </button>
+                    <button id="saveEditBtn" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        💾 儲存變更
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-[10001]">
+        <div class="flex items-center space-x-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            <span id="toastMessage">操作成功</span>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let herbsData = {};
+        let symptomsData = {};
+        let recordsData = {};
+        let isFirebaseReady = false;
+
+        // DOM elements
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const importData = document.getElementById('importData');
+        const importBtn = document.getElementById('importBtn');
+        const clearAllBtn = document.getElementById('clearAllBtn');
+        const clearDatabaseBtn = document.getElementById('clearDatabaseBtn');
+        const editModeBtn = document.getElementById('editModeBtn');
+        const exportDataBtn = document.getElementById('exportDataBtn');
+        const herbCount = document.getElementById('herbCount');
+        const symptomCount = document.getElementById('symptomCount');
+        const recordCount = document.getElementById('recordCount');
+        const herbsList = document.getElementById('herbsList');
+        const symptomsList = document.getElementById('symptomsList');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const mainContent = document.getElementById('mainContent');
+        const dataDisplay = document.getElementById('dataDisplay');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+        
+        // Modal elements
+        const searchModal = document.getElementById('searchModal');
+        const modalResultsContainer = document.getElementById('modalResultsContainer');
+        const modalSearchQuery = document.getElementById('modalSearchQuery');
+        const modalResultCount = document.getElementById('modalResultCount');
+        const closeModal = document.getElementById('closeModal');
+        const newSearchBtn = document.getElementById('newSearchBtn');
+        
+        // Smart import elements
+        const formatHint = document.getElementById('formatHint');
+        
+        // Progress bar elements
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const progressPercent = document.getElementById('progressPercent');
+        
+        // Edit modal elements
+        const editModal = document.getElementById('editModal');
+        const editSearchInput = document.getElementById('editSearchInput');
+        const editTypeFilter = document.getElementById('editTypeFilter');
+        const editItemsList = document.getElementById('editItemsList');
+        const editItemCount = document.getElementById('editItemCount');
+        const closeEditModal = document.getElementById('closeEditModal');
+        const closeEditModalBtn = document.getElementById('closeEditModalBtn');
+        
+        // Edit detail modal elements
+        const editDetailModal = document.getElementById('editDetailModal');
+        const editDetailIcon = document.getElementById('editDetailIcon');
+        const editDetailTitle = document.getElementById('editDetailTitle');
+        const editDetailSubtitle = document.getElementById('editDetailSubtitle');
+        const editItemName = document.getElementById('editItemName');
+        const editRelatedLabel = document.getElementById('editRelatedLabel');
+        const editRelatedItems = document.getElementById('editRelatedItems');
+        const newRelatedItem = document.getElementById('newRelatedItem');
+        const addRelatedItemBtn = document.getElementById('addRelatedItemBtn');
+        const deleteItemBtn = document.getElementById('deleteItemBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const saveEditBtn = document.getElementById('saveEditBtn');
+        const closeEditDetailModal = document.getElementById('closeEditDetailModal');
+        
+        // Edit state variables
+        let currentEditItem = null;
+        let currentEditType = null;
+        let editItemsData = [];
+
+        // Wait for Firebase to be ready
+        function waitForFirebase() {
+            return new Promise((resolve) => {
+                const checkFirebase = () => {
+                    if (window.firebaseDB) {
+                        resolve();
+                    } else {
+                        setTimeout(checkFirebase, 100);
+                    }
+                };
+                checkFirebase();
+            });
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            toastMessage.innerHTML = message.replace(/\n/g, '<br>'); // 支援換行顯示
+            toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg transform transition-transform duration-300 z-50 ${
+                type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : type === 'info' ? 'bg-blue-500' : 'bg-blue-500'
+            } text-white max-w-sm`;
+            toast.style.transform = 'translateX(0)';
+            
+            // 根據訊息長度調整顯示時間
+            const displayTime = message.length > 50 ? 5000 : 3000;
+            
+            setTimeout(() => {
+                toast.style.transform = 'translateX(100%)';
+            }, displayTime);
+        }
+
+        // Initialize Firebase listeners
+        async function initializeFirebase() {
+            try {
+                await waitForFirebase();
+                
+                // Listen to records data
+                const recordsRef = window.firebaseDB.ref(window.firebaseDB.database, 'tcm-records');
+                window.firebaseDB.onValue(recordsRef, (snapshot) => {
+                    const data = snapshot.val();
+                    recordsData = data || {};
+                    processRecordsData();
+                    updateDisplay();
+                    
+                    if (!isFirebaseReady) {
+                        isFirebaseReady = true;
+                        loadingIndicator.classList.add('hidden');
+                        mainContent.classList.remove('hidden');
+                        dataDisplay.classList.remove('hidden');
+                        showToast('資料載入完成', 'success');
+                    }
+                });
+
+                // Start connection monitoring
+                monitorConnection();
+            } catch (error) {
+                console.error('Firebase initialization error:', error);
+                updateConnectionStatus(false);
+                showToast('連線失敗，使用離線模式', 'error');
+                
+                // Show content anyway for demo
+                loadingIndicator.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+                dataDisplay.classList.remove('hidden');
+            }
+        }
+
+        // Update connection status
+        function updateConnectionStatus(connected) {
+            const statusDot = connectionStatus.querySelector('div');
+            const statusText = connectionStatus.querySelector('span');
+            
+            if (connected) {
+                statusDot.className = 'w-2 h-2 bg-green-400 rounded-full';
+                statusText.textContent = '已連線';
+            } else {
+                statusDot.className = 'w-2 h-2 bg-red-400 rounded-full animate-pulse';
+                statusText.textContent = '離線';
+            }
+        }
+
+        // Real-time connection monitoring
+        function monitorConnection() {
+            const connectedRef = window.firebaseDB.ref(window.firebaseDB.database, '.info/connected');
+            window.firebaseDB.onValue(connectedRef, (snapshot) => {
+                const connected = snapshot.val();
+                updateConnectionStatus(connected);
+                
+                if (connected) {
+                    console.log('Firebase connected');
+                } else {
+                    console.log('Firebase disconnected');
+                }
+            });
+        }
+
+        // Progress bar functions
+        function showProgress() {
+            progressContainer.classList.remove('hidden');
+            importBtn.disabled = true;
+            importBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        function hideProgress() {
+            progressContainer.classList.add('hidden');
+            importBtn.disabled = false;
+            importBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            updateProgress(0, '準備導入...');
+        }
+
+        function updateProgress(percent, text) {
+            progressBar.style.width = percent + '%';
+            progressPercent.textContent = Math.round(percent) + '%';
+            progressText.textContent = text;
+        }
+
+        // Process records data into herbs and symptoms
+        function processRecordsData() {
+            herbsData = {};
+            symptomsData = {};
+
+            // 確保 recordsData 存在且為物件
+            if (!recordsData || typeof recordsData !== 'object') {
+                console.warn('recordsData is not valid:', recordsData);
+                return;
+            }
+
+            Object.values(recordsData).forEach(record => {
+                // 驗證記錄格式
+                if (!record || typeof record !== 'object') {
+                    return;
+                }
+
+                const herb = record.herb;
+                const symptom = record.symptom;
+
+                // 確保中藥名稱和症狀都存在且為字串
+                if (!herb || !symptom || typeof herb !== 'string' || typeof symptom !== 'string') {
+                    return;
+                }
+
+                // 清理字串，移除多餘空白
+                const cleanHerb = herb.trim();
+                const cleanSymptom = symptom.trim();
+
+                if (!cleanHerb || !cleanSymptom) {
+                    return;
+                }
+
+                // Add to herbs data
+                if (!herbsData[cleanHerb]) {
+                    herbsData[cleanHerb] = [];
+                }
+                if (!herbsData[cleanHerb].includes(cleanSymptom)) {
+                    herbsData[cleanHerb].push(cleanSymptom);
+                }
+
+                // Add to symptoms data
+                if (!symptomsData[cleanSymptom]) {
+                    symptomsData[cleanSymptom] = [];
+                }
+                if (!symptomsData[cleanSymptom].includes(cleanHerb)) {
+                    symptomsData[cleanSymptom].push(cleanHerb);
+                }
+            });
+
+            // 調試輸出
+            console.log('處理完成 - 中藥數量:', Object.keys(herbsData).length);
+            console.log('處理完成 - 症狀數量:', Object.keys(symptomsData).length);
+            console.log('症狀資料範例:', Object.keys(symptomsData).slice(0, 5));
+        }
+
+        // Smart data parsing functions
+        function detectFormat(text) {
+            const lines = text.split('\n').filter(line => line.trim());
+            if (lines.length === 0) return 'unknown';
+            
+            const formats = {
+                colon: 0,
+                comma: 0,
+                arrow: 0,
+                bracket: 0,
+                json: 0
+            };
+            
+            lines.forEach(line => {
+                if (line.includes('：') || line.includes(':')) formats.colon++;
+                if (line.includes(',')) formats.comma++;
+                if (line.includes('→') || line.includes('->')) formats.arrow++;
+                if (line.includes('[') && line.includes(']')) formats.bracket++;
+                if (line.trim().startsWith('{') || line.trim().startsWith('[')) formats.json++;
+            });
+            
+            return Object.keys(formats).reduce((a, b) => formats[a] > formats[b] ? a : b);
+        }
+
+        function parseDataByFormat(text, format) {
+            const lines = text.split('\n').filter(line => line.trim());
+            const results = [];
+            
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) return;
+                
+                let herb = '', symptomsText = '';
+                
+                try {
+                    // Try different formats in order
+                    if (trimmedLine.includes('：')) {
+                        [herb, symptomsText] = trimmedLine.split('：');
+                    } else if (trimmedLine.includes(':')) {
+                        [herb, symptomsText] = trimmedLine.split(':');
+                    } else if (trimmedLine.includes(',')) {
+                        [herb, symptomsText] = trimmedLine.split(',');
+                    } else if (trimmedLine.includes('→')) {
+                        [herb, symptomsText] = trimmedLine.split('→');
+                    } else if (trimmedLine.includes('->')) {
+                        [herb, symptomsText] = trimmedLine.split('->');
+                    } else if (trimmedLine.includes('[') && trimmedLine.includes(']')) {
+                        const bracketMatch = trimmedLine.match(/^(.+?)\[(.+?)\]$/);
+                        if (bracketMatch) {
+                            herb = bracketMatch[1];
+                            symptomsText = bracketMatch[2];
+                        }
+                    } else if (trimmedLine.startsWith('{')) {
+                        try {
+                            const jsonData = JSON.parse(trimmedLine);
+                            if (jsonData.herb && jsonData.symptom) {
+                                herb = jsonData.herb;
+                                symptomsText = jsonData.symptom;
+                            } else if (jsonData.name && jsonData.effect) {
+                                herb = jsonData.name;
+                                symptomsText = jsonData.effect;
+                            }
+                        } catch (e) {
+                            // Invalid JSON, skip
+                        }
+                    }
+                    
+                    if (herb && symptomsText) {
+                        // 只移除特殊符號，保留所有括號
+                        herb = herb.trim().replace(/[^\u4e00-\u9fa5a-zA-Z0-9、（）()【】〔〕「」『』《》〈〉]/g, '');
+                        symptomsText = symptomsText.trim();
+                        
+                        // Split multiple symptoms by separators but preserve brackets in content
+                        const symptoms = symptomsText.split(/[，,、；;|\/\\。！？…：]/)
+                            .map(s => s.trim().replace(/^[，。、；：！？…\s\/\\|]+|[，。、；：！？…\s\/\\|]+$/g, ''))
+                            .filter(s => s.length > 0 && s !== '　'); // Filter out empty strings and full-width spaces
+                        
+                        // Create a result for each symptom
+                        symptoms.forEach(symptom => {
+                            if (herb && symptom) {
+                                results.push({ herb, symptom, original: trimmedLine });
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.warn('Parse error for line:', trimmedLine, error);
+                }
+            });
+            
+            return results;
+        }
+
+        // Import data to Firebase with robust error handling
+        async function importDataFunction() {
+            const data = importData.value.trim();
+            if (!data) {
+                showToast('請輸入要導入的資料', 'error');
+                return;
+            }
+
+            // Parse data with auto-detection
+            const detectedFormat = detectFormat(data);
+            const parsedData = parseDataByFormat(data, detectedFormat);
+            
+            if (parsedData.length === 0) {
+                showToast('沒有有效的資料可以導入', 'error');
+                return;
+            }
+
+            // Remove duplicates and prepare data
+            const seen = new Set();
+            const validData = [];
+            let skipCount = 0;
+
+            // Show progress bar
+            showProgress();
+            updateProgress(5, '📋 資料預處理中...');
+
+            // Pre-process all data
+            parsedData.forEach(item => {
+                const key = `${item.herb}_${item.symptom}`;
+                if (seen.has(key)) return;
+                seen.add(key);
+
+                const recordKey = `${item.herb}_${item.symptom}`.replace(/[.#$[\]]/g, '_');
+                
+                // Check for duplicates in existing data
+                if (recordsData[recordKey]) {
+                    skipCount++;
+                    return;
+                }
+
+                validData.push({
+                    key: recordKey,
+                    herb: item.herb,
+                    symptom: item.symptom,
+                    timestamp: Date.now()
+                });
+            });
+
+            const totalItems = validData.length;
+            
+            if (totalItems === 0) {
+                updateProgress(100, '沒有新資料需要導入');
+                await new Promise(resolve => setTimeout(resolve, 600));
+                hideProgress();
+                showToast(`所有 ${skipCount} 筆資料已存在，無需重複導入`, 'info');
+                return;
+            }
+
+            try {
+                updateProgress(15, `📤 準備導入 ${totalItems} 筆資料...`);
+
+                // Always use safe individual writes for maximum reliability
+                let completed = 0;
+                let failed = 0;
+                const batchSize = 10; // Conservative batch size
+                
+                // Process in small batches to avoid overwhelming Firebase
+                for (let i = 0; i < validData.length; i += batchSize) {
+                    const batch = validData.slice(i, i + batchSize);
+                    
+                    updateProgress(
+                        15 + (i / validData.length) * 70, 
+                        `📝 處理第 ${Math.floor(i/batchSize) + 1} 批 (${i + 1}-${Math.min(i + batchSize, validData.length)})`
+                    );
+
+                    // Process batch items with individual error handling
+                    const batchPromises = batch.map(async (item) => {
+                        try {
+                            // Check if Firebase is available
+                            if (!window.firebaseDB || !window.firebaseDB.database) {
+                                throw new Error('Firebase 未初始化');
+                            }
+
+                            const recordRef = window.firebaseDB.ref(window.firebaseDB.database, `tcm-records/${item.key}`);
+                            await window.firebaseDB.set(recordRef, {
+                                herb: item.herb,
+                                symptom: item.symptom,
+                                timestamp: item.timestamp
+                            });
+                            
+                            completed++;
+                            return { success: true, item };
+                        } catch (error) {
+                            console.warn('Single item failed:', item, error);
+                            failed++;
+                            return { success: false, item, error };
+                        }
+                    });
+
+                    // Wait for current batch to complete
+                    await Promise.all(batchPromises);
+                    
+                    // Small delay between batches to prevent rate limiting
+                    if (i + batchSize < validData.length) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                }
+
+                // Final progress
+                updateProgress(90, '✅ 導入完成，正在同步...');
+                await new Promise(resolve => setTimeout(resolve, 500));
+                updateProgress(100, '🎉 同步完成！');
+
+                // Wait briefly before hiding
+                await new Promise(resolve => setTimeout(resolve, 800));
+
+                importData.value = '';
+                formatHint.textContent = '';
+                
+                // 構建詳細的完成訊息
+                let message = '';
+                let toastType = 'success';
+                
+                if (completed > 0) {
+                    message = `🎉 導入成功！新增 ${completed} 筆資料`;
+                    
+                    // 添加詳細統計
+                    const details = [];
+                    if (failed > 0) {
+                        details.push(`${failed} 筆失敗`);
+                        toastType = 'info'; // 部分成功用 info 顏色
+                    }
+                    if (skipCount > 0) {
+                        details.push(`${skipCount} 筆已存在`);
+                    }
+                    
+                    if (details.length > 0) {
+                        message += ` (${details.join('，')})`;
+                    }
+                    
+                    // 顯示資料庫統計
+                    const totalRecords = Object.keys(recordsData).length + completed;
+                    message += `\n📊 資料庫現有 ${totalRecords} 筆記錄`;
+                    
+                } else if (skipCount > 0) {
+                    message = `ℹ️ 所有 ${skipCount} 筆資料已存在，無需重複導入`;
+                    toastType = 'info';
+                } else {
+                    message = `❌ 導入失敗：${failed} 筆資料處理失敗`;
+                    toastType = 'error';
+                }
+                
+                showToast(message, toastType);
+                
+            } catch (error) {
+                console.error('Import error:', error);
+                updateProgress(100, '❌ 導入失敗');
+                
+                let errorMessage = '導入失敗';
+                if (error.message) {
+                    if (error.message.includes('permission') || error.message.includes('PERMISSION')) {
+                        errorMessage = '權限不足，請檢查 Firebase 設定';
+                    } else if (error.message.includes('network') || error.message.includes('offline')) {
+                        errorMessage = '網路連線問題，請檢查網路後重試';
+                    } else if (error.message.includes('Firebase')) {
+                        errorMessage = 'Firebase 連線問題，請重新整理頁面';
+                    } else {
+                        errorMessage = `導入失敗: ${error.message}`;
+                    }
+                }
+                
+                showToast(errorMessage, 'error');
+                
+                // Wait before hiding progress
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            } finally {
+                hideProgress();
+            }
+        }
+
+
+
+
+
+        // Clear input data
+        function clearAllData() {
+            if (!confirm('確定要清空輸入欄的資料嗎？')) {
+                return;
+            }
+
+            importData.value = '';
+            formatHint.textContent = '';
+            showToast('輸入資料已清空', 'success');
+        }
+
+        // Export data to TXT file
+        function exportDataToTxt() {
+            if (!isFirebaseReady) {
+                showToast('正在連線中，請稍候...', 'info');
+                return;
+            }
+
+            if (Object.keys(recordsData).length === 0) {
+                showToast('沒有資料可以導出', 'error');
+                return;
+            }
+
+            try {
+                exportDataBtn.disabled = true;
+                exportDataBtn.innerHTML = '📤 導出中...';
+
+                // Prepare export data
+                let exportContent = '';
+                
+                // Add header with timestamp
+                const now = new Date();
+                const timestamp = now.toLocaleString('zh-TW', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                
+                exportContent += `中藥資料庫導出檔案\n`;
+                exportContent += `導出時間：${timestamp}\n`;
+                exportContent += `總記錄數：${Object.keys(recordsData).length}\n`;
+                exportContent += `中藥數量：${Object.keys(herbsData).length}\n`;
+                exportContent += `症狀數量：${Object.keys(symptomsData).length}\n`;
+                exportContent += `${'='.repeat(50)}\n\n`;
+
+                // Export by herbs (grouped format)
+                exportContent += `【按中藥分類】\n`;
+                exportContent += `${'='.repeat(30)}\n\n`;
+                
+                const sortedHerbs = Object.keys(herbsData).sort();
+                sortedHerbs.forEach((herb, index) => {
+                    const symptoms = herbsData[herb].sort();
+                    exportContent += `${index + 1}. ${herb}：${symptoms.join('、')}\n`;
+                });
+
+                exportContent += `\n${'='.repeat(50)}\n\n`;
+
+                // Export by symptoms (grouped format)
+                exportContent += `【按症狀分類】\n`;
+                exportContent += `${'='.repeat(30)}\n\n`;
+                
+                const sortedSymptoms = Object.keys(symptomsData).sort();
+                sortedSymptoms.forEach((symptom, index) => {
+                    const herbs = symptomsData[symptom].sort();
+                    exportContent += `${index + 1}. ${symptom}：${herbs.join('、')}\n`;
+                });
+
+                exportContent += `\n${'='.repeat(50)}\n\n`;
+
+                // Export raw records (for re-import)
+                exportContent += `【原始記錄格式】\n`;
+                exportContent += `${'='.repeat(30)}\n`;
+                exportContent += `（此格式可直接用於重新導入）\n\n`;
+                
+                const sortedRecords = Object.values(recordsData).sort((a, b) => {
+                    if (a.herb !== b.herb) {
+                        return a.herb.localeCompare(b.herb);
+                    }
+                    return a.symptom.localeCompare(b.symptom);
+                });
+                
+                sortedRecords.forEach(record => {
+                    exportContent += `${record.herb}：${record.symptom}\n`;
+                });
+
+                // Create and download file
+                const blob = new Blob([exportContent], { type: 'text/plain;charset=utf-8' });
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                
+                // Generate filename with timestamp
+                const filename = `中藥資料庫_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}.txt`;
+                
+                link.href = url;
+                link.download = filename;
+                link.style.display = 'none';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Clean up
+                window.URL.revokeObjectURL(url);
+                
+                showToast(`📤 資料已導出至 ${filename}\n包含 ${Object.keys(recordsData).length} 筆記錄`, 'success');
+                
+            } catch (error) {
+                console.error('Export error:', error);
+                showToast('導出失敗：' + error.message, 'error');
+            } finally {
+                exportDataBtn.disabled = false;
+                exportDataBtn.innerHTML = '📤 導出資料 (TXT)';
+            }
+        }
+
+        // Clear entire database
+        async function clearDatabase() {
+            if (!confirm('⚠️ 警告：這將清除整個資料庫的所有內容！\n\n此操作無法復原，確定要繼續嗎？')) {
+                return;
+            }
+
+            // Double confirmation for safety
+            if (!confirm('🚨 最後確認：您即將刪除整個資料庫！\n\n請再次確認您真的要執行此操作？')) {
+                return;
+            }
+
+            if (!isFirebaseReady) {
+                showToast('正在連線中，請稍候...', 'info');
+                return;
+            }
+
+            try {
+                showProgress();
+                updateProgress(20, '🗑️ 正在清除資料庫...');
+                
+                // Clear only the tcm-records node instead of entire database
+                const recordsRef = window.firebaseDB.ref(window.firebaseDB.database, 'tcm-records');
+                await window.firebaseDB.set(recordsRef, null);
+                
+                updateProgress(80, '✅ 資料庫已清除');
+                await new Promise(resolve => setTimeout(resolve, 500));
+                updateProgress(100, '🎉 清除完成');
+                
+                // Reset local data
+                herbsData = {};
+                symptomsData = {};
+                recordsData = {};
+                
+                // Clear search input
+                searchInput.value = '';
+                
+                // Hide modal if open
+                if (!searchModal.classList.contains('hidden')) {
+                    hideModal();
+                }
+                
+                showToast('💥 整個資料庫已清除', 'success');
+                
+                setTimeout(() => {
+                    hideProgress();
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Database clear error:', error);
+                
+                let errorMessage = '清除資料庫失敗';
+                if (error.message) {
+                    if (error.message.includes('permission') || error.message.includes('PERMISSION')) {
+                        errorMessage = '權限不足，無法清除資料庫';
+                    } else if (error.message.includes('network') || error.message.includes('offline')) {
+                        errorMessage = '網路連線問題，請檢查網路後重試';
+                    } else if (error.message.includes('Firebase')) {
+                        errorMessage = 'Firebase 連線問題，請重新整理頁面';
+                    } else {
+                        errorMessage = `清除失敗: ${error.message}`;
+                    }
+                }
+                
+                showToast(errorMessage, 'error');
+                hideProgress();
+            }
+        }
+
+        // Traditional-Simplified Chinese conversion maps
+        const traditionalToSimplified = {
+            '當': '当', '歸': '归', '補': '补', '調': '调', '經': '经', '潤': '润', '腸': '肠', '黃': '黄', '氣': '气', '錶': '表', '膿': '脓', '瘡': '疮', '復': '复', '脈': '脉', '脫': '脱', '養': '养', '血': '血', '祛': '祛', '風': '风', '緩': '缓', '陰': '阴', '滋': '滋', '腎': '肾', '精': '精', '髓': '髓', '寧': '宁', '神': '神', '濕': '湿', '痰': '痰', '鬱': '郁', '營': '营', '衛': '卫', '發': '发', '汗': '汗', '宣': '宣', '肺': '肺', '喘': '喘', '攻': '攻', '燥': '燥', '實': '实', '瀉': '泻', '火': '火', '藍': '蓝', '涼': '凉', '咽': '咽', '銀': '银', '疏': '疏', '散': '散', '熱': '热', '腫': '肿', '結': '结', '癰': '痈', '淋': '淋', '腥': '腥', '草': '草', '排': '排', '葉': '叶', '嘔': '呕', '貝': '贝', '母': '母', '煩': '烦', '紅': '红', '花': '花', '瘀': '瘀', '桃': '桃', '仁': '仁', '膝': '膝', '強': '强', '筋': '筋', '骨': '骨', '傷': '伤', '沒': '没', '藥': '药', '竭': '竭', '斂': '敛', '機': '机', '體': '体', '療': '疗', '證': '证', '診': '诊', '斷': '断', '處': '处', '方': '方', '劑': '剂', '湯': '汤', '丸': '丸', '膏': '膏', '飲': '饮', '顆': '颗', '粒': '粒', '針': '针', '灸': '灸', '推': '推', '拿': '拿', '按': '按', '摩': '摩', '穴': '穴', '位': '位', '經': '经', '絡': '络', '臟': '脏', '腑': '腑', '陽': '阳', '虛': '虚', '實': '实', '寒': '寒', '溫': '温', '涼': '凉', '燥': '燥', '濕': '湿', '風': '风', '暑': '暑', '火': '火', '燥': '燥', '濕': '湿', '寒': '寒', '熱': '热', '虛': '虚', '實': '实', '陰': '阴', '陽': '阳', '氣': '气', '血': '血', '津': '津', '液': '液', '精': '精', '神': '神', '魂': '魂', '魄': '魄', '意': '意', '志': '志', '思': '思', '慮': '虑', '智': '智', '慧': '慧'
+        };
+
+        const simplifiedToTraditional = {};
+        Object.keys(traditionalToSimplified).forEach(trad => {
+            const simp = traditionalToSimplified[trad];
+            simplifiedToTraditional[simp] = trad;
+        });
+
+        // Convert text between Traditional and Simplified Chinese
+        function convertToSimplified(text) {
+            return text.split('').map(char => traditionalToSimplified[char] || char).join('');
+        }
+
+        function convertToTraditional(text) {
+            return text.split('').map(char => simplifiedToTraditional[char] || char).join('');
+        }
+
+        // Enhanced similarity calculation with Traditional/Simplified support and crash protection
+        function calculateSimilarity(text, query) {
+            try {
+                // Input validation
+                if (!text || !query || typeof text !== 'string' || typeof query !== 'string') {
+                    return 0;
+                }
+                
+                // 清理輸入字串
+                text = text.trim();
+                query = query.trim();
+                
+                if (!text || !query) {
+                    return 0;
+                }
+                
+                // Prevent infinite loops with very long strings
+                if (text.length > 100 || query.length > 100) {
+                    // Fallback to simple comparison for very long strings
+                    if (text === query) return 1000;
+                    if (text.includes(query)) return 400;
+                    if (query.includes(text)) return 350;
+                    return 0;
+                }
+                
+                const textLower = text.toLowerCase();
+                const queryLower = query.toLowerCase();
+                
+                // Convert to both Traditional and Simplified for comparison with error handling
+                let textSimp, textTrad, querySimp, queryTrad;
+                try {
+                    textSimp = convertToSimplified(text);
+                    textTrad = convertToTraditional(text);
+                    querySimp = convertToSimplified(query);
+                    queryTrad = convertToTraditional(query);
+                } catch (conversionError) {
+                    // Fallback to original strings if conversion fails
+                    textSimp = text;
+                    textTrad = text;
+                    querySimp = query;
+                    queryTrad = query;
+                }
+                
+                // Test all combinations with safety checks
+                const testCombinations = [
+                    { text: textLower, query: queryLower },
+                    { text: textSimp.toLowerCase(), query: queryLower },
+                    { text: textTrad.toLowerCase(), query: queryLower },
+                    { text: textLower, query: querySimp.toLowerCase() },
+                    { text: textLower, query: queryTrad.toLowerCase() },
+                    { text: textSimp.toLowerCase(), query: querySimp.toLowerCase() },
+                    { text: textTrad.toLowerCase(), query: queryTrad.toLowerCase() },
+                    { text: textSimp.toLowerCase(), query: queryTrad.toLowerCase() },
+                    { text: textTrad.toLowerCase(), query: querySimp.toLowerCase() }
+                ];
+                
+                let maxScore = 0;
+                
+                testCombinations.forEach(combo => {
+                    try {
+                        // Safety check for combo properties
+                        if (!combo.text || !combo.query || typeof combo.text !== 'string' || typeof combo.query !== 'string') {
+                            return;
+                        }
+                        
+                        let score = 0;
+                        
+                        // Exact match gets highest score
+                        if (combo.text === combo.query) score = 1000;
+                        // Starts with query gets high score
+                        else if (combo.text.startsWith(combo.query)) score = 800;
+                        // Query starts with text (for short symptoms)
+                        else if (combo.query.startsWith(combo.text)) score = 750;
+                        // Ends with query gets medium-high score
+                        else if (combo.text.endsWith(combo.query)) score = 600;
+                        // Query ends with text
+                        else if (combo.query.endsWith(combo.text)) score = 550;
+                        // Contains query gets medium score
+                        else if (combo.text.includes(combo.query)) score = 400;
+                        // Query contains text (重要：針對症狀搜尋)
+                        else if (combo.query.includes(combo.text)) score = 350;
+                        else {
+                            // Calculate character overlap score with bounds checking
+                            let overlapScore = 0;
+                            const maxIterations = Math.min(combo.query.length, 50); // Prevent excessive iterations
+                            
+                            for (let i = 0; i < maxIterations; i++) {
+                                if (combo.text.includes(combo.query[i])) {
+                                    overlapScore += 15; // 提高字符匹配分數
+                                }
+                            }
+                            
+                            // 計算共同字符數量和位置
+                            let commonChars = 0;
+                            let positionBonus = 0;
+                            
+                            for (let i = 0; i < combo.query.length; i++) {
+                                const char = combo.query[i];
+                                if (combo.text.includes(char)) {
+                                    commonChars++;
+                                    // 如果字符在相同位置，給予額外分數
+                                    if (i < combo.text.length && combo.text[i] === char) {
+                                        positionBonus += 20;
+                                    }
+                                }
+                            }
+                            
+                            // 計算字符覆蓋率
+                            const coverageScore = (commonChars / Math.max(combo.query.length, combo.text.length)) * 100;
+                            
+                            // Length difference penalty (shorter differences get higher scores)
+                            const lengthDiff = Math.abs(combo.text.length - combo.query.length);
+                            const lengthScore = Math.max(0, 50 - lengthDiff * 2); // 降低長度懲罰
+                            
+                            // 綜合評分
+                            score = overlapScore + lengthScore + (commonChars * 8) + positionBonus + coverageScore;
+                        }
+                        
+                        maxScore = Math.max(maxScore, score);
+                    } catch (comboError) {
+                        console.warn('Combo calculation error:', comboError);
+                    }
+                });
+                
+                return maxScore;
+            } catch (error) {
+                console.warn('Similarity calculation error:', error);
+                return 0; // Return 0 instead of crashing
+            }
+        }
+
+        // 全新的搜尋函數 - 專門解決症狀搜尋問題
+        function searchFunction() {
+            try {
+                const query = searchInput.value ? searchInput.value.trim() : '';
+                if (!query) {
+                    showToast('請輸入搜尋關鍵字', 'error');
+                    return;
+                }
+
+                // Show loading state
+                if (searchBtn) {
+                    searchBtn.disabled = true;
+                    searchBtn.innerHTML = '🔍 搜尋中...';
+                }
+
+                setTimeout(() => {
+                    let results = [];
+                    
+                    try {
+                        console.log('=== 開始搜尋 ===');
+                        console.log('搜尋關鍵字:', query);
+                        console.log('中藥資料數量:', Object.keys(herbsData).length);
+                        console.log('症狀資料數量:', Object.keys(symptomsData).length);
+                        console.log('記錄資料數量:', Object.keys(recordsData).length);
+                        
+                        // 檢查資料結構
+                        console.log('症狀資料結構檢查:');
+                        const symptomKeys = Object.keys(symptomsData);
+                        console.log('前10個症狀:', symptomKeys.slice(0, 10));
+                        
+                        // 檢查是否有包含查詢字串的症狀
+                        const containingSymptoms = symptomKeys.filter(symptom => 
+                            symptom && symptom.includes && symptom.includes(query)
+                        );
+                        console.log('包含查詢字串的症狀:', containingSymptoms);
+                        
+                        // 檢查是否有被查詢字串包含的症狀
+                        const containedSymptoms = symptomKeys.filter(symptom => 
+                            symptom && query.includes && query.includes(symptom)
+                        );
+                        console.log('被查詢字串包含的症狀:', containedSymptoms);
+                        
+                        // 全面搜尋 - 不分優先級，直接找所有匹配
+                        const allMatches = [];
+                        
+                        // 1. 搜尋中藥
+                        console.log('--- 搜尋中藥 ---');
+                        Object.keys(herbsData).forEach(herb => {
+                            if (!herb || !herbsData[herb]) return;
+                            
+                            let matchScore = 0;
+                            let matchType = '';
+                            
+                            // 完全匹配
+                            if (herb === query) {
+                                matchScore = 1000;
+                                matchType = 'exact';
+                            }
+                            // 包含匹配
+                            else if (herb.includes(query)) {
+                                matchScore = 800;
+                                matchType = 'partial';
+                            }
+                            // 被包含匹配
+                            else if (query.includes(herb)) {
+                                matchScore = 750;
+                                matchType = 'partial';
+                            }
+                            // 模糊匹配
+                            else {
+                                const similarity = calculateSimilarity(herb, query);
+                                if (similarity >= 100) {
+                                    matchScore = similarity;
+                                    matchType = 'fuzzy';
+                                }
+                            }
+                            
+                            if (matchScore > 0) {
+                                console.log('找到中藥匹配:', herb, '分數:', matchScore);
+                                allMatches.push({
+                                    type: '中藥',
+                                    name: herb,
+                                    items: herbsData[herb].slice(0, 50),
+                                    label: '對應症狀',
+                                    similarity: matchScore,
+                                    matchType: matchType
+                                });
+                            }
+                        });
+                        
+                        // 2. 搜尋症狀 - 使用更寬鬆的匹配策略
+                        console.log('--- 搜尋症狀 ---');
+                        Object.keys(symptomsData).forEach(symptom => {
+                            if (!symptom || !symptomsData[symptom]) return;
+                            
+                            let matchScore = 0;
+                            let matchType = '';
+                            
+                            // 完全匹配
+                            if (symptom === query) {
+                                matchScore = 1000;
+                                matchType = 'exact';
+                                console.log('完全匹配症狀:', symptom);
+                            }
+                            // 症狀包含查詢
+                            else if (symptom.includes(query)) {
+                                matchScore = 800;
+                                matchType = 'partial';
+                                console.log('症狀包含查詢:', symptom, '包含', query);
+                            }
+                            // 查詢包含症狀
+                            else if (query.includes(symptom)) {
+                                matchScore = 750;
+                                matchType = 'partial';
+                                console.log('查詢包含症狀:', query, '包含', symptom);
+                            }
+                            // 單字匹配 - 新增邏輯
+                            else {
+                                let hasCharMatch = false;
+                                
+                                // 檢查每個查詢字符是否在症狀中
+                                for (let char of query) {
+                                    if (symptom.includes(char)) {
+                                        hasCharMatch = true;
+                                        break;
+                                    }
+                                }
+                                
+                                // 檢查每個症狀字符是否在查詢中
+                                if (!hasCharMatch) {
+                                    for (let char of symptom) {
+                                        if (query.includes(char)) {
+                                            hasCharMatch = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                if (hasCharMatch) {
+                                    // 計算字符重疊度
+                                    let overlapCount = 0;
+                                    for (let char of query) {
+                                        if (symptom.includes(char)) {
+                                            overlapCount++;
+                                        }
+                                    }
+                                    
+                                    const overlapRatio = overlapCount / query.length;
+                                    if (overlapRatio >= 0.3) { // 30%重疊即認為匹配
+                                        matchScore = 300 + (overlapRatio * 200);
+                                        matchType = 'fuzzy';
+                                        console.log('字符重疊匹配:', symptom, '重疊率:', overlapRatio);
+                                    }
+                                }
+                                
+                                // 如果還是沒匹配，嘗試相似度計算
+                                if (matchScore === 0) {
+                                    const similarity = calculateSimilarity(symptom, query);
+                                    if (similarity >= 50) { // 降低門檻
+                                        matchScore = similarity;
+                                        matchType = 'fuzzy';
+                                        console.log('相似度匹配:', symptom, '相似度:', similarity);
+                                    }
+                                }
+                            }
+                            
+                            if (matchScore > 0) {
+                                allMatches.push({
+                                    type: '症狀',
+                                    name: symptom,
+                                    items: symptomsData[symptom].slice(0, 50),
+                                    label: '對應中藥',
+                                    similarity: matchScore,
+                                    matchType: matchType
+                                });
+                            }
+                        });
+                        
+                        // 3. 如果症狀搜尋結果太少，嘗試從記錄中直接搜尋
+                        const symptomMatches = allMatches.filter(m => m.type === '症狀');
+                        console.log('症狀匹配數量:', symptomMatches.length);
+                        
+                        if (symptomMatches.length < 3) {
+                            console.log('--- 從記錄中搜尋症狀 ---');
+                            const foundSymptoms = new Set();
+                            
+                            Object.values(recordsData).forEach(record => {
+                                if (!record || !record.symptom) return;
+                                
+                                const symptom = record.symptom;
+                                if (foundSymptoms.has(symptom)) return;
+                                
+                                // 更寬鬆的匹配
+                                let shouldMatch = false;
+                                
+                                if (symptom.includes(query) || query.includes(symptom)) {
+                                    shouldMatch = true;
+                                } else {
+                                    // 檢查單字匹配
+                                    for (let char of query) {
+                                        if (symptom.includes(char)) {
+                                            shouldMatch = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                if (shouldMatch) {
+                                    foundSymptoms.add(symptom);
+                                    console.log('從記錄中找到症狀:', symptom);
+                                    
+                                    // 找到對應的中藥
+                                    const relatedHerbs = Object.values(recordsData)
+                                        .filter(r => r.symptom === symptom)
+                                        .map(r => r.herb)
+                                        .filter((herb, index, arr) => arr.indexOf(herb) === index);
+                                    
+                                    if (relatedHerbs.length > 0) {
+                                        allMatches.push({
+                                            type: '症狀',
+                                            name: symptom,
+                                            items: relatedHerbs.slice(0, 50),
+                                            label: '對應中藥',
+                                            similarity: 600,
+                                            matchType: 'partial'
+                                        });
+                                    }
+                                }
+                            });
+                        }
+                        
+                        // 排序結果 - 優先級：匹配類型 > 相似度 > 類型
+                        results = allMatches.sort((a, b) => {
+                            // 1. 首先按匹配類型排序（完全匹配 > 部分匹配 > 模糊匹配）
+                            const matchTypeOrder = { 'exact': 3, 'partial': 2, 'fuzzy': 1 };
+                            const aMatchOrder = matchTypeOrder[a.matchType] || 0;
+                            const bMatchOrder = matchTypeOrder[b.matchType] || 0;
+                            
+                            if (aMatchOrder !== bMatchOrder) {
+                                return bMatchOrder - aMatchOrder; // 高分在前
+                            }
+                            
+                            // 2. 相同匹配類型時，按相似度排序
+                            const aSimilarity = a.similarity || 0;
+                            const bSimilarity = b.similarity || 0;
+                            
+                            if (aSimilarity !== bSimilarity) {
+                                return bSimilarity - aSimilarity; // 高分在前
+                            }
+                            
+                            // 3. 相似度相同時，中藥優先
+                            if (a.type !== b.type) {
+                                return a.type === '中藥' ? -1 : 1;
+                            }
+                            
+                            // 4. 最後按名稱長度排序（短的在前，通常更精確）
+                            return a.name.length - b.name.length;
+                        });
+                        
+                        // 限制結果數量
+                        results = results.slice(0, 100);
+                        
+                        console.log('=== 搜尋完成 ===');
+                        console.log('總結果數量:', results.length);
+                        console.log('中藥結果:', results.filter(r => r.type === '中藥').length);
+                        console.log('症狀結果:', results.filter(r => r.type === '症狀').length);
+                        
+                    } catch (searchError) {
+                        console.error('搜尋處理錯誤:', searchError);
+                        results = [];
+                    }
+
+                    // 顯示結果
+                    try {
+                        displayResults(results, query);
+                    } catch (displayError) {
+                        console.error('顯示結果錯誤:', displayError);
+                        showToast('搜尋結果顯示失敗', 'error');
+                    }
+
+                    // 恢復按鈕狀態
+                    try {
+                        if (searchBtn) {
+                            searchBtn.disabled = false;
+                            searchBtn.innerHTML = '🔍 搜尋';
+                        }
+                    } catch (buttonError) {
+                        console.error('按鈕恢復錯誤:', buttonError);
+                    }
+
+                }, 100);
+
+            } catch (outerError) {
+                console.error('搜尋函數外層錯誤:', outerError);
+                
+                try {
+                    if (searchBtn) {
+                        searchBtn.disabled = false;
+                        searchBtn.innerHTML = '🔍 搜尋';
+                    }
+                    showToast('搜尋功能暫時無法使用', 'error');
+                } catch (emergencyError) {
+                    console.error('緊急恢復失敗:', emergencyError);
+                }
+            }
+        }
+
+        // Modal control functions
+        function showModal() {
+            searchModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            // Scroll modal content to top
+            const modalContent = searchModal.querySelector('.overflow-y-auto');
+            if (modalContent) {
+                modalContent.scrollTop = 0;
+            }
+        }
+
+        function hideModal() {
+            searchModal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Display search results in modal
+        function displayResults(results, query) {
+            // Update modal header
+            modalSearchQuery.textContent = `搜尋關鍵字：「${query}」`;
+            modalResultCount.textContent = `找到 ${results.length} 個結果`;
+
+            if (results.length === 0) {
+                modalResultsContainer.innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="text-gray-400 text-4xl mb-4">🔍</div>
+                        <h4 class="text-lg font-medium text-gray-900 mb-2">未找到相關資料</h4>
+                        <p class="text-gray-500">未找到與「${query}」相關的中藥或症狀資料</p>
+                        <div class="mt-6">
+                            <button onclick="hideModal(); searchInput.focus();" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                                重新搜尋
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                modalResultsContainer.innerHTML = results.map((result, index) => {
+                    // Determine match quality indicator
+                    let matchIndicator = '';
+                    let matchColor = '';
+                    if (result.matchType === 'exact') {
+                        matchIndicator = '🎯 完全匹配';
+                        matchColor = 'text-green-600';
+                    } else if (result.matchType === 'partial') {
+                        matchIndicator = '🔍 部分匹配';
+                        matchColor = 'text-blue-600';
+                    } else {
+                        matchIndicator = '💡 相關匹配';
+                        matchColor = 'text-purple-600';
+                    }
+
+                    return `
+                        <div class="border border-gray-200 rounded-lg p-5 mb-4 border-l-4 ${result.type === '中藥' ? 'border-l-blue-500' : 'border-l-green-500'} fade-in hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center">
+                                    <span class="inline-block px-3 py-1 text-sm font-medium rounded ${result.type === '中藥' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}">${result.type}</span>
+                                    <h4 class="font-semibold text-gray-900 ml-3 text-lg">${result.name}</h4>
+                                    ${index < 3 ? '<span class="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">推薦</span>' : ''}
+                                </div>
+                                <div class="text-sm ${matchColor} font-medium">${matchIndicator}</div>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-4 font-medium">${result.label}：</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                ${result.items.map(item => `
+                                    <span class="inline-block px-4 py-2 bg-gray-50 text-gray-700 rounded-lg text-sm hover:bg-blue-50 hover:text-blue-700 cursor-pointer transition-colors border border-gray-200 hover:border-blue-300" onclick="hideModal(); searchInput.value='${item}'; searchFunction();">${item}</span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Show modal
+            showModal();
+        }
+
+        // Edit mode functions
+        function showEditModal() {
+            // Show loading state
+            editModeBtn.disabled = true;
+            editModeBtn.innerHTML = '⏳ 載入中...';
+            
+            // Show modal first with loading state
+            editModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            // Show loading in modal content
+            editItemsList.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="loading-spinner mx-auto mb-4"></div>
+                    <p class="text-gray-600">正在載入編輯資料...</p>
+                </div>
+            `;
+            editItemCount.textContent = '載入中...';
+            
+            // Prepare data with delay to show loading
+            setTimeout(() => {
+                prepareEditData();
+                
+                // Reset button state
+                editModeBtn.disabled = false;
+                editModeBtn.innerHTML = '✏️ 編輯模式';
+                
+                // Focus on search input
+                setTimeout(() => {
+                    editSearchInput.focus();
+                }, 100);
+            }, 500);
+        }
+
+        function hideEditModal() {
+            editModal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            
+            // Reset search
+            editSearchInput.value = '';
+            editTypeFilter.value = 'all';
+        }
+
+        function showEditDetailModal() {
+            editDetailModal.classList.remove('hidden');
+        }
+
+        function hideEditDetailModal() {
+            editDetailModal.classList.add('hidden');
+            currentEditItem = null;
+            currentEditType = null;
+            
+            // Clear form
+            editItemName.value = '';
+            editRelatedItems.innerHTML = '';
+            newRelatedItem.value = '';
+        }
+
+        function prepareEditData() {
+            editItemsData = [];
+            
+            // Add herbs
+            Object.keys(herbsData).forEach(herb => {
+                editItemsData.push({
+                    type: 'herb',
+                    name: herb,
+                    relatedItems: herbsData[herb] || [],
+                    count: (herbsData[herb] || []).length
+                });
+            });
+            
+            // Add symptoms
+            Object.keys(symptomsData).forEach(symptom => {
+                editItemsData.push({
+                    type: 'symptom',
+                    name: symptom,
+                    relatedItems: symptomsData[symptom] || [],
+                    count: (symptomsData[symptom] || []).length
+                });
+            });
+            
+            // Sort by name
+            editItemsData.sort((a, b) => a.name.localeCompare(b.name));
+            
+            displayEditItems();
+        }
+
+        function displayEditItems() {
+            const searchTerm = editSearchInput.value.toLowerCase();
+            const typeFilter = editTypeFilter.value;
+            
+            let filteredItems = editItemsData.filter(item => {
+                const matchesSearch = !searchTerm || item.name.toLowerCase().includes(searchTerm);
+                const matchesType = typeFilter === 'all' || item.type === typeFilter;
+                return matchesSearch && matchesType;
+            });
+            
+            editItemCount.textContent = `顯示 ${filteredItems.length} 個項目`;
+            
+            if (filteredItems.length === 0) {
+                editItemsList.innerHTML = `
+                    <div class="text-center py-12">
+                        <div class="text-gray-400 text-4xl mb-4">📝</div>
+                        <h4 class="text-lg font-medium text-gray-900 mb-2">沒有找到項目</h4>
+                        <p class="text-gray-500">請調整搜尋條件或篩選器</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            editItemsList.innerHTML = filteredItems.map(item => `
+                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer" onclick="openEditDetail('${item.name}', '${item.type}')">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <span class="inline-block px-3 py-1 text-sm font-medium rounded ${item.type === 'herb' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}">
+                                ${item.type === 'herb' ? '中藥' : '症狀'}
+                            </span>
+                            <span class="font-medium text-gray-900">${item.name}</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-gray-500">${item.count} 個關聯</span>
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-sm text-gray-600">
+                        ${item.relatedItems.slice(0, 3).join('、')}${item.relatedItems.length > 3 ? '...' : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openEditDetail(itemName, itemType) {
+            currentEditItem = itemName;
+            currentEditType = itemType;
+            
+            // Set up modal appearance
+            if (itemType === 'herb') {
+                editDetailIcon.className = 'w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center';
+                editDetailIcon.innerHTML = '<span class="text-white font-bold">藥</span>';
+                editDetailTitle.textContent = `編輯中藥：${itemName}`;
+                editDetailSubtitle.textContent = '修改中藥名稱和對應症狀';
+                editRelatedLabel.textContent = '對應症狀';
+            } else {
+                editDetailIcon.className = 'w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center';
+                editDetailIcon.innerHTML = '<span class="text-white font-bold">症</span>';
+                editDetailTitle.textContent = `編輯症狀：${itemName}`;
+                editDetailSubtitle.textContent = '修改症狀名稱和對應中藥';
+                editRelatedLabel.textContent = '對應中藥';
+            }
+            
+            // Fill form
+            editItemName.value = itemName;
+            
+            const relatedItems = itemType === 'herb' ? (herbsData[itemName] || []) : (symptomsData[itemName] || []);
+            displayRelatedItems(relatedItems);
+            
+            showEditDetailModal();
+        }
+
+        function displayRelatedItems(items) {
+            editRelatedItems.innerHTML = items.map((item, index) => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <span class="text-gray-900">${item}</span>
+                    <button onclick="removeRelatedItem(${index})" class="text-red-600 hover:text-red-800 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function removeRelatedItem(index) {
+            const relatedItems = currentEditType === 'herb' ? (herbsData[currentEditItem] || []) : (symptomsData[currentEditItem] || []);
+            relatedItems.splice(index, 1);
+            displayRelatedItems(relatedItems);
+        }
+
+        function addNewRelatedItem() {
+            const newItem = newRelatedItem.value.trim();
+            if (!newItem) {
+                showToast('請輸入關聯項目名稱', 'error');
+                return;
+            }
+            
+            const relatedItems = currentEditType === 'herb' ? (herbsData[currentEditItem] || []) : (symptomsData[currentEditItem] || []);
+            
+            if (relatedItems.includes(newItem)) {
+                showToast('該項目已存在', 'error');
+                return;
+            }
+            
+            relatedItems.push(newItem);
+            displayRelatedItems(relatedItems);
+            newRelatedItem.value = '';
+            
+            showToast('已新增關聯項目', 'success');
+        }
+
+        async function saveEditChanges() {
+            const newName = editItemName.value.trim();
+            const oldName = currentEditItem;
+            
+            if (!newName) {
+                showToast('請輸入項目名稱', 'error');
+                return;
+            }
+            
+            if (!isFirebaseReady) {
+                showToast('資料庫未連線，無法儲存', 'error');
+                return;
+            }
+            
+            try {
+                saveEditBtn.disabled = true;
+                saveEditBtn.innerHTML = '💾 儲存中...';
+                
+                const relatedItems = currentEditType === 'herb' ? (herbsData[currentEditItem] || []) : (symptomsData[currentEditItem] || []);
+                
+                // If name changed, need to update all related records
+                if (newName !== oldName) {
+                    // Find all records that need to be updated
+                    const recordsToUpdate = [];
+                    const recordsToDelete = [];
+                    
+                    Object.entries(recordsData).forEach(([key, record]) => {
+                        if (currentEditType === 'herb' && record.herb === oldName) {
+                            recordsToDelete.push(key);
+                            recordsToUpdate.push({
+                                key: `${newName}_${record.symptom}`.replace(/[.#$[\]]/g, '_'),
+                                herb: newName,
+                                symptom: record.symptom,
+                                timestamp: Date.now()
+                            });
+                        } else if (currentEditType === 'symptom' && record.symptom === oldName) {
+                            recordsToDelete.push(key);
+                            recordsToUpdate.push({
+                                key: `${record.herb}_${newName}`.replace(/[.#$[\]]/g, '_'),
+                                herb: record.herb,
+                                symptom: newName,
+                                timestamp: Date.now()
+                            });
+                        }
+                    });
+                    
+                    // Delete old records
+                    for (const key of recordsToDelete) {
+                        const recordRef = window.firebaseDB.ref(window.firebaseDB.database, `tcm-records/${key}`);
+                        await window.firebaseDB.remove(recordRef);
+                    }
+                    
+                    // Add updated records
+                    for (const record of recordsToUpdate) {
+                        const recordRef = window.firebaseDB.ref(window.firebaseDB.database, `tcm-records/${record.key}`);
+                        await window.firebaseDB.set(recordRef, {
+                            herb: record.herb,
+                            symptom: record.symptom,
+                            timestamp: record.timestamp
+                        });
+                    }
+                }
+                
+                // Update related items
+                const currentRelatedItems = currentEditType === 'herb' ? (herbsData[oldName] || []) : (symptomsData[oldName] || []);
+                const newRelatedItems = relatedItems;
+                
+                // Find items to add and remove
+                const itemsToAdd = newRelatedItems.filter(item => !currentRelatedItems.includes(item));
+                const itemsToRemove = currentRelatedItems.filter(item => !newRelatedItems.includes(item));
+                
+                // Remove old relationships
+                for (const item of itemsToRemove) {
+                    const key = currentEditType === 'herb' 
+                        ? `${newName}_${item}`.replace(/[.#$[\]]/g, '_')
+                        : `${item}_${newName}`.replace(/[.#$[\]]/g, '_');
+                    
+                    const recordRef = window.firebaseDB.ref(window.firebaseDB.database, `tcm-records/${key}`);
+                    await window.firebaseDB.remove(recordRef);
+                }
+                
+                // Add new relationships
+                for (const item of itemsToAdd) {
+                    const key = currentEditType === 'herb' 
+                        ? `${newName}_${item}`.replace(/[.#$[\]]/g, '_')
+                        : `${item}_${newName}`.replace(/[.#$[\]]/g, '_');
+                    
+                    const recordRef = window.firebaseDB.ref(window.firebaseDB.database, `tcm-records/${key}`);
+                    await window.firebaseDB.set(recordRef, {
+                        herb: currentEditType === 'herb' ? newName : item,
+                        symptom: currentEditType === 'herb' ? item : newName,
+                        timestamp: Date.now()
+                    });
+                }
+                
+                showToast('✅ 變更已儲存', 'success');
+                hideEditDetailModal();
+                prepareEditData(); // Refresh edit data
+                
+            } catch (error) {
+                console.error('Save edit error:', error);
+                showToast('儲存失敗：' + error.message, 'error');
+            } finally {
+                saveEditBtn.disabled = false;
+                saveEditBtn.innerHTML = '💾 儲存變更';
+            }
+        }
+
+        async function deleteCurrentItem() {
+            if (!confirm(`確定要刪除「${currentEditItem}」嗎？\n\n這將刪除所有相關的記錄，此操作無法復原。`)) {
+                return;
+            }
+            
+            if (!isFirebaseReady) {
+                showToast('資料庫未連線，無法刪除', 'error');
+                return;
+            }
+            
+            try {
+                deleteItemBtn.disabled = true;
+                deleteItemBtn.innerHTML = '🗑️ 刪除中...';
+                
+                // Find all records to delete
+                const recordsToDelete = [];
+                
+                Object.entries(recordsData).forEach(([key, record]) => {
+                    if ((currentEditType === 'herb' && record.herb === currentEditItem) ||
+                        (currentEditType === 'symptom' && record.symptom === currentEditItem)) {
+                        recordsToDelete.push(key);
+                    }
+                });
+                
+                // Delete all related records
+                for (const key of recordsToDelete) {
+                    const recordRef = window.firebaseDB.ref(window.firebaseDB.database, `tcm-records/${key}`);
+                    await window.firebaseDB.remove(recordRef);
+                }
+                
+                showToast(`🗑️ 已刪除「${currentEditItem}」及其 ${recordsToDelete.length} 個相關記錄`, 'success');
+                hideEditDetailModal();
+                prepareEditData(); // Refresh edit data
+                
+            } catch (error) {
+                console.error('Delete item error:', error);
+                showToast('刪除失敗：' + error.message, 'error');
+            } finally {
+                deleteItemBtn.disabled = false;
+                deleteItemBtn.innerHTML = '🗑️ 刪除項目';
+            }
+        }
+
+        // Update display
+        function updateDisplay() {
+            // Update counts
+            herbCount.textContent = Object.keys(herbsData).length;
+            symptomCount.textContent = Object.keys(symptomsData).length;
+            recordCount.textContent = Object.keys(recordsData).length;
+
+            // Update herbs list
+            if (Object.keys(herbsData).length === 0) {
+                herbsList.innerHTML = '<p class="text-gray-500 text-center py-8">暫無資料</p>';
+            } else {
+                herbsList.innerHTML = Object.keys(herbsData).sort().map(herb => `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors" onclick="searchInput.value='${herb}'; searchFunction();">
+                        <span class="font-medium text-gray-900">${herb}</span>
+                        <span class="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">${herbsData[herb].length}</span>
+                    </div>
+                `).join('');
+            }
+
+            // Update symptoms list
+            if (Object.keys(symptomsData).length === 0) {
+                symptomsList.innerHTML = '<p class="text-gray-500 text-center py-8">暫無資料</p>';
+            } else {
+                symptomsList.innerHTML = Object.keys(symptomsData).sort().map(symptom => `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors" onclick="searchInput.value='${symptom}'; searchFunction();">
+                        <span class="font-medium text-gray-900">${symptom}</span>
+                        <span class="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">${symptomsData[symptom].length}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+
+
+        // Event listeners
+        searchBtn.addEventListener('click', searchFunction);
+        clearBtn.addEventListener('click', () => {
+            searchInput.value = '';
+        });
+        importBtn.addEventListener('click', importDataFunction);
+        clearAllBtn.addEventListener('click', clearAllData);
+        clearDatabaseBtn.addEventListener('click', clearDatabase);
+        editModeBtn.addEventListener('click', showEditModal);
+        exportDataBtn.addEventListener('click', exportDataToTxt);
+        
+        // Modal event listeners
+        closeModal.addEventListener('click', hideModal);
+        newSearchBtn.addEventListener('click', () => {
+            hideModal();
+            searchInput.focus();
+        });
+        
+        // Close modal when clicking outside
+        searchModal.addEventListener('click', (e) => {
+            if (e.target === searchModal) {
+                hideModal();
+            }
+        });
+        
+        // Edit modal event listeners
+        closeEditModal.addEventListener('click', hideEditModal);
+        closeEditModalBtn.addEventListener('click', hideEditModal);
+        editSearchInput.addEventListener('input', displayEditItems);
+        editTypeFilter.addEventListener('change', displayEditItems);
+        
+        // Edit detail modal event listeners
+        closeEditDetailModal.addEventListener('click', hideEditDetailModal);
+        cancelEditBtn.addEventListener('click', hideEditDetailModal);
+        saveEditBtn.addEventListener('click', saveEditChanges);
+        deleteItemBtn.addEventListener('click', deleteCurrentItem);
+        addRelatedItemBtn.addEventListener('click', addNewRelatedItem);
+        
+        // Close modals when clicking outside
+        editModal.addEventListener('click', (e) => {
+            if (e.target === editModal) {
+                hideEditModal();
+            }
+        });
+        
+        editDetailModal.addEventListener('click', (e) => {
+            if (e.target === editDetailModal) {
+                hideEditDetailModal();
+            }
+        });
+        
+        // Enter key support for new related item
+        newRelatedItem.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addNewRelatedItem();
+            }
+        });
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (!editDetailModal.classList.contains('hidden')) {
+                    hideEditDetailModal();
+                } else if (!editModal.classList.contains('hidden')) {
+                    hideEditModal();
+                } else if (!searchModal.classList.contains('hidden')) {
+                    hideModal();
+                }
+            }
+        });
+        
+
+
+        // Auto-detect format on input change
+        importData.addEventListener('input', () => {
+            if (importData.value.trim()) {
+                const detectedFormat = detectFormat(importData.value);
+                const formatNames = {
+                    colon: '冒號格式',
+                    comma: '逗號格式',
+                    arrow: '箭頭格式',
+                    bracket: '方括號格式',
+                    json: 'JSON格式'
+                };
+                
+                formatHint.textContent = `自動識別：${formatNames[detectedFormat] || '未知格式'}`;
+            } else {
+                formatHint.textContent = '';
+            }
+        });
+
+        // Enter key support
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchFunction();
+            }
+        });
+
+
+
+        // Initialize the application
+        initializeFirebase();
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9668f058b3605de0',t:'MTc1Mzc1MzU0OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
