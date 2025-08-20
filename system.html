@@ -62,6 +62,13 @@
             flex: 1;
             line-height: 1.4;
         }
+
+        /* 讓病歷欄位內容長字串換行避免溢出 */
+        .medical-field {
+            /* 允許在任意字元斷行，避免內容溢出欄位 */
+            word-break: break-all;
+            overflow-wrap: break-word;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
@@ -253,11 +260,11 @@
                                 </div>
                                 <div class="md:col-span-2 lg:col-span-3">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">過敏史</label>
-                                    <textarea id="patientAllergies" placeholder="請詳細記錄藥物過敏或食物過敏史" rows="2" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"></textarea>
+                                    <textarea id="patientAllergies" placeholder="請詳細記錄藥物過敏或食物過敏史" rows="2" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent break-all"></textarea>
                                 </div>
                                 <div class="md:col-span-2 lg:col-span-3">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">病史及備註</label>
-                                    <textarea id="patientHistory" placeholder="請記錄重要病史、家族病史、慢性疾病等" rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"></textarea>
+                                    <textarea id="patientHistory" placeholder="請記錄重要病史、家族病史、慢性疾病等" rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent break-all"></textarea>
                                 </div>
                             </div>
                             
@@ -487,14 +494,36 @@
                     <div class="p-6">
                         <!-- 病人資訊 -->
                         <div class="bg-blue-50 rounded-lg p-4 mb-6">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <!--
+                              將診症表單中的病人基本資訊區域擴充，加入年齡、性別、過敏史以及病史備註的顯示。
+                              其中過敏史與病史在無資料時會隱藏，其容器設置了對應的 ID 供 JavaScript 控制。
+                            -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                                 <div>
                                     <span class="font-medium">病人：</span>
                                     <span id="formPatientName" class="text-blue-600 font-semibold"></span>
                                 </div>
                                 <div>
+                                    <span class="font-medium">年齡：</span>
+                                    <span id="formPatientAge"></span>
+                                </div>
+                                <div>
+                                    <span class="font-medium">性別：</span>
+                                    <span id="formPatientGender"></span>
+                                </div>
+                                <div>
                                     <span class="font-medium">掛號時間：</span>
                                     <span id="formAppointmentTime"></span>
+                                </div>
+                                <!-- 病史及備註：若無資料則隱藏 -->
+                                <div id="historyContainer" class="md:col-span-1 lg:col-span-2" style="display: none;">
+                                    <span class="font-medium">病史及備註：</span>
+                                    <span id="formPatientHistory" class="medical-field text-gray-700"></span>
+                                </div>
+                                <!-- 過敏史：以紅色高亮顯示，若無資料則隱藏 -->
+                                <div id="allergiesContainer" class="md:col-span-1 lg:col-span-2" style="display: none;">
+                                    <span class="font-medium text-red-600">過敏史：</span>
+                                    <span id="formPatientAllergies" class="medical-field text-red-700 bg-red-50 px-2 py-1 rounded"></span>
                                 </div>
                             </div>
                         </div>
@@ -1456,5 +1485,6 @@
     <script src="system.js"></script>
     <script src="system.js"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96f142c32d05b42b","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"97172fa8b875b31b","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 </body>
 </html>

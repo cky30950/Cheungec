@@ -1127,8 +1127,8 @@ async function viewPatient(id) {
                 <div class="space-y-4">
                     <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">醫療資訊</h4>
                     <div class="space-y-2">
-                        ${patient.allergies ? `<div><span class="font-medium">過敏史：</span><div class="mt-1 p-2 bg-red-50 rounded text-sm">${patient.allergies}</div></div>` : ''}
-                        ${patient.history ? `<div><span class="font-medium">病史：</span><div class="mt-1 p-2 bg-gray-50 rounded text-sm">${patient.history}</div></div>` : ''}
+                        ${patient.history ? `<div><span class="font-medium">病史及備註：</span><div class="mt-1 p-2 bg-gray-50 rounded text-sm medical-field">${patient.history}</div></div>` : ''}
+                        ${patient.allergies ? `<div><span class="font-medium">過敏史：</span><div class="mt-1 p-2 bg-red-50 rounded text-sm medical-field">${patient.allergies}</div></div>` : ''}
                         <div><span class="font-medium">建檔日期：</span>${patient.createdAt ? new Date(patient.createdAt.seconds * 1000).toLocaleDateString('zh-TW') : '未知'}</div>
                         ${patient.updatedAt ? `<div><span class="font-medium">更新日期：</span>${new Date(patient.updatedAt.seconds * 1000).toLocaleDateString('zh-TW')}</div>` : ''}
                     </div>
@@ -2357,8 +2357,45 @@ async function showConsultationForm(appointment) {
         }
         
         // 設置病人資訊
+        // 顯示病人姓名與編號
         document.getElementById('formPatientName').textContent = `${patient.name} (${patient.patientNumber})`;
+        // 顯示掛號時間
         document.getElementById('formAppointmentTime').textContent = new Date(appointment.appointmentTime).toLocaleString('zh-TW');
+        // 顯示病人年齡，若沒有出生日期則顯示「未知」
+        const ageEl = document.getElementById('formPatientAge');
+        if (ageEl) {
+            ageEl.textContent = formatAge(patient.birthDate);
+        }
+        // 顯示病人性別，若沒有資料則顯示「未知」
+        const genderEl = document.getElementById('formPatientGender');
+        if (genderEl) {
+            genderEl.textContent = patient.gender || '未知';
+        }
+        // 顯示過敏史，如果有資料則填入並顯示容器，否則隱藏容器
+        const allergiesContainer = document.getElementById('allergiesContainer');
+        const allergiesEl = document.getElementById('formPatientAllergies');
+        if (allergiesContainer && allergiesEl) {
+            if (patient.allergies) {
+                allergiesEl.textContent = patient.allergies;
+                allergiesContainer.style.display = '';
+            } else {
+                allergiesEl.textContent = '';
+                allergiesContainer.style.display = 'none';
+            }
+        }
+        // 顯示病史及備註，如果有資料則填入並顯示容器，否則隱藏容器
+        const historyContainer = document.getElementById('historyContainer');
+        const historyEl = document.getElementById('formPatientHistory');
+        if (historyContainer && historyEl) {
+            if (patient.history) {
+                historyEl.textContent = patient.history;
+                historyContainer.style.display = '';
+            } else {
+                historyEl.textContent = '';
+                historyContainer.style.display = 'none';
+            }
+        }
+        // 渲染病人療程/套餐資訊
         renderPatientPackages(patient.id);
         
         // 檢查是否為編輯模式
@@ -2759,7 +2796,7 @@ if (!patient) {
             
             // 顯示病人基本資訊
             document.getElementById('patientMedicalHistoryPatientInfo').innerHTML = `
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                     <div>
                         <span class="font-medium text-gray-700">病人編號：</span>
                         <span class="text-blue-600 font-semibold">${patient.patientNumber}</span>
@@ -2776,10 +2813,16 @@ if (!patient) {
                         <span class="font-medium text-gray-700">性別：</span>
                         <span>${patient.gender}</span>
                     </div>
-                    ${patient.allergies ? `
-                    <div class="md:col-span-4">
+                ${patient.history ? `
+                    <div class="md:col-span-1 lg:col-span-2">
+                        <span class="font-medium text-gray-700">病史及備註：</span>
+                        <span class="medical-field text-gray-700">${patient.history}</span>
+                    </div>
+                    ` : ''}
+                ${patient.allergies ? `
+                    <div class="md:col-span-1 lg:col-span-2">
                         <span class="font-medium text-red-600">過敏史：</span>
-                        <span class="text-red-700 bg-red-50 px-2 py-1 rounded">${patient.allergies}</span>
+                        <span class="medical-field text-red-700 bg-red-50 px-2 py-1 rounded">${patient.allergies}</span>
                     </div>
                     ` : ''}
                 </div>
@@ -2902,44 +2945,44 @@ if (!patient) {
                             <div class="space-y-4">
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">主訴</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.symptoms || '無記錄'}</div>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.symptoms || '無記錄'}</div>
                                 </div>
                                 
                                 ${consultation.tongue ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">舌象</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.tongue}</div>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.tongue}</div>
                                 </div>
                                 ` : ''}
                                 
                                 ${consultation.pulse ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">脈象</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.pulse}</div>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.pulse}</div>
                                 </div>
                                 ` : ''}
                                 
                                 ${consultation.currentHistory ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.currentHistory}</div>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.currentHistory}</div>
                                 </div>
                                 ` : ''}
                                 
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">中醫診斷</span>
-                                    <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400">${consultation.diagnosis || '無記錄'}</div>
+                                    <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 medical-field">${consultation.diagnosis || '無記錄'}</div>
                                 </div>
                                 
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">證型診斷</span>
-                                    <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400">${consultation.syndrome || '無記錄'}</div>
+                                    <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400 medical-field">${consultation.syndrome || '無記錄'}</div>
                                 </div>
                                 
                                 ${consultation.acupunctureNotes ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">針灸備註</span>
-                                    <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400">${consultation.acupunctureNotes}</div>
+                                    <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400 medical-field">${consultation.acupunctureNotes}</div>
                                 </div>
                                 ` : ''}
                             </div>
@@ -2947,41 +2990,41 @@ if (!patient) {
                             <div class="space-y-4">
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>
-                                    <div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 whitespace-pre-line">${consultation.prescription || '無記錄'}</div>
+                                    <div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 whitespace-pre-line medical-field">${consultation.prescription || '無記錄'}</div>
                                 </div>
                                 
                                 ${consultation.usage ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">服用方法</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.usage}</div>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.usage}</div>
                                 </div>
                                 ` : ''}
                                 
                                 ${consultation.treatmentCourse ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">療程</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.treatmentCourse}</div>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.treatmentCourse}</div>
                                 </div>
                                 ` : ''}
                                 
                                 ${consultation.instructions ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">醫囑及注意事項</span>
-                                    <div class="bg-red-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-red-400">${consultation.instructions}</div>
+                                    <div class="bg-red-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-red-400 medical-field">${consultation.instructions}</div>
                                 </div>
                                 ` : ''}
                                 
                                 ${consultation.followUpDate ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">複診時間</span>
-                                    <div class="bg-purple-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-purple-400">${new Date(consultation.followUpDate).toLocaleString('zh-TW')}</div>
+                                    <div class="bg-purple-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-purple-400 medical-field">${new Date(consultation.followUpDate).toLocaleString('zh-TW')}</div>
                                 </div>
                                 ` : ''}
                                 
                                 ${consultation.billingItems ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">收費項目</span>
-                                    <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 whitespace-pre-line">${consultation.billingItems}</div>
+                                    <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 whitespace-pre-line medical-field">${consultation.billingItems}</div>
                                 </div>
                                 ` : ''}
                             </div>
@@ -3073,7 +3116,7 @@ async function viewPatientMedicalHistory(patientId) {
         
         // 顯示病人基本資訊
         document.getElementById('medicalHistoryPatientInfo').innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                 <div>
                     <span class="font-medium text-gray-700">病人編號：</span>
                     <span class="text-blue-600 font-semibold">${patient.patientNumber}</span>
@@ -3090,10 +3133,16 @@ async function viewPatientMedicalHistory(patientId) {
                     <span class="font-medium text-gray-700">性別：</span>
                     <span>${patient.gender}</span>
                 </div>
+                ${patient.history ? `
+                <div class="md:col-span-1 lg:col-span-2">
+                    <span class="font-medium text-gray-700">病史及備註：</span>
+                    <span class="medical-field text-gray-700">${patient.history}</span>
+                </div>
+                ` : ''}
                 ${patient.allergies ? `
-                <div class="md:col-span-4">
+                <div class="md:col-span-1 lg:col-span-2">
                     <span class="font-medium text-red-600">過敏史：</span>
-                    <span class="text-red-700 bg-red-50 px-2 py-1 rounded">${patient.allergies}</span>
+                    <span class="medical-field text-red-700 bg-red-50 px-2 py-1 rounded">${patient.allergies}</span>
                 </div>
                 ` : ''}
             </div>
@@ -3215,44 +3264,44 @@ function displayConsultationMedicalHistoryPage() {
                     <div class="space-y-4">
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">主訴</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.symptoms || '無記錄'}</div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.symptoms || '無記錄'}</div>
                         </div>
                         
                         ${consultation.tongue ? `
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">舌象</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.tongue}</div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.tongue}</div>
                         </div>
                         ` : ''}
                         
                         ${consultation.pulse ? `
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">脈象</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.pulse}</div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.pulse}</div>
                         </div>
                         ` : ''}
                         
                         ${consultation.currentHistory ? `
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.currentHistory}</div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.currentHistory}</div>
                         </div>
                         ` : ''}
                         
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">中醫診斷</span>
-                            <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400">${consultation.diagnosis || '無記錄'}</div>
+                            <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 medical-field">${consultation.diagnosis || '無記錄'}</div>
                         </div>
                         
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">證型診斷</span>
-                            <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400">${consultation.syndrome || '無記錄'}</div>
+                            <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400 medical-field">${consultation.syndrome || '無記錄'}</div>
                         </div>
                         
                         ${consultation.acupunctureNotes ? `
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">針灸備註</span>
-                            <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400">${consultation.acupunctureNotes}</div>
+                            <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400 medical-field">${consultation.acupunctureNotes}</div>
                         </div>
                         ` : ''}
                     </div>
@@ -3260,41 +3309,41 @@ function displayConsultationMedicalHistoryPage() {
                     <div class="space-y-4">
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>
-                            <div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 whitespace-pre-line">${consultation.prescription || '無記錄'}</div>
+                            <div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 whitespace-pre-line medical-field">${consultation.prescription || '無記錄'}</div>
                         </div>
                         
                         ${consultation.usage ? `
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">服用方法</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.usage}</div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.usage}</div>
                         </div>
                         ` : ''}
                         
                         ${consultation.treatmentCourse ? `
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">療程</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900">${consultation.treatmentCourse}</div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.treatmentCourse}</div>
                         </div>
                         ` : ''}
                         
                         ${consultation.instructions ? `
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">醫囑及注意事項</span>
-                            <div class="bg-red-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-red-400">${consultation.instructions}</div>
+                            <div class="bg-red-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-red-400 medical-field">${consultation.instructions}</div>
                         </div>
                         ` : ''}
                         
                         ${consultation.followUpDate ? `
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">複診時間</span>
-                            <div class="bg-purple-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-purple-400">${formatConsultationDateTime(consultation.followUpDate)}</div>
+                            <div class="bg-purple-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-purple-400 medical-field">${formatConsultationDateTime(consultation.followUpDate)}</div>
                         </div>
                         ` : ''}
                         
                         ${consultation.billingItems ? `
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">收費項目</span>
-                            <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 whitespace-pre-line">${consultation.billingItems}</div>
+                            <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 whitespace-pre-line medical-field">${consultation.billingItems}</div>
                         </div>
                         ` : ''}
                     </div>
@@ -3632,18 +3681,20 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                         border-bottom: 1px dotted #999;
                     }
                     .total-section {
+                        /* Shrink the amount section to conserve vertical space */
                         text-align: right;
-                        margin: 8px 0;
-                        font-size: 12px;
+                        margin: 4px 0;
+                        font-size: 10px;
                         font-weight: bold;
                     }
                     .total-amount {
-                        font-size: 12px;
+                        /* Reduce padding, border and font size for the amount box */
+                        font-size: 10px;
                         color: #000;
-                        border: 2px solid #000;
-                        padding: 4px;
+                        border: 1px solid #000;
+                        padding: 2px;
                         display: inline-block;
-                        min-width: 60px;
+                        min-width: 50px;
                         text-align: center;
                     }
                     .prescription-section {
@@ -3686,8 +3737,10 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                         font-size: 10px;
                     }
                     .diagnosis-title {
+                        /* Display diagnosis title inline with result; remove bottom margin and add right margin */
                         font-weight: bold;
-                        margin-bottom: 3px;
+                        margin-bottom: 0;
+                        margin-right: 4px;
                     }
                     @media print {
                         @page {
@@ -3767,9 +3820,17 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                     <!-- 診斷資訊 -->
                     ${consultation.diagnosis ? `
                     <div class="diagnosis-section">
-                        <div class="diagnosis-title">診斷：</div>
-                        <div>${consultation.diagnosis}</div>
-                        ${consultation.syndrome ? `<div>證型：${consultation.syndrome}</div>` : ''}
+                        <!-- 將診斷結果和證型分成兩行顯示 -->
+                        <div>
+                            <span class="diagnosis-title">診斷：</span>
+                            <span>${consultation.diagnosis}</span>
+                        </div>
+                        ${consultation.syndrome ? `
+                        <div>
+                            <span class="diagnosis-title">證型：</span>
+                            <span>${consultation.syndrome}</span>
+                        </div>
+                        ` : ''}
                     </div>
                     ` : ''}
                     
@@ -3785,7 +3846,8 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                     
                     <!-- 總金額 -->
                     <div class="total-section">
-                        <div style="margin-bottom: 8px; font-size: 10px;">應收金額：</div>
+                        <!-- Shrink the label for amount receivable -->
+                        <div style="margin-bottom: 4px; font-size: 9px;">應收金額：</div>
                         <div class="total-amount">HK$ ${totalAmount.toLocaleString()}</div>
                     </div>
                     
@@ -3880,7 +3942,7 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                     
                     <!-- 醫囑 -->
                     ${consultation.instructions ? `
-                    <div style="margin: 10px 0; font-size: 12px; background: #fff3cd; padding: 8px; border: 1px solid #ffeaa7;">
+                    <div style="margin: 6px 0; font-size: 10px; background: #fff3cd; padding: 6px; border: 1px solid #ffeaa7;">
                         <strong>⚠️ 醫囑及注意事項：</strong><br>
                         ${consultation.instructions}
                     </div>
