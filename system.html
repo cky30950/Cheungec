@@ -124,7 +124,7 @@
                     <div id="sidebarUserRole" class="text-sm text-green-100 mt-2"></div>
                 </div>
                 <!-- 功能選單項目 -->
-                <div class="flex-1 py-4">
+                <div class="flex-1 py-4 overflow-y-auto">
                     <div id="sidebarMenu" class="space-y-2 px-4">
                         <!-- 選單項目會動態生成 -->
                     </div>
@@ -1415,7 +1415,20 @@
                 <h2 class="text-2xl font-bold text-gray-800 mb-6">系統管理</h2>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    
+
+<div class="bg-gray-50 rounded-lg p-6">
+    <h3 class="text-lg font-semibold mb-4">資料備份與還原</h3>
+    <p class="text-sm text-gray-600 mb-4">您可以匯出診所資料備份，或匯入之前的備份檔案。實時掛號資料不包含在備份中。</p>
+    <div class="flex flex-col md:flex-row gap-4">
+        <button id="backupExportBtn" onclick="exportClinicBackup()" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition duration-200">
+            匯出備份
+        </button>
+        <button id="backupImportBtn" onclick="triggerBackupImport()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-200">
+            匯入備份
+        </button>
+        <input type="file" id="backupFileInput" accept=".json" class="hidden" onchange="handleBackupFile(this.files[0])">
+    </div>
+</div>
                     <div class="bg-gray-50 rounded-lg p-6">
                         <h3 class="text-lg font-semibold mb-4">診所設定</h3>
                         <div class="space-y-3">
