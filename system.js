@@ -3424,7 +3424,14 @@ async function loadTodayAppointments() {
 
 // 新增：訂閱 Firebase Realtime Database 的掛號變動，實時更新今日掛號列表
 async function subscribeToAppointments() {
-    await waitForFirebaseDb();
+    // 確保 Firebase 初始化完成後再訂閱
+    try {
+        if (typeof waitForFirebaseDb === 'function') {
+            await waitForFirebaseDb();
+        }
+    } catch (_e) {
+        // 若等待失敗，仍繼續監聽
+    }
     // 根據日期選擇器決定要監聽的日期範圍；若未選擇則監聽今日
     let targetDate = new Date();
     try {
@@ -7969,7 +7976,7 @@ async function initializeSystemAfterLogin() {
     // 不在此處更新統計或讀取掛號/病人資料。實時掛號監聽將在後續處理。
     // 啟動實時掛號監聽，無需手動更新今日掛號列表
     subscribeToAppointments();
-    // 日期切換時，重新掛載監聽（只綁一次）
+    // 日期切換時自動重新訂閱掛號監聽，僅綁定一次
     try {
         const dp = document.getElementById('appointmentDatePicker');
         if (dp && !dp.dataset.rtListenerBound) {
@@ -7978,8 +7985,9 @@ async function initializeSystemAfterLogin() {
             });
             dp.dataset.rtListenerBound = '1';
         }
-    } catch (_e) {}
-
+    } catch (_e) {
+        // ignore any error when binding date picker change
+    }
 }
 
 
