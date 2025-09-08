@@ -2798,14 +2798,6 @@ async function loadInquiryOptions(patient) {
             }
             // 載入選定日期的掛號列表
             loadTodayAppointments();
-            // 初始化或更新掛號實時監聽器，以匹配當前選擇的日期
-            try {
-                if (typeof subscribeToAppointments === 'function') {
-                    subscribeToAppointments();
-                }
-            } catch (_err) {
-                console.error('初始化掛號實時監聽器失敗：', _err);
-            }
             clearPatientSearch();
         }
 
@@ -2833,15 +2825,9 @@ async function loadInquiryOptions(patient) {
                 if (!picker.dataset.bound) {
                     picker.addEventListener('change', function () {
                         try {
-                            // 重新載入指定日期的掛號列表
                             loadTodayAppointments();
-                            // 重新訂閱當前選定日期的實時掛號更新
-                            // 在切換日期後，先取消原有的監聽並訂閱新的日期資料
-                            if (typeof subscribeToAppointments === 'function') {
-                                subscribeToAppointments();
-                            }
                         } catch (_err) {
-                            console.error('更新掛號列表或重新訂閱掛號監聽器失敗：', _err);
+                            console.error('更新掛號列表失敗：', _err);
                         }
                     });
                     picker.dataset.bound = 'true';
@@ -3474,24 +3460,21 @@ function subscribeToAppointments() {
     }
     const appointmentsRef = window.firebase.ref(window.firebase.rtdb, `appointments/${dateKeyForQuery}`);
     // 使用 Realtime Database 查詢以篩選當天的掛號資料，減少監聽範圍
-    // 使用 Realtime Database 專用的查詢函式（rtdbQuery）。
-    // 此處不能使用 window.firebase.query，該函式為 Firestore 查詢，
-    // 會導致 Realtime Database 監聽無法正常運作。
-    const appointmentsQuery = window.firebase.rtdbQuery(
+    const appointmentsQuery = window.firebase.query(
         appointmentsRef,
         window.firebase.orderByChild('appointmentTime'),
         window.firebase.startAt(startIso),
         window.firebase.endAt(endIso)
     );
-    // 如果先前已經有監聽器，先取消以避免重複觸發
-    if (window.appointmentsListener && window.appointmentsQuery) {
+    // 如果先前已經有監聽器，使用返回的取消函式取消監聽以避免重複觸發
+    if (window.appointmentsUnsubscribe && typeof window.appointmentsUnsubscribe === 'function') {
         try {
-            window.firebase.off(window.appointmentsQuery, 'value', window.appointmentsListener);
+            window.appointmentsUnsubscribe();
         } catch (e) {
             console.error('取消掛號監聽器時發生錯誤:', e);
         }
     }
-    // 存儲本次查詢，以便後續取消監聽
+    // 存儲本次查詢，以便後續取消監聽（僅供參考）
     window.appointmentsQuery = appointmentsQuery;
     // 初始化前一次狀態記錄
     if (!window.previousAppointmentStatuses) {
@@ -3560,13 +3543,13 @@ function subscribeToAppointments() {
         // 更新統計資訊
         updateStatistics();
     };
-    // 設置監聽器
-    window.firebase.onValue(appointmentsQuery, window.appointmentsListener);
+    // 設置監聽器，並取得取消訂閱函式
+    window.appointmentsUnsubscribe = window.firebase.onValue(appointmentsQuery, window.appointmentsListener);
     // 在頁面卸載時自動取消監聽，以避免離開頁面後仍持續監聽造成資源浪費
     window.addEventListener('beforeunload', () => {
-        if (window.appointmentsListener && window.appointmentsQuery) {
+        if (window.appointmentsUnsubscribe && typeof window.appointmentsUnsubscribe === 'function') {
             try {
-                window.firebase.off(window.appointmentsQuery, 'value', window.appointmentsListener);
+                window.appointmentsUnsubscribe();
             } catch (e) {
                 console.error('取消掛號監聽器時發生錯誤:', e);
             }
