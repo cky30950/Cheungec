@@ -3423,7 +3423,8 @@ async function loadTodayAppointments() {
 }
 
 // 新增：訂閱 Firebase Realtime Database 的掛號變動，實時更新今日掛號列表
-function subscribeToAppointments() {
+async function subscribeToAppointments() {
+    await waitForFirebaseDb();
     // 根據日期選擇器決定要監聽的日期範圍；若未選擇則監聽今日
     let targetDate = new Date();
     try {
@@ -3460,8 +3461,6 @@ function subscribeToAppointments() {
     }
     const appointmentsRef = window.firebase.ref(window.firebase.rtdb, `appointments/${dateKeyForQuery}`);
     // 使用 Realtime Database 查詢以篩選當天的掛號資料，減少監聽範圍
-    // 建立 Realtime Database 查詢，使用 rtdbQuery 取代 Firestore 的 query
-    // 以前版本誤用 window.firebase.query 造成監聽無法作用，改為使用 rtdbQuery
     const appointmentsQuery = window.firebase.rtdbQuery(
         appointmentsRef,
         window.firebase.orderByChild('appointmentTime'),
@@ -7970,6 +7969,17 @@ async function initializeSystemAfterLogin() {
     // 不在此處更新統計或讀取掛號/病人資料。實時掛號監聽將在後續處理。
     // 啟動實時掛號監聽，無需手動更新今日掛號列表
     subscribeToAppointments();
+    // 日期切換時，重新掛載監聽（只綁一次）
+    try {
+        const dp = document.getElementById('appointmentDatePicker');
+        if (dp && !dp.dataset.rtListenerBound) {
+            dp.addEventListener('change', () => {
+                subscribeToAppointments();
+            });
+            dp.dataset.rtListenerBound = '1';
+        }
+    } catch (_e) {}
+
 }
 
 
