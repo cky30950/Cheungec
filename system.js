@@ -3460,6 +3460,8 @@ function subscribeToAppointments() {
     }
     const appointmentsRef = window.firebase.ref(window.firebase.rtdb, `appointments/${dateKeyForQuery}`);
     // 使用 Realtime Database 查詢以篩選當天的掛號資料，減少監聽範圍
+    // 建立 Realtime Database 查詢，使用 rtdbQuery 取代 Firestore 的 query
+    // 以前版本誤用 window.firebase.query 造成監聽無法作用，改為使用 rtdbQuery
     const appointmentsQuery = window.firebase.rtdbQuery(
         appointmentsRef,
         window.firebase.orderByChild('appointmentTime'),
