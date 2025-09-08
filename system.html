@@ -113,6 +113,24 @@
                 right: 5% !important;
                 left: 5% !important;
             }
+
+            /*
+             * 手機檢視時，診症記錄卡片的日期／醫師資訊與列印按鈕等操作無法全部水平顯示，
+             * 容易造成內容被擋住或需要橫向捲動。為了提升使用者體驗，
+             * 在寬度小於 640px 時將標題與按鈕群組改為垂直排列，
+             * 讓按鈕顯示在日期與醫師資訊的下方。
+             * 這裡鎖定診症記錄卡片的標題區塊（使用藍灰漸層背景的容器），
+             * 並覆寫 Tailwind 的 flex 排版設定。
+             */
+            .bg-gradient-to-r.from-gray-50.to-blue-50 > .flex.justify-between.items-center {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+            }
+
+            /* 當按鈕群組換行到下一層時，增加上邊距以區隔日期資訊與按鈕 */
+            .bg-gradient-to-r.from-gray-50.to-blue-50 > .flex.justify-between.items-center > .flex.flex-wrap {
+                margin-top: 0.5rem !important;
+            }
         }
     </style>
 </head>
@@ -214,7 +232,7 @@
             </div>
         </nav>
         <!-- 主要內容區域 -->
-        <!-- 主要內容包裝區，新增 id 方便在顯示個人設置或模板庫管理時隱藏整個包裝 -->
+        <!-- 主要內容包裝區，新增 id 方便在顯示個人設置或模板庫時隱藏整個包裝 -->
         <div id="contentWrapper" class="max-w-7xl mx-auto px-4 py-6">
             <!-- 歡迎頁面 -->
             <div id="welcomePage" class="text-center py-16">
@@ -687,7 +705,7 @@
                                         <div class="flex items-center mb-2">
                                             <span class="text-sm font-medium text-yellow-800 mr-2">🔍 搜索中藥庫：</span>
                                             <div class="flex-1 relative">
-                                                <input type="text" id="prescriptionSearch" placeholder="搜索中藥材或方劑名稱..." 
+                                                <input type="text" id="prescriptionSearch" placeholder="搜索中藥材、方劑名稱或功能..." 
                                                        class="w-full border border-yellow-300 rounded px-3 py-1 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                                                        oninput="searchHerbsForPrescription()">
                                                 <button onclick="clearPrescriptionSearch()" class="absolute right-2 top-1 text-gray-400 hover:text-gray-600 text-sm">×</button>
@@ -902,21 +920,16 @@
                     </div>
                 </div>
             </div>
-            <!-- 中藥庫管理 -->
+            <!-- 中藥庫 -->
             <div id="herbLibrary" class="hidden bg-white rounded-xl shadow-lg p-6">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                    <h2 class="text-2xl font-bold text-gray-800">中藥庫管理</h2>
+                    <h2 class="text-2xl font-bold text-gray-800">中藥庫</h2>
                     <div class="flex flex-col md:flex-row gap-3">
                         <div class="relative">
-                            <input type="text" id="searchHerb" placeholder="搜尋中藥材或方劑名稱..." class="border border-gray-300 rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-green-500 focus:border-transparent w-full md:w-64">
+                            <input type="text" id="searchHerb" placeholder="搜尋中藥材、方劑名稱或功能..." class="border border-gray-300 rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-green-500 focus:border-transparent w-full md:w-64">
                             <span class="absolute right-3 top-2.5 text-gray-400">🔍</span>
                         </div>
-                        <button onclick="showAddHerbForm()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition duration-200 whitespace-nowrap">
-                            + 新增中藥材
-                        </button>
-                        <button onclick="showAddFormulaForm()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition duration-200 whitespace-nowrap">
-                            + 新增方劑
-                        </button>
+                        <!-- 新增中藥材與新增方劑按鈕已移除 -->
                     </div>
                 </div>
                 <!-- 分類標籤 -->
@@ -951,9 +964,23 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-1">別名</label>
                                     <input type="text" id="herbAlias" placeholder="其他名稱或別名" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
+                                <!-- 新增性味與歸經欄位 -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">性味</label>
+                                    <input type="text" id="herbNature" placeholder="例：辛、溫" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">歸經</label>
+                                    <input type="text" id="herbMeridian" placeholder="例：肺、脾經" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                </div>
                                 <div class="md:col-span-2">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">功效</label>
                                     <textarea id="herbEffects" placeholder="請描述主要功效" rows="2" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"></textarea>
+                                </div>
+                                <!-- 新增主治欄位 -->
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">主治</label>
+                                    <textarea id="herbIndications" placeholder="請描述主治" rows="2" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"></textarea>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">常用劑量</label>
@@ -1010,6 +1037,15 @@
                                         <label class="block text-sm font-medium text-gray-700 mb-1">注意事項</label>
                                         <textarea id="formulaCautions" placeholder="禁忌、注意事項等" rows="2" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
                                     </div>
+                                    <!-- 新增主治與用法欄位 -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">主治</label>
+                                        <textarea id="formulaIndications" placeholder="請描述方劑主治" rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">用法</label>
+                                        <textarea id="formulaUsage" placeholder="請描述方劑用法" rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                                    </div>
                                 </div>
                             </div>
                             
@@ -1031,6 +1067,34 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 穴位庫 -->
+            <div id="acupointLibrary" class="hidden bg-white rounded-xl shadow-lg p-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <h2 class="text-2xl font-bold text-gray-800">穴位庫</h2>
+                    <div class="flex flex-col md:flex-row gap-3">
+                        <div class="relative">
+                            <input type="text" id="searchAcupoint" placeholder="搜尋穴位、經絡名稱或功能..." class="border border-gray-300 rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full md:w-64">
+                            <span class="absolute right-3 top-2.5 text-gray-400">🔍</span>
+                        </div>
+                        <!-- 新增按鈕已移除，穴位庫僅供瀏覽 -->
+                    </div>
+                </div>
+                <!-- 分類標籤 -->
+                <div class="mb-6">
+                    <div id="acupointFilterContainer" class="flex flex-wrap gap-2">
+                        <!-- 動態產生的經絡分類按鈕 -->
+                    </div>
+                </div>
+                <!-- 新增/編輯穴位表單彈窗已移除，穴位庫僅供瀏覽 -->
+                <!-- 穴位庫列表 -->
+                <div class="overflow-x-auto">
+                    <div id="acupointLibraryList" class="space-y-4">
+                        <!-- 穴位庫內容會動態載入 -->
+                    </div>
+                </div>
+            </div>
+
             <!-- 收費項目管理 -->
             <div id="billingManagement" class="hidden bg-white rounded-xl shadow-lg p-6">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -1523,7 +1587,8 @@
 
 <div class="bg-gray-50 rounded-lg p-6">
     <h3 class="text-lg font-semibold mb-4">資料備份與還原</h3>
-    <p class="text-sm text-gray-600 mb-4">您可以匯出診所資料備份（包含所有功能資料），或匯入之前的備份檔案。實時掛號資料不包含在備份中。</p>
+    <!-- 說明備份內容：模板庫與中藥庫資料不包含在匯出備份中 -->
+    <p class="text-sm text-gray-600 mb-4">您可以匯出診所資料備份（包含所有功能資料，不含模板庫與中藥庫），或匯入之前的備份檔案。實時掛號資料不包含在備份中。</p>
     <div class="flex flex-col md:flex-row gap-4">
         <button id="backupExportBtn" onclick="exportClinicBackup()" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition duration-200">
             匯出備份
@@ -1532,6 +1597,13 @@
             匯入備份
         </button>
         <input type="file" id="backupFileInput" accept=".json" class="hidden" onchange="handleBackupFile(this.files[0])">
+    </div>
+    <!-- 匯入進度條 -->
+    <div id="backupProgressContainer" class="hidden mt-4">
+        <div class="w-full bg-gray-200 rounded-full h-2.5">
+            <div id="backupProgressBar" class="bg-blue-600 h-2.5 rounded-full" style="width:0%"></div>
+        </div>
+        <div id="backupProgressText" class="mt-2 text-sm text-gray-700"></div>
     </div>
 </div>
                                 
@@ -1549,11 +1621,13 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- 匯入模板及中藥資料功能已移除 -->
                     
                 </div>
             </div>
         </div>
-        <!-- 個人設置與模板庫管理內容 -->
+        <!-- 個人設置與模板庫內容 -->
         <!-- 個人設置區：在外層加入與其他頁面一致的寬度與內邊距容器，卡片樣式位於內層 -->
         <!-- 個人設置區：包裝在與其他頁面相同的寬度限制與內外邊距容器中，使版面保持一致 -->
         <div id="personalSettings" class="hidden max-w-7xl mx-auto px-4 py-6">
@@ -1570,9 +1644,13 @@
               <div class="flex border-b border-gray-200">
                 <button class="px-6 py-3 text-amber-700 border-b-2 border-amber-500 font-medium" onclick="switchPersonalTab('herbs')" id="herbsTab">
                   🌿 慣用中藥組合
+                  <!-- 動態顯示慣用中藥組合數量 -->
+                  <span id="herbCount" class="ml-2 text-xs font-semibold bg-green-100 text-green-700 rounded-full px-2 py-0.5"></span>
                 </button>
                 <button class="px-6 py-3 text-gray-500 hover:text-amber-700 font-medium" onclick="switchPersonalTab('acupoints')" id="acupointsTab">
                   📍 慣用穴位組合
+                  <!-- 動態顯示慣用穴位組合數量 -->
+                  <span id="acupointCount" class="ml-2 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full px-2 py-0.5"></span>
                 </button>
               </div>
             </div>
@@ -1647,15 +1725,15 @@
           </div>
         </div>
 
-        <!-- 模板庫管理區：在外層加入與其他頁面一致的寬度與內邊距容器，卡片樣式位於內層 -->
-        <!-- 模板庫管理區：包裝在與其他頁面相同的寬度限制與內外邊距容器中，使版面保持一致 -->
+        <!-- 模板庫區：在外層加入與其他頁面一致的寬度與內邊距容器，卡片樣式位於內層 -->
+        <!-- 模板庫區：包裝在與其他頁面相同的寬度限制與內外邊距容器中，使版面保持一致 -->
         <div id="templateLibrary" class="hidden max-w-7xl mx-auto px-4 py-6">
           <div class="bg-white rounded-xl shadow-lg p-6">
             <!-- 移除內層多餘的背景框，避免重複包裹 -->
             <div>
             <h2 class="text-2xl font-bold text-amber-800 mb-6 flex items-center">
               <span class="text-3xl mr-3">📚</span>
-              模板庫管理
+              模板庫
             </h2>
             
             <!-- 標籤切換：診斷模板與醫囑模板位置互換 -->
@@ -1665,10 +1743,14 @@
                 <button class="px-6 py-3 text-amber-700 border-b-2 border-amber-500 font-medium"
                         onclick="switchTemplateTab('diagnosis')" id="diagnosisTab">
                   🔍 診斷模板
+                  <!-- 動態顯示診斷模板數量 -->
+                  <span id="diagnosisCount" class="ml-2 text-xs font-semibold bg-orange-100 text-orange-700 rounded-full px-2 py-0.5"></span>
                 </button>
                 <button class="px-6 py-3 text-gray-500 hover:text-amber-700 font-medium"
                         onclick="switchTemplateTab('prescriptions')" id="prescriptionsTab">
                   📋 醫囑模板
+                  <!-- 動態顯示醫囑模板數量 -->
+                  <span id="prescriptionCount" class="ml-2 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full px-2 py-0.5"></span>
                 </button>
               </div>
             </div>
@@ -1677,18 +1759,11 @@
             <div id="diagnosisContent" class="template-tab-content">
               <div class="mb-6 space-y-4">
                 <div class="flex gap-4 flex-wrap">
-                  <button class="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 transition-colors font-medium shadow-md flex items-center gap-2" onclick="addNewDiagnosisTemplate()">
-                    <span class="text-lg">➕</span>
-                    新增診斷模板
-                  </button>
-                  <button class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-md flex items-center gap-2" onclick="showCategoryModal('diagnosis')">
-                    <span class="text-lg">🏷️</span>
-                    管理分類
-                  </button>
+                  <!-- 新增診斷模板與管理分類按鈕已移除 -->
                 </div>
                 <div class="flex gap-4 flex-wrap">
                   <!-- 搜尋診斷模板名稱 -->
-                  <input type="text" id="diagnosisTemplateSearch" placeholder="搜尋診斷模板名稱..." class="px-4 py-2 border-2 border-orange-200 rounded-lg focus:border-orange-400 focus:outline-none flex-1 min-w-64">
+                  <input type="text" id="diagnosisTemplateSearch" placeholder="搜尋診斷模板名稱或內容..." class="px-4 py-2 border-2 border-orange-200 rounded-lg focus:border-orange-400 focus:outline-none flex-1 min-w-64">
                   <!-- 診斷科別篩選 -->
                   <select id="diagnosisTemplateCategoryFilter" class="px-4 py-2 border-2 border-orange-200 rounded-lg focus:border-orange-400 focus:outline-none">
                     <!-- 為了避免顯示已儲存的分類，此下拉選單僅提供整體科別篩選選項 -->
@@ -1706,14 +1781,7 @@
             <div id="prescriptionsContent" class="template-tab-content hidden">
               <div class="mb-6 space-y-4">
                 <div class="flex gap-4 flex-wrap">
-                  <button class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-md flex items-center gap-2" onclick="addNewPrescriptionTemplate()">
-                    <span class="text-lg">➕</span>
-                    新增醫囑模板
-                  </button>
-                  <button class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-md flex items-center gap-2" onclick="showCategoryModal('prescriptions')">
-                    <span class="text-lg">🏷️</span>
-                    管理分類
-                  </button>
+                  <!-- 新增醫囑模板與管理分類按鈕已移除 -->
                 </div>
                 <div class="flex gap-4 flex-wrap">
                   <!-- 搜尋醫囑模板名稱 -->
@@ -1744,7 +1812,8 @@
             <div class="mb-6">
               <label class="block text-gray-700 font-medium mb-2">新增分類</label>
               <div class="flex gap-2">
-                <input type="text" id="newCategoryInput" placeholder="輸入分類名稱..." class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-400 focus:outline-none">
+                <!-- 將分類名稱欄位寬度縮短為一半，避免過長 -->
+                <input type="text" id="newCategoryInput" placeholder="輸入分類名稱..." class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg focus:border-blue-400 focus:outline-none">
                 <button onclick="addCategory()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
                   新增
                 </button>
@@ -1897,9 +1966,36 @@
             </div>
         </div>
     </div>
+    <!-- 自訂工具提示容器 -->
+    <!-- 調整 z-index 並新增行內樣式，以確保 tooltip 在模態框或其他高層元素之上顯示 -->
+    <div id="tooltip" class="hidden pointer-events-none fixed bg-gray-800 text-white text-xs px-3 py-1 rounded-lg shadow-lg z-50 whitespace-pre-line" style="z-index: 9999;"></div>
     <script src="system.js"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96f142c32d05b42b","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"97172fa8b875b31b","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>

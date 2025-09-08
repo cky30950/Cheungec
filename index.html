@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>專業中醫診所 - 傳統中醫 現代服務</title>
+    <title>名醫中醫診所 - 傳統中醫 現代服務</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;600;700&display=swap');
@@ -42,7 +42,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center">
-                    <div class="text-2xl font-bold text-amber-200">專業中醫診所</div>
+                    <div class="text-2xl font-bold text-amber-200">名醫中醫診所</div>
                 </div>
                 <div class="hidden md:block">
                     <div class="ml-10 flex items-baseline space-x-8">
@@ -52,7 +52,9 @@
                         <a href="#doctors" class="hover:text-amber-200 transition-colors cursor-pointer">醫師團隊</a>
                         <a href="#appointment" class="hover:text-amber-200 transition-colors cursor-pointer">預約掛號</a>
                         <a href="#contact" class="hover:text-amber-200 transition-colors cursor-pointer">聯絡我們</a>
-                        <a href="https://cheungec.vercel.app/system.html" target="_blank" class="hover:text-amber-200 transition-colors bg-amber-700 px-3 py-1 rounded text-sm">後台管理</a>
+                        <!-- 預填問診按鈕：新增於右上角，連結至 inquiry.html -->
+                        <a href="inquiry.html" class="hover:text-amber-200 transition-colors bg-amber-600 px-3 py-1 rounded text-sm">預填問診</a>
+                        <a href="system.html" target="_blank" class="hover:text-amber-200 transition-colors bg-amber-700 px-3 py-1 rounded text-sm">後台管理</a>
                     </div>
                 </div>
                 <div class="md:hidden">
@@ -73,7 +75,9 @@
                 <a href="#doctors" class="block px-3 py-2 hover:bg-amber-700 rounded cursor-pointer">醫師團隊</a>
                 <a href="#appointment" class="block px-3 py-2 hover:bg-amber-700 rounded cursor-pointer">預約掛號</a>
                 <a href="#contact" class="block px-3 py-2 hover:bg-amber-700 rounded cursor-pointer">聯絡我們</a>
-                <a href="https://cheungec.vercel.app/system.html" target="_blank" class="block px-3 py-2 hover:bg-amber-700 rounded bg-amber-700 text-amber-100">後台管理</a>
+                <!-- 手機版預填問診按鈕 -->
+                <a href="inquiry.html" class="block px-3 py-2 hover:bg-amber-700 rounded bg-amber-600 text-amber-100">預填問診</a>
+                <a href="system.html" target="_blank" class="block px-3 py-2 hover:bg-amber-700 rounded bg-amber-700 text-amber-100">後台管理</a>
             </div>
         </div>
     </nav>
@@ -82,7 +86,7 @@
     <section id="home" class="gradient-bg traditional-pattern min-h-screen flex items-center">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <div class="fade-in">
-                <h1 class="text-5xl md:text-7xl font-bold text-amber-900 mb-6">專業中醫診所</h1>
+                <h1 class="text-5xl md:text-7xl font-bold text-amber-900 mb-6">名醫中醫診所</h1>
                 <p class="text-xl md:text-2xl text-amber-800 mb-8">傳承千年智慧 · 守護現代健康</p>
                 <div class="flex justify-center mb-12">
                     <svg class="w-24 h-24 text-amber-700" viewBox="0 0 100 100" fill="currentColor">
@@ -104,7 +108,7 @@
     <section id="about" class="py-20 bg-white">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-16 fade-in">
-                <h2 class="text-4xl font-bold text-amber-900 mb-4">關於專業中醫診所</h2>
+                <h2 class="text-4xl font-bold text-amber-900 mb-4">關於名醫中醫診所</h2>
                 <div class="w-24 h-1 bg-amber-600 mx-auto mb-8"></div>
                 <p class="text-lg text-gray-700 max-w-3xl mx-auto">
                     秉承「仁心仁術，濟世救人」的理念，我們致力於將傳統中醫智慧與現代醫療技術相結合，
@@ -335,7 +339,7 @@
                             <span class="text-amber-600 text-xl mr-3">✉️</span>
                             <div>
                                 <p class="font-medium text-gray-900">電子郵件</p>
-                                <p class="text-gray-600">info@renheart-tcm.com</p>
+                                <p class="text-gray-600"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="0c65626a634c7e696264696d7e7821786f61226f6361">[email&#160;protected]</a></p>
                             </div>
                         </div>
                     </div>
@@ -360,7 +364,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid md:grid-cols-3 gap-8">
                 <div>
-                    <h3 class="text-xl font-bold mb-4">專業中醫診所</h3>
+                    <h3 class="text-xl font-bold mb-4">名醫中醫診所</h3>
                     <p class="text-amber-200">傳承千年智慧，守護現代健康</p>
                 </div>
                 
@@ -378,19 +382,19 @@
                     <h4 class="font-semibold mb-4">聯絡資訊</h4>
                     <div class="space-y-2 text-amber-200">
                         <p>📞 (852) 2345-6789</p>
-                        <p>✉️ info@renheart-tcm.com</p>
+                        <p>✉️ <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="94fdfaf2fbd4e6f1fafcf1f5e6e0b9e0f7f9baf7fbf9">[email&#160;protected]</a></p>
                         <p>📍 香港中環皇后大道中123號</p>
                     </div>
                 </div>
             </div>
             
             <div class="border-t border-amber-800 mt-8 pt-8 text-center text-amber-200">
-                <p>&copy; 2024 專業中醫診所. 版權所有.</p>
+                <p> Copyright &copy; 2025 名醫有限公司. All rights reserved.</p>
             </div>
         </div>
     </footer>
 
-    <script>
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
         // 手機版選單切換
         document.getElementById('mobile-menu-btn').addEventListener('click', function() {
             const mobileMenu = document.getElementById('mobile-menu');
@@ -457,5 +461,7 @@
         const today = new Date().toISOString().split('T')[0];
         document.querySelector('input[type="date"]').setAttribute('min', today);
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96be38250167045b',t:'MTc1NDY0Nzc3OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96be38250167045b',t:'MTc1NDY0Nzc3OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
 </html>
