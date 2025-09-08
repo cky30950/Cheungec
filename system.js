@@ -3437,7 +3437,15 @@ async function loadTodayAppointments() {
 }
 
 // 新增：訂閱 Firebase Realtime Database 的掛號變動，實時更新今日掛號列表
-function subscribeToAppointments() {
+async function subscribeToAppointments() {
+    // 確保 Firebase Database 已準備完成，避免監聽器在資料庫初始化前就綁定
+    try {
+        if (typeof waitForFirebaseDb === 'function') {
+            await waitForFirebaseDb();
+        }
+    } catch (_waitErr) {
+        // 若等待失敗仍繼續嘗試設置監聽
+    }
     /**
      * 針對指定日期建立掛號監聽。
      * 我們直接監聽 appointments/{dateKey} 路徑下的資料，
@@ -3478,7 +3486,8 @@ function subscribeToAppointments() {
     // 若已有監聽器，先取消它以避免重複監聽
     if (window.appointmentsListener && window.appointmentsRef) {
         try {
-            window.firebase.off(window.appointmentsRef, window.appointmentsListener);
+            // 指定事件型別 'value' 以確保移除正確的監聽器
+            window.firebase.off(window.appointmentsRef, 'value', window.appointmentsListener);
         } catch (e) {
             console.error('取消掛號監聽器時發生錯誤:', e);
         }
@@ -3551,7 +3560,7 @@ function subscribeToAppointments() {
     window.addEventListener('beforeunload', () => {
         if (window.appointmentsListener && window.appointmentsRef) {
             try {
-                window.firebase.off(window.appointmentsRef, window.appointmentsListener);
+                window.firebase.off(window.appointmentsRef, 'value', window.appointmentsListener);
             } catch (e) {
                 console.error('取消掛號監聽器時發生錯誤:', e);
             }
