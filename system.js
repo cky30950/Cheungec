@@ -2798,6 +2798,14 @@ async function loadInquiryOptions(patient) {
             }
             // 載入選定日期的掛號列表
             loadTodayAppointments();
+            // 初始化或更新掛號實時監聽器，以匹配當前選擇的日期
+            try {
+                if (typeof subscribeToAppointments === 'function') {
+                    subscribeToAppointments();
+                }
+            } catch (_err) {
+                console.error('初始化掛號實時監聽器失敗：', _err);
+            }
             clearPatientSearch();
         }
 
@@ -2825,9 +2833,15 @@ async function loadInquiryOptions(patient) {
                 if (!picker.dataset.bound) {
                     picker.addEventListener('change', function () {
                         try {
+                            // 重新載入指定日期的掛號列表
                             loadTodayAppointments();
+                            // 重新訂閱當前選定日期的實時掛號更新
+                            // 在切換日期後，先取消原有的監聽並訂閱新的日期資料
+                            if (typeof subscribeToAppointments === 'function') {
+                                subscribeToAppointments();
+                            }
                         } catch (_err) {
-                            console.error('更新掛號列表失敗：', _err);
+                            console.error('更新掛號列表或重新訂閱掛號監聽器失敗：', _err);
                         }
                     });
                     picker.dataset.bound = 'true';
@@ -3424,7 +3438,14 @@ async function loadTodayAppointments() {
 
 // 新增：訂閱 Firebase Realtime Database 的掛號變動，實時更新今日掛號列表
 function subscribeToAppointments() {
-    // 根據日期選擇器決定要監聽的日期範圍；若未選擇則監聽今日
+    /**
+     * 針對指定日期建立掛號監聽。
+     * 我們直接監聽 appointments/{dateKey} 路徑下的資料，
+     * 而不再對 appointmentTime 進行額外的區間查詢。因為系統在新增掛號時
+     * 已依照 appointmentTime 的本地日期將資料放入對應的日期節點中，
+     * 所以只需要監聽該日期節點即可取得所有當日掛號。
+     */
+    // 先決定需要監聽的日期（預設為今日，若日期選擇器有值則使用該值）
     let targetDate = new Date();
     try {
         const datePicker = document.getElementById('appointmentDatePicker');
@@ -3435,82 +3456,66 @@ function subscribeToAppointments() {
             }
         }
     } catch (_e) {
-        // ignore; fallback to today
+        // 忽略錯誤，維持 targetDate 為今日
     }
-    // 計算該日期的開始與結束時間（UTC ISO 格式）
-    const startOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-    const endOfDay = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999);
-    const startIso = startOfDay.toISOString();
-    const endIso = endOfDay.toISOString();
-
-    // 構建基本參考路徑（按日期分表）。取得日期字串 YYYY-MM-DD
-    let dateKeyForQuery = '';
+    // 根據本地日期組合成 YYYY-MM-DD 字串
+    let dateKey = '';
     try {
-        // 使用本地時區組合日期字串
-        const y = startOfDay.getFullYear();
-        const m = String(startOfDay.getMonth() + 1).padStart(2, '0');
-        const d = String(startOfDay.getDate()).padStart(2, '0');
-        dateKeyForQuery = `${y}-${m}-${d}`;
+        const y = targetDate.getFullYear();
+        const m = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const d = String(targetDate.getDate()).padStart(2, '0');
+        dateKey = `${y}-${m}-${d}`;
     } catch (_e) {
         const nowForKey = new Date();
         const y = nowForKey.getFullYear();
         const m = String(nowForKey.getMonth() + 1).padStart(2, '0');
         const d = String(nowForKey.getDate()).padStart(2, '0');
-        dateKeyForQuery = `${y}-${m}-${d}`;
+        dateKey = `${y}-${m}-${d}`;
     }
-    const appointmentsRef = window.firebase.ref(window.firebase.rtdb, `appointments/${dateKeyForQuery}`);
-    // 使用 Realtime Database 查詢以篩選當天的掛號資料，減少監聽範圍
-    const appointmentsQuery = window.firebase.query(
-        appointmentsRef,
-        window.firebase.orderByChild('appointmentTime'),
-        window.firebase.startAt(startIso),
-        window.firebase.endAt(endIso)
-    );
-    // 如果先前已經有監聽器，使用返回的取消函式取消監聽以避免重複觸發
-    if (window.appointmentsUnsubscribe && typeof window.appointmentsUnsubscribe === 'function') {
+    // 要監聽的路徑
+    const refPath = `appointments/${dateKey}`;
+    const appointmentsRef = window.firebase.ref(window.firebase.rtdb, refPath);
+    // 若已有監聽器，先取消它以避免重複監聽
+    if (window.appointmentsListener && window.appointmentsRef) {
         try {
-            window.appointmentsUnsubscribe();
+            window.firebase.off(window.appointmentsRef, window.appointmentsListener);
         } catch (e) {
             console.error('取消掛號監聽器時發生錯誤:', e);
         }
     }
-    // 存儲本次查詢，以便後續取消監聽（僅供參考）
-    window.appointmentsQuery = appointmentsQuery;
-    // 初始化前一次狀態記錄
+    // 儲存本次的監聽參考，供後續取消
+    window.appointmentsRef = appointmentsRef;
+    // 初始化前一次狀態紀錄容器
     if (!window.previousAppointmentStatuses) {
         window.previousAppointmentStatuses = {};
     }
-    // 建立新的監聽回調，使用 async 以便在偵測到狀態變更時讀取病人資料
+    // 定義監聽回調，檢查狀態變化與更新本地列表
     window.appointmentsListener = async (snapshot) => {
         const data = snapshot.val() || {};
-        // 取得新的掛號資料陣列
-        const newAppointments = Object.keys(data).map(key => {
+        // 取得掛號資料陣列，將每個子鍵視為 id
+        const newAppointments = Object.keys(data).map((key) => {
             return { id: key, ...data[key] };
         });
         try {
-            // 判斷是否有病人狀態變更為候診中需要通知
+            // 比對狀態變化，若有病人狀態改為 waiting 則通知對應醫師
             const toNotify = [];
             for (const apt of newAppointments) {
                 const prevStatus = window.previousAppointmentStatuses[apt.id];
-                // 當前狀態為候診中且與先前狀態不同，視為新的候診事件
                 if (prevStatus !== undefined && prevStatus !== apt.status && apt.status === 'waiting') {
                     toNotify.push(apt);
                 }
-                // 更新狀態紀錄
                 window.previousAppointmentStatuses[apt.id] = apt.status;
             }
-            // 如果有需要通知的掛號並且目前使用者是醫師
+            // 有需要通知且使用者為醫師時處理通知
             if (toNotify.length > 0 && currentUserData && currentUserData.position === '醫師') {
                 let patientsList = null;
                 for (const apt of toNotify) {
-                    // 僅通知該醫師所屬的掛號
                     if (apt.appointmentDoctor === currentUserData.username) {
-                        // 優先使用掛號物件中的病人姓名
                         let patientName = '';
                         if (apt.patientName) {
                             patientName = apt.patientName;
                         } else {
-                            // 僅當缺少 patientName 時才讀取一次完整病人列表
+                            // 若缺少 patientName 則查找病人資料
                             if (!patientsList) {
                                 try {
                                     patientsList = await fetchPatients();
@@ -3519,12 +3524,11 @@ function subscribeToAppointments() {
                                 }
                             }
                             if (Array.isArray(patientsList)) {
-                                const patient = patientsList.find(p => p.id === apt.patientId);
+                                const patient = patientsList.find((p) => p.id === apt.patientId);
                                 patientName = patient ? patient.name : '';
                             }
                         }
                         if (patientName) {
-                            // 顯示提示並播放音效
                             showToast(`病人 ${patientName} 已進入候診中，請準備診症。`, 'info');
                             playNotificationSound();
                         }
@@ -3534,22 +3538,20 @@ function subscribeToAppointments() {
         } catch (err) {
             console.error('處理候診通知時發生錯誤:', err);
         }
-        // 更新全域掛號資料
+        // 更新全域掛號資料並本地備份
         appointments = newAppointments;
-        // 儲存到本地作為備份
         localStorage.setItem('appointments', JSON.stringify(appointments));
-        // 重新載入今日掛號列表
+        // 重新載入今日掛號列表與統計
         loadTodayAppointments();
-        // 更新統計資訊
         updateStatistics();
     };
-    // 設置監聽器，並取得取消訂閱函式
-    window.appointmentsUnsubscribe = window.firebase.onValue(appointmentsQuery, window.appointmentsListener);
-    // 在頁面卸載時自動取消監聽，以避免離開頁面後仍持續監聽造成資源浪費
+    // 設置新的監聽器
+    window.firebase.onValue(appointmentsRef, window.appointmentsListener);
+    // 在頁面卸載時取消監聽，以避免持續佔用資源
     window.addEventListener('beforeunload', () => {
-        if (window.appointmentsUnsubscribe && typeof window.appointmentsUnsubscribe === 'function') {
+        if (window.appointmentsListener && window.appointmentsRef) {
             try {
-                window.appointmentsUnsubscribe();
+                window.firebase.off(window.appointmentsRef, window.appointmentsListener);
             } catch (e) {
                 console.error('取消掛號監聽器時發生錯誤:', e);
             }
