@@ -2798,6 +2798,14 @@ async function loadInquiryOptions(patient) {
             }
             // 載入選定日期的掛號列表
             loadTodayAppointments();
+            // 初始化或更新掛號實時監聽器，以匹配當前選擇的日期
+            try {
+                if (typeof subscribeToAppointments === 'function') {
+                    subscribeToAppointments();
+                }
+            } catch (_err) {
+                console.error('初始化掛號實時監聽器失敗：', _err);
+            }
             clearPatientSearch();
         }
 
@@ -2825,9 +2833,15 @@ async function loadInquiryOptions(patient) {
                 if (!picker.dataset.bound) {
                     picker.addEventListener('change', function () {
                         try {
+                            // 重新載入指定日期的掛號列表
                             loadTodayAppointments();
+                            // 重新訂閱當前選定日期的實時掛號更新
+                            // 在切換日期後，先取消原有的監聽並訂閱新的日期資料
+                            if (typeof subscribeToAppointments === 'function') {
+                                subscribeToAppointments();
+                            }
                         } catch (_err) {
-                            console.error('更新掛號列表失敗：', _err);
+                            console.error('更新掛號列表或重新訂閱掛號監聽器失敗：', _err);
                         }
                     });
                     picker.dataset.bound = 'true';
@@ -3460,7 +3474,10 @@ function subscribeToAppointments() {
     }
     const appointmentsRef = window.firebase.ref(window.firebase.rtdb, `appointments/${dateKeyForQuery}`);
     // 使用 Realtime Database 查詢以篩選當天的掛號資料，減少監聽範圍
-    const appointmentsQuery = window.firebase.query(
+    // 使用 Realtime Database 專用的查詢函式（rtdbQuery）。
+    // 此處不能使用 window.firebase.query，該函式為 Firestore 查詢，
+    // 會導致 Realtime Database 監聽無法正常運作。
+    const appointmentsQuery = window.firebase.rtdbQuery(
         appointmentsRef,
         window.firebase.orderByChild('appointmentTime'),
         window.firebase.startAt(startIso),
