@@ -1,8 +1,26 @@
 // Import Firebase functions
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, setDoc, query, where, orderBy, limit, getCountFromServer, startAfter, getDoc,
-         /* 用於啟用離線快取 */
-         enableIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
+  setDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  getCountFromServer,
+  startAfter,
+  getDoc,
+  /* 改用 initializeFirestore/persistentLocalCache 以啟用離線快取。
+     enableIndexedDbPersistence 將在未來版本中移除。*/
+  initializeFirestore,
+  persistentLocalCache
+} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import { getDatabase, ref, set, get, update, remove, onValue, off,
         // 新增查詢相關方法，用於在 Realtime Database 上進行條件篩選
         query as rtdbQuery,
@@ -24,15 +42,14 @@ const firebaseConfig = {
 
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    // 啟用 Firestore 離線快取。Web 端預設不會快取離線資料，
-    // 需手動呼叫 enableIndexedDbPersistence 來啟用。此功能會將讀取到的文件儲存在 IndexedDB，
-    // 讓使用者在網路中斷時仍能存取先前讀取過的資料，並於恢復連線後自動同步。
-    enableIndexedDbPersistence(db).catch((error) => {
-      // failed-precondition: 可能因為開啟了多個瀏覽器分頁或索引衝突導致無法啟用；
-      // unimplemented: 瀏覽器不支援離線快取。
-      console.error('啟用 Firestore 離線快取失敗:', error);
+    // 使用 initializeFirestore 搭配 persistentLocalCache 啟用離線快取。
+    // 依照新版 SDK 的建議，在初始化 Firestore 時指定 localCache 為 persistentLocalCache()，
+    // 以便將文件快取至 IndexedDB，當網路中斷時仍可讀取先前的資料，並在恢復連線後自動同步。
+    const db = initializeFirestore(app, {
+      localCache: persistentLocalCache({ /* 預設設定：單分頁 persistence */ })
     });
+
+    // 注意：不再呼叫 enableIndexedDbPersistence，因為該函式未來將被移除。
     const rtdb = getDatabase(app);
     const auth = getAuth(app);
 
