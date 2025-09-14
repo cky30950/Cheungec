@@ -29,18 +29,10 @@ import { getDatabase, ref, set, get, update, remove, onValue, off,
         endAt } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
 import { getAuth, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
-    // 您的 Firebase 配置（請替換成您的實際配置）
-const firebaseConfig = {
-  apiKey: "AIzaSyCx_BLIWVKZs0vJa5TwL6zoycJexY_5nXU",
-  authDomain: "system-1e90a.firebaseapp.com",
-  databaseURL: "https://system-1e90a-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "system-1e90a",
-  storageBucket: "system-1e90a.firebasestorage.app",
-  messagingSenderId: "80947900109",
-  appId: "1:80947900109:web:b6cd62bb2f1e07971a4384"
-};
+// 匯入外部配置檔案。請將您的 Firebase 設定值放在 firebaseConfig.js 中，並避免將其提交到版本控制。
+import firebaseConfig from './firebaseConfig.js';
 
-    // Initialize Firebase
+    // Initialize Firebase 使用外部配置
     const app = initializeApp(firebaseConfig);
     // 使用 initializeFirestore 搭配 persistentLocalCache 啟用離線快取。
     // 依照新版 SDK 的建議，在初始化 Firestore 時指定 localCache 為 persistentLocalCache()，
