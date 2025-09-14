@@ -16580,13 +16580,19 @@ function refreshTemplateCategoryFilters() {
               }
               if (userRecord && userRecord.personalSettings) {
                 const personal = userRecord.personalSettings;
+                // 如果有保存的個人慣用中藥組合，則載入，否則清空
                 if (Array.isArray(personal.herbCombinations)) {
                   herbCombinations = personal.herbCombinations;
+                } else {
+                  herbCombinations = [];
                 }
+                // 如果有保存的個人穴位組合，則載入，否則清空
                 if (Array.isArray(personal.acupointCombinations)) {
                   acupointCombinations = personal.acupointCombinations;
+                } else {
+                  acupointCombinations = [];
                 }
-                // 個人慣用組合分類載入：若 personalSettings 中包含分類，則覆蓋預設值
+                // 個人慣用組合分類載入：若 personalSettings 中包含分類，則覆蓋預設值；否則重置個人分類
                 if (Array.isArray(personal.herbComboCategories)) {
                   // 更新個人慣用分類
                   herbComboCategories = personal.herbComboCategories;
@@ -16598,6 +16604,10 @@ function refreshTemplateCategoryFilters() {
                       window.categories.herbs = categories.herbs;
                     }
                   } catch (_e) {}
+                } else {
+                  // 沒有個人分類時，清空個人分類，以免殘留前一位使用者的資料
+                  herbComboCategories = [];
+                  window.herbComboCategories = [];
                 }
                 if (Array.isArray(personal.acupointComboCategories)) {
                   // 更新個人慣用分類
@@ -16610,7 +16620,19 @@ function refreshTemplateCategoryFilters() {
                       window.categories.acupoints = categories.acupoints;
                     }
                   } catch (_e) {}
+                } else {
+                  // 沒有個人分類時，清空個人分類
+                  acupointComboCategories = [];
+                  window.acupointComboCategories = [];
                 }
+              } else {
+                // 如果找不到用戶記錄或用戶沒有個人設置，則將相關資料清空
+                herbCombinations = [];
+                acupointCombinations = [];
+                herbComboCategories = [];
+                acupointComboCategories = [];
+                window.herbComboCategories = [];
+                window.acupointComboCategories = [];
               }
             } catch (error) {
               console.error('讀取個人設置失敗:', error);
