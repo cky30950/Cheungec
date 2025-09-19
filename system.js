@@ -4,6 +4,32 @@ let currentUser = null;
 let currentUserData = null;
 
 /**
+ * A simple debounce utility to delay the execution of a function until after a specified
+ * delay has passed since its last invocation. This helps to avoid triggering expensive
+ * operations (like filtering or AJAX requests) too frequently as a user types or
+ * performs repetitive actions.
+ *
+ * @param {Function} func - The function to debounce.
+ * @param {number} wait - The number of milliseconds to delay.
+ * @param {boolean} immediate - If `true`, trigger on the leading edge instead of the trailing.
+ * @returns {Function} A new debounced function.
+ */
+function debounce(func, wait, immediate = false) {
+    let timeout;
+    return function (...args) {
+        const context = this;
+        const later = function () {
+            timeout = null;
+            if (!immediate) func.apply(context, args);
+        };
+        const callNow = immediate && !timeout;
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+        if (callNow) func.apply(context, args);
+    };
+}
+
+/**
  * 全域的分頁設定，用於控制各模組的當前頁碼與每頁顯示數量。
  * 當搜尋或篩選條件改變時，應重置 currentPage 為 1。
  */
@@ -226,13 +252,17 @@ let userCache = null;
 // delta 為負數表示消耗一次，為正數表示退回一次。
 let pendingPackageChanges = [];
 
+// 追蹤本次診症期間擬購買的套票清單。
+// 用於在診症完成成功保存後才真正購買套票。
+// 每個項目包含 patientId、item 與使用首張次數的確認。
+let pendingPackagePurchases = [];
+
 /**
  * 計算指定病人和套票的暫存變更總和。
  * @param {string} patientId
  * @param {string} packageRecordId
  * @returns {number}
  */
-// 已移除 getPendingPackageDelta 函式（未使用）
 
 /**
  * 將所有暫存的套票變更同步至 Firestore。
@@ -294,6 +324,143 @@ async function commitPendingPackageChanges() {
 }
 
 /**
+ * 將所有暫存的套票購買操作提交至資料庫。
+ * 在保存診症成功後呼叫此函式，根據 pendingPackagePurchases 中的紀錄購買套票，
+ * 如使用者選擇立即使用，則於購買後立即消耗一次。
+ * 提交完成後，會更新收費列表以反映使用套票的折抵。
+ */
+async function commitPendingPackagePurchases() {
+    try {
+        if (!pendingPackagePurchases || pendingPackagePurchases.length === 0) {
+            return;
+        }
+        for (const purchase of pendingPackagePurchases) {
+            if (!purchase || !purchase.patientId || !purchase.item) continue;
+            const { patientId, item, confirmUse, usageItemId } = purchase;
+            // 先購買套票
+            const purchasedPackage = await purchasePackage(patientId, item);
+            if (purchasedPackage) {
+                // 若使用者選擇立即使用，則消耗一次
+                if (confirmUse) {
+                    try {
+                        const useResult = await consumePackage(patientId, purchasedPackage.id);
+                        if (useResult && useResult.ok) {
+                            // 嘗試更新預先加入的套票使用項目的 packageRecordId 與 patientId
+                            if (usageItemId) {
+                                const idx = selectedBillingItems.findIndex(it => it && it.id === usageItemId);
+                                if (idx >= 0) {
+                                    // 生成新的 ID 以符合統一的格式
+                                    const newId = `use-${purchasedPackage.id}-${Date.now()}-${Math.random()}`;
+                                    selectedBillingItems[idx] = {
+                                        ...selectedBillingItems[idx],
+                                        id: newId,
+                                        patientId: (patientId !== undefined && patientId !== null) ? String(patientId) : '',
+                                        packageRecordId: (purchasedPackage && purchasedPackage.id) ? String(purchasedPackage.id) : ''
+                                    };
+                                } else {
+                                    // 若找不到對應的暫存項目，則另行添加
+                                    selectedBillingItems.push({
+                                        id: `use-${purchasedPackage.id}-${Date.now()}-${Math.random()}`,
+                                        name: `${item.name} (使用套票)`,
+                                        category: 'packageUse',
+                                        price: 0,
+                                        unit: '次',
+                                        description: '套票抵扣一次',
+                                        quantity: 1,
+                                        includedInDiscount: false,
+                                        patientId: (patientId !== undefined && patientId !== null) ? String(patientId) : '',
+                                        packageRecordId: (purchasedPackage && purchasedPackage.id) ? String(purchasedPackage.id) : ''
+                                    });
+                                }
+                            } else {
+                                // 未記錄暫存使用項目，則直接添加
+                                selectedBillingItems.push({
+                                    id: `use-${purchasedPackage.id}-${Date.now()}-${Math.random()}`,
+                                    name: `${item.name} (使用套票)`,
+                                    category: 'packageUse',
+                                    price: 0,
+                                    unit: '次',
+                                    description: '套票抵扣一次',
+                                    quantity: 1,
+                                    includedInDiscount: false,
+                                    patientId: (patientId !== undefined && patientId !== null) ? String(patientId) : '',
+                                    packageRecordId: (purchasedPackage && purchasedPackage.id) ? String(purchasedPackage.id) : ''
+                                });
+                            }
+                            {
+                                // Show package use success message in selected language
+                                const lang = localStorage.getItem('lang') || 'zh';
+                                const zhMsg = `已使用套票：${item.name}，剩餘 ${useResult.record.remainingUses} 次`;
+                                const enMsg = `Used package: ${item.name}, remaining ${useResult.record.remainingUses} uses`;
+                                const msg = lang === 'en' ? enMsg : zhMsg;
+                                showToast(msg, 'info');
+                            }
+                        } else {
+                            {
+                                const lang = localStorage.getItem('lang') || 'zh';
+                                const zhMsg = `使用套票失敗：${useResult && useResult.msg ? useResult.msg : '不明錯誤'}`;
+                                const enMsg = `Failed to use package: ${useResult && useResult.msg ? useResult.msg : 'Unknown error'}`;
+                                const msg = lang === 'en' ? enMsg : zhMsg;
+                                showToast(msg, 'error');
+                            }
+                        }
+                    } catch (err) {
+                        console.error('使用套票時發生錯誤:', err);
+                        {
+                            const lang = localStorage.getItem('lang') || 'zh';
+                            const zhMsg = '使用套票時發生錯誤';
+                            const enMsg = 'An error occurred while using the package';
+                            const msg = lang === 'en' ? enMsg : zhMsg;
+                            showToast(msg, 'error');
+                        }
+                    }
+                }
+            } else {
+                {
+                    const lang = localStorage.getItem('lang') || 'zh';
+                    const zhMsg = `套票「${item.name}」購買失敗`;
+                    const enMsg = `Failed to purchase package "${item.name}"`;
+                    const msg = lang === 'en' ? enMsg : zhMsg;
+                    showToast(msg, 'error');
+                }
+            }
+        }
+        // 購買與使用處理完成後，更新收費顯示（雖然表單即將關閉，但仍更新以避免留下錯誤狀態）
+        if (typeof updateBillingDisplay === 'function') {
+            updateBillingDisplay();
+        }
+        // 清空暫存購買清單
+        pendingPackagePurchases = [];
+    } catch (err) {
+        console.error('提交暫存套票購買時發生錯誤:', err);
+    }
+}
+
+/**
+ * 復原所有暫存的套票購買。
+ * 當取消診症或退出編輯且未保存時呼叫此函式，
+ * 只需清除 pendingPackagePurchases，因尚未購買資料庫並無需回滾。
+ */
+function revertPendingPackagePurchases() {
+    try {
+        // 移除暫存的套票使用項目（id 以 pending-use- 開頭）
+        if (Array.isArray(selectedBillingItems) && selectedBillingItems.length > 0) {
+            selectedBillingItems = selectedBillingItems.filter(item => {
+                return !(item && typeof item.id === 'string' && item.id.startsWith('pending-use-'));
+            });
+            // 更新收費顯示
+            if (typeof updateBillingDisplay === 'function') {
+                updateBillingDisplay();
+            }
+        }
+    } catch (err) {
+        console.error('復原暫存套票購買時發生錯誤:', err);
+    }
+    // 清空暫存購買清單
+    pendingPackagePurchases = [];
+}
+
+/**
  * 復原所有暫存的套票使用變更。
  * 當取消診症或退出編輯且未保存時呼叫此函式，
  * 依序將 pendingPackageChanges 中的各項改變倒轉（即減去 delta），
@@ -303,7 +470,14 @@ async function revertPendingPackageChanges() {
     // 取消診症或退出編輯時，不再回復資料庫中的套票次數。
     // 只需清除暫存的變更並重新渲染套票列表，以恢復原始顯示。
     try {
+        // 先復原暫存的套票購買（包含移除暫存的使用項目）
+        if (typeof revertPendingPackagePurchases === 'function') {
+            revertPendingPackagePurchases();
+        }
+        // 清除暫存套票使用變更
         pendingPackageChanges = [];
+        // 清除暫存套票購買變更
+        pendingPackagePurchases = [];
         if (typeof refreshPatientPackagesUI === 'function') {
             await refreshPatientPackagesUI();
         }
@@ -388,10 +562,10 @@ async function fetchPatientsPage(pageNumber = 1, forceRefresh = false) {
         const pageSize = paginationSettings && paginationSettings.patientList && paginationSettings.patientList.itemsPerPage
             ? paginationSettings.patientList.itemsPerPage
             : 10;
-        // 建立基礎查詢：依照 createdAt 由舊至新排序
+        // 建立基礎查詢：依照 createdAt 由新至舊排序
         let q = window.firebase.firestoreQuery(
             window.firebase.collection(window.firebase.db, 'patients'),
-            window.firebase.orderBy('createdAt'),
+            window.firebase.orderBy('createdAt', 'desc'),
             window.firebase.limit(pageSize)
         );
         // 如果頁碼大於 1，且前一頁已記錄最後一筆文件，則以該文件為起點
@@ -492,7 +666,19 @@ async function fetchUsers(forceRefresh = false) {
         
         // 浮動提示功能
         function showToast(message, type = 'info') {
-            // 移除現有的提示
+                 // 將訊息翻譯為當前語言，如果可用
+                 try {
+                     if (window.t) {
+                         message = window.t(message);
+                     } else {
+                         const lang = localStorage.getItem('lang') || 'zh';
+                         const dict = window.translations && window.translations[lang] || {};
+                         message = dict[message] || message;
+                     }
+                 } catch (e) {
+                     // 若翻譯失敗則保持原訊息
+                 }
+                 // 移除現有的提示
             const existingToast = document.querySelector('.toast');
             if (existingToast) {
                 existingToast.remove();
@@ -576,10 +762,23 @@ function showBackupProgressBar(totalSteps) {
     const bar = document.getElementById('backupProgressBar');
     const text = document.getElementById('backupProgressText');
     if (container && bar && text) {
-        container.classList.remove('hidden');
-        bar.style.width = '0%';
-        text.textContent = '匯入進度 0%';
-        container.dataset.totalSteps = totalSteps;
+             container.classList.remove('hidden');
+             bar.style.width = '0%';
+             // 取得匯入進度標籤的翻譯
+             let baseLabel = '匯入進度';
+             try {
+                 if (window.t) {
+                     baseLabel = window.t('匯入進度');
+                 } else {
+                     const lang = localStorage.getItem('lang') || 'zh';
+                     const dict = window.translations && window.translations[lang] || {};
+                     baseLabel = dict['匯入進度'] || baseLabel;
+                 }
+             } catch (e) {
+                 baseLabel = '匯入進度';
+             }
+             text.textContent = baseLabel + ' 0%';
+             container.dataset.totalSteps = totalSteps;
     }
 }
 
@@ -594,8 +793,20 @@ function updateBackupProgressBar(currentStep, totalSteps) {
     const text = document.getElementById('backupProgressText');
     if (container && bar && text) {
         const percent = totalSteps > 0 ? Math.round((currentStep / totalSteps) * 100) : 0;
-        bar.style.width = percent + '%';
-        text.textContent = '匯入進度 ' + percent + '%';
+             bar.style.width = percent + '%';
+             let baseLabel = '匯入進度';
+             try {
+                 if (window.t) {
+                     baseLabel = window.t('匯入進度');
+                 } else {
+                     const lang = localStorage.getItem('lang') || 'zh';
+                     const dict = window.translations && window.translations[lang] || {};
+                     baseLabel = dict['匯入進度'] || baseLabel;
+                 }
+             } catch (e) {
+                 baseLabel = '匯入進度';
+             }
+             text.textContent = baseLabel + ' ' + percent + '%';
     }
 }
 
@@ -608,8 +819,23 @@ function finishBackupProgressBar(success) {
     const bar = document.getElementById('backupProgressBar');
     const text = document.getElementById('backupProgressText');
     if (container && bar && text) {
-        bar.style.width = '100%';
-        text.textContent = success ? '匯入完成！' : '匯入失敗！';
+             bar.style.width = '100%';
+             let successMsg = '匯入完成！';
+             let failureMsg = '匯入失敗！';
+             try {
+                 if (window.t) {
+                     successMsg = window.t('匯入完成！');
+                     failureMsg = window.t('匯入失敗！');
+                 } else {
+                     const lang = localStorage.getItem('lang') || 'zh';
+                     const dict = window.translations && window.translations[lang] || {};
+                     successMsg = dict['匯入完成！'] || successMsg;
+                     failureMsg = dict['匯入失敗！'] || failureMsg;
+                 }
+             } catch (e) {
+                 // keep defaults
+             }
+             text.textContent = success ? successMsg : failureMsg;
         // 於 2 秒後隱藏進度條
         setTimeout(() => {
             container.classList.add('hidden');
@@ -627,10 +853,22 @@ function showImportProgressBar(totalSteps) {
     const bar = document.getElementById('importProgressBar');
     const text = document.getElementById('importProgressText');
     if (container && bar && text) {
-        container.classList.remove('hidden');
-        bar.style.width = '0%';
-        text.textContent = '匯入進度 0%';
-        container.dataset.totalSteps = totalSteps;
+             container.classList.remove('hidden');
+             bar.style.width = '0%';
+             let baseLabel = '匯入進度';
+             try {
+                 if (window.t) {
+                     baseLabel = window.t('匯入進度');
+                 } else {
+                     const lang = localStorage.getItem('lang') || 'zh';
+                     const dict = window.translations && window.translations[lang] || {};
+                     baseLabel = dict['匯入進度'] || baseLabel;
+                 }
+             } catch (e) {
+                 baseLabel = '匯入進度';
+             }
+             text.textContent = baseLabel + ' 0%';
+             container.dataset.totalSteps = totalSteps;
     }
 }
 
@@ -645,8 +883,20 @@ function updateImportProgressBar(currentStep, totalSteps) {
     const text = document.getElementById('importProgressText');
     if (container && bar && text) {
         const percent = totalSteps > 0 ? Math.round((currentStep / totalSteps) * 100) : 0;
-        bar.style.width = percent + '%';
-        text.textContent = '匯入進度 ' + percent + '%';
+             bar.style.width = percent + '%';
+             let baseLabel = '匯入進度';
+             try {
+                 if (window.t) {
+                     baseLabel = window.t('匯入進度');
+                 } else {
+                     const lang = localStorage.getItem('lang') || 'zh';
+                     const dict = window.translations && window.translations[lang] || {};
+                     baseLabel = dict['匯入進度'] || baseLabel;
+                 }
+             } catch (e) {
+                 baseLabel = '匯入進度';
+             }
+             text.textContent = baseLabel + ' ' + percent + '%';
     }
 }
 
@@ -659,8 +909,23 @@ function finishImportProgressBar(success) {
     const bar = document.getElementById('importProgressBar');
     const text = document.getElementById('importProgressText');
     if (container && bar && text) {
-        bar.style.width = '100%';
-        text.textContent = success ? '匯入完成！' : '匯入失敗！';
+             bar.style.width = '100%';
+             let successMsg = '匯入完成！';
+             let failureMsg = '匯入失敗！';
+             try {
+                 if (window.t) {
+                     successMsg = window.t('匯入完成！');
+                     failureMsg = window.t('匯入失敗！');
+                 } else {
+                     const lang = localStorage.getItem('lang') || 'zh';
+                     const dict = window.translations && window.translations[lang] || {};
+                     successMsg = dict['匯入完成！'] || successMsg;
+                     failureMsg = dict['匯入失敗！'] || failureMsg;
+                 }
+             } catch (e) {
+                 // keep defaults
+             }
+             text.textContent = success ? successMsg : failureMsg;
         setTimeout(() => {
             container.classList.add('hidden');
         }, 2000);
@@ -734,10 +999,14 @@ function generateMedicalRecordNumber() {
             button.style.display = 'flex';
             button.style.alignItems = 'center';
             button.style.justifyContent = 'center';
-            // Replace the button's content with a spinner using Tailwind classes. Remove margin since
-            // there's no text to align next to it.
-            // 使用 border-current 讓讀取圓圈的顏色繼承按鈕字體顏色，使其在淺色背景上仍然可見
-            button.innerHTML = `<div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-current opacity-50"></div>`;
+            // Replace the button's content with a spinner. We draw a circular spinner by
+            // using a full border with the current text color and hiding the top segment.
+            // Using border-t-transparent creates a gap for the spin animation, ensuring the
+            // spinner is visible on both light and dark backgrounds. We intentionally
+            // omit additional opacity here because border-current should provide sufficient
+            // contrast; if the button text color is light on a light background, the
+            // spinning border will still remain visible thanks to the missing top segment.
+            button.innerHTML = `<div class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent"></div>`;
         }
 
         // 清除按鈕讀取狀態，還原原始內容
@@ -1026,17 +1295,24 @@ function generateSearchKeywords(patient = {}) {
             }
         }
     }
-    // 處理電話：完整號碼及每 3~4 位的連續片段
+    // 處理電話：完整號碼及所有長度 >= 3 的連續片段
+    // 允許使用者輸入任意長度的局部號碼即能找到病人
     if (patient.phone) {
         const phone = String(patient.phone).replace(/\s+/g, '').toLowerCase();
         if (phone) {
+            // 加入完整號碼
             keywords.add(phone);
+            /*
+             * 過去僅產生 3~4 位的連續片段，導致當使用者輸入 5 位或以上的電話局部時無法匹配。
+             * 為了加強搜尋功能，這裡將產生從 3 位開始到完整號碼長度的所有連續片段。
+             * 這樣不論使用者輸入電話的前、中、後段，只要長度大於等於 3 位皆能成功匹配。
+             */
             const minLen = 3;
-            const maxLen = Math.min(4, phone.length);
+            const maxLen = phone.length;
             for (let len = minLen; len <= maxLen; len++) {
                 for (let i = 0; i <= phone.length - len; i++) {
                     const fragment = phone.slice(i, i + len);
-                    keywords.add(fragment);
+                    if (fragment) keywords.add(fragment);
                 }
             }
         }
@@ -1051,11 +1327,21 @@ function generateSearchKeywords(patient = {}) {
             }
         }
     }
-    // 處理病人編號：完整字串與後四位
+    // 處理病人編號：完整字串及所有長度 >= 3 的連續片段
+    // 與電話類似，擴充片段長度到整個編號長度，以支援使用者輸入較長的部分編號搜尋
     if (patient.patientNumber) {
-        const numLower = String(patient.patientNumber).toLowerCase();
+        const numLower = String(patient.patientNumber).replace(/\s+/g, '').toLowerCase();
         if (numLower) {
             keywords.add(numLower);
+            const minLen = 3;
+            const maxLen = numLower.length;
+            for (let len = minLen; len <= maxLen; len++) {
+                for (let i = 0; i <= numLower.length - len; i++) {
+                    const fragment = numLower.slice(i, i + len);
+                    if (fragment) keywords.add(fragment);
+                }
+            }
+            // 為向下相容舊資料，保留後四碼重複加入一次
             if (numLower.length >= 4) {
                 keywords.add(numLower.slice(-4));
             }
@@ -1429,7 +1715,6 @@ async function syncUserDataFromFirebase() {
     }
 }
 
-// 已移除 getUserNameFromEmail 與 getUserPositionFromEmail 函式（未使用）
         
         // 執行登入
         function performLogin(user) {
@@ -1476,7 +1761,14 @@ async function syncUserDataFromFirebase() {
             }
             // 統計資訊將在登入後初始化系統時更新
 
-            showToast(`歡迎回來，${getUserDisplayName(user)}！`, 'success');
+            // Show a welcome message in the appropriate language
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const zhMsg = `歡迎回來，${getUserDisplayName(user)}！`;
+                const enMsg = `Welcome back, ${getUserDisplayName(user)}!`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'success');
+            }
         }
 
         // 側邊選單控制
@@ -1619,7 +1911,6 @@ async function logout() {
          * @param {string[]} allowedRoles 允許存取的職位陣列
          * @returns {boolean} 若當前用戶存在且職位在允許名單中則回傳 true
          */
-// 已移除 hasPermission 函式（未使用）
 
         // 顯示指定區域
         function showSection(sectionId) {
@@ -1800,7 +2091,8 @@ async function savePatient() {
     // 不限制身分證字號格式，因此無需檢查格式
 
     // 顯示載入中狀態：根據是新增或更新顯示不同文字
-    const saveButton = document.querySelector('[onclick="savePatient()"]');
+    // 由於按鈕不再使用 inline onclick 事件，嘗試直接透過按鈕 ID 取得元素。若仍找不到，退回先前的查找方式。
+    const saveButton = document.getElementById('savePatientButton') || document.querySelector('[onclick="savePatient()"]');
     if (saveButton) {
         // 若正在編輯，顯示「更新中...」，否則顯示「儲存中...」
         const loadingText = (typeof editingPatientId !== 'undefined' && editingPatientId) ? '更新中...' : '儲存中...';
@@ -1911,7 +2203,31 @@ async function loadPatientListFromFirebase() {
             } catch (_searchErr) {
                 console.error('搜尋病人時發生錯誤:', _searchErr);
             }
-            const filteredPatients = (searchResult && searchResult.success && Array.isArray(searchResult.data)) ? searchResult.data : [];
+            let filteredPatients = (searchResult && searchResult.success && Array.isArray(searchResult.data)) ? searchResult.data : [];
+            // 依照 createdAt 由新至舊排序
+            filteredPatients = filteredPatients.slice();
+            filteredPatients.sort((a, b) => {
+                // 取用 createdAt 或 updatedAt 作為排序依據，若無則設定為最早
+                let dateA = 0;
+                let dateB = 0;
+                if (a && a.createdAt) {
+                    if (a.createdAt.seconds) {
+                        dateA = a.createdAt.seconds * 1000;
+                    } else {
+                        const d = new Date(a.createdAt);
+                        dateA = d instanceof Date && !isNaN(d) ? d.getTime() : 0;
+                    }
+                }
+                if (b && b.createdAt) {
+                    if (b.createdAt.seconds) {
+                        dateB = b.createdAt.seconds * 1000;
+                    } else {
+                        const d = new Date(b.createdAt);
+                        dateB = d instanceof Date && !isNaN(d) ? d.getTime() : 0;
+                    }
+                }
+                return dateB - dateA;
+            });
             patientListFiltered = filteredPatients;
             renderPatientListTable(false);
         } else {
@@ -1984,6 +2300,8 @@ function renderPatientListTable(pageChange = false) {
     const pageItems = patientListFiltered.slice(startIdx, endIdx);
     // 清空表格
     tbody.innerHTML = '';
+    // 判斷當前用戶是否具有刪除病人權限
+    const showDelete = currentUserData && currentUserData.position && currentUserData.position.trim() === '診所管理';
     // 渲染當前頁病人資料
     pageItems.forEach(patient => {
         const row = document.createElement('tr');
@@ -1994,18 +2312,23 @@ function renderPatientListTable(pageChange = false) {
         const safeAge = window.escapeHtml(formatAge(patient.birthDate));
         const safeGender = window.escapeHtml(patient.gender);
         const safePhone = window.escapeHtml(patient.phone);
+        let actions = `
+                <button onclick="viewPatient('${patient.id}')" class="text-blue-600 hover:text-blue-800">查看</button>
+                <button onclick="showPatientMedicalHistory('${patient.id}')" class="text-purple-600 hover:text-purple-800">病歷</button>
+                <button onclick="editPatient('${patient.id}')" class="text-green-600 hover:text-green-800">編輯</button>
+        `;
+        if (showDelete) {
+            actions += `
+                <button onclick="deletePatient('${patient.id}')" class="text-red-600 hover:text-red-800">刪除</button>
+            `;
+        }
         row.innerHTML = `
             <td class="px-4 py-3 text-sm text-blue-600 font-medium">${safeNumber}</td>
             <td class="px-4 py-3 text-sm text-gray-900 font-medium">${safeName}</td>
             <td class="px-4 py-3 text-sm text-gray-900">${safeAge}</td>
             <td class="px-4 py-3 text-sm text-gray-900">${safeGender}</td>
             <td class="px-4 py-3 text-sm text-gray-900">${safePhone}</td>
-            <td class="px-4 py-3 text-sm space-x-2">
-                <button onclick="viewPatient('${patient.id}')" class="text-blue-600 hover:text-blue-800">查看</button>
-                <button onclick="showPatientMedicalHistory('${patient.id}')" class="text-purple-600 hover:text-purple-800">病歷</button>
-                <button onclick="editPatient('${patient.id}')" class="text-green-600 hover:text-green-800">編輯</button>
-                <button onclick="deletePatient('${patient.id}')" class="text-red-600 hover:text-red-800">刪除</button>
-            </td>
+            <td class="px-4 py-3 text-sm space-x-2">${actions}</td>
         `;
         tbody.appendChild(row);
     });
@@ -2046,6 +2369,8 @@ function renderPatientListPage(pageItems, totalItems, currentPage) {
     }
     // 重新渲染表格內容
     tbody.innerHTML = '';
+    // 判斷是否具有刪除權限
+    const showDelete = currentUserData && currentUserData.position && currentUserData.position.trim() === '診所管理';
     pageItems.forEach(patient => {
         const row = document.createElement('tr');
         row.className = 'hover:bg-gray-50';
@@ -2055,18 +2380,23 @@ function renderPatientListPage(pageItems, totalItems, currentPage) {
         const safeAge = window.escapeHtml(formatAge(patient.birthDate));
         const safeGender = window.escapeHtml(patient.gender);
         const safePhone = window.escapeHtml(patient.phone);
+        let actions = `
+                <button onclick="viewPatient('${patient.id}')" class="text-blue-600 hover:text-blue-800">查看</button>
+                <button onclick="showPatientMedicalHistory('${patient.id}')" class="text-purple-600 hover:text-purple-800">病歷</button>
+                <button onclick="editPatient('${patient.id}')" class="text-green-600 hover:text-green-800">編輯</button>
+        `;
+        if (showDelete) {
+            actions += `
+                <button onclick="deletePatient('${patient.id}')" class="text-red-600 hover:text-red-800">刪除</button>
+            `;
+        }
         row.innerHTML = `
             <td class="px-4 py-3 text-sm text-blue-600 font-medium">${safeNumber}</td>
             <td class="px-4 py-3 text-sm text-gray-900 font-medium">${safeName}</td>
             <td class="px-4 py-3 text-sm text-gray-900">${safeAge}</td>
             <td class="px-4 py-3 text-sm text-gray-900">${safeGender}</td>
             <td class="px-4 py-3 text-sm text-gray-900">${safePhone}</td>
-            <td class="px-4 py-3 text-sm space-x-2">
-                <button onclick="viewPatient('${patient.id}')" class="text-blue-600 hover:text-blue-800">查看</button>
-                <button onclick="showPatientMedicalHistory('${patient.id}')" class="text-purple-600 hover:text-purple-800">病歷</button>
-                <button onclick="editPatient('${patient.id}')" class="text-green-600 hover:text-green-800">編輯</button>
-                <button onclick="deletePatient('${patient.id}')" class="text-red-600 hover:text-red-800">刪除</button>
-            </td>
+            <td class="px-4 py-3 text-sm space-x-2">${actions}</td>
         `;
         tbody.appendChild(row);
     });
@@ -2122,6 +2452,12 @@ async function editPatient(id) {
 }
 async function deletePatient(id) {
     try {
+        // 只有診所管理者可以刪除病人
+        if (!currentUserData || !currentUserData.position || currentUserData.position.trim() !== '診所管理') {
+            showToast('只有管理員可以刪除病人', 'error');
+            return;
+        }
+
         // 從快取或 Firebase 取得病人資料
         const allPatients = await fetchPatients();
         if (!allPatients || allPatients.length === 0) {
@@ -2135,16 +2471,26 @@ async function deletePatient(id) {
             return;
         }
 
-        const confirmMessage = `確定要刪除病人「${patient.name}」的資料嗎？\n\n注意：相關的診症記錄也會一併刪除！`;
-        
+        // 刪除病人確認訊息支援中英文
+        const lang = localStorage.getItem('lang') || 'zh';
+        const zhConfirmMsg = `確定要刪除病人「${patient.name}」的資料嗎？\n\n注意：相關的診症記錄及套票也會一併刪除！`;
+        const enConfirmMsg = `Are you sure you want to delete the patient \"${patient.name}\"?\n\nNote: related consultation records and packages will also be deleted.`;
+        const confirmMessage = lang === 'en' ? enConfirmMsg : zhConfirmMsg;
         if (confirm(confirmMessage)) {
             // 顯示刪除中狀態
             showToast('刪除中...', 'info');
 
+            // 刪除與病人相關的診症記錄與套票等資料
+            try {
+                await deletePatientAssociatedData(id);
+            } catch (assocErr) {
+                console.error('刪除病人相關資料時發生錯誤:', assocErr);
+            }
+
             // 從 Firebase 刪除病人資料
             const deleteResult = await window.firebaseDataManager.deletePatient(id);
-            
-                if (deleteResult.success) {
+
+            if (deleteResult && deleteResult.success) {
                 showToast('病人資料已刪除！', 'success');
                 // 清除快取，下次讀取時重新從資料庫載入
                 // 刪除病人後也需要清除分頁快取與病人總數快取，
@@ -2171,6 +2517,59 @@ async function deletePatient(id) {
     }
 }
 
+/**
+ * 刪除與病人相關的診症記錄、套票等資料。
+ * 在刪除病人記錄之前呼叫，以確保數據完整性。
+ * @param {string} patientId 病人 ID
+ */
+async function deletePatientAssociatedData(patientId) {
+    try {
+        await waitForFirebaseDb();
+        // 刪除診症記錄
+        try {
+            const consRef = window.firebase.collection(window.firebase.db, 'consultations');
+            const consQuery = window.firebase.firestoreQuery(consRef, window.firebase.where('patientId', '==', patientId));
+            const consSnap = await window.firebase.getDocs(consQuery);
+            const consDocs = consSnap && consSnap.docs ? consSnap.docs : [];
+            for (const docSnap of consDocs) {
+                try {
+                    await window.firebase.deleteDoc(docSnap.ref);
+                } catch (delErr) {
+                    console.error('刪除診症記錄失敗:', delErr);
+                }
+            }
+            // 移除本地診症快取
+            if (patientConsultationsCache && patientConsultationsCache[patientId]) {
+                delete patientConsultationsCache[patientId];
+            }
+        } catch (err) {
+            console.error('查詢或刪除診症記錄失敗:', err);
+        }
+        // 刪除患者套票
+        try {
+            const pkgRef = window.firebase.collection(window.firebase.db, 'patientPackages');
+            const pkgQuery = window.firebase.firestoreQuery(pkgRef, window.firebase.where('patientId', '==', patientId));
+            const pkgSnap = await window.firebase.getDocs(pkgQuery);
+            const pkgDocs = pkgSnap && pkgSnap.docs ? pkgSnap.docs : [];
+            for (const docSnap of pkgDocs) {
+                try {
+                    await window.firebase.deleteDoc(docSnap.ref);
+                } catch (delErr) {
+                    console.error('刪除患者套票失敗:', delErr);
+                }
+            }
+            // 移除本地套票快取
+            if (patientPackagesCache && patientPackagesCache[patientId]) {
+                delete patientPackagesCache[patientId];
+            }
+        } catch (err) {
+            console.error('查詢或刪除患者套票失敗:', err);
+        }
+    } catch (error) {
+        console.error('刪除病人相關資料時發生錯誤:', error);
+    }
+}
+
 async function viewPatient(id) {
     try {
         // 從快取或 Firebase 取得病人資料
@@ -2185,121 +2584,94 @@ async function viewPatient(id) {
             return;
         }
 
-        // 顯示病人詳細資料
-        let content = `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="space-y-4">
-                    <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">基本資料</h4>
-                    <div class="space-y-2">
-                        <div><span class="font-medium">病人編號：</span><span class="text-blue-600 font-semibold">${patient.patientNumber || '未設定'}</span></div>
-                        <div><span class="font-medium">姓名：</span>${patient.name}</div>
-                        <div><span class="font-medium">年齡：</span>${formatAge(patient.birthDate)}</div>
-                        <div><span class="font-medium">性別：</span>${patient.gender}</div>
-                        <div><span class="font-medium">電話：</span>${patient.phone}</div>
-                        ${patient.idCard ? `<div><span class="font-medium">身分證：</span>${patient.idCard}</div>` : ''}
-                        ${patient.birthDate ? `<div><span class="font-medium">出生日期：</span>${new Date(patient.birthDate).toLocaleDateString('zh-TW')}</div>` : ''}
-                        ${patient.address ? `<div><span class="font-medium">地址：</span>${patient.address}</div>` : ''}
-                    </div>
-                </div>
-                
-                <div class="space-y-4">
-                    <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">醫療資訊</h4>
-                    <div class="space-y-2">
-                        ${patient.history ? `<div><span class="font-medium">病史及備註：</span><div class="mt-1 p-2 bg-gray-50 rounded text-sm medical-field">${patient.history}</div></div>` : ''}
-                        ${patient.allergies ? `<div><span class="font-medium">過敏史：</span><div class="mt-1 p-2 bg-red-50 rounded text-sm medical-field">${patient.allergies}</div></div>` : ''}
-                        <div><span class="font-medium">建檔日期：</span>${patient.createdAt ? (() => {
-                            const d = new Date(patient.createdAt.seconds * 1000);
-                            // 顯示包含日期與時間的字串，採 24 小時制
-                            return d.toLocaleString('zh-TW', { hour12: false });
-                        })() : '未知'}</div>
-                        ${patient.updatedAt ? `<div><span class="font-medium">更新日期：</span>${(() => {
-                            const d = new Date(patient.updatedAt.seconds * 1000);
-                            return d.toLocaleString('zh-TW', { hour12: false });
-                        })()}</div>` : ''}
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 診症記錄摘要 -->
-            <div class="mt-6 pt-6 border-t border-gray-200">
-                <div class="flex justify-between items-center mb-4">
-                    <h4 class="text-lg font-semibold text-gray-800">診症記錄摘要</h4>
-                </div>
-                
-<div id="patientConsultationSummary">
-    <div class="text-center py-4">
-        <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
-        <div class="mt-2 text-sm">載入診症記錄中...</div>
-    </div>
-</div>
-            </div>
-        `;
+        // Prepare safe fields to prevent XSS
+        // Declare content variable to hold the HTML for the patient detail. Without declaring
+        // it here, assignments below would create a global variable.
+        let content = '';
+        const safePatientNumber = window.escapeHtml(patient.patientNumber || '未設定');
+        const safeName = window.escapeHtml(patient.name);
+        const safeAge = window.escapeHtml(formatAge(patient.birthDate));
+        const safeGender = window.escapeHtml(patient.gender);
+        const safePhone = window.escapeHtml(patient.phone);
+        const safeIdCard = patient.idCard ? window.escapeHtml(patient.idCard) : null;
+        const safeAddress = patient.address ? window.escapeHtml(patient.address) : null;
+        const safeHistory = patient.history ? window.escapeHtml(patient.history) : null;
+        const safeAllergies = patient.allergies ? window.escapeHtml(patient.allergies) : null;
+        const birthDateString = patient.birthDate ? new Date(patient.birthDate).toLocaleDateString('zh-TW') : '';
+        // Format creation and update timestamps using 24-hour format
+        const createdAtStr = patient.createdAt ? (() => {
+            const d = new Date(patient.createdAt.seconds * 1000);
+            return d.toLocaleString('zh-TW', { hour12: false });
+        })() : '未知';
+        const updatedAtStr = patient.updatedAt ? (() => {
+            const d = new Date(patient.updatedAt.seconds * 1000);
+            return d.toLocaleString('zh-TW', { hour12: false });
+        })() : '';
+        // The package status section is rendered as part of the consultation summary,
+        // so leave this placeholder empty. It will be filled later by renderPackageStatusSection.
+        let packageStatusHtml = '';
 
-        // 為避免 XSS，建立替換後的 content
-        {
-            const safePatientNumber = window.escapeHtml(patient.patientNumber || '未設定');
-            const safeName = window.escapeHtml(patient.name);
-            const safeAge = window.escapeHtml(formatAge(patient.birthDate));
-            const safeGender = window.escapeHtml(patient.gender);
-            const safePhone = window.escapeHtml(patient.phone);
-            const safeIdCard = patient.idCard ? window.escapeHtml(patient.idCard) : null;
-            const safeAddress = patient.address ? window.escapeHtml(patient.address) : null;
-            const safeHistory = patient.history ? window.escapeHtml(patient.history) : null;
-            const safeAllergies = patient.allergies ? window.escapeHtml(patient.allergies) : null;
-            const birthDateString = patient.birthDate ? new Date(patient.birthDate).toLocaleDateString('zh-TW') : '';
-            // 將建檔與更新日期格式化為日期 + 時間字串，採 24 小時制
-            const createdAtStr = patient.createdAt ? (() => {
-                const d = new Date(patient.createdAt.seconds * 1000);
-                return d.toLocaleString('zh-TW', { hour12: false });
-            })() : '未知';
-            const updatedAtStr = patient.updatedAt ? (() => {
-                const d = new Date(patient.updatedAt.seconds * 1000);
-                return d.toLocaleString('zh-TW', { hour12: false });
-            })() : '';
-            // 套票區塊將由診療摘要下方的區塊顯示，這裡不再插入套票區塊。
-            let packageStatusHtml = '';
-            // 組合安全的 HTML，並插入預先定義的套票區塊骨架（packageStatusHtml），以便 renderPackageStatusSection 後續填充內容。
-            content = `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="space-y-4">
-                    <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">基本資料</h4>
-                    <div class="space-y-2">
-                        <div><span class="font-medium">病人編號：</span><span class="text-blue-600 font-semibold">${safePatientNumber}</span></div>
-                        <div><span class="font-medium">姓名：</span>${safeName}</div>
-                        <div><span class="font-medium">年齡：</span>${safeAge}</div>
-                        <div><span class="font-medium">性別：</span>${safeGender}</div>
-                        <div><span class="font-medium">電話：</span>${safePhone}</div>
-                        ${safeIdCard ? `<div><span class="font-medium">身分證：</span>${safeIdCard}</div>` : ''}
-                        ${birthDateString ? `<div><span class="font-medium">出生日期：</span>${birthDateString}</div>` : ''}
-                        ${safeAddress ? `<div><span class="font-medium">地址：</span>${safeAddress}</div>` : ''}
-                    </div>
-                </div>
-                
-                <div class="space-y-4">
-                    <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">醫療資訊</h4>
-                    <div class="space-y-2">
-                        ${safeHistory ? `<div><span class="font-medium">病史及備註：</span><div class="mt-1 p-2 bg-gray-50 rounded text-sm medical-field">${safeHistory}</div></div>` : ''}
-                        ${safeAllergies ? `<div><span class="font-medium">過敏史：</span><div class="mt-1 p-2 bg-red-50 rounded text-sm medical-field">${safeAllergies}</div></div>` : ''}
-                        <div><span class="font-medium">建檔日期：</span>${createdAtStr}</div>
-                        ${updatedAtStr ? `<div><span class="font-medium">更新日期：</span>${updatedAtStr}</div>` : ''}
-                    </div>
+        // Translation helper. If t() is available, use it; otherwise fall back to the original key.
+        const _t = typeof t === 'function' ? t : (str) => str;
+        // Labels for translation
+        const lblBasicInfo = _t('基本資料');
+        const lblMedicalInfo = _t('醫療資訊');
+        const lblPatientNumber = _t('病人編號：');
+        const lblName = _t('姓名：');
+        const lblAge = _t('年齡：');
+        const lblGender = _t('性別：');
+        const lblPhone = _t('電話：');
+        const lblIdCard = _t('身分證：');
+        const lblBirthDate = _t('出生日期：');
+        const lblAddress = _t('地址：');
+        const lblHistoryAndNotes = _t('病史及備註：');
+        const lblAllergies = _t('過敏史：');
+        const lblCreatedAt = _t('建檔日期：');
+        const lblUpdatedAt = _t('更新日期：');
+        const lblConsultationSummary = _t('診症記錄摘要');
+        const lblLoadingConsultations = _t('載入診症記錄中...');
+
+        // Build the content HTML using sanitized values and translated labels.
+        content = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">${lblBasicInfo}</h4>
+                <div class="space-y-2">
+                    <div><span class="font-medium">${lblPatientNumber}</span><span class="text-blue-600 font-semibold">${safePatientNumber}</span></div>
+                    <div><span class="font-medium">${lblName}</span>${safeName}</div>
+                    <div><span class="font-medium">${lblAge}</span>${safeAge}</div>
+                    <div><span class="font-medium">${lblGender}</span>${safeGender}</div>
+                    <div><span class="font-medium">${lblPhone}</span>${safePhone}</div>
+                    ${safeIdCard ? `<div><span class="font-medium">${lblIdCard}</span>${safeIdCard}</div>` : ''}
+                    ${birthDateString ? `<div><span class="font-medium">${lblBirthDate}</span>${birthDateString}</div>` : ''}
+                    ${safeAddress ? `<div><span class="font-medium">${lblAddress}</span>${safeAddress}</div>` : ''}
                 </div>
             </div>
-            ${packageStatusHtml}
-            <!-- 診症記錄摘要 -->
-            <div class="mt-6 pt-6 border-t border-gray-200">
-                <div class="flex justify-between items-center mb-4">
-                    <h4 class="text-lg font-semibold text-gray-800">診症記錄摘要</h4>
-                </div>
-                <div id="patientConsultationSummary">
-                    <div class="text-center py-4">
-                        <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
-                        <div class="mt-2 text-sm">載入診症記錄中...</div>
-                    </div>
+
+            <div class="space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">${lblMedicalInfo}</h4>
+                <div class="space-y-2">
+                    ${safeHistory ? `<div><span class="font-medium">${lblHistoryAndNotes}</span><div class="mt-1 p-2 bg-gray-50 rounded text-sm medical-field">${safeHistory}</div></div>` : ''}
+                    ${safeAllergies ? `<div><span class="font-medium">${lblAllergies}</span><div class="mt-1 p-2 bg-red-50 rounded text-sm medical-field">${safeAllergies}</div></div>` : ''}
+                    <div><span class="font-medium">${lblCreatedAt}</span>${createdAtStr}</div>
+                    ${updatedAtStr ? `<div><span class="font-medium">${lblUpdatedAt}</span>${updatedAtStr}</div>` : ''}
                 </div>
             </div>
-            `;
-        }
+        </div>
+        ${packageStatusHtml}
+        <!-- 診症記錄摘要 -->
+        <div class="mt-6 pt-6 border-t border-gray-200">
+            <div class="flex justify-between items-center mb-4">
+                <h4 class="text-lg font-semibold text-gray-800">${lblConsultationSummary}</h4>
+            </div>
+            <div id="patientConsultationSummary">
+                <div class="text-center py-4">
+                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+                    <div class="mt-2 text-sm">${lblLoadingConsultations}</div>
+                </div>
+            </div>
+        </div>
+        `;
         // 先將內容插入並顯示模態框
         const detailContainer = document.getElementById('patientDetailContent');
         if (detailContainer) {
@@ -2858,7 +3230,14 @@ async function selectPatientForRegistration(patientId) {
             if (allPatients && allPatients.length > 0) {
                 const consultingPatient = allPatients.find(p => p.id === consultingAppointment.patientId);
                 const consultingPatientName = consultingPatient ? consultingPatient.name : '某位病人';
-                showToast(`無法進行掛號！您目前正在為 ${consultingPatientName} 診症中，請完成後再進行掛號操作。`, 'warning');
+                // If the doctor is currently consulting another patient, inform the user in their chosen language
+                {
+                    const lang = localStorage.getItem('lang') || 'zh';
+                    const zhMsg = `無法進行掛號！您目前正在為 ${consultingPatientName} 診症中，請完成後再進行掛號操作。`;
+                    const enMsg = `Cannot register! You are currently consulting ${consultingPatientName}. Please finish before registering another patient.`;
+                    const msg = lang === 'en' ? enMsg : zhMsg;
+                    showToast(msg, 'warning');
+                }
                 return;
             }
         } catch (error) {
@@ -3072,6 +3451,14 @@ async function selectPatientForRegistration(patientId) {
                 showToast('掛號時間不能早於現在時間！', 'error');
                 return;
             }
+
+            // 在進入非同步處理前，為掛號按鈕顯示讀取圈。
+            // 使用通用輔助函式以兼容事件與非事件觸發的情況。
+            let loadingButton = getLoadingButtonFromEvent('button[onclick="confirmRegistration()"]');
+            if (loadingButton) {
+                // 傳入的文字僅用於語意描述，實際 setButtonLoading 只顯示讀取圈
+                setButtonLoading(loadingButton, '掛號中...');
+            }
             
             // 建立掛號物件，除了傳入 ID 與帳號之外，同時儲存病人姓名與醫師姓名。
             // 這可避免日後在監聽掛號狀態時為了取得姓名而再次查詢病人集合。
@@ -3109,7 +3496,14 @@ async function selectPatientForRegistration(patientId) {
                 // 更新本地儲存作為備份
                 localStorage.setItem('appointments', JSON.stringify(appointments));
                 if (result.success) {
-                    showToast(`${selectedPatientForRegistration.name} 已掛號給 ${selectedDoctor.name}醫師！`, 'success');
+                    {
+                        // Show registration success message based on language
+                        const lang = localStorage.getItem('lang') || 'zh';
+                        const zhMsg = `${selectedPatientForRegistration.name} 已掛號給 ${selectedDoctor.name}醫師！`;
+                        const enMsg = `${selectedPatientForRegistration.name} has been registered to Dr. ${selectedDoctor.name}`;
+                        const msg = lang === 'en' ? enMsg : zhMsg;
+                        showToast(msg, 'success');
+                    }
                     closeRegistrationModal();
                     clearPatientSearch();
                     loadTodayAppointments();
@@ -3119,6 +3513,11 @@ async function selectPatientForRegistration(patientId) {
             } catch (error) {
                 console.error('掛號失敗:', error);
                 showToast('掛號失敗，請稍後再試', 'error');
+            } finally {
+                // 無論成功或失敗，皆還原按鈕狀態
+                if (loadingButton) {
+                    clearButtonLoading(loadingButton);
+                }
             }
         }
         
@@ -3278,11 +3677,13 @@ async function loadTodayAppointments() {
     try {
         // 優先使用快取的病人資料來避免重複從 Firebase 讀取。
         const patientsData = await fetchPatients();
-        
-        tbody.innerHTML = todayAppointments.map((appointment, index) => {
+
+        // 對於每一筆掛號資料，直接使用該次掛號的主訴，不再從病歷回填主訴。
+        const rows = await Promise.all(todayAppointments.map(async (appointment, index) => {
             // 從資料集中尋找對應病人
             const patient = patientsData.find(p => p.id === appointment.patientId);
-            
+
+            // 若無對應病人資料，採用原本的處理邏輯
             if (!patient) {
                 // 如果在快取找不到，嘗試從全域陣列找（向後兼容）
                 const localPatient = patients.find(p => p.id === appointment.patientId);
@@ -3298,11 +3699,13 @@ async function loadTodayAppointments() {
                 // 使用本地病人資料
                 return createAppointmentRow(appointment, localPatient, index);
             }
-            
-            // 使用快取病人資料
+
+            // 移除從病歷取得主訴的回填，僅顯示此次掛號的主訴
             return createAppointmentRow(appointment, patient, index);
-        }).join('');
-        
+        }));
+
+        tbody.innerHTML = rows.join('');
+
     } catch (error) {
         console.error('載入掛號列表錯誤:', error);
         tbody.innerHTML = `
@@ -3404,8 +3807,15 @@ function subscribeToAppointments() {
                         }
                         if (patientName) {
                             // 顯示提示並播放音效
-                            showToast(`病人 ${patientName} 已進入候診中，請準備診症。`, 'info');
-                            playNotificationSound();
+                            {
+                                // Notify that the patient has entered the waiting state, with translation
+                                const lang = localStorage.getItem('lang') || 'zh';
+                                const zhMsg = `病人 ${patientName} 已進入候診中，請準備診症。`;
+                                const enMsg = `Patient ${patientName} has entered the waiting state, please prepare for consultation.`;
+                                const msg = lang === 'en' ? enMsg : zhMsg;
+                                showToast(msg, 'info');
+                                playNotificationSound();
+                            }
                         }
                     }
                 }
@@ -3478,7 +3888,22 @@ async function loadConsultationForEdit(consultationId) {
             document.getElementById('formCurrentHistory').value = consultation.currentHistory || '';
             document.getElementById('formDiagnosis').value = consultation.diagnosis || '';
             document.getElementById('formSyndrome').value = consultation.syndrome || '';
-            document.getElementById('formAcupunctureNotes').value = consultation.acupunctureNotes || '';
+            {
+              const acnEl = document.getElementById('formAcupunctureNotes');
+              if (acnEl) {
+                // 使用 innerText 載入針灸備註內容，以支援 contenteditable
+                // 載入針灸備註時直接使用 innerHTML，以保留方塊標記
+                acnEl.innerHTML = consultation.acupunctureNotes || '';
+                // 載入完畢後初始化既有穴位方塊的事件處理
+                if (typeof initializeAcupointNotesSpans === 'function') {
+                  initializeAcupointNotesSpans();
+                }
+                // 載入完畢後初始化既有穴位方塊的事件處理
+                if (typeof initializeAcupointNotesSpans === 'function') {
+                  initializeAcupointNotesSpans();
+                }
+              }
+            }
             document.getElementById('formUsage').value = consultation.usage || '';
             document.getElementById('formTreatmentCourse').value = consultation.treatmentCourse || '';
             document.getElementById('formInstructions').value = consultation.instructions || '';
@@ -3623,15 +4048,22 @@ function parseConsultationDate(dateInput) {
     }
 }
 // 修復格式化診症日期顯示
-// 已移除 formatConsultationDate 函式（未使用），請改用 formatConsultationDateTime()
 
 function formatConsultationDateTime(dateInput) {
     const date = parseConsultationDate(dateInput);
     if (!date || isNaN(date.getTime())) {
-        return '時間未知';
+        // Return a language‑aware fallback when the date cannot be parsed.
+        const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+        const dict = (window.translations && window.translations[lang]) ? window.translations[lang] : {};
+        // Use a fallback message if a translation is available; otherwise default to the Chinese phrase.
+        return dict['時間未知'] || '時間未知';
     }
-    
-    return date.toLocaleString('zh-TW', {
+    // Format the date/time according to the current language.  English uses
+    // en-US locale while Chinese uses zh-TW.  We intentionally keep the
+    // format consistent with two‑digit month/day and hour/minute fields.
+    const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+    const locale = lang === 'en' ? 'en-US' : 'zh-TW';
+    return date.toLocaleString(locale, {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
@@ -3670,9 +4102,23 @@ function createAppointmentRow(appointment, patient, index) {
                 })}
             </td>
             <td class="px-4 py-3 text-sm text-gray-900">
-                <div class="max-w-xs truncate" title="${appointment.chiefComplaint || '無'}">
-                    ${appointment.chiefComplaint || '無'}
-                </div>
+                ${(() => {
+                    // 掛號列表的主訴文字僅顯示前八個字，超過部分以「⋯」取代，避免過長內容影響版面。
+                    const fullComplaint = appointment.chiefComplaint || '';
+                    // 如果沒有主訴或主訴為空字串，顯示「無」
+                    if (!fullComplaint) {
+                        return '<div class="max-w-xs truncate" title="無">無</div>';
+                    }
+                    let truncated = '';
+                    if (fullComplaint.length > 8) {
+                        // 若超過限制，截取前八個字並加上省略符號
+                        truncated = fullComplaint.substring(0, 8) + '⋯';
+                    } else {
+                        truncated = fullComplaint;
+                    }
+                    // 使用 title 屬性顯示完整內容
+                    return '<div class="max-w-xs truncate" title="' + fullComplaint + '">' + truncated + '</div>';
+                })()}
             </td>
             <td class="px-4 py-3">
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.class}">
@@ -3859,7 +4305,20 @@ async function confirmPatientArrival(appointmentId) {
                 'completed': '已完成'
             };
             const currentStatusName = statusNames[appointment.status] || appointment.status;
-            showToast(`無法確認到達！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能對「已掛號」的病人確認到達。`, 'warning');
+            {
+                // Build a status name mapping for English
+                const lang = localStorage.getItem('lang') || 'zh';
+                const statusNamesEnMap = {
+                    '候診中': 'waiting',
+                    '診症中': 'consulting',
+                    '已完成': 'completed'
+                };
+                const currentStatusNameEn = statusNamesEnMap[currentStatusName] || currentStatusName;
+                const zhMsg = `無法確認到達！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能對「已掛號」的病人確認到達。`;
+                const enMsg = `Unable to confirm arrival! Patient ${patient.name} is currently "${currentStatusNameEn}". You can only confirm arrival for patients who are "registered".`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'warning');
+            }
             return;
         }
         // 更新狀態為候診中
@@ -3869,7 +4328,14 @@ async function confirmPatientArrival(appointmentId) {
         // 保存狀態變更
         localStorage.setItem('appointments', JSON.stringify(appointments));
         await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
-        showToast(`${patient.name} 已確認到達，進入候診狀態！`, 'success');
+        {
+            // Announce arrival confirmation in appropriate language
+            const lang = localStorage.getItem('lang') || 'zh';
+            const msg = lang === 'en'
+                ? `${patient.name} has been confirmed and is now waiting!`
+                : `${patient.name} 已確認到達，進入候診狀態！`;
+            showToast(msg, 'success');
+        }
         loadTodayAppointments();
     } catch (error) {
         console.error('確認到達錯誤:', error);
@@ -3919,34 +4385,70 @@ async function removeAppointment(appointmentId) {
         console.log(`移除掛號狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}`);
         // 檢查是否可以移除
         if (appointment.status === 'waiting') {
-            showToast(`無法移除掛號！病人 ${patient.name} 已確認到達候診中，請聯繫醫師處理。`, 'warning');
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const zhMsg = `無法移除掛號！病人 ${patient.name} 已確認到達候診中，請聯繫醫師處理。`;
+                const enMsg = `Cannot remove registration! Patient ${patient.name} has already arrived and is waiting. Please contact the doctor to proceed.`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'warning');
+            }
             return;
         }
         if (appointment.status === 'consulting') {
-            showToast(`無法移除掛號！病人 ${patient.name} 目前正在診症中，請先結束診症後再移除。`, 'warning');
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const zhMsg = `無法移除掛號！病人 ${patient.name} 目前正在診症中，請先結束診症後再移除。`;
+                const enMsg = `Cannot remove registration! Patient ${patient.name} is currently being consulted. Please finish the consultation before removing.`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'warning');
+            }
             return;
         }
         if (appointment.status === 'completed') {
-            showToast(`無法移除掛號！病人 ${patient.name} 已完成診症，已完成的記錄無法移除。`, 'warning');
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const zhMsg = `無法移除掛號！病人 ${patient.name} 已完成診症，已完成的記錄無法移除。`;
+                const enMsg = `Cannot remove registration! Patient ${patient.name} has completed consultation, completed records cannot be removed.`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'warning');
+            }
             return;
         }
         // 確認移除
-        const statusNames = {
+        // 移除掛號確認訊息支援中英文
+        const statusNamesZh = {
             'registered': '已掛號',
-            'waiting': '候診中'
+            'waiting': '候診中',
+            'consulting': '診症中',
+            'completed': '已完成'
         };
-        const statusText = statusNames[appointment.status] || appointment.status;
-        const confirmMessage = `確定要移除 ${patient.name} 的掛號嗎？\n\n` +
-                             `狀態：${statusText}\n` +
-                             `掛號時間：${new Date(appointment.appointmentTime).toLocaleString('zh-TW')}\n\n` +
-                             `注意：此操作無法復原！`;
-        if (confirm(confirmMessage)) {
+        const statusNamesEn = {
+            'registered': 'Registered',
+            'waiting': 'Waiting',
+            'consulting': 'Consulting',
+            'completed': 'Completed'
+        };
+        const lang2 = localStorage.getItem('lang') || 'zh';
+        const statusTextZh = statusNamesZh[appointment.status] || appointment.status;
+        const statusTextEn = statusNamesEn[appointment.status] || appointment.status;
+        const timeStr = new Date(appointment.appointmentTime).toLocaleString(lang2 === 'en' ? 'en-US' : 'zh-TW');
+        const zhMsg = `確定要移除 ${patient.name} 的掛號嗎？\n\n狀態：${statusTextZh}\n掛號時間：${timeStr}\n\n注意：此操作無法復原！`;
+        const enMsg = `Are you sure you want to remove the registration for ${patient.name}?\n\nStatus: ${statusTextEn}\nRegistration time: ${timeStr}\n\nNote: this action cannot be undone!`;
+        const confirmMsg = lang2 === 'en' ? enMsg : zhMsg;
+        if (confirm(confirmMsg)) {
             // 從掛號列表中移除
             appointments = appointments.filter(apt => apt.id !== appointmentId);
             localStorage.setItem('appointments', JSON.stringify(appointments));
             // 從遠端刪除掛號
             await window.firebaseDataManager.deleteAppointment(String(appointmentId));
-            showToast(`已移除 ${patient.name} 的掛號記錄`, 'success');
+            // 根據語言顯示刪除掛號記錄提示
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const msg = lang === 'en'
+                    ? `Removed registration record for ${patient.name}`
+                    : `已移除 ${patient.name} 的掛號記錄`;
+                showToast(msg, 'success');
+            }
             loadTodayAppointments();
             // 如果正在診症表單中顯示該病人，則關閉表單
             if (String(currentConsultingAppointmentId) === String(appointmentId)) {
@@ -4005,19 +4507,37 @@ async function startConsultation(appointmentId) {
         console.log(`開始診症狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}`);
         // 檢查病人狀態是否允許開始診症
         if (!['waiting', 'registered'].includes(appointment.status)) {
+            // 狀態名稱映射，用於中英文提示
             const statusNames = {
                 'consulting': '診症中',
                 'completed': '已完成'
             };
             const currentStatusName = statusNames[appointment.status] || appointment.status;
-            showToast(`無法開始診症！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能對「已掛號」或「候診中」的病人開始診症。`, 'error');
+            const lang = localStorage.getItem('lang') || 'zh';
+            const statusNamesEnMap = {
+                '診症中': 'consulting',
+                '已完成': 'completed',
+                '候診中': 'waiting',
+                '已掛號': 'registered'
+            };
+            const currentStatusNameEn = statusNamesEnMap[currentStatusName] || currentStatusName;
+            const zhMsg = `無法開始診症！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能對「已掛號」或「候診中」的病人開始診症。`;
+            const enMsg = `Cannot start consultation! Patient ${patient.name} is currently "${currentStatusNameEn}". You can only start a consultation for patients who are "registered" or "waiting".`;
+            const msg = lang === 'en' ? enMsg : zhMsg;
+            showToast(msg, 'error');
             return;
         }
         // 如果是已掛號狀態，自動確認到達
         if (appointment.status === 'registered') {
             appointment.arrivedAt = new Date().toISOString();
             appointment.confirmedBy = currentUserData ? currentUserData.username : currentUser;
-            showToast(`${patient.name} 已自動確認到達`, 'info');
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const msg = lang === 'en'
+                    ? `${patient.name} has been automatically confirmed as arrived`
+                    : `${patient.name} 已自動確認到達`;
+                showToast(msg, 'info');
+            }
         }
         // 檢查是否已有其他病人在診症中（只檢查同一醫師的病人）
         const consultingAppointment = appointments.find(apt =>
@@ -4030,14 +4550,25 @@ async function startConsultation(appointmentId) {
         if (consultingAppointment) {
             const consultingPatient = result.data.find(p => p.id === consultingAppointment.patientId);
             const consultingPatientName = consultingPatient ? consultingPatient.name : '未知病人';
-            if (confirm(`您目前正在為 ${consultingPatientName} 診症。\n\n是否要結束該病人的診症並開始為 ${patient.name} 診症？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`)) {
+            // 提示當前正在診症其他病人，詢問是否結束並開始新診症（支援中英文）
+            const lang3 = localStorage.getItem('lang') || 'zh';
+            const zhMsg2 = `您目前正在為 ${consultingPatientName} 診症。\n\n是否要結束該病人的診症並開始為 ${patient.name} 診症？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`;
+            const enMsg2 = `You are currently consulting ${consultingPatientName}.\n\nDo you want to finish that patient's consultation and start consulting ${patient.name}?\n\nNote: ${consultingPatientName}'s status will revert to waiting.`;
+            const confirmMsg2 = lang3 === 'en' ? enMsg2 : zhMsg2;
+            if (confirm(confirmMsg2)) {
                 consultingAppointment.status = 'waiting';
                 delete consultingAppointment.consultationStartTime;
                 delete consultingAppointment.consultingDoctor;
                 if (String(currentConsultingAppointmentId) === String(consultingAppointment.id)) {
                     closeConsultationForm();
                 }
-                showToast(`已結束 ${consultingPatientName} 的診症`, 'info');
+                {
+                    const lang = localStorage.getItem('lang') || 'zh';
+                    const msg = lang === 'en'
+                        ? `Finished ${consultingPatientName}'s consultation`
+                        : `已結束 ${consultingPatientName} 的診症`;
+                    showToast(msg, 'info');
+                }
             } else {
                 return;
             }
@@ -4051,7 +4582,13 @@ async function startConsultation(appointmentId) {
         currentConsultingAppointmentId = appointmentId;
         showConsultationForm(appointment);
         loadTodayAppointments();
-        showToast(`開始為 ${patient.name} 診症`, 'success');
+        {
+            const lang = localStorage.getItem('lang') || 'zh';
+            const msg = lang === 'en'
+                ? `Started consultation for ${patient.name}`
+                : `開始為 ${patient.name} 診症`;
+            showToast(msg, 'success');
+        }
     } catch (error) {
         console.error('開始診症錯誤:', error);
         showToast('開始診症時發生錯誤', 'error');
@@ -4302,7 +4839,23 @@ async function showConsultationForm(appointment) {
         // 清空診症表單
         function clearConsultationForm() {
             ['formSymptoms', 'formTongue', 'formPulse', 'formCurrentHistory', 'formDiagnosis', 'formSyndrome', 'formAcupunctureNotes', 'formPrescription', 'formFollowUpDate', 'formVisitTime', 'formRestStartDate', 'formRestEndDate'].forEach(id => {
-                document.getElementById(id).value = '';
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (id === 'formAcupunctureNotes') {
+                    // contenteditable 元素使用 innerHTML 清空，以保留樣式定義
+                    if (el.hasAttribute('contenteditable')) {
+                        el.innerHTML = '';
+                    } else {
+                        el.value = '';
+                    }
+                } else {
+                    // 一般輸入欄位使用 value 清空
+                    if ('value' in el) {
+                        el.value = '';
+                    } else {
+                        el.innerText = '';
+                    }
+                }
             });
             
             // 重置服藥日數和次數為預設值
@@ -4340,6 +4893,7 @@ async function showConsultationForm(appointment) {
             } catch (_e) {
                 // 若回復失敗，仍繼續關閉表單
             }
+            // 清除暫存的套票購買記錄不需再次調用，已在 revertPendingPackageChanges 處理
             // 隱藏診症表單
             document.getElementById('consultationForm').classList.add('hidden');
             
@@ -4405,10 +4959,12 @@ async function showConsultationForm(appointment) {
                 // 詳細狀態檢查
                 console.log(`取消診症狀態檢查 - 病人: ${patient.name}, 當前狀態: ${appointment.status}`);
                 if (appointment.status === 'consulting') {
-                    const confirmMessage = `確定要取消 ${patient.name} 的診症嗎？\n\n` +
-                        `病人狀態將回到候診中，已填寫的診症內容將會遺失。\n\n` +
-                        `注意：此操作無法復原！`;
-                    if (confirm(confirmMessage)) {
+                    // 取消診症確認訊息支援中英文
+                    const lang5 = localStorage.getItem('lang') || 'zh';
+                    const zhMsg5 = `確定要取消 ${patient.name} 的診症嗎？\n\n病人狀態將回到候診中，已填寫的診症內容將會遺失。\n\n注意：此操作無法復原！`;
+                    const enMsg5 = `Are you sure you want to cancel the consultation for ${patient.name}?\n\nThe patient's status will return to waiting, and any filled consultation content will be lost.\n\nNote: this action cannot be undone!`;
+                    const confirmMsg5 = lang5 === 'en' ? enMsg5 : zhMsg5;
+                    if (confirm(confirmMsg5)) {
                         // 將狀態改回候診中
                         appointment.status = 'waiting';
                         delete appointment.consultationStartTime;
@@ -4419,7 +4975,13 @@ async function showConsultationForm(appointment) {
                         await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
                         // 回復暫存套票變更
                         await revertPendingPackageChanges();
-                        showToast(`已取消 ${patient.name} 的診症，病人回到候診狀態`, 'info');
+                        {
+                            const lang = localStorage.getItem('lang') || 'zh';
+                            const msg = lang === 'en'
+                                ? `Cancelled ${patient.name}'s consultation and reverted to waiting`
+                                : `已取消 ${patient.name} 的診症，病人回到候診狀態`;
+                            showToast(msg, 'info');
+                        }
                         // 關閉表單並清理
                         closeConsultationForm();
                         currentConsultingAppointmentId = null;
@@ -4463,61 +5025,55 @@ async function saveConsultation() {
     const appointment = appointments.find(apt => apt && String(apt.id) === String(currentConsultingAppointmentId));
     // 判斷是否為編輯模式：掛號狀態為已完成且存在 consultationId
     const isEditing = appointment && appointment.status === 'completed' && appointment.consultationId;
-        // 預處理套票購買和立即使用（僅在非編輯模式下處理，以免重複購買）
+    // 預處理套票購買（僅在非編輯模式下處理，以免重複購買）
+    // 不立即呼叫 purchasePackage，而是將欲購買的套票記錄至 pendingPackagePurchases，
+    // 等診症記錄成功保存後再一次性購買，以免未完成診症時已經寫入資料庫。
     if (appointment && !isEditing && Array.isArray(selectedBillingItems)) {
         try {
-            // 找到所有套票項目
+            // 初始化暫存購買清單
+            pendingPackagePurchases = [];
+            // 找出所有套票項目
             const packageItems = selectedBillingItems.filter(item => item && item.category === 'package');
-            // 對每個套票項目按購買數量進行處理
+            // 按購買數量逐一記錄
             for (const item of packageItems) {
-                // 確保數量至少為 1，無效值預設為 1
                 const qty = Math.max(1, Number(item.quantity) || 1);
-                // 依據數量逐次購買套票
                 for (let i = 0; i < qty; i++) {
-                    // 先購買套票
-                    const purchasedPackage = await purchasePackage(appointment.patientId, item);
-                    if (purchasedPackage) {
-                        // 套票購買成功後，詢問是否立即使用第一次（每張套票都詢問一次）
-                        const confirmUse = confirm(
-                            `套票「${item.name}」購買成功！\n\n是否立即使用第一次？\n\n套票詳情：\n• 總次數：${item.packageUses} 次\n• 有效期：${item.validityDays} 天`
-                        );
-                        if (confirmUse) {
-                            // 立即使用一次套票
-                            const useResult = await consumePackage(appointment.patientId, purchasedPackage.id);
-                            if (useResult.ok) {
-                                // 添加套票使用記錄到收費項目中
-                                const usedName = `${item.name} (使用套票)`;
-                                // 將 patientId 與 packageRecordId 轉為字串儲存，以避免後續比較時類型不一致導致匹配錯誤
-                                selectedBillingItems.push({
-                                    // 包含索引避免在快速迴圈中生成相同的時間戳導致重複 ID
-                                    id: `use-${purchasedPackage.id}-${Date.now()}-${i}`,
-                                    name: usedName,
-                                    category: 'packageUse',
-                                    price: 0,
-                                    unit: '次',
-                                    description: '套票抵扣一次',
-                                    quantity: 1,
-                                    // 套票使用不參與折扣
-                                    includedInDiscount: false,
-                                    patientId: (appointment.patientId !== undefined && appointment.patientId !== null) ? String(appointment.patientId) : '',
-                                    packageRecordId: (purchasedPackage && purchasedPackage.id) ? String(purchasedPackage.id) : ''
-                                });
-                                showToast(
-                                    `已使用套票：${item.name}，剩餘 ${useResult.record.remainingUses} 次`,
-                                    'info'
-                                );
-                            } else {
-                                showToast(`使用套票失敗：${useResult.msg}`, 'error');
-                            }
-                        }
-                    } else {
-                        // 購買失敗
-                        showToast(`套票「${item.name}」購買失敗`, 'error');
+                    // 先詢問使用者是否立即使用第一次，但不立即購買
+                    // 套票購買成功後詢問是否立即使用第一次（支援中英文）
+                    const lang6 = localStorage.getItem('lang') || 'zh';
+                    const zhMsg6 = `套票「${item.name}」購買成功！\n\n是否立即使用第一次？\n\n套票詳情：\n• 總次數：${item.packageUses} 次\n• 有效期：${item.validityDays} 天`;
+                    const enMsg6 = `Package \"${item.name}\" purchased successfully!\n\nDo you want to use the first session now?\n\nPackage details:\n• Total uses: ${item.packageUses}\n• Valid for: ${item.validityDays} days`;
+                    const confirmUse = confirm(lang6 === 'en' ? enMsg6 : zhMsg6);
+                    // 如使用者選擇立即使用，先在收費列表中加入一個套票使用項目（尚未取得 packageRecordId）
+                    let usageItemId = null;
+                    if (confirmUse) {
+                        usageItemId = `pending-use-${Date.now()}-${Math.random()}`;
+                        selectedBillingItems.push({
+                            id: usageItemId,
+                            name: `${item.name} (使用套票)`,
+                            category: 'packageUse',
+                            price: 0,
+                            unit: '次',
+                            description: '套票抵扣一次',
+                            quantity: 1,
+                            includedInDiscount: false,
+                            patientId: (appointment.patientId !== undefined && appointment.patientId !== null) ? String(appointment.patientId) : '',
+                            packageRecordId: ''
+                        });
                     }
+                    // 將擬購買項目與使用選擇存入暫存清單，包括對應的暫存使用項目 ID
+                    pendingPackagePurchases.push({
+                        patientId: appointment.patientId,
+                        item: item,
+                        confirmUse: confirmUse,
+                        usageItemId: usageItemId
+                    });
                 }
             }
-            // 重新更新收費顯示，確保套票使用記錄被包含在最終的診症記錄中
-            updateBillingDisplay();
+            // 更新收費顯示以反映暫存的套票使用
+            if (typeof updateBillingDisplay === 'function') {
+                updateBillingDisplay();
+            }
         } catch (e) {
             console.error('預處理套票購買時發生錯誤：', e);
         }
@@ -4548,7 +5104,11 @@ async function saveConsultation() {
             currentHistory: document.getElementById('formCurrentHistory').value.trim(),
             diagnosis: diagnosis,
             syndrome: document.getElementById('formSyndrome').value.trim(),
-            acupunctureNotes: document.getElementById('formAcupunctureNotes').value.trim(),
+            acupunctureNotes: (() => {
+                const acnEl = document.getElementById('formAcupunctureNotes');
+                // 儲存針灸備註使用 innerHTML 以保留方塊格式
+                return acnEl ? acnEl.innerHTML.trim() : '';
+            })(),
             prescription: document.getElementById('formPrescription').value.trim(),
             usage: document.getElementById('formUsage').value.trim(),
             treatmentCourse: document.getElementById('formTreatmentCourse').value.trim(),
@@ -4611,6 +5171,12 @@ async function saveConsultation() {
                 if (idx >= 0) {
                     consultations[idx] = { ...consultations[idx], ...consultationData, updatedAt: new Date(), updatedBy: currentUser };
                 }
+                // 更新掛號資料中的主訴內容，確保掛號列表顯示最新的主訴
+                appointment.chiefComplaint = symptoms;
+                // 更新本地儲存的 appointments 陣列
+                localStorage.setItem('appointments', JSON.stringify(appointments));
+                // 同步更新到 Firebase
+                await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
                 showToast('診症記錄已更新！', 'success');
             } else {
                 showToast('更新診症記錄失敗，請稍後再試', 'error');
@@ -4629,6 +5195,8 @@ async function saveConsultation() {
                 appointment.completedAt = new Date().toISOString();
                 appointment.consultationId = result.id;
                 appointment.completedBy = currentUser;
+                // 將本次症狀保存至掛號資料中的主訴，確保掛號列表顯示最新主訴
+                appointment.chiefComplaint = symptoms;
                 localStorage.setItem('appointments', JSON.stringify(appointments));
                 await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
                 showToast('診症記錄已保存！', 'success');
@@ -4638,9 +5206,11 @@ async function saveConsultation() {
         }
 
         if (operationSuccess) {
-            // 保存成功時，先提交本地暫存的套票變更至資料庫
+            // 保存成功時，先提交暫存的套票購買與使用
+            await commitPendingPackagePurchases();
+            // 提交暫存套票購買後，提交本地暫存的套票使用變更至資料庫
             await commitPendingPackageChanges();
-            // 提交後清空暫存變更，表示這些變更已經正式記錄，不需要再撤銷。
+            // 提交後清空暫存變更
             pendingPackageChanges = [];
             // 完成後關閉診症表單並更新 UI
             closeConsultationForm();
@@ -4748,8 +5318,20 @@ if (!patient) {
         
         function displayPatientMedicalHistoryPage() {
             const contentDiv = document.getElementById('patientMedicalHistoryContent');
+
+            // Determine current language and translation dictionary.  Use
+            // localStorage to fetch the persisted language; default to
+            // Chinese when not found.  This allows us to construct
+            // translated dynamic strings below.  The dictionary is used
+            // solely for static labels such as '診症記錄', '較舊', '較新',
+            // '醫師：', and '病歷編號：'.
+            const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+            const dict = (window.translations && window.translations[lang]) ? window.translations[lang] : {};
             
             if (currentPatientConsultations.length === 0) {
+                // Use Chinese strings here so the i18n observer can
+                // translate them if necessary.  For zero‑records state
+                // there are no dynamic numbers to handle.
                 contentDiv.innerHTML = `
                     <div class="text-center py-12 text-gray-500">
                         <div class="text-4xl mb-4">📋</div>
@@ -4764,17 +5346,31 @@ if (!patient) {
             const totalPages = currentPatientConsultations.length;
             const currentPageNumber = currentPatientHistoryPage + 1;
             const consultationNumber = currentPatientHistoryPage + 1;
-            
+
+            // Prepare dynamic translation segments.  We look up static labels
+            // from the dictionary and build English phrases when needed.
+            const recordTitle = dict['診症記錄'] || '診症記錄';
+            const visitText = lang === 'zh'
+                ? `第 ${consultationNumber} 次診症`
+                : `Visit ${consultationNumber}`;
+            const totalText = lang === 'zh'
+                ? `共 ${totalPages} 次診症記錄`
+                : `Total ${totalPages} consultation records`;
+            const prevLabel = dict['較舊'] || '較舊';
+            const nextLabel = dict['較新'] || '較新';
+            const doctorLabel = dict['醫師：'] || '醫師：';
+            const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
+
             contentDiv.innerHTML = `
                 <!-- 分頁導航 -->
                 <div class="mb-6 flex justify-between items-center bg-gray-50 rounded-lg p-4">
                     <div class="flex items-center space-x-4">
-                        <h4 class="text-lg font-semibold text-gray-800">診症記錄</h4>
+                        <h4 class="text-lg font-semibold text-gray-800">${recordTitle}</h4>
                         <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                            第 ${consultationNumber} 次診症
+                            ${visitText}
                         </span>
                         <span class="text-sm text-gray-600">
-                            共 ${totalPages} 次診症記錄
+                            ${totalText}
                         </span>
                     </div>
                     
@@ -4782,7 +5378,7 @@ if (!patient) {
                         <button onclick="changePatientHistoryPage(-1)" 
                                 ${currentPatientHistoryPage === 0 ? 'disabled' : ''}
                                 class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
-                            ← 較舊
+                            ← ${prevLabel}
                         </button>
                         <span class="text-sm text-gray-600 px-2">
                             ${currentPageNumber} / ${totalPages}
@@ -4790,7 +5386,7 @@ if (!patient) {
                         <button onclick="changePatientHistoryPage(1)" 
                                 ${currentPatientHistoryPage === totalPages - 1 ? 'disabled' : ''}
                                 class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
-                            較新 →
+                            ${nextLabel} →
                         </button>
                     </div>
                 </div>
@@ -4807,15 +5403,18 @@ if (!patient) {
                                         if (!parsedDate || isNaN(parsedDate.getTime())) {
                                             return '日期未知';
                                         }
-                                        // 顯示日期和時間
-                                        return parsedDate.toLocaleDateString('zh-TW') + ' ' + parsedDate.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+                                        // 根據語言設定輸出日期格式。英語使用 en-US，中文使用 zh-TW。
+                                        const locale = lang === 'en' ? 'en-US' : 'zh-TW';
+                                        const datePart = parsedDate.toLocaleDateString(locale);
+                                        const timePart = parsedDate.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+                                        return datePart + ' ' + timePart;
                                     })()}
                                 </span>
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
-                                    醫師：${getDoctorDisplayName(consultation.doctor)}
+                                    ${doctorLabel}${getDoctorDisplayName(consultation.doctor)}
                                 </span>
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
-                                    病歷編號：${consultation.medicalRecordNumber || consultation.id}
+                                    ${recordNumberLabel}${consultation.medicalRecordNumber || consultation.id}
                                 </span>
                                 ${consultation.updatedAt ? `
                                     <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
@@ -4898,7 +5497,7 @@ if (!patient) {
                                 ${consultation.acupunctureNotes ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">針灸備註</span>
-                                    <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400 medical-field">${consultation.acupunctureNotes}</div>
+                                    <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400 medical-field">${window.stripHtmlTags(consultation.acupunctureNotes)}</div>
                                 </div>
                                 ` : ''}
                             </div>
@@ -5083,8 +5682,20 @@ async function viewPatientMedicalHistory(patientId) {
 // 修復病歷記錄顯示中的日期問題
 function displayConsultationMedicalHistoryPage() {
     const contentDiv = document.getElementById('medicalHistoryContent');
+
+    // Determine the current language and translation dictionary.  We rely on
+    // localStorage to persist the selected language (zh or en).  If an
+    // unsupported value is found we default to Chinese.  The translation
+    // dictionary is used for translating static labels while dynamic
+    // segments (such as numbered visits) are constructed below.
+    const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+    const dict = (window.translations && window.translations[lang]) ? window.translations[lang] : {};
     
     if (currentConsultationConsultations.length === 0) {
+        // When there are no consultation records, we still allow the text
+        // content to be translated by the i18n observer.  Therefore
+        // Chinese strings are left intact here and will be replaced if the
+        // language is set to English via the dictionary.
         contentDiv.innerHTML = `
             <div class="text-center py-12 text-gray-500">
                 <div class="text-4xl mb-4">📋</div>
@@ -5099,17 +5710,37 @@ function displayConsultationMedicalHistoryPage() {
     const totalPages = currentConsultationConsultations.length;
     const currentPageNumber = currentConsultationHistoryPage + 1;
     const consultationNumber = currentConsultationHistoryPage + 1;
-    
+
+    // Build translated dynamic strings.  For Chinese we keep the original
+    // formatting; for English we generate equivalent phrases.  The
+    // dictionary lookup is used for static terms like '診症記錄',
+    // '較舊', '較新', '醫師：', and '病歷編號：'.
+    const recordTitle = dict['診症記錄'] || '診症記錄';
+    const visitText = lang === 'zh'
+        ? `第 ${consultationNumber} 次診症`
+        : `Visit ${consultationNumber}`;
+    const totalText = lang === 'zh'
+        ? `共 ${totalPages} 次診症記錄`
+        : `Total ${totalPages} consultation records`;
+    const prevLabel = dict['較舊'] || '較舊';
+    const nextLabel = dict['較新'] || '較新';
+    const doctorLabel = dict['醫師：'] || '醫師：';
+    const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
+
+    // Compose the HTML content with translated dynamic labels.  Chinese
+    // strings remain in the markup for static phrases that the i18n
+    // framework can translate after insertion.  Dynamic segments are
+    // constructed above.
     contentDiv.innerHTML = `
         <!-- 分頁導航 -->
         <div class="mb-6 flex justify-between items-center bg-gray-50 rounded-lg p-4">
             <div class="flex items-center space-x-4">
-                <h4 class="text-lg font-semibold text-gray-800">診症記錄</h4>
+                <h4 class="text-lg font-semibold text-gray-800">${recordTitle}</h4>
                 <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                    第 ${consultationNumber} 次診症
+                    ${visitText}
                 </span>
                 <span class="text-sm text-gray-600">
-                    共 ${totalPages} 次診症記錄
+                    ${totalText}
                 </span>
             </div>
             
@@ -5117,7 +5748,7 @@ function displayConsultationMedicalHistoryPage() {
                 <button onclick="changeConsultationHistoryPage(-1)" 
                         ${currentConsultationHistoryPage === 0 ? 'disabled' : ''}
                         class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
-                    ← 較舊
+                    ← ${prevLabel}
                 </button>
                 <span class="text-sm text-gray-600 px-2">
                     ${currentPageNumber} / ${totalPages}
@@ -5125,7 +5756,7 @@ function displayConsultationMedicalHistoryPage() {
                 <button onclick="changeConsultationHistoryPage(1)" 
                         ${currentConsultationHistoryPage === totalPages - 1 ? 'disabled' : ''}
                         class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
-                    較新 →
+                    ${nextLabel} →
                 </button>
             </div>
         </div>
@@ -5139,11 +5770,11 @@ function displayConsultationMedicalHistoryPage() {
                             ${formatConsultationDateTime(consultation.date)}
                         </span>
                         <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
-                            醫師：${getDoctorDisplayName(consultation.doctor)}
+                            ${doctorLabel}${getDoctorDisplayName(consultation.doctor)}
                         </span>
                         <!-- 新增病歷編號顯示 -->
                         <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
-                            病歷編號：${consultation.medicalRecordNumber || consultation.id}
+                            ${recordNumberLabel}${consultation.medicalRecordNumber || consultation.id}
                         </span>
                         ${consultation.updatedAt ? `
                             <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
@@ -5226,7 +5857,7 @@ function displayConsultationMedicalHistoryPage() {
                         ${consultation.acupunctureNotes ? `
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">針灸備註</span>
-                            <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400 medical-field">${consultation.acupunctureNotes}</div>
+                            <div class="bg-orange-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-orange-400 medical-field">${window.stripHtmlTags(consultation.acupunctureNotes)}</div>
                         </div>
                         ` : ''}
                     </div>
@@ -7252,12 +7883,30 @@ async function withdrawConsultation(appointmentId) {
                 'consulting': '診症中'
             };
             const currentStatusName = statusNames[appointment.status] || appointment.status;
-            showToast(`無法撤回診症！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能撤回已完成的診症。`, 'warning');
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const statusNamesEnMap = {
+                    '已掛號': 'registered',
+                    '候診中': 'waiting',
+                    '診症中': 'consulting'
+                };
+                const currentStatusNameEn = statusNamesEnMap[currentStatusName] || currentStatusName;
+                const zhMsg = `無法撤回診症！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能撤回已完成的診症。`;
+                const enMsg = `Cannot retract consultation! Patient ${patient.name} is currently "${currentStatusNameEn}". You can only retract completed consultations.`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'warning');
+            }
             return;
         }
         // 檢查是否有診症記錄
         if (!appointment.consultationId) {
-            showToast(`無法撤回診症！病人 ${patient.name} 沒有對應的診症記錄。`, 'error');
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const zhMsg = `無法撤回診症！病人 ${patient.name} 沒有對應的診症記錄。`;
+                const enMsg = `Cannot retract consultation! Patient ${patient.name} has no corresponding consultation record.`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'error');
+            }
             return;
         }
         // 嘗試取得對應的診症記錄。
@@ -7322,24 +7971,24 @@ async function withdrawConsultation(appointmentId) {
 
         // Step 4: 若最終仍然找不到診症記錄，提示錯誤並返回。
         if (!consultation) {
-            showToast(
-                `無法撤回診症！找不到病人 ${patient.name} 的診症記錄資料。`,
-                'error'
-            );
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const zhMsg = `無法撤回診症！找不到病人 ${patient.name} 的診症記錄資料。`;
+                const enMsg = `Cannot retract consultation! Consultation record for ${patient.name} not found.`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'error');
+            }
             return;
         }
 
-// 確認撤回操作
-const confirmMessage = `確定要撤回 ${patient.name} 的診症嗎？\n\n` +
-                     `此操作將會：\n` +
-                     `• 刪除該次病歷記錄\n` +
-                     `• 病人狀態回到「已掛號」\n` +
-                     `• 退回本次病歷使用的套票\n` +
-                     `• 所有診症資料將永久遺失\n\n` +
-                     `診斷：${consultation.diagnosis || '無記錄'}\n\n` +
-                     `注意：此操作無法復原！`;
-
-if (confirm(confirmMessage)) {
+        // 確認撤回操作（支援中英文）
+        const lang7 = localStorage.getItem('lang') || 'zh';
+        const zhMsg7 = `確定要撤回 ${patient.name} 的診症嗎？\n\n此操作將會：\n• 刪除該次病歷記錄\n• 病人狀態回到「已掛號」\n• 退回本次病歷使用的套票\n• 所有診症資料將永久遺失\n\n診斷：${consultation.diagnosis || '無記錄'}\n\n注意：此操作無法復原！`;
+        const enMsg7 = `Are you sure you want to retract the consultation for ${patient.name}?\n\nThis action will:\n• Delete this medical record\n• Revert the patient's status to 'Registered'\n• Return the package used for this record\n• Permanently erase all consultation data\n\nDiagnosis: ${consultation.diagnosis || 'No record'}\n\nNote: this action cannot be undone!`;
+        const confirmMsg7 = lang7 === 'en' ? enMsg7 : zhMsg7;
+        if (!confirm(confirmMsg7)) {
+            return;
+        }
     // 刪除診症記錄
     // 先從 Firebase 刪除該次診症記錄
     try {
@@ -7424,10 +8073,13 @@ if (confirm(confirmMessage)) {
         appointment
     );
 
-    showToast(
-        `已撤回 ${patient.name} 的診症，病人狀態回到已掛號`,
-        'success'
-    );
+    {
+        const lang = localStorage.getItem('lang') || 'zh';
+        const zhMsg = `已撤回 ${patient.name} 的診症，病人狀態回到已掛號`;
+        const enMsg = `Retracted consultation for ${patient.name} and reverted status to registered`;
+        const msg = lang === 'en' ? enMsg : zhMsg;
+        showToast(msg, 'success');
+    }
 
     // 如果正在編輯該病歷，則關閉表單
     if (
@@ -7442,8 +8094,9 @@ if (confirm(confirmMessage)) {
         // 重新載入該病人的診療摘要，確保病歷列表和套票狀態即時更新
         try {
             await loadPatientConsultationSummary(patient.id);
-        } catch (_e) {}
-}
+        } catch (_e) {
+            // ignore summary loading errors
+        }
     } catch (error) {
         console.error('讀取病人資料錯誤:', error);
         showToast('讀取病人資料失敗', 'error');
@@ -7527,12 +8180,30 @@ async function editMedicalRecord(appointmentId) {
                 'consulting': '診症中'
             };
             const currentStatusName = statusNames[appointment.status] || appointment.status;
-            showToast(`無法修改病歷！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能修改已完成診症的病歷。`, 'warning');
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const statusNamesEnMap = {
+                    '已掛號': 'registered',
+                    '候診中': 'waiting',
+                    '診症中': 'consulting'
+                };
+                const currentStatusNameEn = statusNamesEnMap[currentStatusName] || currentStatusName;
+                const zhMsg = `無法修改病歷！病人 ${patient.name} 目前狀態為「${currentStatusName}」，只能修改已完成診症的病歷。`;
+                const enMsg = `Cannot modify medical record! Patient ${patient.name} is currently "${currentStatusNameEn}". You can only modify records of completed consultations.`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'warning');
+            }
             return;
         }
         // 檢查是否有診症記錄
         if (!appointment.consultationId) {
-            showToast(`無法修改病歷！病人 ${patient.name} 沒有對應的診症記錄。`, 'error');
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const zhMsg = `無法修改病歷！病人 ${patient.name} 沒有對應的診症記錄。`;
+                const enMsg = `Cannot modify medical record! Patient ${patient.name} has no corresponding consultation record.`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'error');
+            }
             return;
         }
         // 嘗試從本地或 Firebase 取得診療記錄
@@ -7564,7 +8235,13 @@ async function editMedicalRecord(appointmentId) {
         }
         if (!consultation) {
             // 如果仍然找不到診症記錄，提示錯誤後結束
-            showToast(`無法修改病歷！找不到病人 ${patient.name} 的診症記錄資料。`, 'error');
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const zhMsg = `無法修改病歷！找不到病人 ${patient.name} 的診症記錄資料。`;
+                const enMsg = `Cannot modify medical record! Consultation record for ${patient.name} not found.`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'error');
+            }
             return;
         }
         // 檢查是否有其他病人正在診症中（僅限制同一醫師）
@@ -7581,7 +8258,12 @@ async function editMedicalRecord(appointmentId) {
             // 從 Firebase 獲取正在診症的病人資料
             const consultingPatient = patientResult.data.find(p => p.id === consultingAppointment.patientId);
             const consultingPatientName = consultingPatient ? consultingPatient.name : '未知病人';
-            if (confirm(`您目前正在為 ${consultingPatientName} 診症。\n\n是否要結束該病人的診症並開始修改 ${patient.name} 的病歷？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`)) {
+            // 提示當前正在診症其他病人，詢問是否結束並改為修改病歷（支援中英文）
+            const lang4 = localStorage.getItem('lang') || 'zh';
+            const zhMsg4 = `您目前正在為 ${consultingPatientName} 診症。\n\n是否要結束該病人的診症並開始修改 ${patient.name} 的病歷？\n\n注意：${consultingPatientName} 的狀態將改回候診中。`;
+            const enMsg4 = `You are currently consulting ${consultingPatientName}.\n\nDo you want to finish that patient's consultation and start editing ${patient.name}'s medical record?\n\nNote: ${consultingPatientName}'s status will revert to waiting.`;
+            const msg4 = lang4 === 'en' ? enMsg4 : zhMsg4;
+            if (confirm(msg4)) {
                 // 結束當前診症的病人
                 consultingAppointment.status = 'waiting';
                 delete consultingAppointment.consultationStartTime;
@@ -7591,7 +8273,13 @@ async function editMedicalRecord(appointmentId) {
                 if (String(currentConsultingAppointmentId) === String(consultingAppointment.id)) {
                     closeConsultationForm();
                 }
-                showToast(`已結束 ${consultingPatientName} 的診症`, 'info');
+                {
+                    const lang = localStorage.getItem('lang') || 'zh';
+                    const msg = lang === 'en'
+                        ? `Finished ${consultingPatientName}'s consultation`
+                        : `已結束 ${consultingPatientName} 的診症`;
+                    showToast(msg, 'info');
+                }
                 localStorage.setItem('appointments', JSON.stringify(appointments));
                 // 同步更新到 Firebase
                 await window.firebaseDataManager.updateAppointment(String(consultingAppointment.id), consultingAppointment);
@@ -7602,7 +8290,13 @@ async function editMedicalRecord(appointmentId) {
         // 設置為編輯模式
         currentConsultingAppointmentId = appointmentId;
         showConsultationForm(appointment);
-        showToast(`進入 ${patient.name} 的病歷編輯模式`, 'info');
+        {
+            const lang = localStorage.getItem('lang') || 'zh';
+            const msg = lang === 'en'
+                ? `Entered medical record edit mode for ${patient.name}`
+                : `進入 ${patient.name} 的病歷編輯模式`;
+            showToast(msg, 'info');
+        }
     } catch (error) {
         console.error('讀取病人資料錯誤:', error);
         showToast('讀取病人資料失敗', 'error');
@@ -8465,7 +9159,7 @@ async function initializeSystemAfterLogin() {
                             <h4 class="text-lg font-semibold text-gray-900">${safeName}</h4>
                             ${safeAlias ? `<p class="text-sm text-gray-600">${safeAlias}</p>` : ''}
                         </div>
-                        <!-- 操作區已移除：不提供編輯或刪除按鈕 -->
+
                     </div>
                     
                     <div class="space-y-2 text-sm">
@@ -8498,7 +9192,7 @@ async function initializeSystemAfterLogin() {
                             <h4 class="text-lg font-semibold text-gray-900">${safeName}</h4>
                             ${safeSource ? `<p class="text-sm text-gray-600">出處：${safeSource}</p>` : ''}
                         </div>
-                        <!-- 操作區已移除：不提供編輯或刪除按鈕 -->
+
                     </div>
                     
                     <div class="space-y-3 text-sm">
@@ -8540,29 +9234,7 @@ async function initializeSystemAfterLogin() {
             });
         }
         
-        function editHerb(id) {
-            const herb = herbLibrary.find(item => item.id === id && item.type === 'herb');
-            if (!herb) return;
-            
-            editingHerbId = id;
-            document.getElementById('herbFormTitle').textContent = '編輯中藥材';
-            document.getElementById('herbSaveButtonText').textContent = '更新';
-            
-            document.getElementById('herbName').value = herb.name || '';
-            document.getElementById('herbAlias').value = herb.alias || '';
-            // 還原性味、歸經與主治欄位
-            const natureInput = document.getElementById('herbNature');
-            if (natureInput) natureInput.value = herb.nature || '';
-            const meridianInput = document.getElementById('herbMeridian');
-            if (meridianInput) meridianInput.value = herb.meridian || '';
-            document.getElementById('herbEffects').value = herb.effects || '';
-            const indicationsInput = document.getElementById('herbIndications');
-            if (indicationsInput) indicationsInput.value = herb.indications || '';
-            document.getElementById('herbDosage').value = herb.dosage || '';
-            document.getElementById('herbCautions').value = herb.cautions || '';
-            
-            document.getElementById('addHerbModal').classList.remove('hidden');
-        }
+        
         
         async function saveHerb() {
             const name = document.getElementById('herbName').value.trim();
@@ -8625,27 +9297,7 @@ async function initializeSystemAfterLogin() {
             });
         }
         
-        function editFormula(id) {
-            const formula = herbLibrary.find(item => item.id === id && item.type === 'formula');
-            if (!formula) return;
-            
-            editingFormulaId = id;
-            document.getElementById('formulaFormTitle').textContent = '編輯方劑';
-            document.getElementById('formulaSaveButtonText').textContent = '更新';
-            
-            document.getElementById('formulaName').value = formula.name || '';
-            document.getElementById('formulaSource').value = formula.source || '';
-            document.getElementById('formulaEffects').value = formula.effects || '';
-            // 還原主治與用法欄位
-            const formInd = document.getElementById('formulaIndications');
-            if (formInd) formInd.value = formula.indications || '';
-            document.getElementById('formulaComposition').value = formula.composition || '';
-            const formUsage = document.getElementById('formulaUsage');
-            if (formUsage) formUsage.value = formula.usage || '';
-            document.getElementById('formulaCautions').value = formula.cautions || '';
-            
-            document.getElementById('addFormulaModal').classList.remove('hidden');
-        }
+        
         
         async function saveFormula() {
             const name = document.getElementById('formulaName').value.trim();
@@ -8690,20 +9342,8 @@ async function initializeSystemAfterLogin() {
             displayHerbLibrary();
         }
         
-        // 刪除中藥材或方劑
-        async function deleteHerbItem(id) {
-            const item = herbLibrary.find(h => h.id === id);
-            if (!item) return;
-            
-            const itemType = item.type === 'herb' ? '中藥材' : '方劑';
-            
-            if (confirm(`確定要刪除${itemType}「${item.name}」嗎？\n\n此操作無法復原！`)) {
-                herbLibrary = herbLibrary.filter(h => h.id !== id);
-                // 不再從 Firestore 刪除資料
-                showToast(`${itemType}「${item.name}」已刪除！`, 'success');
-                displayHerbLibrary();
-            }
-        }
+        
+
 
         // 穴位庫管理功能
         /**
@@ -8931,13 +9571,12 @@ async function initializeSystemAfterLogin() {
             const safeIndications = inds.length > 0 ? inds.map(item => window.escapeHtml(item)).join('、') : '';
             const safeMethod = ac.method ? window.escapeHtml(ac.method) : '';
             const safeCategory = ac.category ? window.escapeHtml(ac.category) : '';
-            return `\n                <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition duration-200">\n                    <div class="flex justify-between items-start mb-3">\n                        <div>\n                            <h4 class="text-lg font-semibold text-gray-900">${safeName}</h4>\n                            ${safeMeridian ? `<p class="text-sm text-gray-600">${safeMeridian}</p>` : ''}\n                        </div>\n                        <!-- 編輯與刪除按鈕已移除，僅顯示資料 -->\n                    </div>\n                    <div class="space-y-2 text-sm">\n                        ${safeLocation ? `<div><span class="font-medium text-gray-700">定位：</span>${safeLocation}</div>` : ''}\n                        ${safeFunctions ? `<div><span class="font-medium text-gray-700">功能：</span>${safeFunctions}</div>` : ''}\n                        ${safeIndications ? `<div><span class="font-medium text-gray-700">主治：</span>${safeIndications}</div>` : ''}\n                        ${safeMethod ? `<div><span class="font-medium text-gray-700">針法：</span>${safeMethod}</div>` : ''}\n                        ${safeCategory ? `<div><span class="font-medium text-gray-700">穴性：</span>${safeCategory}</div>` : ''}\n                    </div>\n                </div>\n            `;
+            return `\n                <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition duration-200">\n                    <div class="flex justify-between items-start mb-3">\n                        <div>\n                            <h4 class="text-lg font-semibold text-gray-900">${safeName}</h4>\n                            ${safeMeridian ? `<p class="text-sm text-gray-600">${safeMeridian}</p>` : ''}\n                        </div>\n                    </div>\n                    <div class="space-y-2 text-sm">\n                        ${safeLocation ? `<div><span class="font-medium text-gray-700">定位：</span>${safeLocation}</div>` : ''}\n                        ${safeFunctions ? `<div><span class="font-medium text-gray-700">功能：</span>${safeFunctions}</div>` : ''}\n                        ${safeIndications ? `<div><span class="font-medium text-gray-700">主治：</span>${safeIndications}</div>` : ''}\n                        ${safeMethod ? `<div><span class="font-medium text-gray-700">針法：</span>${safeMethod}</div>` : ''}\n                        ${safeCategory ? `<div><span class="font-medium text-gray-700">穴性：</span>${safeCategory}</div>` : ''}\n                    </div>\n                </div>\n            `;
         }
 
         /**
          * 以下函式與 UI 操作相關，用於新增、編輯與刪除穴位資料。
-         * 現在系統改用只讀模式，故不再需要這些函式，已移除實作。
-         * 如需重新啟用此功能，可重新撰寫相應的表單與事件處理邏輯。
+         * 現在系統改用只讀模式，如需重新啟用此功能，可重新撰寫相應的表單與事件處理邏輯。
          */
 
         // 收費項目管理功能
@@ -9002,14 +9641,24 @@ async function initializeSystemAfterLogin() {
                 return;
             }
             
-            // 按類別分組顯示
+            // Determine current language and translation dictionary for category
+            // names.  We use localStorage to retrieve the saved language and
+            // fallback to Chinese if it isn't set.  The dictionary maps
+            // Chinese terms to English equivalents, which allows us to
+            // translate category names prior to appending counts.  Without
+            // pre‑translation the dynamic strings (e.g. "診療費 (3)") would
+            // not match any dictionary key and thus remain untranslated.
+            const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+            const dict = (window.translations && window.translations[lang]) ? window.translations[lang] : {};
+
+            // 按類別分組顯示。每個類別包含一個中文名稱以及對應圖示。
             const billingCategories = {
-                consultation: { name: '診療費', icon: '🩺', items: [] },
-                medicine: { name: '藥費', icon: '💊', items: [] },
-                treatment: { name: '治療費', icon: '🔧', items: [] },
-                other: { name: '其他', icon: '📋', items: [] },
-                discount: { name: '折扣項目', icon: '💸', items: [] },
-                package: { name: '套票項目', icon: '🎫', items: [] }
+                consultation: { baseName: '診療費', icon: '🩺', items: [] },
+                medicine: { baseName: '藥費', icon: '💊', items: [] },
+                treatment: { baseName: '治療費', icon: '🔧', items: [] },
+                other: { baseName: '其他', icon: '📋', items: [] },
+                discount: { baseName: '折扣項目', icon: '💸', items: [] },
+                package: { baseName: '套票項目', icon: '🎫', items: [] }
             };
 
             // 將過濾後的項目分配到對應的帳單分類中
@@ -9024,11 +9673,15 @@ async function initializeSystemAfterLogin() {
             // 建立各分類的顯示內容
             Object.keys(billingCategories).forEach(categoryKey => {
                 const category = billingCategories[categoryKey];
+                // Translate the category name based on the current language.
+                // We look up the base Chinese name in the dictionary; if no
+                // translation exists we fall back to the original Chinese.
+                const translatedName = dict[category.baseName] || category.baseName;
                 if (category.items.length > 0 && (currentBillingFilter === 'all' || currentBillingFilter === categoryKey)) {
                     html += `
                         <div class="mb-8">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                                <span class="mr-2">${category.icon}</span>${category.name} (${category.items.length})
+                                <span class="mr-2">${category.icon}</span>${translatedName} (${category.items.length})
                             </h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 ${category.items.map(item => createBillingItemCard(item)).join('')}
@@ -9213,7 +9866,13 @@ async function initializeSystemAfterLogin() {
                     // 如果輸入1-10之間的數字，自動轉換為折扣比例
                     price = price / 10;
                     document.getElementById('billingItemPrice').value = price;
-                    showToast(`已自動轉換為${(price * 100).toFixed(0)}折`, 'info');
+                    {
+                        const lang = localStorage.getItem('lang') || 'zh';
+                        const zhMsg = `已自動轉換為${(price * 100).toFixed(0)}折`;
+                        const enMsg = `Automatically converted to ${(price * 100).toFixed(0)}% discount`;
+                        const msg = lang === 'en' ? enMsg : zhMsg;
+                        showToast(msg, 'info');
+                    }
                 }
             }
             
@@ -9262,17 +9921,26 @@ async function initializeSystemAfterLogin() {
             const item = billingItems.find(b => b.id === id);
             if (!item) return;
             
-            if (confirm(`確定要刪除收費項目「${item.name}」嗎？\n\n此操作無法復原！`)) {
-                billingItems = billingItems.filter(b => b.id !== id);
-                try {
-                    await window.firebase.deleteDoc(
-                        window.firebase.doc(window.firebase.db, 'billingItems', String(id))
-                    );
-                } catch (error) {
-                    console.error('刪除收費項目資料至 Firestore 失敗:', error);
+            // 刪除收費項目確認訊息支援中英文
+            {
+                const langDel = localStorage.getItem('lang') || 'zh';
+                const zhMsgDel = `確定要刪除收費項目「${item.name}」嗎？\n\n此操作無法復原！`;
+                const enMsgDel = `Are you sure you want to delete the billing item \"${item.name}\"?\n\nThis action cannot be undone!`;
+                const confirmDel = confirm(langDel === 'en' ? enMsgDel : zhMsgDel);
+                if (confirmDel) {
+                    billingItems = billingItems.filter(b => b.id !== id);
+                    try {
+                        await window.firebase.deleteDoc(
+                            window.firebase.doc(window.firebase.db, 'billingItems', String(id))
+                        );
+                    } catch (error) {
+                        console.error('刪除收費項目資料至 Firestore 失敗:', error);
+                    }
+                    const zhToastDel = `收費項目「${item.name}」已刪除！`;
+                    const enToastDel = `Billing item \"${item.name}\" has been deleted!`;
+                    showToast(langDel === 'en' ? enToastDel : zhToastDel, 'success');
+                    displayBillingItems();
                 }
-                showToast(`收費項目「${item.name}」已刪除！`, 'success');
-                displayBillingItems();
             }
         }
 
@@ -9371,7 +10039,13 @@ async function initializeSystemAfterLogin() {
             // 檢查是否已經添加過
             const existingIndex = selectedPrescriptionItems.findIndex(p => p.id === itemId);
             if (existingIndex !== -1) {
-                showToast(`${item.name} 已經在處方中！`, 'warning');
+                {
+                    const lang = localStorage.getItem('lang') || 'zh';
+                    const zhMsg = `${item.name} 已經在處方中！`;
+                    const enMsg = `${item.name} is already in the prescription!`;
+                    const msg = lang === 'en' ? enMsg : zhMsg;
+                    showToast(msg, 'warning');
+                }
                 return;
             }
             
@@ -9400,7 +10074,15 @@ async function initializeSystemAfterLogin() {
             // 清除搜索
             clearPrescriptionSearch();
             
-            showToast(`已添加${type === 'herb' ? '中藥材' : '方劑'}：${item.name}`, 'success');
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const zhLabel = type === 'herb' ? '中藥材' : '方劑';
+                const enLabel = type === 'herb' ? 'herb' : 'formula';
+                const zhMsg = `已添加${zhLabel}：${item.name}`;
+                const enMsg = `Added ${enLabel}: ${item.name}`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'success');
+            }
         }
         
 
@@ -9559,7 +10241,13 @@ async function initializeSystemAfterLogin() {
                 // 更新現有藥費項目的數量為天數
                 selectedBillingItems[existingMedicineFeeIndex].quantity = days;
                 updateBillingDisplay();
-                showToast(`已更新藥費：${medicineFeeItem.name} x${days}天`, 'info');
+                {
+                    const lang = localStorage.getItem('lang') || 'zh';
+                    const zhMsg = `已更新藥費：${medicineFeeItem.name} x${days}天`;
+                    const enMsg = `Updated medicine fee: ${medicineFeeItem.name} x${days} days`;
+                    const msg = lang === 'en' ? enMsg : zhMsg;
+                    showToast(msg, 'info');
+                }
             } else {
                 // 如果沒有藥費項目，自動添加
                 const billingItem = {
@@ -9575,7 +10263,13 @@ async function initializeSystemAfterLogin() {
                 };
                 selectedBillingItems.push(billingItem);
                 updateBillingDisplay();
-                showToast(`已自動添加藥費：${medicineFeeItem.name} x${days}天`, 'info');
+                {
+                    const lang = localStorage.getItem('lang') || 'zh';
+                    const zhMsg = `已自動添加藥費：${medicineFeeItem.name} x${days}天`;
+                    const enMsg = `Auto-added medicine fee: ${medicineFeeItem.name} x${days} days`;
+                    const msg = lang === 'en' ? enMsg : zhMsg;
+                    showToast(msg, 'info');
+                }
             }
         }
         
@@ -9852,7 +10546,13 @@ async function initializeSystemAfterLogin() {
             // 清除搜索
             clearBillingSearch();
 
-            showToast(`已添加收費項目：${item.name}`, 'success');
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const zhMsg = `已添加收費項目：${item.name}`;
+                const enMsg = `Added billing item: ${item.name}`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'success');
+            }
         }
         
         // 更新收費項目顯示
@@ -10160,7 +10860,6 @@ async function initializeSystemAfterLogin() {
                 // 否則，單純移除
                 selectedBillingItems.splice(index, 1);
                 updateBillingDisplay();
-                // showToast(`已移除：${removedItem.name}`, 'info');
             }
         }
 
@@ -10302,7 +11001,13 @@ async function initializeSystemAfterLogin() {
                 // 取得最近一次診症記錄
                 const lastConsultation = patientConsultations.length > 0 ? patientConsultations[0] : null;
                 if (!lastConsultation || !lastConsultation.prescription) {
-                    showToast(`${patient.name} 沒有上次處方記錄可載入`, 'warning');
+                    {
+                        const lang = localStorage.getItem('lang') || 'zh';
+                        const zhMsg = `${patient.name} 沒有上次處方記錄可載入`;
+                        const enMsg = `${patient.name} has no previous prescription record to load`;
+                        const msg = lang === 'en' ? enMsg : zhMsg;
+                        showToast(msg, 'warning');
+                    }
                     return;
                 }
                 // 清空並解析處方
@@ -10477,9 +11182,19 @@ async function initializeSystemAfterLogin() {
                 // 最近一次診症記錄
                 const lastConsultation = patientConsultations.length > 0 ? patientConsultations[0] : null;
                 if (!lastConsultation || !lastConsultation.billingItems) {
-                    showToast(`${patient.name} 沒有上次收費記錄可載入`, 'warning');
+                    {
+                        const lang = localStorage.getItem('lang') || 'zh';
+                        const zhMsg = `${patient.name} 沒有上次收費記錄可載入`;
+                        const enMsg = `${patient.name} has no previous billing record to load`;
+                        const msg = lang === 'en' ? enMsg : zhMsg;
+                        showToast(msg, 'warning');
+                    }
                     return;
                 }
+                // 保存當前診症中已使用的套票抵扣項目（category 為 packageUse）
+                const existingPackageUses = Array.isArray(selectedBillingItems)
+                    ? selectedBillingItems.filter(item => item.category === 'packageUse')
+                    : [];
                 // 清空現有收費項目並解析
                 selectedBillingItems = [];
                 parseBillingItemsFromText(lastConsultation.billingItems);
@@ -10488,6 +11203,10 @@ async function initializeSystemAfterLogin() {
                 // 但後續需求也要排除 category 為 'package' 的項目（即購買套票的收費項目）。
                 if (Array.isArray(selectedBillingItems) && selectedBillingItems.length > 0) {
                     selectedBillingItems = selectedBillingItems.filter(item => item.category !== 'packageUse' && item.category !== 'package');
+                }
+                // 合併先前的套票使用項目，使其不會被覆蓋
+                if (existingPackageUses && existingPackageUses.length > 0) {
+                    selectedBillingItems = existingPackageUses.concat(selectedBillingItems);
                 }
                 // 更新顯示
                 updateBillingDisplay();
@@ -10595,7 +11314,6 @@ function parseBillingItemsFromText(billingText) {
     }
 }
         
-        // 已移除 loadPreviousBillingItemsFromConsultation 函式（未使用）
         
         // 載入指定病歷記錄到當前診症
         async function loadMedicalRecordToCurrentConsultation(consultationId) {
@@ -10666,7 +11384,19 @@ const consultationDate = (() => {
             document.getElementById('formCurrentHistory').value = consultation.currentHistory || '';
             document.getElementById('formDiagnosis').value = consultation.diagnosis || '';
             document.getElementById('formSyndrome').value = consultation.syndrome || '';
-            document.getElementById('formAcupunctureNotes').value = consultation.acupunctureNotes || '';
+                {
+                  const acnEl = document.getElementById('formAcupunctureNotes');
+                  if (acnEl) {
+                    // 使用 innerHTML 載入針灸備註，以保留方塊標記
+                    acnEl.innerHTML = consultation.acupunctureNotes || '';
+                    // 載入完成後初始化既有穴位方塊的事件，以使其可刪除與顯示提示
+                    if (typeof initializeAcupointNotesSpans === 'function') {
+                      try {
+                        initializeAcupointNotesSpans();
+                      } catch (_e) {}
+                    }
+                  }
+                }
             document.getElementById('formUsage').value = consultation.usage || '';
             document.getElementById('formTreatmentCourse').value = consultation.treatmentCourse || '';
             document.getElementById('formInstructions').value = consultation.instructions || '';
@@ -10724,6 +11454,11 @@ const consultationDate = (() => {
             }
             
             // 載入收費項目
+            // 先保存當前診症中已使用的套票抵扣項目（category 為 packageUse），以避免覆蓋
+            const existingPackageUses = Array.isArray(selectedBillingItems)
+                ? selectedBillingItems.filter(item => item.category === 'packageUse')
+                : [];
+            // 清空現有收費項目
             selectedBillingItems = [];
             if (consultation.billingItems) {
                 // 直接將收費項目設置到隱藏文本域
@@ -10736,6 +11471,11 @@ const consultationDate = (() => {
                 // 這些項目在 parseBillingItemsFromText 中會被標記為 category === 'packageUse' 或 category === 'package'。
                 if (Array.isArray(selectedBillingItems) && selectedBillingItems.length > 0) {
                     selectedBillingItems = selectedBillingItems.filter(item => item.category !== 'packageUse' && item.category !== 'package');
+                }
+
+                // 合併保留下來的套票使用項目，使其不會被覆蓋
+                if (existingPackageUses && existingPackageUses.length > 0) {
+                    selectedBillingItems = existingPackageUses.concat(selectedBillingItems);
                 }
 
                 // 嘗試為舊記錄補全套票使用的 meta 資訊（patientId 與 packageRecordId）。
@@ -10754,8 +11494,13 @@ const consultationDate = (() => {
                 // 更新收費顯示
                 updateBillingDisplay();
             } else {
-                // 清空收費項目
+                // 沒有新收費項目，但仍保留先前的套票使用項目
+                if (existingPackageUses && existingPackageUses.length > 0) {
+                    selectedBillingItems = existingPackageUses;
+                }
+                // 清空隱藏文本域
                 document.getElementById('formBillingItems').value = '';
+                // 更新收費顯示
                 updateBillingDisplay();
             }
             
@@ -10769,11 +11514,18 @@ const consultationDate = (() => {
             // 滾動到診症表單
             document.getElementById('consultationForm').scrollIntoView({ behavior: 'smooth' });
             
-            showToast(`已載入 ${patient ? patient.name : '未知病人'} 在 ${consultationDate} 的完整病歷記錄`, 'success');
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const nameStr = patient ? patient.name : '未知病人';
+                const nameEn = patient ? patient.name : 'unknown patient';
+                const zhMsg = `已載入 ${nameStr} 在 ${consultationDate} 的完整病歷記錄`;
+                const enMsg = `Loaded full medical record for ${nameEn} on ${consultationDate}`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'success');
+            }
         }
         
         // 清空診症表單時也要清空處方搜索
-        /* clearConsultationFormOld 函式已移除（未使用） */
 
 
 
@@ -11058,7 +11810,6 @@ async function editUser(id) {
         saveBtnTextEl.textContent = '更新';
     }
     
-    // 帳號及密碼欄位已移除，無需填充相關資料
     // 填充表單資料
     const displayNameEl = document.getElementById('userDisplayName');
     if (displayNameEl) displayNameEl.value = user.name || '';
@@ -11092,7 +11843,6 @@ async function saveUser() {
         showToast('權限不足，無法執行此操作', 'error');
         return;
     }
-    // 帳號及密碼欄位已移除，使用 UID 或電子郵件自動產生內部識別名稱
     const name = document.getElementById('userDisplayName').value.trim();
     const position = document.getElementById('userPosition').value.trim();
     const email = document.getElementById('userEmail').value.trim();
@@ -11290,9 +12040,13 @@ async function toggleUserStatus(id) {
     }
     
     const action = user.active ? '停用' : '啟用';
-    const confirmMessage = `確定要${action}用戶「${user.name}」嗎？\n\n${user.active ? '停用後該用戶將無法登入系統。' : '啟用後該用戶可以正常登入系統。'}`;
-    
-    if (confirm(confirmMessage)) {
+    // 啟用/停用用戶確認訊息支援中英文
+    const lang8 = localStorage.getItem('lang') || 'zh';
+    const zhMsg8 = `確定要${action}用戶「${user.name}」嗎？\n\n${user.active ? '停用後該用戶將無法登入系統。' : '啟用後該用戶可以正常登入系統。'}`;
+    const actionEn = user.active ? 'disable' : 'enable';
+    const enMsg8 = `Are you sure you want to ${actionEn} user \"${user.name}\"?\n\n${user.active ? 'Once disabled, this user will not be able to log in.' : 'Once enabled, this user will be able to log in normally.'}`;
+    const confirmMsg8 = lang8 === 'en' ? enMsg8 : zhMsg8;
+    if (confirm(confirmMsg8)) {
         // 顯示處理中狀態
         showToast('處理中...', 'info');
 
@@ -11319,9 +12073,26 @@ async function toggleUserStatus(id) {
                 
                 localStorage.setItem('users', JSON.stringify(users));
                 displayUsers();
-                showToast(`用戶「${user.name}」已${action}！`, 'success');
+                {
+                    const lang = localStorage.getItem('lang') || 'zh';
+                    // Determine English action words
+                    const actionZh = action; // '停用' or '啟用'
+                    const actionEn = user.active ? 'disabled' : 'enabled';
+                    const zhMsg = `用戶「${user.name}」已${actionZh}！`;
+                    const enMsg = `User "${user.name}" has been ${actionEn}!`;
+                    const msg = lang === 'en' ? enMsg : zhMsg;
+                    showToast(msg, 'success');
+                }
             } else {
-                showToast(`${action}用戶失敗，請稍後再試`, 'error');
+                {
+                    const lang = localStorage.getItem('lang') || 'zh';
+                    // For failure message, refer to the action in English or Chinese
+                    const actionEn = user.active ? 'disable' : 'enable';
+                    const zhMsg = `${action}用戶失敗，請稍後再試`;
+                    const enMsg = `Failed to ${actionEn} user, please try again later`;
+                    const msg = lang === 'en' ? enMsg : zhMsg;
+                    showToast(msg, 'error');
+                }
             }
         } catch (error) {
             console.error('更新用戶狀態錯誤:', error);
@@ -11359,12 +12130,12 @@ async function deleteUser(id) {
         return;
     }
     
-    const confirmMessage = `確定要刪除用戶「${user.name}」嗎？\n\n` +
-                         `職位：${user.position}\n` +
-                         `電子郵件：${user.email || '未設定'}\n\n` +
-                         `注意：此操作無法復原！`;
-    
-    if (confirm(confirmMessage)) {
+    // 刪除用戶確認訊息支援中英文
+    const lang9 = localStorage.getItem('lang') || 'zh';
+    const zhMsg9 = `確定要刪除用戶「${user.name}」嗎？\n\n職位：${user.position}\n電子郵件：${user.email || '未設定'}\n\n注意：此操作無法復原！`;
+    const enMsg9 = `Are you sure you want to delete user \"${user.name}\"?\n\nPosition: ${user.position}\nEmail: ${user.email || 'Not set'}\n\nNote: this action cannot be undone!`;
+    const confirmMsg9 = lang9 === 'en' ? enMsg9 : zhMsg9;
+    if (confirm(confirmMsg9)) {
         // 顯示刪除中狀態
         showToast('刪除中...', 'info');
 
@@ -11378,7 +12149,13 @@ async function deleteUser(id) {
                 
                 localStorage.setItem('users', JSON.stringify(users));
                 displayUsers();
-                showToast(`用戶「${user.name}」已刪除！`, 'success');
+                {
+                    const lang = localStorage.getItem('lang') || 'zh';
+                    const zhMsg = `用戶「${user.name}」已刪除！`;
+                    const enMsg = `User "${user.name}" has been deleted!`;
+                    const msg = lang === 'en' ? enMsg : zhMsg;
+                    showToast(msg, 'success');
+                }
             } else {
                 showToast('刪除用戶失敗，請稍後再試', 'error');
             }
@@ -11510,51 +12287,55 @@ async function deleteUser(id) {
             const quickDate = document.getElementById('quickDate').value;
             const today = new Date();
             let startDate, endDate;
+            // 新增：嘗試取得舊的 reportType 元素供回寫；如元素不存在則忽略
+            const rptElem = document.getElementById('reportType');
 
             switch (quickDate) {
                 case 'today':
                     startDate = endDate = today;
-                    document.getElementById('reportType').value = 'daily';
+                    if (rptElem) rptElem.value = 'daily';
                     break;
                 case 'yesterday':
                     startDate = endDate = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-                    document.getElementById('reportType').value = 'daily';
+                    if (rptElem) rptElem.value = 'daily';
                     break;
-                case 'thisWeek':
+                case 'thisWeek': {
                     const thisWeekStart = new Date(today);
                     thisWeekStart.setDate(today.getDate() - today.getDay());
                     startDate = thisWeekStart;
                     endDate = today;
-                    document.getElementById('reportType').value = 'weekly';
+                    if (rptElem) rptElem.value = 'weekly';
                     break;
-                case 'lastWeek':
+                }
+                case 'lastWeek': {
                     const lastWeekStart = new Date(today);
                     lastWeekStart.setDate(today.getDate() - today.getDay() - 7);
                     const lastWeekEnd = new Date(lastWeekStart);
                     lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
                     startDate = lastWeekStart;
                     endDate = lastWeekEnd;
-                    document.getElementById('reportType').value = 'weekly';
+                    if (rptElem) rptElem.value = 'weekly';
                     break;
+                }
                 case 'thisMonth':
                     startDate = new Date(today.getFullYear(), today.getMonth(), 1);
                     endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-                    document.getElementById('reportType').value = 'monthly';
+                    if (rptElem) rptElem.value = 'monthly';
                     break;
                 case 'lastMonth':
                     startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
                     endDate = new Date(today.getFullYear(), today.getMonth(), 0);
-                    document.getElementById('reportType').value = 'monthly';
+                    if (rptElem) rptElem.value = 'monthly';
                     break;
                 case 'thisYear':
                     startDate = new Date(today.getFullYear(), 0, 1);
                     endDate = new Date(today.getFullYear(), 11, 31);
-                    document.getElementById('reportType').value = 'yearly';
+                    if (rptElem) rptElem.value = 'yearly';
                     break;
                 case 'lastYear':
                     startDate = new Date(today.getFullYear() - 1, 0, 1);
                     endDate = new Date(today.getFullYear() - 1, 11, 31);
-                    document.getElementById('reportType').value = 'yearly';
+                    if (rptElem) rptElem.value = 'yearly';
                     break;
                 default:
                     return;
@@ -11629,7 +12410,11 @@ async function deleteUser(id) {
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             const doctorFilter = document.getElementById('doctorFilter').value;
-            const reportType = document.getElementById('reportType').value;
+            let reportType = '';
+            const rptElem = document.getElementById('reportType');
+            if (rptElem) {
+                reportType = rptElem.value;
+            }
 
             if (!startDate || !endDate) {
                 showToast('請選擇日期範圍！', 'error');
@@ -11927,7 +12712,23 @@ async function deleteUser(id) {
 function exportFinancialReport() {
     const startDate = document.getElementById('startDate').value;
     const endDate = document.getElementById('endDate').value;
-    const reportType = document.getElementById('reportType').value;
+    // 嘗試取得報表類型：舊的 reportType 元素可能不存在，改用 quickDate 文字或值
+    let reportType = '';
+    const rptElem = document.getElementById('reportType');
+    if (rptElem) {
+        reportType = rptElem.value;
+    } else {
+        const quickDateElem = document.getElementById('quickDate');
+        if (quickDateElem) {
+            // 使用選項的顯示文字，若沒有則使用值
+            const selIndex = quickDateElem.selectedIndex;
+            if (selIndex >= 0) {
+                reportType = quickDateElem.options[selIndex].text || quickDateElem.value;
+            } else {
+                reportType = quickDateElem.value;
+            }
+        }
+    }
     // 取得醫師篩選條件（若有）
     let doctorFilter = '';
     const doctorFilterInput = document.getElementById('doctorFilter');
@@ -12127,8 +12928,13 @@ function triggerBackupImport() {
  */
 async function handleBackupFile(file) {
     if (!file) return;
-    if (!window.confirm('匯入備份將覆蓋現有資料，確定要繼續嗎？')) {
-        return;
+    {
+        const lang = localStorage.getItem('lang') || 'zh';
+        const zhMsg = '匯入備份將覆蓋現有資料，確定要繼續嗎？';
+        const enMsg = 'Importing a backup will overwrite existing data; are you sure you want to continue?';
+        if (!window.confirm(lang === 'en' ? enMsg : zhMsg)) {
+            return;
+        }
     }
     const button = document.getElementById('backupImportBtn');
     setButtonLoading(button);
@@ -12307,9 +13113,14 @@ function triggerTemplateImport() {
 async function handleTemplateImportFile(file) {
   if (!file) return;
   try {
-    // 提醒使用者匯入將新增資料，不會刪除現有資料
-    if (!window.confirm('匯入模板資料將新增資料（不會刪除現有模板庫資料），是否繼續？')) {
-      return;
+    // 提醒使用者匯入將新增資料，不會刪除現有資料（支援中英文）
+    {
+      const lang = localStorage.getItem('lang') || 'zh';
+      const zhMsg = '匯入模板資料將新增資料（不會刪除現有模板庫資料），是否繼續？';
+      const enMsg = 'Importing template data will add new entries (existing template library data will not be deleted). Do you want to continue?';
+      if (!window.confirm(lang === 'en' ? enMsg : zhMsg)) {
+        return;
+      }
     }
     const text = await file.text();
     const data = JSON.parse(text);
@@ -12556,8 +13367,13 @@ function triggerHerbImport() {
 async function handleHerbImportFile(file) {
   if (!file) return;
   try {
-    if (!window.confirm('匯入中藥資料將新增資料（不會刪除現有中藥庫資料），是否繼續？')) {
-      return;
+    {
+      const lang = localStorage.getItem('lang') || 'zh';
+      const zhMsg = '匯入中藥資料將新增資料（不會刪除現有中藥庫資料），是否繼續？';
+      const enMsg = 'Importing herbal data will add new entries (existing herb library data will not be deleted). Do you want to continue?';
+      if (!window.confirm(lang === 'en' ? enMsg : zhMsg)) {
+        return;
+      }
     }
     const text = await file.text();
     const data = JSON.parse(text);
@@ -12666,19 +13482,16 @@ async function importHerbLibraryData(items, progressCallback) {
  * 清除所有模板資料（醫囑與診斷模板）。
  * 顯示進度條並逐一刪除資料。
  */
-// 已移除 clearTemplateData 功能
 
 /**
  * 清除所有中藥資料。
  * 顯示進度條並逐一刪除資料。
  */
-// 已移除 clearHerbData 功能
 
 /**
  * 觸發匯入模板與中藥資料的檔案選擇器。
  * 清空檔案輸入框並打開檔案選擇對話框。
  */
-// 已移除 triggerTemplateAndHerbImport 功能
 
 /**
  * 處理選擇的模板及中藥資料檔案。
@@ -12686,13 +13499,11 @@ async function importHerbLibraryData(items, progressCallback) {
  * 在合併匯入模式下，將會抑制單項匯入時的確認提示與無效資料錯誤提示。
  * @param {File} file 使用者選擇的檔案
  */
-// 已移除 handleTemplateAndHerbImportFile 功能
 
 /**
  * 將模板與中藥庫資料匯出為 JSON 檔案。
  * 會從 Firestore 讀取醫囑模板、診斷模板及中藥庫資料，組合成單一檔案下載。
  */
-// 已移除 exportTemplateAndHerbData 功能
 
         
 // 套票管理函式
@@ -12853,11 +13664,20 @@ async function consumePackageLocally(patientId, packageRecordId) {
 function formatPackageStatus(pkg) {
     const exp = new Date(pkg.expiresAt);
     const now = new Date();
-    const daysLeft = Math.ceil((exp - now) / (1000*60*60*24));
+    const daysLeft = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
     const expired = daysLeft < 0;
+    // 根據當前語言輸出不同的文字。en 表示英文，其餘以中文為預設。
+    const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+    if (lang && lang.toLowerCase().startsWith('en')) {
+        // Build English string
+        return expired
+            ? `Expired (${exp.toLocaleDateString('en-US')})`
+            : `Remaining ${pkg.remainingUses}/${pkg.totalUses} uses · ${exp.toLocaleDateString('en-US')} expires (about ${daysLeft} days)`;
+    }
+    // Default: Chinese
     return expired
-      ? `已到期（${exp.toLocaleDateString('zh-TW')}）`
-      : `剩餘 ${pkg.remainingUses}/${pkg.totalUses} 次 · ${exp.toLocaleDateString('zh-TW')} 到期（約 ${daysLeft} 天）`;
+        ? `已到期（${exp.toLocaleDateString('zh-TW')}）`
+        : `剩餘 ${pkg.remainingUses}/${pkg.totalUses} 次 · ${exp.toLocaleDateString('zh-TW')} 到期（約 ${daysLeft} 天）`;
 }
 
 async function renderPatientPackages(patientId) {
@@ -12995,62 +13815,63 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
         const pageValid = pageItems.filter(item => item.valid).map(item => item.pkg);
         const pageInvalid = pageItems.filter(item => !item.valid).map(item => item.pkg);
         // 產生 HTML
+        // 重新排列套票：將失效套票接續在有效套票之後，避免右側空白
         let htmlParts = [];
-        htmlParts.push('<div class="grid grid-cols-1 md:grid-cols-2 gap-4">');
-        // 有效套票區
-        htmlParts.push('<div>');
+        // 使用一個垂直容器，依序渲染有效與失效套票
+        htmlParts.push('<div class="space-y-4">');
+        // 有效套票列表
         if (pageValid.length > 0) {
             htmlParts.push('<div class="font-medium text-gray-700 mb-2">有效套票</div>');
-        }
-        htmlParts.push('<div class="space-y-2">');
-        pageValid.forEach(pkg => {
-            const safePkgName = window.escapeHtml(pkg.name || '');
-            const statusText = formatPackageStatus(pkg);
-            const safeStatusText = window.escapeHtml(statusText || '');
-            const remainingUses = typeof pkg.remainingUses === 'number' ? pkg.remainingUses : '';
-            const totalUses = typeof pkg.totalUses === 'number' ? pkg.totalUses : '';
-            const expDate = new Date(pkg.expiresAt);
-            const lowUses = typeof pkg.remainingUses === 'number' && pkg.remainingUses <= 2;
-            // 判斷是否即將到期或剩餘次數少於等於 2
-            const highlight = (expDate <= soonThreshold) || lowUses;
-            const containerClasses = highlight ? 'bg-red-50 border border-red-200' : 'bg-purple-50 border border-purple-200';
-            const nameClass = highlight ? 'text-red-700' : 'text-purple-900';
-            const statusClass = highlight ? 'text-red-600' : 'text-gray-600';
-            const usesClass = highlight ? 'text-red-700' : 'text-gray-800';
-            htmlParts.push(`
-                <div class="flex items-center justify-between ${containerClasses} rounded p-2">
-                    <div>
-                        <div class="font-medium ${nameClass}">${safePkgName}</div>
-                        <div class="text-xs ${statusClass}">${safeStatusText}</div>
+            htmlParts.push('<div class="space-y-2">');
+            pageValid.forEach(pkg => {
+                const safePkgName = window.escapeHtml(pkg.name || '');
+                const statusText = formatPackageStatus(pkg);
+                const safeStatusText = window.escapeHtml(statusText || '');
+                const remainingUses = typeof pkg.remainingUses === 'number' ? pkg.remainingUses : '';
+                const totalUses = typeof pkg.totalUses === 'number' ? pkg.totalUses : '';
+                const expDate = new Date(pkg.expiresAt);
+                const lowUses = typeof pkg.remainingUses === 'number' && pkg.remainingUses <= 2;
+                // 判斷是否即將到期或剩餘次數少於等於 2
+                const highlight = (expDate <= soonThreshold) || lowUses;
+                const containerClasses = highlight ? 'bg-red-50 border border-red-200' : 'bg-purple-50 border border-purple-200';
+                const nameClass = highlight ? 'text-red-700' : 'text-purple-900';
+                const statusClass = highlight ? 'text-red-600' : 'text-gray-600';
+                const usesClass = highlight ? 'text-red-700' : 'text-gray-800';
+                htmlParts.push(`
+                    <div class="flex items-center justify-between ${containerClasses} rounded p-2">
+                        <div>
+                            <div class="font-medium ${nameClass}">${safePkgName}</div>
+                            <div class="text-xs ${statusClass}">${safeStatusText}</div>
+                        </div>
+                        <div class="text-sm ${usesClass}">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
                     </div>
-                    <div class="text-sm ${usesClass}">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
-                </div>
-            `);
-        });
-        htmlParts.push('</div></div>');
-        // 失效套票區
-        htmlParts.push('<div>');
+                `);
+            });
+            htmlParts.push('</div>');
+        }
+        // 失效套票列表
         if (pageInvalid.length > 0) {
-            htmlParts.push('<div class="font-medium text-gray-700 mb-2">失效套票</div>');
-        }
-        htmlParts.push('<div class="space-y-2">');
-        pageInvalid.forEach(pkg => {
-            const safePkgName = window.escapeHtml(pkg.name || '');
-            const statusText = formatPackageStatus(pkg);
-            const safeStatusText = window.escapeHtml(statusText || '');
-            const remainingUses = typeof pkg.remainingUses === 'number' ? pkg.remainingUses : '';
-            const totalUses = typeof pkg.totalUses === 'number' ? pkg.totalUses : '';
-            htmlParts.push(`
-                <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded p-2">
-                    <div>
-                        <div class="font-medium text-gray-500">${safePkgName}</div>
-                        <div class="text-xs text-gray-400">${safeStatusText}</div>
+            htmlParts.push('<div class="font-medium text-gray-700 mb-2' + (pageValid.length > 0 ? ' mt-4' : '') + '">失效套票</div>');
+            htmlParts.push('<div class="space-y-2">');
+            pageInvalid.forEach(pkg => {
+                const safePkgName = window.escapeHtml(pkg.name || '');
+                const statusText = formatPackageStatus(pkg);
+                const safeStatusText = window.escapeHtml(statusText || '');
+                const remainingUses = typeof pkg.remainingUses === 'number' ? pkg.remainingUses : '';
+                const totalUses = typeof pkg.totalUses === 'number' ? pkg.totalUses : '';
+                htmlParts.push(`
+                    <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded p-2">
+                        <div>
+                            <div class="font-medium text-gray-500">${safePkgName}</div>
+                            <div class="text-xs text-gray-400">${safeStatusText}</div>
+                        </div>
+                        <div class="text-sm text-gray-500">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
                     </div>
-                    <div class="text-sm text-gray-500">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
-                </div>
-            `);
-        });
-        htmlParts.push('</div></div></div>');
+                `);
+            });
+            htmlParts.push('</div>');
+        }
+        htmlParts.push('</div>');
         contentEl.innerHTML = htmlParts.join('');
         // 渲染分頁控制
         const paginEl = ensurePaginationContainer('packageStatusContent', 'patientPackageStatusPagination');
@@ -13131,10 +13952,22 @@ async function useOnePackage(patientId, packageRecordId) {
         } catch (_e) {}
         updateBillingDisplay();
         await refreshPatientPackagesUI();
-        showToast(`已使用套票：${res.record.name}，剩餘 ${res.record.remainingUses} 次`, 'success');
+        {
+            const lang = localStorage.getItem('lang') || 'zh';
+            const zhMsg = `已使用套票：${res.record.name}，剩餘 ${res.record.remainingUses} 次`;
+            const enMsg = `Used package: ${res.record.name}, remaining ${res.record.remainingUses} uses`;
+            const msg = lang === 'en' ? enMsg : zhMsg;
+            showToast(msg, 'success');
+        }
     } catch (error) {
         console.error('使用套票時發生錯誤:', error);
-        showToast('使用套票時發生錯誤', 'error');
+        {
+            const lang = localStorage.getItem('lang') || 'zh';
+            const zhMsg = '使用套票時發生錯誤';
+            const enMsg = 'An error occurred while using the package';
+            const msg = lang === 'en' ? enMsg : zhMsg;
+            showToast(msg, 'error');
+        }
     } finally {
         if (loadingButton) {
             clearButtonLoading(loadingButton);
@@ -13566,13 +14399,40 @@ class FirebaseDataManager {
             } catch (err) {
                 console.error('搜尋病人時發生錯誤:', err);
             }
-            // 若結果未達上限且有本地快取，從快取中搜尋舊資料
-            if (Array.isArray(this.patientsCache) && results.length < limit) {
+            /*
+             * 透過 searchKeywords 查詢後，我們還需要在本地快取中進行補強搜尋。
+             * 過去僅當 Firestore 查詢結果不足時才進行快取搜尋，這會導致當
+             * searchKeywords 中沒有包含使用者輸入的字串時，若目前快取尚未載入，
+             * 使用者輸入的電話或病人編號片段等條件無法被匹配到。
+             * 為了解決這個問題，我們改為總是載入快取（若尚未存在），並在
+             * 本地資料上比對名稱、電話、身分證與病人編號等欄位是否包含輸入字串。
+             */
+            let localPatients = [];
+            try {
+                // 如果 patientsCache 尚未載入，主動讀取全體病人列表以利搜尋
+                if (!Array.isArray(this.patientsCache)) {
+                    const patientRes = await this.getPatients();
+                    if (patientRes && patientRes.success && Array.isArray(patientRes.data)) {
+                        localPatients = patientRes.data;
+                        // 更新快取以供下次使用
+                        this.patientsCache = patientRes.data;
+                    }
+                } else {
+                    localPatients = this.patientsCache;
+                }
+            } catch (cacheErr) {
+                console.error('讀取病人快取時發生錯誤:', cacheErr);
+                localPatients = Array.isArray(this.patientsCache) ? this.patientsCache : [];
+            }
+            // 在本地資料中補強搜尋，避免重複加入已在 results 中的病人。
+            if (Array.isArray(localPatients) && localPatients.length > 0) {
                 const seen = new Set(results.map(p => String(p.id)));
                 const low = searchTerm;
-                for (const p of this.patientsCache) {
+                for (const p of localPatients) {
+                    // 控制返回數量不超過指定 limit
                     if (results.length >= limit) break;
                     if (seen.has(String(p.id))) continue;
+                    // 比對姓名、電話、身分證字號與病人編號欄位
                     const nameMatch = p.name && String(p.name).toLowerCase().includes(low);
                     const phoneMatch = p.phone && String(p.phone).toLowerCase().includes(low);
                     const idMatch = p.idCard && String(p.idCard).toLowerCase().includes(low);
@@ -14451,14 +15311,41 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // 病人管理搜尋欄位：輸入時重新載入病人列表
+    // 病人管理搜尋欄位：輸入時重新載入病人列表（加入防抖處理）
     const searchInput = document.getElementById('searchPatient');
     if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            // 搜尋時重置分頁至第一頁
-            paginationSettings.patientList.currentPage = 1;
-            loadPatientList();
-        });
+        // 建立防抖函式，於輸入後延遲一段時間再載入病人列表
+        const debouncedLoadPatientList = debounce(() => {
+            try {
+                // 搜尋時重置分頁至第一頁
+                paginationSettings.patientList.currentPage = 1;
+                loadPatientList();
+            } catch (_err) {
+                console.error('載入病人列表時發生錯誤:', _err);
+            }
+        }, 300);
+        searchInput.addEventListener('input', debouncedLoadPatientList);
+    }
+
+    // 掛號彈窗的病人搜尋欄位：加入防抖處理
+    const patientSearchInput = document.getElementById('patientSearchInput');
+    if (patientSearchInput) {
+        // 移除 HTML 中設定的 oninput 以避免重複觸發
+        try {
+            patientSearchInput.removeAttribute('oninput');
+        } catch (_e) {
+            // 若移除失敗則忽略
+        }
+        const debouncedSearchPatients = debounce(() => {
+            try {
+                if (typeof searchPatientsForRegistration === 'function') {
+                    searchPatientsForRegistration();
+                }
+            } catch (_err) {
+                console.error('搜尋掛號病人時發生錯誤:', _err);
+            }
+        }, 300);
+        patientSearchInput.addEventListener('input', debouncedSearchPatients);
     }
 
     // 當選擇問診資料時，自動隱藏主訴症狀輸入欄位。
@@ -14872,7 +15759,6 @@ document.addEventListener('DOMContentLoaded', function() {
   window.triggerHerbImport = triggerHerbImport;
   window.handleHerbImportFile = handleHerbImportFile;
 
-  // 已移除合併匯入/匯出及清除資料相關函式
   // 預留 isCombinedImportMode 旗標為 false，以維持既有匯入流程的邏輯判斷
   window.isCombinedImportMode = false;
 
@@ -16179,10 +17065,15 @@ function refreshTemplateCategoryFilters() {
             showEditModal('herb', newItem.name);
           }
 
-          /* duplicateHerbCombination 函式已移除（未使用） */
 
-          function deleteHerbCombination(id) {
-            if (!confirm('確定要刪除此藥方組合嗎？')) return;
+function deleteHerbCombination(id) {
+            // 刪除藥方組合確認訊息支援中英文
+            {
+              const lang = localStorage.getItem('lang') || 'zh';
+              const zhMsg = '確定要刪除此藥方組合嗎？';
+              const enMsg = 'Are you sure you want to delete this herb combination?';
+              if (!confirm(lang === 'en' ? enMsg : zhMsg)) return;
+            }
             herbCombinations = herbCombinations.filter(h => h.id !== id);
             renderHerbCombinations();
             // Persist changes for personal herb combinations
@@ -16239,9 +17130,8 @@ function refreshTemplateCategoryFilters() {
                   const nameMatch = (item.name && item.name.toLowerCase().includes(searchTerm));
                   const techniqueMatch = (item.technique && item.technique.toLowerCase().includes(searchTerm));
                   const pointsMatch = Array.isArray(item.points) && item.points.some(pt => {
-                    const nm = pt && pt.name && pt.name.toLowerCase().includes(searchTerm);
-                    const ty = pt && pt.type && pt.type.toLowerCase().includes(searchTerm);
-                    return nm || ty;
+                    // 搜尋穴位名稱
+                    return pt && pt.name && pt.name.toLowerCase().includes(searchTerm);
                   });
                   matchesSearch = nameMatch || techniqueMatch || pointsMatch;
                 }
@@ -16298,22 +17188,19 @@ function refreshTemplateCategoryFilters() {
                 </div>
                 <div class="text-sm text-gray-700 space-y-1">
                   ${item.points.map(pt => {
-                    // 取得名稱與類型，處理可能為空或未定義的情況
+                    // 取得名稱，處理可能為空或未定義的情況
                     const nameVal = pt && pt.name ? pt.name : '';
-                    const typeVal = pt && pt.type ? pt.type : '';
                     // 取得該穴位的提示內容並進行 URL 編碼
                     const tooltipContent = getAcupointTooltipContent(nameVal);
                     const encoded = tooltipContent ? encodeURIComponent(tooltipContent) : '';
-                    // 根據是否有提示內容來組合 tooltip 屬性與事件
+                    // 組合 tooltip 屬性與事件
                     let attrs = '';
                     if (tooltipContent) {
-                      // 此處必須以 \`data-tooltip\` 加上單引號包裹，在單引號字串中需使用 \\\' 轉義
                       attrs = ' data-tooltip="' + encoded + '" onmouseenter="showTooltip(event, this.getAttribute(\'data-tooltip\'))" onmousemove="moveTooltip(event)" onmouseleave="hideTooltip()"';
                     }
-                    // 返回渲染字串，使用藍色系樣式以區分穴位類型
-                    return '<div class="flex justify-between items-center p-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded text-sm"' + attrs + '>' +
+                    // 返回渲染字串，只顯示穴位名稱
+                    return '<div class="flex items-center p-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded text-sm"' + attrs + '>' +
                       '<span class="text-blue-800">' + window.escapeHtml(nameVal) + '</span>' +
-                      '<span class="text-blue-600 bg-blue-100 px-2 py-1 rounded">' + window.escapeHtml(typeVal) + '</span>' +
                       '</div>';
                   }).join('')}
                 </div>
@@ -16353,10 +17240,15 @@ function refreshTemplateCategoryFilters() {
             showEditModal('acupoint', newItem.name);
           }
 
-          /* duplicateAcupointCombination 函式已移除（未使用） */
 
-          function deleteAcupointCombination(id) {
-            if (!confirm('確定要刪除此穴位組合嗎？')) return;
+function deleteAcupointCombination(id) {
+            // 刪除穴位組合確認訊息支援中英文
+            {
+              const lang = localStorage.getItem('lang') || 'zh';
+              const zhMsg = '確定要刪除此穴位組合嗎？';
+              const enMsg = 'Are you sure you want to delete this acupuncture combination?';
+              if (!confirm(lang === 'en' ? enMsg : zhMsg)) return;
+            }
             acupointCombinations = acupointCombinations.filter(a => a.id !== id);
             renderAcupointCombinations();
             // Persist changes for personal acupoint combinations
@@ -16844,13 +17736,11 @@ function refreshTemplateCategoryFilters() {
               if (acuKeyword) {
                 combos = combos.filter(combo => {
                   const nameStr = combo.name ? combo.name.toLowerCase() : '';
-                  // 將穴位名稱與類型串起來供搜尋
+                  // 將穴位名稱串起來供搜尋
                   let pointsStr = '';
                   if (Array.isArray(combo.points)) {
                     pointsStr = combo.points.map(pt => {
-                      const n = pt && pt.name ? String(pt.name).toLowerCase() : '';
-                      const t = pt && pt.type ? String(pt.type).toLowerCase() : '';
-                      return n + t;
+                      return pt && pt.name ? String(pt.name).toLowerCase() : '';
                     }).join(' ');
                   }
                   const techniqueStr = combo.technique ? String(combo.technique).toLowerCase() : '';
@@ -16869,11 +17759,11 @@ function refreshTemplateCategoryFilters() {
                 combos.forEach(combo => {
                   const itemDiv = document.createElement('div');
                   itemDiv.className = 'p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer';
+                  // 組合穴位名稱用於列表顯示（不再顯示主穴/配穴）
                   const pointsText = (combo.points && combo.points.length > 0)
                     ? combo.points.map(pt => {
                         const pName = pt && pt.name ? window.escapeHtml(pt.name) : '';
-                        const pType = pt && pt.type ? window.escapeHtml(pt.type) : '';
-                        return pName + (pType ? '(' + pType + ')' : '');
+                        return pName;
                       }).join('、')
                     : '';
                   const safeComboName = combo.name ? window.escapeHtml(combo.name) : '';
@@ -16907,17 +17797,44 @@ function refreshTemplateCategoryFilters() {
               const combo = acupointCombinations.find(c => String(c.id) === String(comboId));
               if (!combo) return;
               hideAcupointComboModal();
-              let note = '';
-              if (Array.isArray(combo.points) && combo.points.length > 0) {
-                note += combo.points.map(pt => pt.name + (pt.type ? '(' + pt.type + ')' : '')).join('、');
-              }
-              if (combo.technique) {
-                if (note.length > 0) note += '，';
-                note += '針法：' + combo.technique;
-              }
-              const textarea = document.getElementById('formAcupunctureNotes');
-              if (textarea) {
-                textarea.value = note;
+              const notesEl = document.getElementById('formAcupunctureNotes');
+              if (notesEl) {
+                // 若有既有內容，將游標移至末尾，準備插入
+                // 使用 addAcupointToNotes 將每個穴位以方塊形式插入
+                try {
+                  if (Array.isArray(combo.points) && combo.points.length > 0) {
+                    combo.points.forEach(pt => {
+                      if (pt && pt.name) {
+                        addAcupointToNotes(pt.name);
+                      }
+                    });
+                  }
+                  // 插入針法文字（如有）
+                  if (combo.technique && combo.technique.trim()) {
+                    // 新增一個文字節點（含前導文字）
+                    const prefix = '針法：';
+                    // 若備註區已有內容且末尾不是空白，則添加一個空格分隔
+                    const lastChild = notesEl.lastChild;
+                    if (lastChild && lastChild.nodeType === Node.TEXT_NODE) {
+                      // ok
+                    } else {
+                      // 若最後不是文字節點，先添加一個空格
+                      notesEl.appendChild(document.createTextNode(' '));
+                    }
+                    notesEl.appendChild(document.createTextNode(prefix + combo.technique));
+                  }
+                } catch (_e) {
+                  // fallback：若 addAcupointToNotes 執行失敗，則直接將文字插入
+                  let noteStr = '';
+                  if (Array.isArray(combo.points) && combo.points.length > 0) {
+                    noteStr += combo.points.map(pt => pt.name).join('、');
+                  }
+                  if (combo.technique && combo.technique.trim()) {
+                    if (noteStr.length > 0) noteStr += '，';
+                    noteStr += '針法：' + combo.technique;
+                  }
+                  notesEl.innerText = noteStr;
+                }
               }
               showToast('已載入常用穴位組合：' + combo.name, 'success');
             } catch (error) {
@@ -16941,7 +17858,30 @@ function refreshTemplateCategoryFilters() {
                 : 0;
               const countElem = document.getElementById('prescriptionCount');
               if (countElem) {
-                countElem.textContent = String(totalCount);
+                // Update the displayed total count
+                const newCount = String(totalCount);
+                countElem.textContent = newCount;
+                /*
+                 * Also update the i18n metadata on this element. When switching
+                 * languages, the translation script relies on dataset.originalText
+                 * to restore the original Chinese text. If this element was
+                 * initialised with a placeholder value (e.g. "1") it will be
+                 * stored as dataset.originalText and reused whenever the
+                 * language toggles, causing the count to revert to that initial
+                 * value. By refreshing dataset.originalText with the current
+                 * count we ensure the translation logic treats the updated
+                 * numeric value as the new "original" and does not revert it.
+                 */
+                try {
+                  if (countElem.dataset) {
+                    countElem.dataset.originalText = newCount;
+                    // Reset lastLang so translation will re-evaluate this node
+                    // the next time the language changes. An empty string
+                    // forces translateNode to process the element instead of
+                    // skipping it because of a matching lastLang.
+                    countElem.dataset.lastLang = '';
+                  }
+                } catch (_err) {}
               }
             } catch (_e) {}
             // 分頁：若非頁面跳轉則重置至第一頁
@@ -16983,7 +17923,7 @@ function refreshTemplateCategoryFilters() {
                     </div>
                   </div>
                   <div class="flex gap-2">
-                    <!-- 操作按鈕已移除 -->
+                    
                   </div>
                 </div>
                 <div class="bg-gray-50 p-4 rounded-lg text-gray-700">
@@ -17000,33 +17940,6 @@ function refreshTemplateCategoryFilters() {
             }, paginEl);
           }
 
-          function addNewPrescriptionTemplate() {
-            // 使用編輯介面新增醫囑模板：建立空白項目並開啟編輯介面
-            const newItem = {
-              id: Date.now(),
-              name: '',
-              category: (typeof categories !== 'undefined' && categories.prescriptions && categories.prescriptions.length > 0) ? categories.prescriptions[0] : '',
-              duration: '',
-              followUp: '',
-              content: '',
-              note: '',
-              lastModified: new Date().toISOString().split('T')[0],
-              // 標記為新建項目，用於取消時移除
-              isNew: true
-            };
-            prescriptionTemplates.push(newItem);
-            renderPrescriptionTemplates();
-            showEditModal('prescription', newItem.name);
-          }
-
-          /* duplicatePrescriptionTemplate 函式已移除（未使用） */
-
-          async function deletePrescriptionTemplate(id) {
-            if (!confirm('確定要刪除此醫囑模板嗎？')) return;
-            prescriptionTemplates = prescriptionTemplates.filter(p => p.id !== id);
-            // 不再從 Firestore 刪除醫囑模板；直接重新渲染列表
-            renderPrescriptionTemplates();
-          }
 
           // 渲染診斷模板
           function renderDiagnosisTemplates(list, pageChange = false) {
@@ -17043,7 +17956,25 @@ function refreshTemplateCategoryFilters() {
                 : 0;
               const countElem = document.getElementById('diagnosisCount');
               if (countElem) {
-                countElem.textContent = String(totalCount);
+                // Update the displayed total count
+                const newCount = String(totalCount);
+                countElem.textContent = newCount;
+                /*
+                 * Refresh the i18n metadata for this element. Without updating
+                 * dataset.originalText the translation system will revert this
+                 * count back to its initial value (often 1) whenever the
+                 * language is toggled. Setting dataset.originalText to the
+                 * current count ensures that language switching preserves the
+                 * correct value. Resetting dataset.lastLang forces the
+                 * translation function to reprocess this element when the
+                 * language changes, thereby using the updated originalText.
+                 */
+                try {
+                  if (countElem.dataset) {
+                    countElem.dataset.originalText = newCount;
+                    countElem.dataset.lastLang = '';
+                  }
+                } catch (_err) {}
               }
             } catch (_e) {}
             // 分頁：非頁面跳轉時重置頁數
@@ -17109,7 +18040,7 @@ function refreshTemplateCategoryFilters() {
                     </div>
                   </div>
                   <div class="flex gap-2">
-                    <!-- 操作按鈕已移除 -->
+                    
                   </div>
                 </div>
                 <div class="bg-gray-50 p-4 rounded-lg text-gray-700">
@@ -17126,36 +18057,7 @@ function refreshTemplateCategoryFilters() {
             }, paginEl);
           }
 
-          function addNewDiagnosisTemplate() {
-            // 使用編輯介面新增診斷模板：建立空白項目並開啟編輯介面
-            const newItem = {
-              id: Date.now(),
-              name: '',
-              category: (typeof categories !== 'undefined' && categories.diagnosis && categories.diagnosis.length > 0) ? categories.diagnosis[0] : '',
-              // 新增診斷模板欄位：主訴、現病史、舌象、脈象、中醫診斷、證型診斷
-              chiefComplaint: '',
-              currentHistory: '',
-              tongue: '',
-              pulse: '',
-              tcmDiagnosis: '',
-              syndromeDiagnosis: '',
-              lastModified: new Date().toISOString().split('T')[0],
-              // 標記為新建項目，用於取消時移除
-              isNew: true
-            };
-            diagnosisTemplates.push(newItem);
-            renderDiagnosisTemplates();
-            showEditModal('diagnosis', newItem.name);
-          }
-
-          /* duplicateDiagnosisTemplate 函式已移除（未使用） */
-
-          async function deleteDiagnosisTemplate(id) {
-            if (!confirm('確定要刪除此診斷模板嗎？')) return;
-            diagnosisTemplates = diagnosisTemplates.filter(d => d.id !== id);
-            // 不再從 Firestore 刪除診斷模板；直接重新渲染列表
-            renderDiagnosisTemplates();
-          }
+          
 
           /**
            * 初始化模板庫搜尋功能，綁定搜尋和分類變更事件。
@@ -17416,14 +18318,21 @@ function refreshTemplateCategoryFilters() {
           }
 
           function removeCategory(type, index) {
-            if (confirm('確定要刪除此分類嗎？')) {
-              // 先從全域分類中移除目標分類並取得被移除的名稱
-              let removedArr = [];
-              try {
-                removedArr = categories[type].splice(index, 1);
-              } catch (_e) {
-                removedArr = [];
+            // 刪除此分類確認訊息支援中英文
+            {
+              const lang = localStorage.getItem('lang') || 'zh';
+              const zhMsg = '確定要刪除此分類嗎？';
+              const enMsg = 'Are you sure you want to delete this category?';
+              if (!confirm(lang === 'en' ? enMsg : zhMsg)) {
+                return;
               }
+            }
+            // 先從全域分類中移除目標分類並取得被移除的名稱
+            let removedArr = [];
+            try {
+              removedArr = categories[type].splice(index, 1);
+            } catch (_e) {
+              removedArr = [];
               const removed = Array.isArray(removedArr) ? removedArr[0] : undefined;
               // 若修改的是中藥或穴位分類，則需同步更新個人慣用分類，移除已刪除的分類
               try {
@@ -17552,25 +18461,21 @@ function refreshTemplateCategoryFilters() {
             modal.classList.remove('hidden');
             // 若為穴位組合，使用搜尋介面及提示框顯示完整資料。此邏輯將在此返回，避免進入舊的穴位分支。
             if (itemType === 'acupoint') {
-              // 建立已存在穴位行的 HTML，每行包含提示資訊、名稱、類型選擇與刪除按鈕
+              // 建立已存在穴位行的 HTML，每行包含提示資訊、名稱與刪除按鈕
               const acupointRowsHtml = Array.isArray(item.points)
                 ? item.points.map(pt => {
                     const nameVal = (pt && pt.name) ? pt.name : '';
-                    const typeVal = (pt && pt.type) ? pt.type : '主穴';
                     const tooltipContent = getAcupointTooltipContent(nameVal);
                     const encoded = tooltipContent ? encodeURIComponent(tooltipContent) : '';
                     const nameAttr = nameVal ? (' data-acupoint-name="' + nameVal.replace(/\"/g, '&quot;') + '"') : '';
                     let tooltipAttr = '';
                     if (tooltipContent) {
-                      // 將鼠標提示字串中的單引號正確跳脫。原本使用 \\'data-tooltip\\' 會在字串中留下兩個反斜線，導致語法錯誤。
-                      // 改為使用 \'data-tooltip\'，即可正確產生內嵌屬性，避免解析錯誤。
+                      // 將鼠標提示字串中的單引號正確跳脫，使用 data-tooltip 屬性
                       tooltipAttr = ' data-tooltip="' + encoded + '" onmouseenter="showTooltip(event, this.getAttribute(\'data-tooltip\'))" onmousemove="moveTooltip(event)" onmouseleave="hideTooltip()"';
                     }
-                    const options = ['主穴','配穴'].map(opt => '<option value="' + opt + '" ' + (opt === typeVal ? 'selected' : '') + '>' + opt + '</option>').join('');
                     return '<div class="flex items-center gap-2 p-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded"' + nameAttr + tooltipAttr + '>' +
                       '<span class="flex-1 text-blue-800">' + (typeof window !== 'undefined' && window.escapeHtml ? window.escapeHtml(nameVal) : nameVal) + '</span>' +
-                      '<select class="w-24 px-2 py-1 border border-gray-300 rounded">' + options + '</select>' +
-                      '<button type="button" class="text-red-500 hover:text-red-700 text-sm" onclick="this.parentElement.remove()">刪除</button>' +
+                      '<button type="button" class="text-red-500 hover:text-red-700 text-sm" onclick="removeParentElement(this)">刪除</button>' +
                       '</div>';
                   }).join('')
                 : '';
@@ -17630,7 +18535,7 @@ function refreshTemplateCategoryFilters() {
                       // 劑量輸入欄
                       '<input type="number" value="' + (dosageVal || '') + '" placeholder="" class="w-20 px-2 py-1 border border-gray-300 rounded">' +
                       '<span class="text-sm text-gray-700">克</span>' +
-                    '<button type="button" class="text-red-500 hover:text-red-700 text-sm" onclick="this.parentElement.remove()">刪除</button>' +
+                    '<button type="button" class="text-red-500 hover:text-red-700 text-sm" onclick="removeParentElement(this)">刪除</button>' +
                       '</div>';
                   }).join('')
                 : '';
@@ -17684,7 +18589,10 @@ function refreshTemplateCategoryFilters() {
                   <div>
                     <label class="block text-gray-700 font-medium mb-2">穴位列表</label>
                     <div id="acupointPoints" class="space-y-2">
-${item.points.map(pt => '<div class="flex items-center gap-2"><input type="text" value="' + (pt.name || '') + '" placeholder="穴位名稱" class="w-1/2 px-2 py-1 border border-gray-300 rounded"><input type="text" value="' + (pt.type || '') + '" placeholder="主穴/配穴" class="w-28 px-2 py-1 border border-gray-300 rounded"><button type="button" class="text-red-500 hover:text-red-700 text-sm" onclick="this.parentElement.remove()">刪除</button></div>').join('')}
+${item.points.map(pt => {
+  const nameVal = pt && pt.name ? pt.name : '';
+  return '<div class="flex items-center gap-2"><input type="text" value="' + nameVal + '" placeholder="穴位名稱" class="flex-1 px-2 py-1 border border-gray-300 rounded"><button type="button" class="text-red-500 hover:text-red-700 text-sm" onclick="removeParentElement(this)">刪除</button></div>';
+}).join('')}
                     </div>
                     <button onclick="addAcupointPointField()" class="mt-2 text-sm text-blue-600 hover:text-blue-800">+ 新增穴位</button>
                   </div>
@@ -17922,23 +18830,17 @@ ${item.points.map(pt => '<div class="flex items-center gap-2"><input type="text"
               // 將每一列的穴位資料取出為物件陣列，支援新舊兩種結構
               const newPoints = Array.from(pointRows).map(row => {
                 let name = '';
-                let type = '';
-                // 新版本：名稱存在於 dataset.acupointName，類型由 select 取得
+                // 名稱可以從 dataset.acupointName 或 input 取得。
                 if (row.dataset && row.dataset.acupointName) {
                   name = row.dataset.acupointName;
-                  const selectEl = row.querySelector('select');
-                  type = selectEl ? selectEl.value : '';
                 } else {
-                  // 舊版本：名稱與類型儲存在 input 中
                   const inputs = row.querySelectorAll('input');
-                  if (inputs.length >= 2) {
-                    name = inputs[0].value;
-                    type = inputs[1].value;
-                  } else if (inputs.length === 1) {
+                  if (inputs.length >= 1) {
                     name = inputs[0].value;
                   }
                 }
-                return { name: name, type: type };
+                // 由於已取消主穴/配穴選擇，仍保留空字串屬性以與舊資料格式相容
+                return { name: name, type: '' };
               });
               // 過濾出名稱非空的穴位，用於檢查是否至少新增一項
               const validPoints = newPoints.filter(pt => pt && pt.name && String(pt.name).trim() !== '');
@@ -18033,7 +18935,6 @@ ${item.points.map(pt => '<div class="flex items-center gap-2"><input type="text"
             hideEditModal();
           }
 
-          /* addHerbIngredientField 函式已移除（未使用） */
 
           function addAcupointPointField() {
             const container = document.getElementById('acupointPoints');
@@ -18042,7 +18943,8 @@ ${item.points.map(pt => '<div class="flex items-center gap-2"><input type="text"
             div.className = 'flex items-center gap-2';
             // 建立名稱與類型輸入框以及刪除按鈕，刪除按鈕點擊後可移除所在行
     // 調整穴位名稱欄位寬度為一半，避免在手機或小螢幕上過長
-    div.innerHTML = '<input type="text" placeholder="穴位名稱" class="w-1/2 px-2 py-1 border border-gray-300 rounded"><input type="text" placeholder="主穴/配穴" class="w-28 px-2 py-1 border border-gray-300 rounded"><button type="button" class="text-red-500 hover:text-red-700 text-sm" onclick="this.parentElement.remove()">刪除</button>';
+    // 只建立穴位名稱輸入框與刪除按鈕，不再顯示主穴/配穴選擇
+    div.innerHTML = '<input type="text" placeholder="穴位名稱" class="flex-1 px-2 py-1 border border-gray-300 rounded"><button type="button" class="text-red-500 hover:text-red-700 text-sm" onclick="removeParentElement(this)">刪除</button>';
             container.appendChild(div);
           }
 
@@ -18334,16 +19236,7 @@ ${item.points.map(pt => '<div class="flex items-center gap-2"><input type="text"
             nameSpan.className = 'flex-1 text-blue-800';
             nameSpan.textContent = name || '';
             div.appendChild(nameSpan);
-            // 類型選擇（主穴/配穴）
-            const select = document.createElement('select');
-            select.className = 'w-24 px-2 py-1 border border-gray-300 rounded';
-            ['主穴','配穴'].forEach(opt => {
-              const opEl = document.createElement('option');
-              opEl.value = opt;
-              opEl.textContent = opt;
-              select.appendChild(opEl);
-            });
-            div.appendChild(select);
+    // 不再顯示主穴/配穴選擇，僅顯示名稱與刪除按鈕
             // 刪除按鈕
             const deleteBtn = document.createElement('button');
             deleteBtn.type = 'button';
@@ -18441,6 +19334,30 @@ ${item.points.map(pt => '<div class="flex items-center gap-2"><input type="text"
     tooltip.classList.add('hidden');
   }
 
+/**
+ * 移除元素所在的父節點，並在移除前隱藏任何殘留的 tooltip。
+ * 此函式用於 inline 事件處理器，避免在 HTML 中撰寫多條敘述導致解析錯誤。
+ * @param {HTMLElement} el 觸發事件的元素（通常是刪除按鈕本身）
+ */
+function removeParentElement(el) {
+  try {
+    // 如果有定義 hideTooltip，則先隱藏提示框
+    if (typeof hideTooltip === 'function') {
+      hideTooltip();
+    }
+  } catch (_e) {
+    // 忽略任何錯誤
+  }
+  if (el && el.parentElement) {
+    el.parentElement.remove();
+  }
+}
+
+// 將 removeParentElement 掛載到全域 window，使其可由 inline handler 調用
+if (typeof window !== 'undefined' && !window.removeParentElement) {
+  window.removeParentElement = removeParentElement;
+}
+
   /**
    * 取得指定中藥材或方劑的完整提示內容。
    * 根據 herbLibrary 中的資料組合名稱、別名、性味、歸經、功效、主治、組成、用法與注意事項。
@@ -18478,6 +19395,313 @@ ${item.points.map(pt => '<div class="flex items-center gap-2"><input type="text"
   window.moveTooltip = moveTooltip;
   window.hideTooltip = hideTooltip;
 
+  /**
+   * 清空穴位搜尋欄，並隱藏搜尋結果。
+   * 用於針灸備註區域的穴位快速搜尋。
+   */
+  function clearAcupointNotesSearch() {
+    try {
+      const input = document.getElementById('acupointNotesSearch');
+      const results = document.getElementById('acupointNotesSearchResults');
+      if (input) {
+        input.value = '';
+      }
+      if (results) {
+        results.classList.add('hidden');
+      }
+      // 隱藏提示浮窗
+      if (typeof hideTooltip === 'function') {
+        hideTooltip();
+      }
+    } catch (_e) {
+      console.error('清空穴位搜索欄時發生錯誤：', _e);
+    }
+  }
+
+  /**
+   * 在針灸備註區域搜尋穴位。
+   * 根據輸入的關鍵字於 acupointLibrary 中篩選名稱、經絡、定位、功效或主治。
+   * 動態顯示搜尋結果，點擊可加入針灸備註。
+   */
+  async function searchAcupointForNotes() {
+    try {
+      const input = document.getElementById('acupointNotesSearch');
+      const resultsContainer = document.getElementById('acupointNotesSearchResults');
+      const resultsList = document.getElementById('acupointNotesSearchList');
+      if (!input || !resultsContainer || !resultsList) return;
+      const searchTerm = (input.value || '').trim().toLowerCase();
+      // 若尚未載入穴位庫資料，則初始化一次
+      try {
+        if (!acupointLibraryLoaded || !Array.isArray(acupointLibrary) || acupointLibrary.length === 0) {
+          await initAcupointLibrary();
+        }
+      } catch (_er) {
+        console.error('載入穴位庫失敗：', _er);
+      }
+      if (!searchTerm) {
+        resultsContainer.classList.add('hidden');
+        // 搜尋欄清空時隱藏提示
+        if (typeof hideTooltip === 'function') {
+          hideTooltip();
+        }
+        return;
+      }
+      // 在穴位庫中過濾符合搜尋字串的項目並依匹配度排序
+      let matched = (Array.isArray(acupointLibrary) ? acupointLibrary : [])
+        .filter(item => item && (
+          (item.name && item.name.toLowerCase().includes(searchTerm)) ||
+          (item.meridian && item.meridian.toLowerCase().includes(searchTerm)) ||
+          (item.location && item.location.toLowerCase().includes(searchTerm)) ||
+          (item.functions && (Array.isArray(item.functions) ? item.functions.join(' ').toLowerCase().includes(searchTerm) : String(item.functions).toLowerCase().includes(searchTerm))) ||
+          (item.indications && (Array.isArray(item.indications) ? item.indications.join(' ').toLowerCase().includes(searchTerm) : String(item.indications).toLowerCase().includes(searchTerm)))
+        ))
+        .map(item => {
+          const nameStr = item.name ? item.name.toLowerCase() : '';
+          const meridianStr = item.meridian ? item.meridian.toLowerCase() : '';
+          const locStr = item.location ? item.location.toLowerCase() : '';
+          const funcStr = item.functions ? (Array.isArray(item.functions) ? item.functions.join(' ').toLowerCase() : String(item.functions).toLowerCase()) : '';
+          const indStr = item.indications ? (Array.isArray(item.indications) ? item.indications.join(' ').toLowerCase() : String(item.indications).toLowerCase()) : '';
+          let score = Infinity;
+          if (nameStr.includes(searchTerm)) {
+            score = nameStr.indexOf(searchTerm);
+          } else if (meridianStr.includes(searchTerm)) {
+            score = 100 + meridianStr.indexOf(searchTerm);
+          } else if (locStr.includes(searchTerm)) {
+            score = 200 + locStr.indexOf(searchTerm);
+          } else if (funcStr.includes(searchTerm)) {
+            score = 300 + funcStr.indexOf(searchTerm);
+          } else if (indStr.includes(searchTerm)) {
+            score = 400 + indStr.indexOf(searchTerm);
+          }
+          return { item, score };
+        })
+        .sort((a, b) => a.score - b.score)
+        .map(obj => obj.item);
+      // 限制結果數量避免一次載入太多
+      matched = matched.slice(0, 10);
+      if (!matched || matched.length === 0) {
+        resultsList.innerHTML = '<div class="p-2 text-center text-gray-500 text-sm">找不到符合條件的穴位</div>';
+        resultsContainer.classList.remove('hidden');
+        // 沒有結果時隱藏提示
+        if (typeof hideTooltip === 'function') {
+          hideTooltip();
+        }
+        return;
+      }
+      // 建立結果列表，每個結果可以點擊加入針灸備註
+      resultsList.innerHTML = matched.map(item => {
+        const safeName = (item.name || '').replace(/'/g, "\\'");
+        const details = [];
+        details.push('名稱：' + (item.name || ''));
+        if (item.meridian) details.push('經絡：' + item.meridian);
+        if (item.location) details.push('定位：' + item.location);
+        if (item.functions) {
+          const funcs = Array.isArray(item.functions) ? item.functions.join('、') : String(item.functions);
+          details.push('功效：' + funcs);
+        }
+        if (item.indications) {
+          const inds = Array.isArray(item.indications) ? item.indications.join('、') : String(item.indications);
+          details.push('主治：' + inds);
+        }
+        if (item.method) details.push('針法：' + item.method);
+        if (item.category) details.push('分類：' + item.category);
+        const encoded = encodeURIComponent(details.join('\n'));
+        // 使用藍色背景與邊框呈現搜尋結果，每個結果可點擊加入備註
+        return `<div class="p-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded cursor-pointer text-center text-sm" data-tooltip="${encoded}" onmouseenter="showTooltip(event, this.getAttribute('data-tooltip'))" onmousemove="moveTooltip(event)" onmouseleave="hideTooltip()" onclick="addAcupointToNotes('${safeName}')">${window.escapeHtml(item.name)}</div>`;
+      }).join('');
+      resultsContainer.classList.remove('hidden');
+    } catch (e) {
+      console.error('搜尋穴位時發生錯誤：', e);
+    }
+  }
+
+  /**
+   * 將指定穴位名稱加入針灸備註的方塊列表。
+   * 新增後更新 textarea，清除搜尋欄與結果。
+   * @param {string} name 穴位名稱
+   */
+  function addAcupointToNotes(name) {
+    try {
+      if (!name) return;
+      const form = document.getElementById('formAcupunctureNotes');
+      if (!form) return;
+      // 建立代表穴位的 span 元素
+      const span = document.createElement('span');
+      // 使用稍大的字體，將原本的 text-xs 改為 text-sm 以增大顯示穴位名稱的字體
+      span.className = 'inline-flex items-center justify-center bg-blue-100 border border-blue-200 rounded text-sm text-blue-800 px-1 py-0.5 mr-1 cursor-pointer';
+      // 讓此方塊本身不可編輯，避免用戶修改內文字
+      span.setAttribute('contenteditable', 'false');
+      span.dataset.acupointName = name;
+      span.textContent = name;
+      // 設定 tooltip 內容
+      const tooltipContent = getAcupointTooltipContent(name || '');
+      if (tooltipContent) {
+        const encoded = encodeURIComponent(tooltipContent);
+        span.setAttribute('data-tooltip', encoded);
+        span.addEventListener('mouseenter', function(e) { showTooltip(e, this.getAttribute('data-tooltip')); });
+        span.addEventListener('mousemove', function(e) { moveTooltip(e); });
+        span.addEventListener('mouseleave', function() { hideTooltip(); });
+      }
+      // 點擊方塊可刪除該項
+      span.addEventListener('click', function() {
+        const parent = span.parentNode;
+        if (parent) {
+          // 若方塊後有單獨的空白文字節點，一併刪除，避免留下殘餘空格
+          const next = span.nextSibling;
+          if (next && next.nodeType === Node.TEXT_NODE && /^\s*$/.test(next.textContent)) {
+            parent.removeChild(next);
+          }
+          parent.removeChild(span);
+        }
+        if (typeof hideTooltip === 'function') hideTooltip();
+      });
+      // 在處理插入前，紀錄當前滾動位置，以便插入後恢復滾動位置
+      const scrollXBefore = window.pageXOffset || document.documentElement.scrollLeft || 0;
+      const scrollYBefore = window.pageYOffset || document.documentElement.scrollTop || 0;
+
+      // 將焦點設至針灸備註欄，確保游標定位於可編輯區，但避免捲動畫面
+      if (typeof form.focus === 'function') {
+        try {
+          // preventScroll 避免自動捲動畫面
+          form.focus({ preventScroll: true });
+        } catch (_er) {
+          // 若瀏覽器不支援 preventScroll，則改用一般 focus
+          form.focus();
+        }
+      }
+      // 取得當前選取範圍
+      const sel = window.getSelection();
+      let range = null;
+      let insertAtEnd = true;
+      if (sel && sel.rangeCount > 0) {
+        range = sel.getRangeAt(0);
+        // 檢查選取範圍是否位於針灸備註欄內
+        let container = range.commonAncestorContainer || range.startContainer;
+        // 若為文本節點則取其父元素判斷
+        if (container && container.nodeType === Node.TEXT_NODE) {
+          container = container.parentNode;
+        }
+        if (container && form.contains(container)) {
+          insertAtEnd = false;
+        }
+      }
+      if (insertAtEnd || !range) {
+        // 若游標不在備註欄內，或沒有選取範圍，則將 span 插入至最後
+        form.appendChild(span);
+        // 在方塊之後加上一個空格以區隔後續輸入
+        const space = document.createTextNode(' ');
+        form.appendChild(space);
+        // 將游標移到空格之後
+        if (sel) {
+          const newRange = document.createRange();
+          newRange.setStartAfter(space);
+          newRange.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+        }
+      } else {
+        // 在選取位置插入 span 及空格分隔符
+        range.deleteContents();
+        range.insertNode(span);
+        // 在 span 後插入一個空格，以免與後續內容黏在一起
+        const space = document.createTextNode(' ');
+        span.after(space);
+        // 將游標移到空格之後
+        if (sel) {
+          const newRange = document.createRange();
+          newRange.setStartAfter(space);
+          newRange.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+        }
+      }
+      // 插入後清空搜尋欄並隱藏結果與提示
+      clearAcupointNotesSearch();
+      // 恢復插入前的滾動位置，以避免畫面移動
+      try {
+        window.scrollTo({ left: scrollXBefore, top: scrollYBefore, behavior: 'auto' });
+      } catch (_e) {
+        // 若瀏覽器不支援 scrollTo 的選項寫法，回退到簡單調用
+        window.scrollTo(scrollXBefore, scrollYBefore);
+      }
+    } catch (err) {
+      console.error('新增穴位到針灸備註時發生錯誤：', err);
+    }
+  }
+
+  /**
+   * 初始化針灸備註欄中的已存在穴位方塊，為每個方塊掛載滑鼠提示與刪除事件。
+   * 在載入歷史病歷或編輯模式時呼叫此函式，以便方塊仍具備提示與刪除功能。
+   */
+  function initializeAcupointNotesSpans() {
+    try {
+      const container = document.getElementById('formAcupunctureNotes');
+      if (!container) return;
+      // 查找所有具有 data-acupoint-name 屬性的 span，代表穴位方塊
+      const spans = container.querySelectorAll('span[data-acupoint-name]');
+      spans.forEach(span => {
+        // 確保方塊本身不可編輯
+        span.setAttribute('contenteditable', 'false');
+        const encoded = span.getAttribute('data-tooltip');
+        if (encoded) {
+          span.addEventListener('mouseenter', function(e) {
+            showTooltip(e, encoded);
+          });
+          span.addEventListener('mousemove', function(e) {
+            moveTooltip(e);
+          });
+          span.addEventListener('mouseleave', function() {
+            hideTooltip();
+          });
+        }
+        // 點擊方塊可刪除自身與後方空白
+        span.addEventListener('click', function() {
+          const parent = span.parentNode;
+          if (parent) {
+            const next = span.nextSibling;
+            if (next && next.nodeType === Node.TEXT_NODE && /^\s*$/.test(next.textContent)) {
+              parent.removeChild(next);
+            }
+            parent.removeChild(span);
+          }
+          hideTooltip();
+        });
+      });
+    } catch (err) {
+      console.error('初始化針灸備註方塊失敗:', err);
+    }
+  }
+
+  // 將初始化函式掛載至 window，方便外部呼叫
+  window.initializeAcupointNotesSpans = initializeAcupointNotesSpans;
+
+  /**
+   * 將包含 HTML 標籤的字串轉換為純文字。
+   * 用於在病歷查看模式下顯示針灸備註，避免直接顯示方塊。
+   * @param {string} html 帶有 HTML 內容的字串
+   * @returns {string} 去除標籤後的純文字
+   */
+  function stripHtmlTags(html) {
+    try {
+      if (!html) return '';
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      // 使用 innerText 取得純文字，避免包含 HTML 標籤
+      return tmp.innerText || tmp.textContent || '';
+    } catch (_err) {
+      // 若有錯誤則回傳原始字串，避免程式中斷
+      return html;
+    }
+  }
+
+  // 將 stripHtmlTags 函式掛載到 window 供模板調用
+  window.stripHtmlTags = stripHtmlTags;
+
+  // 將自訂函式掛載至 window 物件，以便 HTML 內嵌事件調用
+  window.searchAcupointForNotes = searchAcupointForNotes;
+  window.addAcupointToNotes = addAcupointToNotes;
+  window.clearAcupointNotesSearch = clearAcupointNotesSearch;
+
           // 初始化
 document.addEventListener('DOMContentLoaded', function() {
             // 初始渲染藥方、穴位與模板列表
@@ -18492,6 +19716,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } catch (_e) {
                 console.error('初始化模板庫搜尋功能失敗:', _e);
+            }
+
+            // 監聽針灸備註輸入區的輸入事件，當用鍵盤刪除方塊或編輯內容時隱藏浮窗
+            try {
+                const acnForm = document.getElementById('formAcupunctureNotes');
+                if (acnForm) {
+                    acnForm.addEventListener('input', function() {
+                        if (typeof hideTooltip === 'function') {
+                            hideTooltip();
+                        }
+                    });
+                }
+            } catch (_e) {
+                console.error('初始化針灸備註輸入區事件失敗:', _e);
             }
 
             /**
@@ -18572,7 +19810,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('初始化搜尋與分類監聽器時發生錯誤:', e);
             }
 
-            // 已移除舊版頁腳版權資訊初始化函式
+            
           });
 
 // 全局與登入版權聲明初始化：在 DOMContentLoaded 後插入對應的版權資訊。

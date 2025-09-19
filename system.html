@@ -12,6 +12,12 @@
         body { font-family: 'Noto Sans TC', sans-serif; }
         .fade-in { animation: fadeIn 0.3s ease-in; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* contenteditable placeholder for針灸備註輸入區 */
+        [contenteditable][data-placeholder]:empty:before {
+            content: attr(data-placeholder);
+            color: #9ca3af; /* text-gray-400 */
+        }
         
         /* 浮動提示樣式 */
         .toast {
@@ -68,6 +74,12 @@
             /* 允許在任意字元斷行，避免內容溢出欄位 */
             word-break: break-all;
             overflow-wrap: break-word;
+        }
+
+        /* 調整針灸備註中穴位方塊的字體大小，原本為 text-xs，改為較大的大小 */
+        #formAcupunctureNotes span[data-acupoint-name] {
+            /* 使用與 Tailwind text-sm 相當的字體大小 (0.875rem) 以提升可讀性 */
+            font-size: 0.875rem;
         }
 
         /*
@@ -131,13 +143,50 @@
             .bg-gradient-to-r.from-gray-50.to-blue-50 > .flex.justify-between.items-center > .flex.flex-wrap {
                 margin-top: 0.5rem !important;
             }
+
+            /*
+             * 掛號列表標題在手機上會因為日期選擇器與總計人數區塊佔據寬度而造成橫向溢出。
+             * 為了讓內容在窄螢幕上換行顯示，將整個標題容器改為垂直排列，
+             * 並將左右兩側的內容堆疊在下一行。另外允許內部項目自動換行，
+             * 並調整間距使其上下排列時更為整齊。
+             */
+            #registrationHeader > .flex {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+            }
+            #registrationHeader > .flex > .flex.items-center {
+                /* 允許標題中的日期區塊換行，並加入間距 */
+                flex-wrap: wrap !important;
+                gap: 0.25rem !important;
+            }
+            #registrationHeader > .flex > .text-sm.text-gray-600 {
+                /* 總計人數區塊移到下一行後增加上邊距 */
+                margin-top: 0.5rem !important;
+            }
+
+            /*
+             * 診症記錄與病歷記錄卡片中的日期、醫師、病歷編號等資訊預設為橫向排列，
+             * 在手機上容易造成內容被截斷。啟用 flex-wrap 並設置 gap，讓資訊能夠換行顯示。
+             */
+            .bg-gradient-to-r.from-gray-50.to-blue-50 .flex.items-center.space-x-4 {
+                flex-wrap: wrap !important;
+                gap: 0.5rem !important;
+            }
         }
     </style>
 </head>
 <body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
+    <!-- 語言切換器將放置於登入卡片內 -->
     <!-- 登入頁面 -->
     <div id="loginPage" class="min-h-screen flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md relative">
+            <!-- 在登入卡片右上角放置語言切換器 -->
+            <div class="absolute top-2 right-2">
+                <select id="languageSelector" class="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="zh">中文</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
             <div class="text-center mb-8">
                 <div class="text-4xl mb-4">🏥</div>
                 <h1 id="loginTitle" class="text-2xl font-bold text-gray-800 mb-2">名醫診所系統</h1>
@@ -164,7 +213,6 @@
                     登入系統
                 </button>
                 
-                <!-- 示範帳號提示區已移除，系統使用者請使用您的電子郵件登入 -->
             </div>
             <!-- 登入頁面不再包含版權聲明，由全局頁腳統一呈現 -->
         </div>
@@ -408,7 +456,7 @@
                 <div class="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg p-6 mb-6">
                     <div class="mb-4">
                         <h3 class="text-lg font-semibold text-gray-800 flex items-center mb-2">
-                            <span class="mr-2">🔍</span>搜索病人掛號
+                            <span class="mr-2">🔍</span><span>搜索病人掛號</span>
                         </h3>
                         <p class="text-sm text-gray-600">請輸入病人姓名、編號或電話進行搜索</p>
                     </div>
@@ -417,7 +465,7 @@
                         <div class="flex-1 relative">
                             <input type="text" id="patientSearchInput" placeholder="搜尋病人姓名、編號或電話..." 
                                    class="w-full border border-gray-300 rounded-lg px-4 py-3 pr-10 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                   oninput="searchPatientsForRegistration()">
+                                   >
                             <span class="absolute right-3 top-3.5 text-gray-400">🔍</span>
                         </div>
                         <button onclick="clearPatientSearch()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg transition duration-200">
@@ -458,7 +506,7 @@
                             
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                    <span class="mr-2">👨‍⚕️</span>掛號醫師 *
+                                    <span class="mr-2">👨‍⚕️</span><span>掛號醫師 *</span>
                                 </label>
                                 <select id="appointmentDoctor" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                     <option value="">請選擇醫師</option>
@@ -468,7 +516,7 @@
                             
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                    <span class="mr-2">⏰</span>掛號時間
+                                    <span class="mr-2">⏰</span><span>掛號時間</span>
                                 </label>
                                 <input type="datetime-local" id="appointmentDateTime" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                             </div>
@@ -476,7 +524,7 @@
                             <!-- 問診資料選擇：允許醫師於掛號時選擇患者先前填寫的問診資料 -->
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                    <span class="mr-2">🧾</span>選擇問診資料
+                                    <span class="mr-2">🧾</span><span>選擇問診資料</span>
                                 </label>
                                 <select id="inquirySelect" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                     <option value="">不使用問診資料</option>
@@ -486,7 +534,7 @@
 
                             <div>
                                 <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                    <span class="mr-2">📝</span>主訴症狀
+                                    <span class="mr-2">📝</span><span>主訴症狀</span>
                                 </label>
                                 <textarea id="quickChiefComplaint" placeholder="請簡述病人的主要症狀..." rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"></textarea>
                             </div>
@@ -504,12 +552,13 @@
                 </div>
                 <!-- 掛號列表 -->
                 <div class="bg-white border border-gray-200 rounded-lg">
-                    <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
+                    <!-- 為掛號列表標題區塊添加唯一 ID，方便在 CSS 中針對窄螢幕進行排版調整 -->
+                    <div id="registrationHeader" class="bg-gray-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
                         <div class="flex justify-between items-center">
                             <!-- 左側：標題與日期選擇器 -->
                             <div class="flex items-center space-x-3">
                                 <h3 class="text-lg font-semibold text-gray-800 flex items-center">
-                                    <span class="mr-2">📅</span>掛號列表
+                                    <span class="mr-2">📅</span><span>掛號列表</span>
                                 </h3>
                                 <div class="flex items-center space-x-1">
                                     <span class="whitespace-nowrap text-sm text-gray-600">日期</span>
@@ -522,9 +571,10 @@
                             </div>
                             <!-- 右側：總計人數顯示 -->
                             <div class="text-sm text-gray-600 flex items-center space-x-3">
-                                <span>
-                                    總計：<span id="todayTotal" class="font-semibold text-blue-600">0</span> 人
-                                </span>
+                                <!-- 將標籤、數值和單位拆分為獨立元素，方便 i18n.js 處理翻譯 -->
+                                <span>總計：</span>
+                                <span id="todayTotal" class="font-semibold text-blue-600">0</span>
+                                <span>人</span>
                             </div>
                         </div>
                     </div>
@@ -677,7 +727,29 @@
                                         <label class="block text-sm font-semibold text-gray-700">針灸備註</label>
                                         <button type="button" onclick="openAcupointCombo(event)" class="text-xs bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded transition duration-200">📍 載入常用穴位</button>
                                     </div>
-                                    <textarea id="formAcupunctureNotes" placeholder="針灸穴位、手法、注意事項等..." rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                                    <!-- 搜索穴位並添加至針灸備註 -->
+                                    <div class="mb-3 bg-blue-50 rounded-lg p-3 border border-blue-200">
+                                        <div class="flex items-center mb-2">
+                                            <span class="text-sm font-medium text-blue-800 mr-2">🔍 搜索穴位：</span>
+                                            <div class="flex-1 relative">
+                                                <input type="text" id="acupointNotesSearch" placeholder="搜尋穴位名稱、經絡或定位..." 
+                                                       class="w-full border border-blue-300 rounded px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                       oninput="searchAcupointForNotes()">
+                                                <button type="button" onclick="clearAcupointNotesSearch()" class="absolute right-2 top-1 text-gray-400 hover:text-gray-600 text-sm">×</button>
+                                            </div>
+                                        </div>
+                                        <!-- 搜索結果 -->
+                                        <div id="acupointNotesSearchResults" class="hidden">
+                                            <div class="bg-white rounded border border-blue-200 max-h-40 overflow-y-auto">
+                                                <div id="acupointNotesSearchList" class="grid grid-cols-1 md:grid-cols-2 gap-2 p-2">
+                                                    <!-- 搜索結果會動態載入 -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- 針灸備註輸入區，使用 contenteditable 以便嵌入穴位方塊 -->
+                                    <div id="formAcupunctureNotes" contenteditable="true" data-placeholder="針灸穴位、手法、注意事項等..."
+                                         class="w-full border border-gray-300 rounded-lg px-3 py-2 min-h-[80px] focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-2"></div>
                                 </div>
                             </div>
 
@@ -929,7 +1001,6 @@
                             <input type="text" id="searchHerb" placeholder="搜尋中藥材、方劑名稱或功能..." class="border border-gray-300 rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-green-500 focus:border-transparent w-full md:w-64">
                             <span class="absolute right-3 top-2.5 text-gray-400">🔍</span>
                         </div>
-                        <!-- 新增中藥材與新增方劑按鈕已移除 -->
                     </div>
                 </div>
                 <!-- 分類標籤 -->
@@ -1077,7 +1148,6 @@
                             <input type="text" id="searchAcupoint" placeholder="搜尋穴位、經絡名稱或功能..." class="border border-gray-300 rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full md:w-64">
                             <span class="absolute right-3 top-2.5 text-gray-400">🔍</span>
                         </div>
-                        <!-- 新增按鈕已移除，穴位庫僅供瀏覽 -->
                     </div>
                 </div>
                 <!-- 分類標籤 -->
@@ -1086,7 +1156,6 @@
                         <!-- 動態產生的經絡分類按鈕 -->
                     </div>
                 </div>
-                <!-- 新增/編輯穴位表單彈窗已移除，穴位庫僅供瀏覽 -->
                 <!-- 穴位庫列表 -->
                 <div class="overflow-x-auto">
                     <div id="acupointLibraryList" class="space-y-4">
@@ -1255,7 +1324,6 @@
                         
                         <div class="p-6">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <!-- 帳號與密碼欄位已移除，系統將自動使用 Firebase UID 或電子郵件產生識別名稱 -->
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">姓名 *</label>
                                     <input type="text" id="userDisplayName" placeholder="請輸入真實姓名" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
@@ -1340,19 +1408,9 @@
                 <!-- 篩選控制區 -->
                 <div class="bg-gray-50 rounded-lg p-4 mb-6">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">報表類型</label>
-                            <select id="reportType" onchange="generateFinancialReport()" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                <option value="daily">日報表</option>
-                                <option value="weekly">週報表</option>
-                                <option value="monthly" selected>月報表</option>
-                                <option value="yearly">年報表</option>
-                                <option value="custom">自訂期間</option>
-                            </select>
-                        </div>
                         
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">快速選擇</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">報表類型</label>
                             <select id="quickDate" onchange="setQuickDate()" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 <option value="">請選擇...</option>
                                 <option value="today">今天</option>
@@ -1387,10 +1445,10 @@
                         
                         <div class="flex items-end space-x-2">
                             <button onclick="generateFinancialReport()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition duration-200 flex items-center">
-                                <span class="mr-2">🔄</span>更新報表
+                                <span class="mr-2">🔄</span><span>更新報表</span>
                             </button>
                             <button onclick="exportFinancialReport()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-200 flex items-center">
-                                <span class="mr-2">📥</span>匯出
+                                <span class="mr-2">📥</span><span>匯出</span>
                             </button>
                         </div>
                     </div>
@@ -1454,10 +1512,12 @@
                     <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 rounded-t-lg">
                         <div class="flex justify-between items-center">
                             <h3 class="text-lg font-semibold text-gray-800 flex items-center">
-                                <span class="mr-2">📋</span>詳細財務報表
+                                <span class="mr-2">📋</span><span>詳細財務報表</span>
                             </h3>
-                            <div class="text-sm text-gray-600">
-                                資料更新時間：<span id="lastUpdateTime">-</span>
+                            <div class="text-sm text-gray-600 flex items-center space-x-1">
+                                <!-- 將標籤與時間拆分，使多語系翻譯可以套用 -->
+                                <span>資料更新時間：</span>
+                                <span id="lastUpdateTime">-</span>
                             </div>
                         </div>
                     </div>
@@ -1612,8 +1672,13 @@
                         <div class="space-y-3">
                             <div class="text-center py-4" id="clinicSettingsDisplay">
                                 <div class="text-sm text-gray-700 mb-3">
-                                    <div class="font-medium">診所中文名稱：<span id="displayChineseName">名醫診所系統</span></div>
-                                    <div class="text-gray-600 mt-1">診所英文名稱：<span id="displayEnglishName">TCM Clinic</span></div>
+                                    <!-- 將標籤與值拆分為不同的元素，以便 i18n.js 處理翻譯 -->
+                                    <div class="font-medium flex items-center space-x-1">
+                                        <span>診所中文名稱：</span><span id="displayChineseName">名醫診所系統</span>
+                                    </div>
+                                    <div class="text-gray-600 mt-1 flex items-center space-x-1">
+                                        <span>診所英文名稱：</span><span id="displayEnglishName">TCM Clinic</span>
+                                    </div>
                                 </div>
                                 <button onclick="showClinicSettingsModal()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-200">
                                     診所資料修改
@@ -1622,7 +1687,6 @@
                         </div>
                     </div>
 
-                    <!-- 匯入模板及中藥資料功能已移除 -->
                     
                 </div>
             </div>
@@ -1759,7 +1823,6 @@
             <div id="diagnosisContent" class="template-tab-content">
               <div class="mb-6 space-y-4">
                 <div class="flex gap-4 flex-wrap">
-                  <!-- 新增診斷模板與管理分類按鈕已移除 -->
                 </div>
                 <div class="flex gap-4 flex-wrap">
                   <!-- 搜尋診斷模板名稱 -->
@@ -1769,7 +1832,6 @@
                     <!-- 為了避免顯示已儲存的分類，此下拉選單僅提供整體科別篩選選項 -->
                     <option>全部科別</option>
                   </select>
-                  <!-- 使用頻率篩選已移除 -->
                 </div>
               </div>
               <div class="space-y-4" id="diagnosisTemplatesContainer">
@@ -1781,7 +1843,6 @@
             <div id="prescriptionsContent" class="template-tab-content hidden">
               <div class="mb-6 space-y-4">
                 <div class="flex gap-4 flex-wrap">
-                  <!-- 新增醫囑模板與管理分類按鈕已移除 -->
                 </div>
                 <div class="flex gap-4 flex-wrap">
                   <!-- 搜尋醫囑模板名稱 -->
@@ -1791,7 +1852,6 @@
                     <!-- 為了避免顯示已儲存的分類，此下拉選單僅提供整體類別篩選選項 -->
                     <option>全部類別</option>
                   </select>
-                  <!-- 使用頻率篩選已移除 -->
                 </div>
               </div>
               <div class="space-y-4" id="prescriptionTemplatesContainer">
@@ -1970,8 +2030,22 @@
     <!-- 調整 z-index 並新增行內樣式，以確保 tooltip 在模態框或其他高層元素之上顯示 -->
     <div id="tooltip" class="hidden pointer-events-none fixed bg-gray-800 text-white text-xs px-3 py-1 rounded-lg shadow-lg z-50 whitespace-pre-line" style="z-index: 9999;"></div>
     <script src="system.js"></script>
+    <!-- 語言國際化腳本，必須在系統腳本之後載入 -->
+    <script src="i18n.js"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96f142c32d05b42b","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"97172fa8b875b31b","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
