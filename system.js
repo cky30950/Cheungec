@@ -6247,13 +6247,54 @@ async function printConsultationRecord(consultationId, consultationData = null) 
         consultation.instructions = null;
         consultation.followUpDate = null;
 
-        // 創建中醫診所收據格式
+        // Determine language preference and localise receipt fields
+        const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+        const isEnglish = lang && lang.startsWith('en');
+        const htmlLang = isEnglish ? 'en' : 'zh-TW';
+        const dateLocale = isEnglish ? 'en-US' : 'zh-TW';
+        const colon = isEnglish ? ':' : '：';
+        // Rebuild medication information according to language
+        let medInfoLocalized = '';
+        if (medDays) {
+            medInfoLocalized += '<strong>' + (isEnglish ? 'Medication Days' : '服藥天數') + colon + '</strong>' + medDays + (isEnglish ? ' days ' : '天　');
+        }
+        if (medFreq) {
+            medInfoLocalized += '<strong>' + (isEnglish ? 'Daily Frequency' : '每日次數') + colon + '</strong>' + medFreq + (isEnglish ? ' times ' : '次　');
+        }
+        if (consultation.usage) {
+            medInfoLocalized += '<strong>' + (isEnglish ? 'Administration Method' : '服用方法') + colon + '</strong>' + consultation.usage;
+        }
+        // Translation dictionary for receipt labels
+        const TR = {
+            title: isEnglish ? 'Receipt' : '收　據',
+            receiptNo: isEnglish ? 'Receipt No' : '收據編號',
+            patientName: isEnglish ? 'Patient Name' : '病人姓名',
+            medicalRecordNo: isEnglish ? 'Medical Record No' : '病歷編號',
+            patientNumber: isEnglish ? 'Patient ID' : '病人號碼',
+            consultationDate: isEnglish ? 'Date' : '診療日期',
+            consultationTime: isEnglish ? 'Time' : '診療時間',
+            doctorName: isEnglish ? 'Attending Physician' : '主治醫師',
+            registrationNo: isEnglish ? 'Registration No' : '註冊編號',
+            diagnosis: isEnglish ? 'Diagnosis' : '診斷',
+            syndrome: isEnglish ? 'Pattern' : '證型',
+            billingDetails: isEnglish ? 'Billing Details' : '收費明細',
+            amountDue: isEnglish ? 'Amount Due' : '應收金額',
+            prescription: isEnglish ? 'Prescription' : '處方內容',
+            instructions: isEnglish ? '⚠️ Instructions & Precautions' : '⚠️ 醫囑及注意事項',
+            followUp: isEnglish ? '📅 Suggested Follow-up Time' : '📅 建議複診時間',
+            thankYou: isEnglish ? 'Thank you for your visit. Stay healthy!' : '謝謝您的光臨，祝您身體健康！',
+            issuedTime: isEnglish ? 'Receipt Issued At' : '收據開立時間',
+            clinicHours: isEnglish ? 'Clinic Hours' : '診所營業時間',
+            keepReceipt: isEnglish ? 'Please keep this receipt properly' : '本收據請妥善保存',
+            contactCounter: isEnglish ? 'If you have any questions, please contact the counter' : '如有疑問請洽櫃檯'
+        };
+        // Construct receipt HTML with localized labels
         const printContent = `
             <!DOCTYPE html>
-            <html lang="zh-TW">
+            <html lang="${htmlLang}">
             <head>
                 <meta charset="UTF-8">
-                <title>收據 - ${patient.name}</title>
+                <title>${TR.title} - ${patient.name}</title>
                 <style>
                     body { 
                         font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif; 
@@ -6328,14 +6369,12 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                         border-bottom: 1px dotted #999;
                     }
                     .total-section {
-                        /* Shrink the amount section to conserve vertical space */
                         text-align: right;
                         margin: 4px 0;
                         font-size: 10px;
                         font-weight: bold;
                     }
                     .total-amount {
-                        /* Reduce padding, border and font size for the amount box */
                         font-size: 10px;
                         color: #000;
                         border: 1px solid #000;
@@ -6384,7 +6423,6 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                         font-size: 10px;
                     }
                     .diagnosis-title {
-                        /* Display diagnosis title inline with result; remove bottom margin and add right margin */
                         font-weight: bold;
                         margin-bottom: 0;
                         margin-right: 4px;
@@ -6410,231 +6448,204 @@ async function printConsultationRecord(consultationId, consultationData = null) 
             </head>
             <body>
                 <div class="receipt-container">
-                    <!-- 診所標題 -->
+                    <!-- Clinic Header -->
                     <div class="clinic-header">
                         <div class="clinic-name">${clinicSettings.chineseName || '名醫診所系統'}</div>
                         <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
-                        <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
+                        <div class="clinic-subtitle">${isEnglish ? 'Tel:' : '電話：'}${clinicSettings.phone || '(852) 2345-6789'}　${isEnglish ? 'Address:' : '地址：'}${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                     </div>
                     
-                    <!-- 收據標題 -->
-                    <div class="receipt-title">收　據</div>
+                    <!-- Receipt Title -->
+                    <div class="receipt-title">${TR.title}</div>
                     
-                    <!-- 基本資訊 -->
+                    <!-- Basic Information -->
                     <div class="receipt-info">
                         <div class="info-row">
-                            <span class="info-label">收據編號：</span>
+                            <span class="info-label">${TR.receiptNo}${colon}</span>
                             <span>R${consultation.id.toString().padStart(6, '0')}</span>
                         </div>
                         <div class="info-row">
-                            <span class="info-label">病人姓名：</span>
+                            <span class="info-label">${TR.patientName}${colon}</span>
                             <span>${patient.name}</span>
                         </div>
-                        <!-- 新增病歷編號顯示，置於姓名下方 -->
                         <div class="info-row">
-                            <span class="info-label">病歷編號：</span>
+                            <span class="info-label">${TR.medicalRecordNo}${colon}</span>
                             <span>${consultation.medicalRecordNumber || consultation.id}</span>
                         </div>
                         <div class="info-row">
-                            <span class="info-label">病人號碼：</span>
+                            <span class="info-label">${TR.patientNumber}${colon}</span>
                             <span>${patient.patientNumber}</span>
                         </div>
                         <div class="info-row">
-                            <span class="info-label">診療日期：</span>
-                            <span>${consultationDate.toLocaleDateString('zh-TW', {
+                            <span class="info-label">${TR.consultationDate}${colon}</span>
+                            <span>${consultationDate.toLocaleDateString(dateLocale, {
                                 year: 'numeric',
                                 month: '2-digit',
                                 day: '2-digit'
                             })}</span>
                         </div>
                         <div class="info-row">
-                            <span class="info-label">診療時間：</span>
-                            <span>${consultationDate.toLocaleTimeString('zh-TW', {
+                            <span class="info-label">${TR.consultationTime}${colon}</span>
+                            <span>${consultationDate.toLocaleTimeString(dateLocale, {
                                 hour: '2-digit',
                                 minute: '2-digit'
                             })}</span>
                         </div>
                         <div class="info-row">
-                            <span class="info-label">主治醫師：</span>
+                            <span class="info-label">${TR.doctorName}${colon}</span>
                             <span>${getDoctorDisplayName(consultation.doctor)}</span>
                         </div>
                         ${(() => {
                             const regNumber = getDoctorRegistrationNumber(consultation.doctor);
                             return regNumber ? `
                                 <div class="info-row">
-                                    <span class="info-label">註冊編號：</span>
+                                    <span class="info-label">${TR.registrationNo}${colon}</span>
                                     <span>${regNumber}</span>
                                 </div>
                             ` : '';
                         })()}
                     </div>
                     
-                    <!-- 診斷資訊 -->
+                    <!-- Diagnosis Info -->
                     ${consultation.diagnosis ? `
                     <div class="diagnosis-section">
-                        <!-- 將診斷結果和證型分成兩行顯示 -->
                         <div>
-                            <span class="diagnosis-title">診斷：</span>
+                            <span class="diagnosis-title">${TR.diagnosis}${colon}</span>
                             <span>${consultation.diagnosis}</span>
                         </div>
                         ${consultation.syndrome ? `
                         <div>
-                            <span class="diagnosis-title">證型：</span>
+                            <span class="diagnosis-title">${TR.syndrome}${colon}</span>
                             <span>${consultation.syndrome}</span>
                         </div>
                         ` : ''}
                     </div>
                     ` : ''}
                     
-                    <!-- 收費項目 -->
+                    <!-- Billing Items -->
                     ${consultation.billingItems ? `
                     <div class="items-section">
-                        <div class="items-title">收費明細</div>
+                        <div class="items-title">${TR.billingDetails}</div>
                         <table class="items-table">
                             ${billingItemsHtml}
                         </table>
                     </div>
                     ` : ''}
                     
-                    <!-- 總金額 -->
+                    <!-- Total Amount -->
                     <div class="total-section">
-                        <!-- Shrink the label for amount receivable -->
-                        <div style="margin-bottom: 4px; font-size: 9px;">應收金額：</div>
+                        <div style="margin-bottom: 4px; font-size: 9px;">${TR.amountDue}${colon}</div>
                         <div class="total-amount">HK$ ${totalAmount.toLocaleString()}</div>
                     </div>
                     
-                    <!-- 處方資訊 -->
+                    <!-- Prescription Section -->
                     ${consultation.prescription ? `
                     <div class="prescription-section">
-                        <div class="prescription-title">📋 處方內容</div>
+                        <div class="prescription-title">📋 ${TR.prescription}</div>
                         <div class="prescription-content">${(() => {
-                            // 將處方內容按行分割，然後橫向排列
                             const lines = consultation.prescription.split('\n').filter(line => line.trim());
                             const allItems = [];
                             let i = 0;
-                            
                             while (i < lines.length) {
                                 const line = lines[i].trim();
                                 if (!line) {
                                     i++;
                                     continue;
                                 }
-                                
-                                // 檢查是否為藥材/方劑格式（名稱 劑量g）
                                 const itemMatch = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)g$/);
                                 if (itemMatch) {
                                     const itemName = itemMatch[1].trim();
                                     const dosage = itemMatch[2];
-                                    
-                                    // 檢查是否為常見方劑名稱
-                                    const isFormula = ['湯', '散', '丸', '膏', '飲', '丹', '煎', '方', '劑'].some(suffix => itemName.includes(suffix));
-                                    
+                                    const isFormula = ['湯','散','丸','膏','飲','丹','煎','方','劑'].some(suffix => itemName.includes(suffix));
                                     if (isFormula) {
-                                        // 檢查下一行是否為方劑組成
                                         let composition = '';
                                         if (i + 1 < lines.length) {
                                             const nextLine = lines[i + 1].trim();
-                                            // 如果下一行不是標準藥材格式，視為方劑組成
                                             if (nextLine && !nextLine.match(/^.+?\s+\d+(?:\.\d+)?g$/)) {
                                                 composition = nextLine.replace(/\n/g, '、').replace(/、/g, ',');
-                                                i++; // 跳過組成行
+                                                i++;
                                             }
                                         }
-                                        
-                                        // 方劑顯示格式：僅顯示名稱與劑量，不顯示組成
                                         allItems.push(`${itemName} ${dosage}g`);
                                     } else {
-                                        // 普通藥材：為節省空間，藥名與劑量之間不加空格
                                         allItems.push(`${itemName}${dosage}g`);
                                     }
                                 } else {
-                                    // 非標準格式的行，可能是獨立的說明
                                     allItems.push(`<div style="margin: 2px 0; font-size: 9px; color: #666;">${line}</div>`);
                                 }
-                                
                                 i++;
                             }
-                            
-                            // 分離普通項目和特殊行
                             const regularItems = allItems.filter(item => typeof item === 'string' && !item.includes('<div'));
                             const specialLines = allItems.filter(item => typeof item === 'string' && item.includes('<div'));
-                            
                             let result = '';
-
-                            // 先顯示特殊行
                             specialLines.forEach(line => {
                                 result += line;
                             });
-
-                            // 接著顯示所有藥材及方劑，用頓號「、」連接，節省空間
                             if (regularItems.length > 0) {
-                                // 將所有藥材及方劑按照原順序用頓號連接
                                 const joined = regularItems.join('、');
                                 result += `<div style="margin: 2px 0;">${joined}</div>`;
                             }
-
                             return result || consultation.prescription.replace(/\n/g, '<br>');
                         })()}</div>
-                        ${medInfoHtml ? `
-                        <div style="margin-top: 8px; font-size: 12px;">${medInfoHtml}</div>
+                        ${medInfoLocalized ? `
+                        <div style="margin-top: 8px; font-size: 12px;">${medInfoLocalized}</div>
                         ` : ''}
                     </div>
                     ` : ''}
                     
-                    <!-- 醫囑 -->
+                    <!-- Instructions -->
                     ${consultation.instructions ? `
                     <div style="margin: 6px 0; font-size: 10px; background: #fff3cd; padding: 6px; border: 1px solid #ffeaa7;">
-                        <strong>⚠️ 醫囑及注意事項：</strong><br>
+                        <strong>${TR.instructions}${colon}</strong><br>
                         ${consultation.instructions}
                     </div>
                     ` : ''}
                     
-                    <!-- 複診提醒 -->
+                    <!-- Follow-up Reminder -->
                     ${consultation.followUpDate ? `
                     <div style="margin: 10px 0; font-size: 12px; background: #e3f2fd; padding: 8px; border: 1px solid #90caf9;">
-                        <strong>📅 建議複診時間：</strong><br>
-                        ${new Date(consultation.followUpDate).toLocaleString('zh-TW')}
+                        <strong>${TR.followUp}${colon}</strong><br>
+                        ${new Date(consultation.followUpDate).toLocaleString(dateLocale)}
                     </div>
                     ` : ''}
                     
-                    <!-- 感謝語 -->
+                    <!-- Thank You -->
                     <div class="thank-you">
-                        謝謝您的光臨，祝您身體健康！
+                        ${TR.thankYou}
                     </div>
                     
-                    <!-- 頁尾資訊 -->
+                    <!-- Footer -->
                     <div class="footer-info">
                         <div class="footer-row">
-                            <span>收據開立時間：</span>
-                            <span>${new Date().toLocaleString('zh-TW')}</span>
+                            <span>${TR.issuedTime}${colon}</span>
+                            <span>${new Date().toLocaleString(dateLocale)}</span>
                         </div>
                         <div class="footer-row">
-                            <span>診所營業時間：</span>
+                            <span>${TR.clinicHours}${colon}</span>
                             <span>${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</span>
                         </div>
                         <div class="footer-row">
-                            <span>本收據請妥善保存</span>
-                            <span>如有疑問請洽櫃檯</span>
+                            <span>${TR.keepReceipt}</span>
+                            <span>${TR.contactCounter}</span>
                         </div>
                     </div>
                 </div>
             </body>
             </html>
         `;
-        
-        // 開啟新視窗進行列印
+        // Open a new window and print
         const printWindow = window.open('', '_blank', 'width=500,height=700');
         printWindow.document.write(printContent);
         printWindow.document.close();
         printWindow.focus();
         printWindow.print();
 
-        // 列印完成後恢復原本的處方、醫囑與複診資料
+        // Restore original prescription, instructions and follow-up date after printing
         consultation.prescription = originalPrescription;
         consultation.instructions = originalInstructions;
         consultation.followUpDate = originalFollowUpDate;
 
-        showToast('中醫診所收據已準備列印！', 'success');
+        showToast(isEnglish ? 'Receipt is ready for printing!' : '中醫診所收據已準備列印！', 'success');
         
     } catch (error) {
         console.error('列印收據錯誤:', error);
@@ -6693,13 +6704,61 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
             consultationDate = new Date();
         }
         
-        // 創建到診證明格式
+        // Determine language preference and build localized arrival certificate
+        const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+        const isEnglish = lang && lang.startsWith('en');
+        const htmlLang = isEnglish ? 'en' : 'zh-TW';
+        const dateLocale = isEnglish ? 'en-US' : 'zh-TW';
+        const colon = isEnglish ? ':' : '：';
+        // Compute gender display
+        let genderDisplay = patient.gender;
+        if (isEnglish) {
+            if (genderDisplay === '男') genderDisplay = 'Male';
+            else if (genderDisplay === '女') genderDisplay = 'Female';
+        }
+        // Compute age display
+        const rawAge = formatAge(patient.birthDate);
+        let ageDisplay = rawAge;
+        if (isEnglish) {
+            ageDisplay = rawAge.replace(/歲$/, ' years').replace(/個月$/, ' months').replace(/天$/, ' days');
+        }
+        // ID card display
+        const idDisplay = patient.idCard || (isEnglish ? 'Not provided' : '未提供');
+        // Determine visit date/time
+        const visitDate = consultation.visitTime ? new Date(consultation.visitTime) : consultationDate;
+        // Translation dictionary for certificate fields
+        const TC = {
+            certificateTitle: isEnglish ? 'Arrival Certificate' : '到診證明書',
+            certificateNo: isEnglish ? 'Certificate No' : '證明書編號',
+            name: isEnglish ? 'Name' : '姓　　名',
+            medicalRecordNo: isEnglish ? 'Medical Record No' : '病歷編號',
+            gender: isEnglish ? 'Gender' : '性　　別',
+            age: isEnglish ? 'Age' : '年　　齡',
+            idCard: isEnglish ? 'ID No' : '身分證號',
+            attendanceInfo: isEnglish ? 'Arrival Information' : '到診資訊',
+            arrivalDate: isEnglish ? 'Arrival Date' : '到診日期',
+            arrivalTime: isEnglish ? 'Arrival Time' : '到診時間',
+            diagnosisResult: isEnglish ? 'Diagnosis Result' : '診斷結果',
+            confirmSentence: isEnglish ? 'It is hereby certified that the above patient was examined at the clinic on the specified date and time.' : '茲證明上述病人確實於上述日期時間到本診所接受中醫診療。',
+            hereby: isEnglish ? 'Therefore, this certificate is issued.' : '特此證明。',
+            doctorSignature: isEnglish ? 'Physician Signature' : '主治醫師簽名',
+            registrationNo: isEnglish ? 'Registration No' : '註冊編號',
+            issueDate: isEnglish ? 'Date of Issue' : '開立日期',
+            clinicSeal: isEnglish ? 'Clinic Seal' : '診所印章',
+            sealNote: isEnglish ? '(Clinic stamp here)' : '(此處應蓋診所印章)',
+            footerNote1: isEnglish ? 'This certificate only certifies attendance. For inquiries, please contact the clinic.' : '本證明書僅證明到診事實，如有疑問請洽本診所',
+            footerTel: isEnglish ? 'Clinic Tel' : '診所電話',
+            footerHours: isEnglish ? 'Business Hours' : '營業時間',
+            certificateIssuedAt: isEnglish ? 'Certificate Issued At' : '證明書開立時間',
+            watermark: isEnglish ? 'Arrival Certificate' : '到診證明'
+        };
+        // Build certificate HTML
         const printContent = `
             <!DOCTYPE html>
-            <html lang="zh-TW">
+            <html lang="${htmlLang}">
             <head>
                 <meta charset="UTF-8">
-                <title>到診證明書 - ${patient.name}</title>
+                <title>${TC.certificateTitle} - ${patient.name}</title>
                 <style>
                     body { 
                         font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif; 
@@ -6863,94 +6922,80 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
             </head>
             <body>
                 <div class="certificate-container">
-                    <!-- 浮水印 -->
-                    <div class="watermark">到診證明</div>
+                    <!-- Watermark -->
+                    <div class="watermark">${TC.watermark}</div>
                     
                     <div class="content">
-                        <!-- 診所標題 -->
+                        <!-- Clinic Header -->
                         <div class="clinic-header">
                             <div class="clinic-name">${clinicSettings.chineseName || '名醫診所系統'}</div>
                             <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
-                            <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
+                            <div class="clinic-subtitle">${isEnglish ? 'Tel:' : '電話：'}${clinicSettings.phone || '(852) 2345-6789'}　${isEnglish ? 'Address:' : '地址：'}${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                         </div>
                         
-                        <!-- 證明書編號 -->
+                        <!-- Certificate Number -->
                         <div class="certificate-number">
-                            證明書編號：AC${consultation.id.toString().padStart(6, '0')}
+                            ${TC.certificateNo}${colon} AC${consultation.id.toString().padStart(6, '0')}
                         </div>
                         
-                        <!-- 證明書標題 -->
-                        <div class="certificate-title">到診證明書</div>
+                        <!-- Certificate Title -->
+                        <div class="certificate-title">${TC.certificateTitle}</div>
                         
-                        <!-- 病人資訊 -->
+                        <!-- Patient Info -->
                         <div class="patient-info">
                             <div class="info-row">
-                                <span class="info-label">姓　　名：</span>
+                                <span class="info-label">${TC.name}${colon}</span>
                                 <span class="info-value">${patient.name}</span>
                             </div>
-                            <!-- 新增病歷編號顯示，置於姓名下方 -->
                             <div class="info-row">
-                                <span class="info-label">病歷編號：</span>
+                                <span class="info-label">${TC.medicalRecordNo}${colon}</span>
                                 <span class="info-value">${consultation.medicalRecordNumber || consultation.id}</span>
                             </div>
                             <div class="info-row">
-                                <span class="info-label">性　　別：</span>
-                                <span class="info-value">${patient.gender}</span>
+                                <span class="info-label">${TC.gender}${colon}</span>
+                                <span class="info-value">${genderDisplay}</span>
                             </div>
                             <div class="info-row">
-                                <span class="info-label">年　　齡：</span>
-                                <span class="info-value">${formatAge(patient.birthDate)}</span>
+                                <span class="info-label">${TC.age}${colon}</span>
+                                <span class="info-value">${ageDisplay}</span>
                             </div>
                             <div class="info-row">
-                                <span class="info-label">身分證號：</span>
-                                <span class="info-value">${patient.idCard || '未提供'}</span>
+                                <span class="info-label">${TC.idCard}${colon}</span>
+                                <span class="info-value">${idDisplay}</span>
                             </div>
                         </div>
                         
-                        <!-- 到診資訊 -->
+                        <!-- Attendance Info -->
                         <div class="attendance-section">
-                            <div class="attendance-title">到診資訊</div>
+                            <div class="attendance-title">${TC.attendanceInfo}</div>
                             <div class="attendance-details">
-                                <div><strong>到診日期：</strong>${(() => {
-                                    const visitDate = consultation.visitTime ? new Date(consultation.visitTime) : consultationDate;
-                                    return visitDate.toLocaleDateString('zh-TW', {
-                                        year: 'numeric',
-                                        month: '2-digit',
-                                        day: '2-digit'
-                                    });
-                                })()}</div>
-                                <div><strong>到診時間：</strong>${(() => {
-                                    const visitDate = consultation.visitTime ? new Date(consultation.visitTime) : consultationDate;
-                                    return visitDate.toLocaleTimeString('zh-TW', {
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                    });
-                                })()}</div>
+                                <div><strong>${TC.arrivalDate}${colon}</strong>${visitDate.toLocaleDateString(dateLocale, { year: 'numeric', month: '2-digit', day: '2-digit' })}</div>
+                                <div><strong>${TC.arrivalTime}${colon}</strong>${visitDate.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}</div>
                             </div>
                         </div>
                         
-                        <!-- 診療資訊 -->
+                        <!-- Diagnosis Info -->
                         ${consultation.diagnosis ? `
                         <div class="content-section">
                             <div style="margin-bottom: 15px;">
-                                <strong>診斷結果：</strong>${consultation.diagnosis}
+                                <strong>${TC.diagnosisResult}${colon}</strong>${consultation.diagnosis}
                             </div>
                         </div>
                         ` : ''}
                         
                         <div class="content-section">
-                            <strong>茲證明上述病人確實於上述日期時間到本診所接受中醫診療。</strong>
+                            <strong>${TC.confirmSentence}</strong>
                         </div>
                         
                         <div class="content-section">
-                            <strong>特此證明。</strong>
+                            <strong>${TC.hereby}</strong>
                         </div>
                         
-                        <!-- 醫師簽名區 -->
+                        <!-- Doctor Signature -->
                         <div class="doctor-signature">
                             <div class="signature-section">
                                 <div class="signature-line"></div>
-                                <div class="signature-label">主治醫師簽名</div>
+                                <div class="signature-label">${TC.doctorSignature}</div>
                                 <div style="margin-top: 10px; font-weight: bold;">
                                     ${getDoctorDisplayName(consultation.doctor)}
                                 </div>
@@ -6958,7 +7003,7 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
                                     const regNumber = getDoctorRegistrationNumber(consultation.doctor);
                                     return regNumber ? `
                                         <div style="margin-top: 5px; font-size: 12px; color: #666;">
-                                            註冊編號：${regNumber}
+                                            ${TC.registrationNo}${colon}${regNumber}
                                         </div>
                                     ` : '';
                                 })()}
@@ -6966,26 +7011,26 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
                             
                             <div class="date-section">
                                 <div style="margin-bottom: 20px;">
-                                    <strong>開立日期：</strong><br>
-                                    ${new Date().toLocaleDateString('zh-TW', {
+                                    <strong>${TC.issueDate}${colon}</strong><br>
+                                    ${new Date().toLocaleDateString(dateLocale, {
                                         year: 'numeric',
                                         month: '2-digit',
                                         day: '2-digit'
                                     })}
                                 </div>
                                 <div style="border: 2px solid #000; padding: 15px; text-align: center; background: #f8f9fa;">
-                                    <div style="font-weight: bold; margin-bottom: 5px;">診所印章</div>
-                                    <div style="font-size: 12px; color: #666;">(此處應蓋診所印章)</div>
+                                    <div style="font-weight: bold; margin-bottom: 5px;">${TC.clinicSeal}</div>
+                                    <div style="font-size: 12px; color: #666;">${TC.sealNote}</div>
                                 </div>
                             </div>
                         </div>
                         
-                        <!-- 頁尾說明 -->
+                        <!-- Footer Note -->
                         <div class="footer-note">
-                            <div>本證明書僅證明到診事實，如有疑問請洽本診所</div>
-                            <div>診所電話：${clinicSettings.phone || '(852) 2345-6789'} | 營業時間：${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</div>
+                            <div>${TC.footerNote1}</div>
+                            <div>${TC.footerTel}${colon}${clinicSettings.phone || '(852) 2345-6789'} | ${TC.footerHours}${colon}${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</div>
                             <div style="margin-top: 10px; font-size: 10px;">
-                                證明書開立時間：${new Date().toLocaleString('zh-TW')}
+                                ${TC.certificateIssuedAt}${colon}${new Date().toLocaleString(dateLocale)}
                             </div>
                         </div>
                     </div>
@@ -6993,15 +7038,14 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
             </body>
             </html>
         `;
-        
-        // 開啟新視窗進行列印
+        // Open a new window and print
         const printWindow = window.open('', '_blank', 'width=700,height=900');
         printWindow.document.write(printContent);
         printWindow.document.close();
         printWindow.focus();
         printWindow.print();
         
-        showToast('到診證明書已準備列印！', 'success');
+        showToast(isEnglish ? 'Arrival certificate is ready for printing!' : '到診證明書已準備列印！', 'success');
         
     } catch (error) {
         console.error('列印到診證明錯誤:', error);
@@ -7035,18 +7079,116 @@ async function printSickLeave(consultationId, consultationData = null) {
             return;
         }
         
-        // 創建病假證明格式
+        // 動態生成病假證明內容，根據語言切換中英文
+        const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+        const isEnglish = lang === 'en';
+        const htmlLang = isEnglish ? 'en' : 'zh-TW';
+        const dateLocale = isEnglish ? 'en-US' : 'zh-TW';
+        const colon = isEnglish ? ': ' : '：';
+        // 性別翻譯
+        const genderVal = patient.gender || '';
+        let genderDisplay;
+        if (isEnglish) {
+            if (genderVal === '男' || genderVal === 'male' || genderVal === 'Male') {
+                genderDisplay = 'Male';
+            } else if (genderVal === '女' || genderVal === 'female' || genderVal === 'Female') {
+                genderDisplay = 'Female';
+            } else {
+                genderDisplay = genderVal;
+            }
+        } else {
+            genderDisplay = genderVal;
+        }
+        // 年齡翻譯
+        let ageDisplay = formatAge(patient.birthDate);
+        if (isEnglish && ageDisplay) {
+            ageDisplay = ageDisplay.replace('歲', '').trim();
+            if (ageDisplay) ageDisplay += ' years';
+        }
+        // 身分證號顯示
+        const idNumberDisplay = patient.idCard || (isEnglish ? 'Not provided' : '未提供');
+        // 診療日期
+        const visitDate = consultation.visitTime ? parseConsultationDate(consultation.visitTime) : parseConsultationDate(consultation.date);
+        const visitDateStr = visitDate && !isNaN(visitDate.getTime()) ? visitDate.toLocaleDateString(dateLocale, { year: 'numeric', month: '2-digit', day: '2-digit' }) : (isEnglish ? 'Unknown' : '未知日期');
+        // 診斷結果
+        const diagnosisResult = consultation.diagnosis || (isEnglish ? 'Rest and recuperation recommended' : '需要休息調養');
+        // 計算建議休息期間的顯示文字
+        const computeRestPeriod = () => {
+            // 優先使用診症記錄中的休息期間設定
+            if (consultation.restStartDate && consultation.restEndDate) {
+                const startDate = parseConsultationDate(consultation.restStartDate);
+                const endDate = parseConsultationDate(consultation.restEndDate);
+                if (!startDate || isNaN(startDate.getTime()) || !endDate || isNaN(endDate.getTime())) {
+                    return isEnglish ? 'Unknown' : '未知日期';
+                }
+                const timeDiff = endDate.getTime() - startDate.getTime();
+                const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1;
+                return startDate.toLocaleDateString(dateLocale) + (isEnglish ? ' to ' : ' 至 ') + endDate.toLocaleDateString(dateLocale) + (isEnglish ? ' (Total ' + daysDiff + ' days)' : ' (共 ' + daysDiff + ' 天)');
+            }
+            // 否則使用舊邏輯估算
+            let restDays = consultation.restDays ? parseInt(consultation.restDays) : 1;
+            if (!consultation.restDays) {
+                const treatmentCourse = consultation.treatmentCourse || (isEnglish ? '1 week' : '一周');
+                if (treatmentCourse.includes('天')) {
+                    const match = treatmentCourse.match(/(\d+)天/);
+                    if (match) {
+                        restDays = Math.min(parseInt(match[1]), 7);
+                    }
+                } else if (treatmentCourse.includes('週') || treatmentCourse.includes('周') || treatmentCourse.toLowerCase().includes('week')) {
+                    const match = treatmentCourse.match(/(\d+)[週周]/) || treatmentCourse.match(/(\d+)\s*week/);
+                    if (match) {
+                        restDays = Math.min(parseInt(match[1]) * 7, 7);
+                    }
+                }
+            }
+            const startDate = consultation.visitTime ? parseConsultationDate(consultation.visitTime) : parseConsultationDate(consultation.date);
+            if (!startDate || isNaN(startDate.getTime())) {
+                return isEnglish ? 'Unknown' : '未知日期';
+            }
+            const endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + restDays - 1);
+            return startDate.toLocaleDateString(dateLocale) + (isEnglish ? ' to ' : ' 至 ') + endDate.toLocaleDateString(dateLocale) + (isEnglish ? ' (Total ' + restDays + ' days)' : ' (共 ' + restDays + ' 天)');
+        };
+        const restPeriodStr = computeRestPeriod();
+        // 医师建议内容
+        const instructionsHtml = consultation.instructions ? consultation.instructions.replace(/\n/g, '<br>') : '';
+        // 翻譯字典
+        const SL = {
+            title: isEnglish ? 'Sick Leave Certificate' : '病假證明書',
+            certificateNumber: isEnglish ? 'Certificate No.' : '證明書編號',
+            name: isEnglish ? 'Name' : '姓　　名',
+            medicalRecordNo: isEnglish ? 'Medical Record No.' : '病歷編號',
+            genderLabel: isEnglish ? 'Gender' : '性　　別',
+            ageLabel: isEnglish ? 'Age' : '年　　齡',
+            idNumber: isEnglish ? 'ID No.' : '身分證號',
+            consultationDate: isEnglish ? 'Consultation Date' : '診療日期',
+            diagnosisResult: isEnglish ? 'Diagnosis Result' : '診斷結果',
+            restPeriod: isEnglish ? 'Recommended Rest Period' : '建議休息期間',
+            doctorAdvice: isEnglish ? "Doctor's advice" : '醫師建議',
+            certify: isEnglish ? 'Hereby certified.' : '特此證明。',
+            signature: isEnglish ? 'Physician Signature' : '主治醫師簽名',
+            registrationNo: isEnglish ? 'Registration No.' : '註冊編號',
+            issueDate: isEnglish ? 'Date of Issue' : '開立日期',
+            clinicSeal: isEnglish ? 'Clinic Seal' : '診所印章',
+            sealNote: isEnglish ? '(Clinic stamp here)' : '(此處應蓋診所印章)',
+            footerNote: isEnglish ? 'This certificate is for sick leave purposes only. If you have any questions, please contact the clinic.' : '本證明書僅供請假使用，如有疑問請洽本診所',
+            footerTel: isEnglish ? 'Clinic Tel.' : '診所電話',
+            footerHours: isEnglish ? 'Business Hours' : '營業時間',
+            issuedAt: isEnglish ? 'Certificate Issued At' : '證明書開立時間',
+            watermark: isEnglish ? 'Sick Leave' : '病假證明'
+        };
+        // 構建 HTML 內容
         const printContent = `
             <!DOCTYPE html>
-            <html lang="zh-TW">
+            <html lang="${htmlLang}">
             <head>
                 <meta charset="UTF-8">
-                <title>病假證明書 - ${patient.name}</title>
+                <title>${SL.title} - ${patient.name}</title>
                 <style>
-                    body { 
-                        font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif; 
-                        margin: 0; 
-                        padding: 8px; 
+                    body {
+                        font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif;
+                        margin: 0;
+                        padding: 8px;
                         line-height: 1.3;
                         font-size: 10px;
                         background: white;
@@ -7188,12 +7330,12 @@ async function printSickLeave(consultationId, consultationData = null) {
                             size: A5;
                             margin: 10mm;
                         }
-                        body { 
-                            margin: 0; 
-                            padding: 0; 
+                        body {
+                            margin: 0;
+                            padding: 0;
                             font-size: 11px;
                         }
-                        .certificate-container { 
+                        .certificate-container {
                             border: 3px solid #000;
                             width: 100%;
                             height: 100%;
@@ -7204,187 +7346,60 @@ async function printSickLeave(consultationId, consultationData = null) {
             </head>
             <body>
                 <div class="certificate-container">
-                    <!-- 浮水印 -->
-                    <div class="watermark">病假證明</div>
-                    
+                    <div class="watermark">${SL.watermark}</div>
                     <div class="content">
-                        <!-- 診所標題 -->
                         <div class="clinic-header">
                             <div class="clinic-name">${clinicSettings.chineseName || '名醫診所系統'}</div>
                             <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
-                            <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
+                            <div class="clinic-subtitle">${isEnglish ? 'Tel' : '電話'}${colon}${clinicSettings.phone || '(852) 2345-6789'}　${isEnglish ? 'Address' : '地址'}${colon}${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                         </div>
-                        
-                        <!-- 證明書編號 -->
-                        <div class="certificate-number">
-                            證明書編號：SL${consultation.id.toString().padStart(6, '0')}
-                        </div>
-                        
-                        <!-- 證明書標題 -->
-                        <div class="certificate-title">病假證明書</div>
-                        
-                        <!-- 病人資訊 -->
+                        <div class="certificate-number">${SL.certificateNumber}${colon}SL${consultation.id.toString().padStart(6, '0')}</div>
+                        <div class="certificate-title">${SL.title}</div>
                         <div class="patient-info">
-                            <div class="info-row">
-                                <span class="info-label">姓　　名：</span>
-                                <span class="info-value">${patient.name}</span>
-                            </div>
-                            <!-- 新增病歷編號顯示，置於姓名下方 -->
-                            <div class="info-row">
-                                <span class="info-label">病歷編號：</span>
-                                <span class="info-value">${consultation.medicalRecordNumber || consultation.id}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">性　　別：</span>
-                                <span class="info-value">${patient.gender}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">年　　齡：</span>
-                                <span class="info-value">${formatAge(patient.birthDate)}</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">身分證號：</span>
-                                <span class="info-value">${patient.idCard || '未提供'}</span>
-                            </div>
+                            <div class="info-row"><span class="info-label">${SL.name}${colon}</span><span class="info-value">${patient.name}</span></div>
+                            <div class="info-row"><span class="info-label">${SL.medicalRecordNo}${colon}</span><span class="info-value">${consultation.medicalRecordNumber || consultation.id}</span></div>
+                            <div class="info-row"><span class="info-label">${SL.genderLabel}${colon}</span><span class="info-value">${genderDisplay}</span></div>
+                            <div class="info-row"><span class="info-label">${SL.ageLabel}${colon}</span><span class="info-value">${ageDisplay}</span></div>
+                            <div class="info-row"><span class="info-label">${SL.idNumber}${colon}</span><span class="info-value">${idNumberDisplay}</span></div>
                         </div>
-                        
-                        <!-- 診斷資訊 -->
                         <div class="diagnosis-section">
-                            <div style="margin-bottom: 15px;">
-                                <strong>診療日期：</strong>${(() => {
-                                    // 使用通用日期解析函式處理到診時間或診症日期
-                                    const visitDate = consultation.visitTime ? parseConsultationDate(consultation.visitTime) : parseConsultationDate(consultation.date);
-                                    if (!visitDate || isNaN(visitDate.getTime())) {
-                                        return '未知日期';
-                                    }
-                                    return visitDate.toLocaleDateString('zh-TW', {
-                                        year: 'numeric',
-                                        month: '2-digit',
-                                        day: '2-digit'
-                                    });
-                                })()}
-                            </div>
-                            <div style="margin-bottom: 15px;">
-                                <strong>診斷結果：</strong>${consultation.diagnosis || '需要休息調養'}
-                            </div>
+                            <div style="margin-bottom: 15px;"><strong>${SL.consultationDate}${colon}</strong>${visitDateStr}</div>
+                            <div style="margin-bottom: 15px;"><strong>${SL.diagnosisResult}${colon}</strong>${diagnosisResult}</div>
                         </div>
-                        
-                        <!-- 建議休息期間 -->
-                        <div class="rest-period">
-                            建議休息期間：${(() => {
-                                // 優先使用診症記錄中的休息期間設定
-                                if (consultation.restStartDate && consultation.restEndDate) {
-                                    // 解析休息起止日期，支援多種格式
-                                    const startDate = parseConsultationDate(consultation.restStartDate);
-                                    const endDate = parseConsultationDate(consultation.restEndDate);
-                                    if (!startDate || isNaN(startDate.getTime()) || !endDate || isNaN(endDate.getTime())) {
-                                        return '未知日期';
-                                    }
-                                    const timeDiff = endDate.getTime() - startDate.getTime();
-                                    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // 包含開始和結束日期
-                                    return startDate.toLocaleDateString('zh-TW') + ' 至 ' + endDate.toLocaleDateString('zh-TW') + ' (共 ' + daysDiff + ' 天)';
-                                }
-                                
-                                // 如果沒有設定休息期間，使用舊的邏輯
-                                // 將預設休息天數由 3 天調整為 1 天
-                                let restDays = consultation.restDays ? parseInt(consultation.restDays) : 1;
-                                
-                                // 如果沒有設定休息天數，則根據治療療程推算
-                                if (!consultation.restDays) {
-                                    const treatmentCourse = consultation.treatmentCourse || '一周';
-                                    
-                                    if (treatmentCourse.includes('天')) {
-                                        const match = treatmentCourse.match(/(\d+)天/);
-                                        if (match) {
-                                            restDays = Math.min(parseInt(match[1]), 7); // 最多7天
-                                        }
-                                    } else if (treatmentCourse.includes('週') || treatmentCourse.includes('周')) {
-                                        const match = treatmentCourse.match(/(\d+)[週周]/);
-                                        if (match) {
-                                            restDays = Math.min(parseInt(match[1]) * 7, 7); // 最多7天
-                                        }
-                                    }
-                                }
-                                
-                                // 使用到診時間作為起始日期，如果沒有則使用診症日期
-                                const startDate = consultation.visitTime ? parseConsultationDate(consultation.visitTime) : parseConsultationDate(consultation.date);
-                                if (!startDate || isNaN(startDate.getTime())) {
-                                    return '未知日期';
-                                }
-                                const endDate = new Date(startDate);
-                                endDate.setDate(startDate.getDate() + restDays - 1);
-                                return startDate.toLocaleDateString('zh-TW') + ' 至 ' + endDate.toLocaleDateString('zh-TW') + ' (共 ' + restDays + ' 天)';
-                            })()}
-                        </div>
-                        
-                        <!-- 醫囑 -->
-                        ${consultation.instructions ? `
-                        <div class="content-section">
-                            <strong>醫師建議：</strong><br>
-                            ${consultation.instructions}
-                        </div>
-                        ` : ''}
-                        
-                        <div class="content-section">
-                            <strong>特此證明。</strong>
-                        </div>
-                        
-                        <!-- 醫師簽名區 -->
+                        <div class="rest-period">${SL.restPeriod}${colon}${restPeriodStr}</div>
+                        ${instructionsHtml ? `<div class="content-section"><strong>${SL.doctorAdvice}${colon}</strong><br>${instructionsHtml}</div>` : ''}
+                        <div class="content-section"><strong>${SL.certify}</strong></div>
                         <div class="doctor-signature">
                             <div class="signature-section">
                                 <div class="signature-line"></div>
-                                <div class="signature-label">主治醫師簽名</div>
-                                <div style="margin-top: 10px; font-weight: bold;">
-                                    ${getDoctorDisplayName(consultation.doctor)}
-                                </div>
+                                <div class="signature-label">${SL.signature}</div>
+                                <div style="margin-top: 10px; font-weight: bold;">${getDoctorDisplayName(consultation.doctor)}</div>
                                 ${(() => {
                                     const regNumber = getDoctorRegistrationNumber(consultation.doctor);
-                                    return regNumber ? `
-                                        <div style="margin-top: 5px; font-size: 12px; color: #666;">
-                                            註冊編號：${regNumber}
-                                        </div>
-                                    ` : '';
+                                    return regNumber ? `<div style="margin-top: 5px; font-size: 12px; color: #666;">${SL.registrationNo}${colon}${regNumber}</div>` : '';
                                 })()}
                             </div>
-                            
                             <div class="date-section">
-                                <div style="margin-bottom: 20px;">
-                                    <strong>開立日期：</strong><br>
-                                    ${new Date().toLocaleDateString('zh-TW', {
-                                        year: 'numeric',
-                                        month: '2-digit',
-                                        day: '2-digit'
-                                    })}
-                                </div>
-                                <div style="border: 2px solid #000; padding: 15px; text-align: center; background: #f8f9fa;">
-                                    <div style="font-weight: bold; margin-bottom: 5px;">診所印章</div>
-                                    <div style="font-size: 12px; color: #666;">(此處應蓋診所印章)</div>
-                                </div>
+                                <div style="margin-bottom: 20px;"><strong>${SL.issueDate}${colon}</strong><br>${new Date().toLocaleDateString(dateLocale, { year: 'numeric', month: '2-digit', day: '2-digit' })}</div>
+                                <div style="border: 2px solid #000; padding: 15px; text-align: center; background: #f8f9fa;"><div style="font-weight: bold; margin-bottom: 5px;">${SL.clinicSeal}</div><div style="font-size: 12px; color: #666;">${SL.sealNote}</div></div>
                             </div>
                         </div>
-                        
-                        <!-- 頁尾說明 -->
                         <div class="footer-note">
-                            <div>本證明書僅供請假使用，如有疑問請洽本診所</div>
-                            <div>診所電話：${clinicSettings.phone || '(852) 2345-6789'} | 營業時間：${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</div>
-                            <div style="margin-top: 10px; font-size: 10px;">
-                                證明書開立時間：${new Date().toLocaleString('zh-TW')}
-                            </div>
+                            <div>${SL.footerNote}</div>
+                            <div>${SL.footerTel}${colon}${clinicSettings.phone || '(852) 2345-6789'} | ${SL.footerHours}${colon}${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</div>
+                            <div style="margin-top: 10px; font-size: 10px;">${SL.issuedAt}${colon}${new Date().toLocaleString(dateLocale)}</div>
                         </div>
                     </div>
                 </div>
             </body>
-            </html>
-        `;
-        
-        // 開啟新視窗進行列印
+            </html>`;
+        // 開啟新視窗並列印
         const printWindow = window.open('', '_blank', 'width=700,height=900');
         printWindow.document.write(printContent);
         printWindow.document.close();
         printWindow.focus();
         printWindow.print();
-        
-        showToast('病假證明書已準備列印！', 'success');
+        showToast(isEnglish ? 'Sick leave certificate is ready for printing!' : '病假證明書已準備列印！', 'success');
         
     } catch (error) {
         console.error('讀取病人資料錯誤:', error);
@@ -7603,26 +7618,33 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
         } catch (_e) {
             // 若無法取得元素，保持預設空值
         }
+        // 根據語言動態組合服藥資訊並翻譯標籤
+        const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+        const isEnglish = lang === 'en';
+        const htmlLang = isEnglish ? 'en' : 'zh-TW';
+        const dateLocale = isEnglish ? 'en-US' : 'zh-TW';
+        const colon = isEnglish ? ': ' : '：';
+        // 組合服藥資訊
         let medInfoHtml = '';
         if (medDays) {
-            medInfoHtml += '<strong>服藥天數：</strong>' + medDays + '天　';
+            medInfoHtml += `<strong>${isEnglish ? 'Number of days' : '服藥天數'}${colon}</strong>${medDays}${isEnglish ? ' days' : '天'}&nbsp;`;
         }
         if (medFreq) {
-            medInfoHtml += '<strong>每日次數：</strong>' + medFreq + '次　';
+            medInfoHtml += `<strong>${isEnglish ? 'Times per day' : '每日次數'}${colon}</strong>${medFreq}${isEnglish ? '' : '次'}&nbsp;`;
         }
         if (consultation.usage) {
-            medInfoHtml += '<strong>服用方法：</strong>' + consultation.usage;
+            medInfoHtml += `<strong>${isEnglish ? 'Usage' : '服用方法'}${colon}</strong>${consultation.usage}`;
         }
         // 醫囑及注意事項
         const instructionsHtml = consultation.instructions ? consultation.instructions.replace(/\n/g, '<br>') : '';
-        // 建議複診時間
+        // 建議複診時間，根據語言格式化
         let followUpHtml = '';
         if (consultation.followUpDate) {
             try {
                 if (consultation.followUpDate.seconds) {
-                    followUpHtml = new Date(consultation.followUpDate.seconds * 1000).toLocaleString('zh-TW');
+                    followUpHtml = new Date(consultation.followUpDate.seconds * 1000).toLocaleString(dateLocale);
                 } else {
-                    followUpHtml = new Date(consultation.followUpDate).toLocaleString('zh-TW');
+                    followUpHtml = new Date(consultation.followUpDate).toLocaleString(dateLocale);
                 }
             } catch (_err) {
                 try {
@@ -7632,18 +7654,39 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                 }
             }
         }
+        // 翻譯字典
+        const PI = {
+            title: isEnglish ? 'Prescription Instructions' : '藥單醫囑',
+            patientName: isEnglish ? 'Patient Name' : '病人姓名',
+            medicalRecordNo: isEnglish ? 'Medical Record No.' : '病歷編號',
+            patientNo: isEnglish ? 'Patient No.' : '病人號碼',
+            consultationDate: isEnglish ? 'Consultation Date' : '診療日期',
+            consultationTime: isEnglish ? 'Time' : '診療時間',
+            doctor: isEnglish ? 'Attending Physician' : '主治醫師',
+            registrationNo: isEnglish ? 'Registration No.' : '註冊編號',
+            diagnosis: isEnglish ? 'Diagnosis' : '診斷',
+            prescriptionContent: isEnglish ? 'Prescription Contents' : '處方內容',
+            medicationInfo: isEnglish ? 'Medication Information' : '服藥資訊',
+            instructions: isEnglish ? 'Instructions & Precautions' : '醫囑及注意事項',
+            followUp: isEnglish ? 'Suggested Follow-up Time' : '建議複診時間',
+            thankYou: isEnglish ? 'Thank you for your visit. Wishing you good health!' : '謝謝您的光臨，祝您身體健康！',
+            printTime: isEnglish ? 'Print Time' : '列印時間',
+            businessHours: isEnglish ? 'Clinic Business Hours' : '診所營業時間',
+            saveAdvice: isEnglish ? 'Please keep this advice safe, this prescription cannot be refilled.' : '本醫囑請妥善保存，此藥方不可重配',
+            contact: isEnglish ? 'If you have any questions, please contact the front desk.' : '如有疑問請洽櫃檯'
+        };
         // 構建列印內容
         const printContent = `
             <!DOCTYPE html>
-            <html lang="zh-TW">
+            <html lang="${htmlLang}">
             <head>
                 <meta charset="UTF-8">
-                <title>藥單醫囑 - ${patient.name}</title>
+                <title>${PI.title} - ${patient.name}</title>
                 <style>
-                    body { 
-                        font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif; 
-                        margin: 0; 
-                        padding: 10px; 
+                    body {
+                        font-family: 'Microsoft JhengHei', '微軟正黑體', sans-serif;
+                        margin: 0;
+                        padding: 10px;
                         line-height: 1.3;
                         font-size: 11px;
                     }
@@ -7714,7 +7757,6 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                         font-weight: bold;
                         color: #333;
                     }
-                    /* 頁尾資訊與行排版 */
                     .footer-info {
                         margin-top: 10px;
                         border-top: 1px dashed #666;
@@ -7732,12 +7774,12 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                             size: A5;
                             margin: 10mm;
                         }
-                        body { 
-                            margin: 0; 
-                            padding: 0; 
+                        body {
+                            margin: 0;
+                            padding: 0;
                             font-size: 11px;
                         }
-                        .advice-container { 
+                        .advice-container {
                             width: 100%;
                             height: 100%;
                             padding: 8mm;
@@ -7747,66 +7789,46 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
             </head>
             <body>
                 <div class="advice-container">
-                    <!-- 診所標題 -->
                     <div class="clinic-header">
                         <div class="clinic-name">${clinicSettings.chineseName || '名醫診所系統'}</div>
                         <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
-                        <div class="clinic-subtitle">電話：${clinicSettings.phone || '(852) 2345-6789'}　地址：${clinicSettings.address || '香港中環皇后大道中123號'}</div>
+                        <div class="clinic-subtitle">${isEnglish ? 'Tel' : '電話'}${colon}${clinicSettings.phone || '(852) 2345-6789'}　${isEnglish ? 'Address' : '地址'}${colon}${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                     </div>
-                    <!-- 標題 -->
-                    <div class="advice-title">藥單醫囑</div>
-                    <!-- 病人及診療資訊 -->
+                    <div class="advice-title">${PI.title}</div>
                     <div class="patient-info">
-                        <div class="info-row"><span class="info-label">病人姓名：</span><span>${patient.name}</span></div>
-                        <!-- 新增病歷編號顯示，置於姓名下方 -->
-                        <div class="info-row"><span class="info-label">病歷編號：</span><span>${consultation.medicalRecordNumber || consultation.id}</span></div>
-                        ${patient.patientNumber ? `<div class="info-row"><span class="info-label">病人號碼：</span><span>${patient.patientNumber}</span></div>` : ''}
-                        <div class="info-row"><span class="info-label">診療日期：</span><span>${consultationDate.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })}</span></div>
-                        <div class="info-row"><span class="info-label">診療時間：</span><span>${consultationDate.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}</span></div>
-                        <div class="info-row"><span class="info-label">主治醫師：</span><span>${getDoctorDisplayName(consultation.doctor)}</span></div>
+                        <div class="info-row"><span class="info-label">${PI.patientName}${colon}</span><span>${patient.name}</span></div>
+                        <div class="info-row"><span class="info-label">${PI.medicalRecordNo}${colon}</span><span>${consultation.medicalRecordNumber || consultation.id}</span></div>
+                        ${patient.patientNumber ? `<div class="info-row"><span class="info-label">${PI.patientNo}${colon}</span><span>${patient.patientNumber}</span></div>` : ''}
+                        <div class="info-row"><span class="info-label">${PI.consultationDate}${colon}</span><span>${consultationDate.toLocaleDateString(dateLocale, { year: 'numeric', month: '2-digit', day: '2-digit' })}</span></div>
+                        <div class="info-row"><span class="info-label">${PI.consultationTime}${colon}</span><span>${consultationDate.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}</span></div>
+                        <div class="info-row"><span class="info-label">${PI.doctor}${colon}</span><span>${getDoctorDisplayName(consultation.doctor)}</span></div>
                         ${(() => {
-                            // 顯示註冊編號（如有）
                             const regNumber = getDoctorRegistrationNumber(consultation.doctor);
-                            return regNumber ? `
-                                <div class="info-row"><span class="info-label">註冊編號：</span><span>${regNumber}</span></div>
-                            ` : '';
+                            return regNumber ? `<div class="info-row"><span class="info-label">${PI.registrationNo}${colon}</span><span>${regNumber}</span></div>` : '';
                         })()}
-                        ${consultation.diagnosis ? `<div class="info-row"><span class="info-label">診斷：</span><span>${consultation.diagnosis}</span></div>` : ''}
+                        ${consultation.diagnosis ? `<div class="info-row"><span class="info-label">${PI.diagnosis}${colon}</span><span>${consultation.diagnosis}</span></div>` : ''}
                     </div>
-                    <!-- 處方內容 -->
-                    <div class="section-title">處方內容</div>
-                    <!-- 將處方內容分為三欄顯示 -->
+                    <div class="section-title">${PI.prescriptionContent}</div>
                     <div class="section-content">${prescriptionHtml}</div>
-                    ${medInfoHtml ? `<div class="section-title">服藥資訊</div><div class="section-content">${medInfoHtml}</div>` : ''}
-                    ${instructionsHtml ? `<div class="section-title">醫囑及注意事項</div><div class="section-content">${instructionsHtml}</div>` : ''}
-                    ${followUpHtml ? `<div class="section-title">建議複診時間</div><div class="section-content">${followUpHtml}</div>` : ''}
-                    <div class="thank-you">謝謝您的光臨，祝您身體健康！</div>
-                    <!-- 頁尾資訊（參考收據的應收金額下方內容） -->
+                    ${medInfoHtml ? `<div class="section-title">${PI.medicationInfo}</div><div class="section-content">${medInfoHtml}</div>` : ''}
+                    ${instructionsHtml ? `<div class="section-title">${PI.instructions}</div><div class="section-content">${instructionsHtml}</div>` : ''}
+                    ${followUpHtml ? `<div class="section-title">${PI.followUp}</div><div class="section-content">${followUpHtml}</div>` : ''}
+                    <div class="thank-you">${PI.thankYou}</div>
                     <div class="footer-info">
-                        <div class="footer-row">
-                            <span>列印時間：</span>
-                            <span>${new Date().toLocaleString('zh-TW')}</span>
-                        </div>
-                        <div class="footer-row">
-                            <span>診所營業時間：</span>
-                            <span>${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</span>
-                        </div>
-                        <div class="footer-row">
-                            <span>本醫囑請妥善保存<span style="font-size: 8px;">，此藥方不可重配</span></span>
-                            <span>如有疑問請洽櫃檯</span>
-                        </div>
+                        <div class="footer-row"><span>${PI.printTime}${colon}</span><span>${new Date().toLocaleString(dateLocale)}</span></div>
+                        <div class="footer-row"><span>${PI.businessHours}${colon}</span><span>${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</span></div>
+                        <div class="footer-row"><span>${PI.saveAdvice}</span><span>${PI.contact}</span></div>
                     </div>
                 </div>
             </body>
-            </html>
-        `;
+            </html>`;
         // 開啟新視窗並列印
         const printWindow = window.open('', '_blank', 'width=500,height=700');
         printWindow.document.write(printContent);
         printWindow.document.close();
         printWindow.focus();
         printWindow.print();
-        showToast('藥單醫囑已準備列印！', 'success');
+        showToast(isEnglish ? 'Prescription instructions are ready for printing!' : '藥單醫囑已準備列印！', 'success');
     } catch (error) {
         console.error('列印藥單醫囑錯誤:', error);
         showToast('列印藥單醫囑時發生錯誤', 'error');
