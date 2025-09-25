@@ -19,7 +19,12 @@ import {
   /* 改用 initializeFirestore/persistentLocalCache 以啟用離線快取。
      enableIndexedDbPersistence 將在未來版本中移除。*/
   initializeFirestore,
-  persistentLocalCache
+  persistentLocalCache,
+  // 新增多分頁快取管理器，允許多個分頁共用一個離線快取，避免 "Failed to obtain exclusive access" 錯誤
+  persistentMultipleTabManager
+  ,
+  // 匯入批次寫入函式以支援批次操作
+  writeBatch
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import { getDatabase, ref, set, get, update, remove, onValue, off,
         // 新增查詢相關方法，用於在 Realtime Database 上進行條件篩選
@@ -27,7 +32,9 @@ import { getDatabase, ref, set, get, update, remove, onValue, off,
         orderByChild,
         startAt,
         endAt } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
-import { getAuth, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { getAuth, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence, createUserWithEmailAndPassword, updateProfile,
+        // 新增更改密碼、刪除帳號、重新驗證等方法
+        updatePassword, deleteUser as firebaseDeleteUser, EmailAuthProvider, reauthenticateWithCredential } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
 // 匯入外部配置檔案。請將您的 Firebase 設定值放在 firebaseConfig.js 中，並避免將其提交到版本控制。
 import firebaseConfig from './firebaseConfig.js';
@@ -38,7 +45,11 @@ import firebaseConfig from './firebaseConfig.js';
     // 依照新版 SDK 的建議，在初始化 Firestore 時指定 localCache 為 persistentLocalCache()，
     // 以便將文件快取至 IndexedDB，當網路中斷時仍可讀取先前的資料，並在恢復連線後自動同步。
     const db = initializeFirestore(app, {
-      localCache: persistentLocalCache({ /* 預設設定：單分頁 persistence */ })
+      // 使用 persistentLocalCache 搭配 persistentMultipleTabManager 以支援多分頁離線快取。
+      // 若未指定 tabManager，預設僅允許單一分頁存取 IndexedDB，當多個分頁同時開啟時會造成 exclusivity 錯誤。
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
     });
 
     // 注意：不再呼叫 enableIndexedDbPersistence，因為該函式未來將被移除。
@@ -70,6 +81,8 @@ setPersistence(auth, browserSessionPersistence).catch((error) => {
         updateDoc,
         deleteDoc,
         setDoc,
+        // 批次寫入函式
+        writeBatch,
         // 將 Firestore 查詢函式以 firestoreQuery 名稱暴露，避免與 Realtime Database 的 query 混淆
         firestoreQuery: query,
         where,
@@ -96,6 +109,15 @@ setPersistence(auth, browserSessionPersistence).catch((error) => {
         // 驗證函式
         signInWithEmailAndPassword,
         signOut,
+        createUserWithEmailAndPassword,
+        updateProfile,
+        // 新增：密碼重設與帳號刪除相關函式
+        updatePassword,
+        // 刪除 Firebase Authentication 使用者
+        deleteAuthUser: firebaseDeleteUser,
+        // 使用電子郵件提供者進行重新驗證
+        EmailAuthProvider,
+        reauthenticateWithCredential,
         // 持久化設置
         setPersistence,
         browserSessionPersistence

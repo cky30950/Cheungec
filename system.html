@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>名醫診所系統</title>
+    <!-- 新增網站圖標 (favicon) -->
+    <link rel="icon" type="image/png" href="images/myLogo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Firebase SDK -->
 <script type="module" src="firebase_init.js"></script>
@@ -188,7 +190,10 @@
                 </select>
             </div>
             <div class="text-center mb-8">
-                <div class="text-4xl mb-4">🏥</div>
+                <div class="text-4xl mb-4">
+                    <!-- 使用自定義 Logo 圖片取代原有的 Emoji -->
+                    <img src="images/myLogo.png" alt="Logo" class="h-20 mx-auto">
+                </div>
                 <h1 id="loginTitle" class="text-2xl font-bold text-gray-800 mb-2">名醫診所系統</h1>
                 <p id="loginEnglishTitle" class="text-sm text-gray-500 mb-3">TCM Clinic</p>
                 <p class="text-gray-600">請輸入您的電子郵件及密碼登入</p>
@@ -216,6 +221,7 @@
             </div>
             <!-- 登入頁面不再包含版權聲明，由全局頁腳統一呈現 -->
         </div>
+
     </div>
     <!-- 主系統頁面 -->
     <div id="mainSystem" class="hidden fade-in">
@@ -226,7 +232,10 @@
                 <div class="bg-green-600 text-white p-6">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center">
-                            <span class="text-2xl mr-3">🏥</span>
+                            <span class="mr-3">
+                                <!-- 使用自定義 Logo 圖片取代原有的 Emoji -->
+                                <img src="images/myLogo.png" alt="Logo" class="h-6">
+                            </span>
                             <h2 class="text-lg font-bold">診所功能</h2>
                         </div>
                         <button id="closeSidebarButton" class="text-white hover:text-gray-200 text-xl">
@@ -264,7 +273,10 @@
                                 <div class="w-full h-0.5 bg-gray-600"></div>
                             </div>
                         </button>
-                        <span class="text-2xl mr-3">🏥</span>
+                        <span class="mr-3">
+                            <!-- 使用自定義 Logo 圖片取代原有的 Emoji -->
+                            <img src="images/myLogo.png" alt="Logo" class="h-6">
+                        </span>
                         <div>
                             <h1 id="systemTitle" class="text-xl font-bold text-gray-800">名醫診所系統</h1>
                             <p id="systemEnglishTitle" class="text-xs text-gray-500">TCM Clinic</p>
@@ -284,7 +296,10 @@
         <div id="contentWrapper" class="max-w-7xl mx-auto px-4 py-6">
             <!-- 歡迎頁面 -->
             <div id="welcomePage" class="text-center py-16">
-                <div class="text-6xl mb-6">🏥</div>
+                <div class="text-6xl mb-6">
+                    <!-- 使用自定義 Logo 圖片取代原有的 Emoji -->
+                    <img src="images/myLogo.png" alt="Logo" class="h-16 mx-auto">
+                </div>
                 <h2 id="welcomeTitle" class="text-3xl font-bold text-gray-800 mb-2">歡迎使用名醫診所系統</h2>
                 <p id="welcomeEnglishTitle" class="text-lg text-gray-500 mb-4">Welcome to TCM Clinic</p>
                 <p class="text-gray-600 text-lg mb-8">請點擊左上角選單按鈕開始使用系統功能</p>
@@ -1005,7 +1020,7 @@
                 </div>
                 <!-- 分類標籤 -->
                 <div class="mb-6">
-                    <div class="flex flex-wrap gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
                         <button onclick="filterHerbLibrary('all')" id="filter-all" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 transition duration-200">
                             全部
                         </button>
@@ -1015,6 +1030,14 @@
                         <button onclick="filterHerbLibrary('formula')" id="filter-formula" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200">
                             方劑
                         </button>
+                        <select id="herbSortSelect" onchange="changeHerbSortOrder(this.value)" class="ml-auto px-4 py-2 rounded-lg text-sm font-medium bg-white border border-gray-300 text-gray-700">
+                            <option value="">排序方式</option>
+                            <option value="most">庫存最多</option>
+                            <option value="least">庫存最少</option>
+                            <!-- 新增使用次數排序選項 -->
+                            <option value="useMost">使用最多</option>
+                            <option value="useLeast">使用最少</option>
+                        </select>
                     </div>
                 </div>
                 <!-- 新增/編輯中藥材表單彈窗 -->
@@ -1060,6 +1083,15 @@
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">使用注意</label>
                                     <input type="text" id="herbCautions" placeholder="禁忌或注意事項" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                </div>
+                                <!-- 新增庫存量與警戒量欄位 -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">存庫量 (g)</label>
+                                    <input type="number" id="herbStock" placeholder="請輸入存庫量" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" min="0" step="0.5">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">補貨警戒量 (g)</label>
+                                    <input type="number" id="herbThreshold" placeholder="庫存低於此值顯示紅色" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" min="0" step="0.5">
                                 </div>
                             </div>
                             
@@ -1117,6 +1149,15 @@
                                         <label class="block text-sm font-medium text-gray-700 mb-1">用法</label>
                                         <textarea id="formulaUsage" placeholder="請描述方劑用法" rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
                                     </div>
+                                    <!-- 新增庫存量與警戒量欄位 -->
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">存庫量 (g)</label>
+                                        <input type="number" id="formulaStock" placeholder="請輸入存庫量" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" min="0" step="0.5">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">補貨警戒量 (g)</label>
+                                        <input type="number" id="formulaThreshold" placeholder="庫存低於此值顯示紅色" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" min="0" step="0.5">
+                                    </div>
                                 </div>
                             </div>
                             
@@ -1127,6 +1168,40 @@
                                 <button onclick="saveFormula()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-200">
                                     <span id="formulaSaveButtonText">儲存</span>
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 庫存編輯彈窗 -->
+                <div id="inventoryModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+                    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full">
+                        <div class="p-6">
+                            <h3 id="inventoryModalTitle" class="text-xl font-bold mb-4">編輯庫存</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">剩餘數量</label>
+                                    <!-- 將輸入框與單位下拉改為響應式：手機垂直排列，桌面橫向排列 -->
+                                    <div class="flex flex-col sm:flex-row items-center">
+                                        <input type="number" id="inventoryQuantity" class="w-full flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" min="0" step="0.5">
+                                        <select id="inventoryQuantityUnit" class="mt-2 sm:mt-0 sm:ml-2 border border-gray-300 rounded px-2 py-2 text-sm">
+                                            <option value="g" selected>克</option>
+                                            <option value="jin">斤</option>
+                                            <option value="liang">兩</option>
+                                            <option value="qian">錢</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">補貨警戒量</label>
+                                    <div class="flex items-center">
+                                        <!-- 讓輸入框在小螢幕時佔滿整行，避免超出右邊邊框 -->
+                                        <input type="number" id="inventoryThreshold" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" min="0" step="0.5">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-6 flex justify-end space-x-4">
+                                <button onclick="hideInventoryModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">取消</button>
+                                <button onclick="saveInventoryChanges()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">儲存</button>
                             </div>
                         </div>
                     </div>
@@ -1344,19 +1419,31 @@
                                     <p class="text-xs text-gray-500 mt-1">醫師職位必須填寫註冊編號</p>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">電子郵件</label>
-                                    <input type="email" id="userEmail" placeholder="請輸入電子郵件" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">電子郵件 *</label>
+                                    <input type="email" id="userEmail" placeholder="請輸入電子郵件" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">電話號碼</label>
                                     <input type="tel" id="userPhone" placeholder="請輸入電話號碼" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                 </div>
                                 <!-- Firebase UID 欄位 -->
-                                <div>
+                                <div id="uidField">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Firebase UID</label>
                                     <input type="text" id="userUID" placeholder="請輸入 Firebase UID（可不填）" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
                                     <p class="text-xs text-gray-500 mt-1">對應 Firebase Authentication 帳號的 UID</p>
                                 </div>
+
+        <!-- 初始密碼與確認密碼欄位，僅新增用戶時顯示 -->
+        <div id="passwordFields" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">初始密碼 *</label>
+                <input type="password" id="userPassword" placeholder="請輸入初始密碼" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">確認密碼 *</label>
+                <input type="password" id="userPasswordConfirm" placeholder="請再次輸入密碼" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+            </div>
+        </div>
                                 <div class="md:col-span-2">
                                     <label class="flex items-center">
                                         <input type="checkbox" id="userActive" checked class="mr-2 rounded">
@@ -1370,7 +1457,8 @@
                                 <button onclick="hideAddUserForm()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition duration-200">
                                     取消
                                 </button>
-                                <button onclick="saveUser()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition duration-200">
+                                <!-- 為用戶儲存按鈕增加 id，便於顯示讀取圈 -->
+                                <button id="userSaveButton" onclick="saveUser()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition duration-200">
                                     <span id="userSaveButtonText">儲存</span>
                                 </button>
                             </div>
@@ -1648,7 +1736,7 @@
 <div class="bg-gray-50 rounded-lg p-6">
     <h3 class="text-lg font-semibold mb-4">資料備份與還原</h3>
     <!-- 說明備份內容：模板庫、中藥庫及穴位庫不包含在匯出備份中 -->
-    <p class="text-sm text-gray-600 mb-4">您可以匯出診所資料備份（包含所有功能資料，不含模板庫、中藥庫及穴位庫），或匯入之前的備份檔案。實時掛號資料不包含在備份中。</p>
+    <p class="text-sm text-gray-600 mb-4">您可以匯出診所資料備份（包含所有功能資料，不含模板庫、中藥庫及穴位庫），或匯入之前的備份檔案。實時掛號及問診資料不包含在備份中。</p>
     <div class="flex flex-col md:flex-row gap-4">
         <button id="backupExportBtn" onclick="exportClinicBackup()" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition duration-200">
             匯出備份
@@ -1783,6 +1871,119 @@
               </div>
               <div class="grid md:grid-cols-2 gap-6" id="acupointCombinationsContainer">
                 <!-- 動態載入穴位組合 -->
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 個人統計分析區：包裝在與其他頁面相同的寬度限制與內外邊距容器中，統計醫師個人用藥與穴位偏好 -->
+        <div id="personalStatistics" class="hidden max-w-7xl mx-auto px-4 py-6">
+          <div class="bg-white rounded-xl shadow-lg p-6">
+            <div>
+            <h2 class="text-2xl font-bold text-amber-800 mb-6 flex items-center">
+              <span class="text-3xl mr-3">📈</span>
+              個人統計分析
+            </h2>
+            <!-- 說明文字：指引使用者此功能用途 -->
+            <p class="text-gray-600 mb-6">統計醫師個人用藥與穴位使用情況，提供用藥和穴位偏好分析。</p>
+            <!-- 依序排列：方劑在上，中藥在下，穴位置底。每個卡片內部使用二欄佈局：圖表與列表並列 -->
+            <div class="space-y-8">
+              <!-- 常用方劑統計區塊 -->
+              <div class="bg-gray-50 rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <span class="mr-2">📋</span>常用方劑
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                  <!-- 圖表 -->
+                  <div>
+                    <canvas id="personalFormulaChart" class="w-full h-60"></canvas>
+                  </div>
+                  <!-- 清單 -->
+                  <ul id="personalFormulaList" class="divide-y divide-gray-200 text-sm">
+                    <!-- 動態載入方劑統計 -->
+                  </ul>
+                </div>
+              </div>
+              <!-- 常用中藥統計區塊 -->
+              <div class="bg-gray-50 rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <span class="mr-2">🌿</span>常用中藥
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                  <div>
+                    <canvas id="personalHerbChart" class="w-full h-60"></canvas>
+                  </div>
+                  <ul id="personalHerbList" class="divide-y divide-gray-200 text-sm">
+                    <!-- 動態載入中藥統計 -->
+                  </ul>
+                </div>
+              </div>
+              <!-- 常用穴位統計區塊 -->
+              <div class="bg-gray-50 rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <span class="mr-2">📍</span>常用穴位
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                  <div>
+                    <canvas id="personalAcupointChart" class="w-full h-60"></canvas>
+                  </div>
+                  <ul id="personalAcupointList" class="divide-y divide-gray-200 text-sm">
+                    <!-- 動態載入穴位統計 -->
+                  </ul>
+                </div>
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 帳號安全設定區：允許使用者變更密碼及刪除帳號 -->
+        <div id="accountSecurity" class="hidden max-w-7xl mx-auto px-4 py-6">
+          <div class="bg-white rounded-xl shadow-lg p-6">
+            <div>
+            <h2 class="text-2xl font-bold text-amber-800 mb-6 flex items-center">
+              <span class="text-3xl mr-3">🔐</span>
+              帳號安全設定
+            </h2>
+            <p class="text-gray-600 mb-6">在此可以安全地變更您的登入密碼或刪除帳號。此操作將影響您在系統中的登入權限，請謹慎操作。</p>
+            <div class="space-y-8">
+              <!-- 變更密碼區塊 -->
+              <div class="bg-gray-50 rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">變更密碼</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label for="changeCurrentPassword" class="block text-sm font-medium text-gray-700 mb-1">當前密碼</label>
+                    <input type="password" id="changeCurrentPassword" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請輸入當前密碼">
+                  </div>
+                  <div>
+                    <label for="changeNewPassword" class="block text-sm font-medium text-gray-700 mb-1">新密碼</label>
+                    <input type="password" id="changeNewPassword" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請輸入新密碼">
+                  </div>
+                  <div>
+                    <label for="changeConfirmPassword" class="block text-sm font-medium text-gray-700 mb-1">確認新密碼</label>
+                    <input type="password" id="changeConfirmPassword" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="請再次輸入新密碼">
+                  </div>
+                </div>
+                <div class="mt-4 flex justify-end">
+                  <!-- 為更新密碼按鈕增加 id，以便 JavaScript 能準確找到此元素並顯示讀取圈 -->
+                  <button id="updatePasswordButton" onclick="changeCurrentUserPassword()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition duration-200">更新密碼</button>
+                </div>
+              </div>
+              <!-- 刪除帳號區塊 -->
+              <div class="bg-red-50 rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-red-800 mb-4">刪除帳號</h3>
+                <p class="text-sm text-red-700 mb-4">刪除帳號後，您將無法再登入系統，且所有與此帳號相關的資料將無法恢復。請慎重操作！</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label for="deleteAccountPassword" class="block text-sm font-medium text-gray-700 mb-1">密碼確認</label>
+                    <input type="password" id="deleteAccountPassword" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent" placeholder="請輸入您的密碼">
+                  </div>
+                </div>
+                <div class="mt-4 flex justify-end">
+                  <!-- 為刪除帳號按鈕增加 id，以便 JavaScript 能準確找到此元素並顯示讀取圈 -->
+                  <button id="deleteAccountButton" onclick="deleteCurrentUserAccount()" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition duration-200">刪除帳號</button>
+                </div>
               </div>
             </div>
             </div>
@@ -2029,11 +2230,17 @@
     <!-- 自訂工具提示容器 -->
     <!-- 調整 z-index 並新增行內樣式，以確保 tooltip 在模態框或其他高層元素之上顯示 -->
     <div id="tooltip" class="hidden pointer-events-none fixed bg-gray-800 text-white text-xs px-3 py-1 rounded-lg shadow-lg z-50 whitespace-pre-line" style="z-index: 9999;"></div>
+    <!-- 載入 Chart.js 用於繪製個人統計分析圖表 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="system.js"></script>
     <!-- 語言國際化腳本，必須在系統腳本之後載入 -->
     <script src="i18n.js"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96f142c32d05b42b","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"97172fa8b875b31b","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
