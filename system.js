@@ -3,6 +3,11 @@
 let currentUser = null;
 let currentUserData = null;
 
+// 全域自訂權限（Custom Claims）儲存區
+// 於 Firebase 登入後載入使用者的 ID Token 並解析其中的自訂權限，再存入此對象
+// 以便其他模組（例如 schedule_management.js）可直接存取
+window.currentUserClaims = {};
+
 /**
  * A simple debounce utility to delay the execution of a function until after a specified
  * delay has passed since its last invocation. This helps to avoid triggering expensive
@@ -60,6 +65,10 @@ const UNIT_LABEL_MAP = {
     liang: '兩',
     qian: '錢'
 };
+
+// 用於掛號搜尋結果的鍵盤導航索引
+// 當病人搜尋結果出現時，此索引用於記錄當前選中項目；-1 表示未選中
+let patientSearchSelectionIndex = -1;
 
 // 為病人詳細資料中的套票情況新增分頁設定。
 // 若條件改變（例如重新查看另一位病人），應重置 currentPage 為 1。
@@ -222,11 +231,11 @@ const ROLE_PERMISSIONS = {
   // 新增個人統計分析 (personalStatistics) 權限，診所管理者與醫師可使用
   // 管理員不需要個人設置與個人統計分析，故移除這兩項
   // 將模板庫移至穴位庫之後，使側邊選單順序為：患者管理 -> 診症系統 -> 中藥庫 -> 穴位庫 -> 模板庫 -> 收費管理 -> 用戶管理 -> 財務報表 -> 系統管理 -> 帳號安全
-  '診所管理': ['patientManagement', 'consultationSystem', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'billingManagement', 'userManagement', 'financialReports', 'systemManagement', 'accountSecurity'],
+  '診所管理': ['patientManagement', 'consultationSystem', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'billingManagement', 'userManagement', 'financialReports', 'systemManagement', 'accountSecurity'],
   // 醫師不需要系統管理權限，將模板庫移至穴位庫之後
-  '醫師': ['patientManagement', 'consultationSystem', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'billingManagement', 'personalSettings', 'personalStatistics', 'accountSecurity'],
+  '醫師': ['patientManagement', 'consultationSystem', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'billingManagement', 'personalSettings', 'personalStatistics', 'accountSecurity'],
   // 將模板庫移至穴位庫之後
-  '護理師': ['patientManagement', 'consultationSystem', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'accountSecurity'],
+  '護理師': ['patientManagement', 'consultationSystem', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'accountSecurity'],
   // 用戶無中藥庫或穴位庫權限，維持模板庫在最後
   '用戶': ['patientManagement', 'consultationSystem', 'templateLibrary', 'accountSecurity']
 };
@@ -243,9 +252,28 @@ function hasAccessToSection(sectionId) {
   // 取得用戶職位並移除前後空白
   const pos = currentUserData.position.trim ? currentUserData.position.trim() : currentUserData.position;
 
-  // 特別處理：用戶管理僅限診所管理者使用
+  // 特別處理：用戶管理僅限管理員使用。
+  // 使用 window.isAdminUser（若存在）來判斷是否為管理員，
+  // 以支援例如「系統管理」或包含「管理」的其他職稱，同時保留
+  // 對特定電子郵件 (admin@clinic.com) 的判斷。
   if (sectionId === 'userManagement') {
-    return pos === '診所管理';
+    try {
+      if (typeof window.isAdminUser === 'function') {
+        // 若提供了 isAdminUser 函式，直接以其結果為準。
+        return window.isAdminUser();
+      }
+    } catch (_e) {
+      // 忽略函式執行中的錯誤
+    }
+    // 如果沒有 isAdminUser 或執行失敗，則根據職稱及電子郵件進行判斷。
+    const email = (currentUserData && currentUserData.email
+      ? String(currentUserData.email).toLowerCase().trim()
+      : '');
+    return (
+      pos === '診所管理' ||
+      (pos && pos.includes('管理')) ||
+      email === 'admin@clinic.com'
+    );
   }
 
   // 收費項目管理僅限診所管理者或醫師使用
@@ -280,6 +308,14 @@ let personalAcupointChartInstance = null;
 async function computeGlobalUsageCounts() {
     // 確保 consultations 資料可用，如無資料則嘗試載入
     try {
+        // 登出時停止閒置監控，以免登出後仍然觸發自動登出回調
+        try {
+            if (typeof stopInactivityMonitoring === 'function') {
+                stopInactivityMonitoring();
+            }
+        } catch (_e) {
+            // 忽略停止監控時的錯誤
+        }
         if (!Array.isArray(consultations) || consultations.length === 0) {
             if (typeof loadConsultationsForFinancial === 'function') {
                 await loadConsultationsForFinancial();
@@ -941,9 +977,14 @@ async function fetchDataWithCache(cache, fetchFunc, forceRefresh = false) {
             if (result && result.success) {
                 cache = result.data;
             } else {
-                cache = null;
+                // 若取得失敗（例如權限不足），保留現有快取而不是覆寫為 null
+                // 只有當先前沒有快取時，才將快取設為 null
+                if (!cache) {
+                    cache = null;
+                }
             }
         }
+        // 回傳快取，如果仍為 null 則返回空陣列
         return cache || [];
     } catch (error) {
         console.error('資料載入失敗:', error);
@@ -1531,38 +1572,48 @@ function generateMedicalRecordNumber() {
         // 格式化年齡顯示
         function formatAge(birthDate) {
             if (!birthDate) return '未知';
-            
+
             const birth = new Date(birthDate);
             const today = new Date();
-            
+
             let years = today.getFullYear() - birth.getFullYear();
             const monthDiff = today.getMonth() - birth.getMonth();
-            
+
             if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
                 years--;
             }
-            
+
+            // 取得翻譯函式，用於取得不同語言下的單位
+            const translate = typeof window.t === 'function' ? window.t : (s) => s;
+
             if (years > 0) {
-                return `${years}歲`;
+                // 翻譯「歲」單位；若翻譯後與原文不同，則在數字與單位之間加空格
+                const unit = translate('歲');
+                const joiner = unit !== '歲' ? ' ' : '';
+                return `${years}${joiner}${unit}`;
             } else {
-                // 未滿一歲的嬰幼兒顯示月數
+                // 未滿一歲的嬰幼兒顯示月數或天數
                 let months = today.getMonth() - birth.getMonth();
                 let days = today.getDate() - birth.getDate();
-                
+
                 if (days < 0) {
                     months--;
                     const lastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
                     days += lastMonth.getDate();
                 }
-                
+
                 if (months < 0) {
                     months += 12;
                 }
-                
+
                 if (months > 0) {
-                    return `${months}個月`;
+                    const unit = translate('個月');
+                    const joiner = unit !== '個月' ? ' ' : '';
+                    return `${months}${joiner}${unit}`;
                 } else {
-                    return `${days}天`;
+                    const unit = translate('天');
+                    const joiner = unit !== '天' ? ' ' : '';
+                    return `${days}${joiner}${unit}`;
                 }
             }
         }
@@ -1692,6 +1743,16 @@ async function setHerbInventory(itemId, quantity, threshold, unit) {
 async function revertInventoryForConsultation(consultationId) {
     if (!consultationId) return;
     await waitForFirebaseDb();
+    // 確保中藥庫存資料已載入。若尚未初始化，或因頁面重載等原因導致本地 herbInventory 為空，
+    // 則呼叫 initHerbInventory() 以載入最新庫存資料。
+    try {
+        if (typeof initHerbInventory === 'function') {
+            // 使用非強制刷新。若尚未初始化則會載入資料，若已初始化則不會造成多餘讀取。
+            await initHerbInventory(false);
+        }
+    } catch (_initErr) {
+        // 忽略初始化錯誤，後續仍嘗試還原庫存
+    }
     const logRef = window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId));
     try {
         const logSnap = await window.firebase.get(logRef);
@@ -1699,10 +1760,26 @@ async function revertInventoryForConsultation(consultationId) {
             const log = logSnap.val() || {};
             for (const key in log) {
                 const consumption = Number(log[key]) || 0;
+                // 讀取當前庫存資料。若尚未存在該項目，提供預設值。
                 const inv = getHerbInventory(key);
+                // 將消耗量加回庫存
                 const newQty = (inv.quantity || 0) + consumption;
-                // 使用原單位更新庫存
-                await setHerbInventory(key, newQty, inv.threshold, inv.unit);
+                // 使用原單位更新庫存。當 inv.unit 不存在時，預設為 'g'
+                const unitToUse = inv.unit || 'g';
+                const thresholdToUse = typeof inv.threshold === 'number' ? inv.threshold : 0;
+                await setHerbInventory(key, newQty, thresholdToUse, unitToUse);
+                // 同步更新本地快取，避免 UI 延遲或未初始化時跳過更新
+                try {
+                    if (typeof herbInventory !== 'undefined') {
+                        herbInventory[String(key)] = {
+                            quantity: newQty,
+                            threshold: thresholdToUse,
+                            unit: unitToUse
+                        };
+                    }
+                } catch (_e) {
+                    /* 忽略本地更新錯誤 */
+                }
             }
             // 移除消耗記錄
             await window.firebase.remove(logRef);
@@ -1725,6 +1802,16 @@ async function revertInventoryForConsultation(consultationId) {
 async function updateInventoryAfterConsultation(consultationId, items, days, freq, isEditing = false, previousLog = null) {
     if (!consultationId || !Array.isArray(items)) return;
     await waitForFirebaseDb();
+    // 確保在進行庫存計算之前載入最新的中藥庫存資料。
+    // 若 herbInventory 尚未初始化（例如使用者直接進入診症頁面尚未查看中藥庫存），
+    // 則 initHerbInventory() 會讀取 Realtime Database 並填充 herbInventory，避免取得預設 0 值而導致計算錯誤。
+    try {
+        if (typeof initHerbInventory === 'function') {
+            await initHerbInventory(false);
+        }
+    } catch (_initErr) {
+        // 若初始化失敗，仍繼續執行，僅使用當前本地 herbInventory 資料
+    }
     // 還原舊的消耗量
     if (isEditing && previousLog) {
         for (const key in previousLog) {
@@ -1801,6 +1888,50 @@ async function openInventoryModal(itemId) {
         const modal = document.getElementById('inventoryModal');
         const qtyInput = document.getElementById('inventoryQuantity');
         const thrInput = document.getElementById('inventoryThreshold');
+        /**
+         * 在庫存編輯彈窗中，當使用者於「剩餘數量」欄位按下 Enter 鍵時，直接觸發儲存動作。
+         * 這裡會為輸入框動態掛載鍵盤事件處理器，並於重複開啟彈窗時先移除舊的處理器，避免重複綁定。
+         * 儲存邏輯優先透過點擊彈窗內的儲存按鈕，以保持與其他操作一致；若找不到按鈕則直接呼叫
+         * saveInventoryChanges()。
+         */
+        try {
+            if (qtyInput) {
+                // 移除先前的事件處理器，避免重複觸發
+                if (qtyInput._enterSaveHandler) {
+                    qtyInput.removeEventListener('keypress', qtyInput._enterSaveHandler);
+                }
+                // 定義新的事件處理器
+                qtyInput._enterSaveHandler = function (ev) {
+                    if (ev && ev.key === 'Enter') {
+                        ev.preventDefault();
+                        try {
+                            // 尋找庫存彈窗內負責儲存的按鈕。使用包含 saveInventoryChanges 的 onclick 來匹配
+                            const saveBtn = modal ? modal.querySelector('button[onclick*="saveInventoryChanges"]') : null;
+                            if (saveBtn && typeof saveBtn.click === 'function') {
+                                saveBtn.click();
+                                return;
+                            }
+                        } catch (_e) {
+                            // 找不到按鈕時忽略，改以直接呼叫儲存函式
+                        }
+                        // Fallback：直接呼叫 saveInventoryChanges
+                        try {
+                            if (typeof saveInventoryChanges === 'function') {
+                                saveInventoryChanges();
+                            }
+                        } catch (_e) {
+                            // 如果調用失敗，僅記錄錯誤
+                            console.error('Enter 鍵觸發庫存儲存失敗:', _e);
+                        }
+                    }
+                };
+                // 綁定新的處理器
+                qtyInput.addEventListener('keypress', qtyInput._enterSaveHandler);
+            }
+        } catch (_e) {
+            // 若綁定事件時發生錯誤，僅記錄但不會阻斷彈窗開啟
+            console.error('綁定庫存數量輸入 Enter 鍵事件失敗:', _e);
+        }
         const titleEl = document.getElementById('inventoryModalTitle');
         // 設定彈窗標題包含藥材名稱
         let nameStr = '';
@@ -2340,6 +2471,24 @@ async function attemptMainLogin() {
         const firebaseUser = userCredential.user;
         const uid = firebaseUser.uid;
 
+        // 取得並存儲 Firebase 自訂權限（Custom Claims）
+        // 當管理員需進行更細緻的權限管理時，可在後端設定自訂 claims（例如 role: 'admin'）。
+        // 使用者登入時透過 getIdTokenResult() 取得 claims，並存入全域變數以供其他模組使用。
+        try {
+            if (firebaseUser && typeof firebaseUser.getIdTokenResult === 'function') {
+                const idTokenResult = await firebaseUser.getIdTokenResult();
+                if (idTokenResult && idTokenResult.claims) {
+                    // 將取得的 claims 儲存在全域 currentUserClaims
+                    window.currentUserClaims = idTokenResult.claims;
+                } else {
+                    window.currentUserClaims = {};
+                }
+            }
+        } catch (claimsErr) {
+            console.warn('取得使用者自訂權限失敗:', claimsErr);
+            window.currentUserClaims = {};
+        }
+
         // 同步載入 Firebase 用戶數據
         await syncUserDataFromFirebase();
 
@@ -2456,6 +2605,14 @@ async function attemptMainLogin() {
 
         // 登入成功，切換到主系統
         performLogin(currentUserData);
+        // 登入後啟動閒置監控，監測長時間未操作自動登出
+        try {
+            if (typeof startInactivityMonitoring === 'function') {
+                startInactivityMonitoring();
+            }
+        } catch (_e) {
+            // 忽略啟動閒置監控時的錯誤
+        }
         // 登入後初始化系統資料（載入掛號、診療記錄、患者等）
         await initializeSystemAfterLogin();
 
@@ -2468,6 +2625,15 @@ async function attemptMainLogin() {
             }
         } catch (err) {
             console.error('登入後清理問診資料失敗:', err);
+        }
+
+        // 初始化聊天模組：在載入系統資料後啟用內部聊天。傳入當前用戶資料與所有用戶清單
+        try {
+            if (window.ChatModule && typeof window.ChatModule.initChat === 'function') {
+                window.ChatModule.initChat(currentUserData, users);
+            }
+        } catch (chatErr) {
+            console.error('初始化聊天模組失敗:', chatErr);
         }
 
         showToast('登入成功！', 'success');
@@ -2502,7 +2668,7 @@ async function syncUserDataFromFirebase() {
 
         // 改為透過 fetchUsers(true) 讀取用戶列表，並利用快取避免重複讀取
         const data = await fetchUsers(true);
-        if (data && data.length > 0) {
+        if (Array.isArray(data) && data.length > 0) {
             // 更新本地 users 變數，僅同步必要欄位（排除 personalSettings）
             users = data.map(user => {
                 const { personalSettings, ...rest } = user || {};
@@ -2526,10 +2692,63 @@ async function syncUserDataFromFirebase() {
                 };
             });
             // 保存到本地存儲作為備用
-            localStorage.setItem('users', JSON.stringify(users));
+            try {
+                localStorage.setItem('users', JSON.stringify(users));
+            } catch (lsErr) {
+                console.warn('保存用戶資料到本地失敗:', lsErr);
+            }
             console.log('已同步 Firebase 用戶數據到本地:', users.length, '筆 (使用快取)');
         } else {
-            console.log('從 Firebase 取得的用戶資料為空或讀取失敗，使用本地數據');
+            // 當無法從 Firebase 取得完整用戶列表時，回退為僅同步當前登入者
+            console.log('無法從 Firebase 取得完整用戶列表，嘗試僅同步當前使用者');
+            try {
+                const authCurrent = window.firebase && window.firebase.auth && window.firebase.auth.currentUser;
+                if (authCurrent && window.firebaseDataManager && typeof window.firebaseDataManager.getUserByUid === 'function') {
+                    const uid = authCurrent.uid;
+                    const res = await window.firebaseDataManager.getUserByUid(uid);
+                    if (res && res.success && res.data) {
+                        // 從 res.data 組裝用戶資料並排除 personalSettings
+                        const { personalSettings, ...rest } = res.data || {};
+                        const userObj = {
+                            ...rest,
+                            createdAt: res.data.createdAt
+                              ? (res.data.createdAt.seconds
+                                ? new Date(res.data.createdAt.seconds * 1000).toISOString()
+                                : res.data.createdAt)
+                              : new Date().toISOString(),
+                            updatedAt: res.data.updatedAt
+                              ? (res.data.updatedAt.seconds
+                                ? new Date(res.data.updatedAt.seconds * 1000).toISOString()
+                                : res.data.updatedAt)
+                              : new Date().toISOString(),
+                            lastLogin: res.data.lastLogin
+                              ? (res.data.lastLogin.seconds
+                                ? new Date(res.data.lastLogin.seconds * 1000).toISOString()
+                                : res.data.lastLogin)
+                              : null
+                        };
+                        // 使用現有 users 陣列（若存在），並合併或新增當前用戶
+                        let mergedList = Array.isArray(users) ? [...users] : [];
+                        // 如果 mergedList 中已有此使用者，則更新其資料，否則加入
+                        const existingIndex = mergedList.findIndex(u => String(u.id) === String(userObj.id));
+                        if (existingIndex >= 0) {
+                            mergedList[existingIndex] = { ...mergedList[existingIndex], ...userObj };
+                        } else {
+                            mergedList.push(userObj);
+                        }
+                        users = mergedList;
+                        // 更新本地存儲
+                        try {
+                            localStorage.setItem('users', JSON.stringify(users));
+                        } catch (lsErr) {
+                            console.warn('保存當前用戶資料到本地失敗:', lsErr);
+                        }
+                        console.log('已回退同步單一使用者資料');
+                    }
+                }
+            } catch (fallbackErr) {
+                console.warn('同步當前使用者資料發生錯誤:', fallbackErr);
+            }
         }
     } catch (error) {
         console.error('同步 Firebase 用戶數據失敗:', error);
@@ -2609,6 +2828,17 @@ async function syncUserDataFromFirebase() {
         // 登出功能
 async function logout() {
     try {
+        // 在撤銷 Firebase 登入之前，先關閉聊天模組。這樣可以確保我們仍具備
+        // 足夠的權限去更新 Realtime Database 中的 presence 狀態。若先
+        // 執行 signOut，再呼叫 destroyChat，可能因為使用者的權限已失效
+        // 而導致 presence 狀態無法正確寫入，從而出現登出後依然顯示在線的問題。
+        try {
+            if (window.ChatModule && typeof window.ChatModule.destroyChat === 'function') {
+                window.ChatModule.destroyChat();
+            }
+        } catch (chatErr) {
+            console.error('銷毀聊天模組失敗:', chatErr);
+        }
         // Firebase 登出
         if (window.firebase && window.firebase.auth) {
             await window.firebase.signOut(window.firebase.auth);
@@ -2701,6 +2931,8 @@ async function logout() {
                 herbLibrary: { title: '中藥庫', icon: '🌿', description: '查看中藥材及方劑資料' },
                 // 新增：穴位庫管理
                 acupointLibrary: { title: '穴位庫', icon: '📌', description: '查看穴位資料' },
+                // 新增：醫療排班管理功能
+                scheduleManagement: { title: '醫療排班', icon: '📅', description: '排班與行事曆查看' },
                 billingManagement: { title: '收費項目管理', icon: '💰', description: '管理診療費用及收費項目' },
                 // 將診所用戶管理的圖示更新為單人符號，以符合交換後的配置
                 userManagement: { title: '診所用戶管理', icon: '👤', description: '管理診所用戶權限' },
@@ -2793,6 +3025,19 @@ async function logout() {
                 loadHerbLibrary();
             } else if (sectionId === 'acupointLibrary') {
                 loadAcupointLibrary();
+            } else if (sectionId === 'scheduleManagement') {
+                // 僅在使用者進入醫療排班區域時才初始化排班系統。
+                if (typeof window.initializeScheduleManagement === 'function') {
+                    window.initializeScheduleManagement();
+                }
+                // 即使系統已初始化，也在每次進入排班管理時更新管理員 UI
+                if (typeof window.scheduleUpdateAdminUI === 'function') {
+                    try {
+                        window.scheduleUpdateAdminUI();
+                    } catch (uiErr) {
+                        console.warn('Failed to update admin UI in navigateTo', uiErr);
+                    }
+                }
             } else if (sectionId === 'billingManagement') {
                 loadBillingManagement();
             } else if (sectionId === 'financialReports') {
@@ -2815,7 +3060,7 @@ async function logout() {
         // 隱藏所有區域
         function hideAllSections() {
             // 隱藏所有區域，包括新增的個人設置與模板庫管理
-            ['patientManagement', 'consultationSystem', 'herbLibrary', 'acupointLibrary', 'billingManagement', 'userManagement', 'financialReports', 'systemManagement', 'personalSettings', 'personalStatistics', 'accountSecurity', 'templateLibrary', 'welcomePage'].forEach(id => {
+            ['patientManagement', 'consultationSystem', 'herbLibrary', 'acupointLibrary', 'scheduleManagement', 'billingManagement', 'userManagement', 'financialReports', 'systemManagement', 'personalSettings', 'personalStatistics', 'accountSecurity', 'templateLibrary', 'welcomePage'].forEach(id => {
                 // 在隱藏中藥庫時，取消其資料監聽以減少 Realtime Database 讀取
                 if (id === 'herbLibrary') {
                     try {
@@ -4082,24 +4327,34 @@ async function searchPatientsForRegistration() {
             return;
         }
         // 顯示搜索結果，使用 escapeHtml 轉義顯示內容
+        // 生成搜尋結果項目，並為每個項目設定 data 屬性以利鍵盤選擇時取得病人 ID
         resultsList.innerHTML = matchedPatients.map(patient => {
             const safeId = String(patient.id).replace(/"/g, '&quot;');
             const safeName = window.escapeHtml(patient.name);
             const safeNumber = window.escapeHtml(patient.patientNumber || '');
             const safeAge = window.escapeHtml(formatAge(patient.birthDate));
-            const safeGender = window.escapeHtml(patient.gender);
+            // 使用國際化函式翻譯性別及標籤
+            const genderTranslated = window.t ? window.t(patient.gender) : patient.gender;
+            const safeGender = window.escapeHtml(genderTranslated);
             const safePhone = window.escapeHtml(patient.phone);
+            // 翻譯標籤：編號、年齡、性別、電話
+            const lblNumber = window.t ? window.t('編號：') : '編號：';
+            const lblAge = window.t ? window.t('年齡：') : '年齡：';
+            const lblGender = window.t ? window.t('性別：') : '性別：';
+            const lblPhone = window.t ? window.t('電話：') : '電話：';
             return `
-            <div class="p-4 hover:bg-gray-50 cursor-pointer transition duration-200" onclick="selectPatientForRegistration('${safeId}')">
+            <div class="p-4 hover:bg-gray-50 cursor-pointer transition duration-200" data-patient-id="${safeId}" onclick="selectPatientForRegistration('${safeId}')">
                 <div>
                     <div class="font-semibold text-gray-900">${safeName}</div>
-                    <div class="text-sm text-gray-600">編號：${safeNumber} | 年齡：${safeAge} | 性別：${safeGender}</div>
-                    <div class="text-sm text-gray-500">電話：${safePhone}</div>
+                    <div class="text-sm text-gray-600">${lblNumber}${safeNumber} | ${lblAge}${safeAge} | ${lblGender}${safeGender}</div>
+                    <div class="text-sm text-gray-500">${lblPhone}${safePhone}</div>
                 </div>
             </div>
             `;
         }).join('');
-        
+
+        // 每次載入搜尋結果時重置鍵盤選擇索引
+        patientSearchSelectionIndex = -1;
         resultsContainer.classList.remove('hidden');
     } catch (error) {
         console.error('搜尋病人資料錯誤:', error);
@@ -4108,6 +4363,86 @@ async function searchPatientsForRegistration() {
                 搜尋失敗，請檢查網路連接
             </div>
         `;
+    }
+}
+
+/**
+ * 處理掛號搜尋輸入框的鍵盤事件，支援上下鍵選擇搜尋結果項目，並按 Enter 執行掛號。
+ * 當搜尋結果列表顯示時：
+ *  - ArrowDown 會移動到下一個結果；
+ *  - ArrowUp 會移動到上一個結果；
+ *  - Enter 會選中當前高亮的病人並執行 selectPatientForRegistration。
+ * 若沒有搜尋結果或列表未顯示，則不做任何處理。
+ * @param {KeyboardEvent} ev 鍵盤事件
+ */
+function handlePatientSearchKeyDown(ev) {
+    const key = ev && ev.key;
+    if (!key || !(['ArrowUp', 'ArrowDown', 'Enter'].includes(key))) {
+        return;
+    }
+    try {
+        const resultsContainer = document.getElementById('patientSearchResults');
+        const resultsList = document.getElementById('searchResultsList');
+        // 僅當結果容器存在且為顯示狀態時處理
+        if (!resultsContainer || resultsContainer.classList.contains('hidden')) {
+            return;
+        }
+        const items = Array.from(resultsList.querySelectorAll('[data-patient-id]'));
+        if (!items || items.length === 0) {
+            return;
+        }
+        if (key === 'ArrowDown') {
+            ev.preventDefault();
+            // 選擇下一項目，超出範圍則回到第一項
+            patientSearchSelectionIndex = (patientSearchSelectionIndex + 1) % items.length;
+            // 更新高亮
+            items.forEach((el, idx) => {
+                if (idx === patientSearchSelectionIndex) {
+                    el.classList.add('bg-blue-100');
+                } else {
+                    el.classList.remove('bg-blue-100');
+                }
+            });
+            // 確保目前選中項目可見
+            const currentEl = items[patientSearchSelectionIndex];
+            if (currentEl && typeof currentEl.scrollIntoView === 'function') {
+                currentEl.scrollIntoView({ block: 'nearest' });
+            }
+        } else if (key === 'ArrowUp') {
+            ev.preventDefault();
+            // 選擇上一項目，超出範圍則回到最後一項
+            patientSearchSelectionIndex = (patientSearchSelectionIndex - 1 + items.length) % items.length;
+            // 更新高亮
+            items.forEach((el, idx) => {
+                if (idx === patientSearchSelectionIndex) {
+                    el.classList.add('bg-blue-100');
+                } else {
+                    el.classList.remove('bg-blue-100');
+                }
+            });
+            // 確保目前選中項目可見
+            const currentEl = items[patientSearchSelectionIndex];
+            if (currentEl && typeof currentEl.scrollIntoView === 'function') {
+                currentEl.scrollIntoView({ block: 'nearest' });
+            }
+        } else if (key === 'Enter') {
+            // 僅在已選中某項時處理 Enter
+            if (patientSearchSelectionIndex >= 0 && patientSearchSelectionIndex < items.length) {
+                ev.preventDefault();
+                const selectedEl = items[patientSearchSelectionIndex];
+                const pid = selectedEl && selectedEl.dataset ? selectedEl.dataset.patientId : null;
+                if (pid) {
+                    try {
+                        // 直接呼叫選擇病人函式
+                        selectPatientForRegistration(pid);
+                    } catch (_err) {
+                        console.error('鍵盤選擇掛號病人失敗:', _err);
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.error('處理掛號搜尋鍵盤事件錯誤:', err);
     }
 }
         
@@ -4245,22 +4580,29 @@ async function selectPatientForRegistration(patientId) {
             
             // 清空現有選項（保留預設選項）
             doctorSelect.innerHTML = '<option value="">請選擇醫師</option>';
-            
-            // 添加醫師選項
-            doctors.forEach(doctor => {
-                const option = document.createElement('option');
-                option.value = doctor.username;
-                option.textContent = `${doctor.name}醫師`;
-                if (doctor.registrationNumber) {
-                    option.textContent += ` (${doctor.registrationNumber})`;
-                }
-                doctorSelect.appendChild(option);
-            });
-            
-            // 如果當前用戶是醫師，預設選擇自己
-            if (currentUserData && currentUserData.position === '醫師') {
-                doctorSelect.value = currentUserData.username;
-            }
+    // 取得翻譯函式
+    const translate = typeof window.t === 'function' ? window.t : (s) => s;
+
+    // 添加醫師選項，動態翻譯職位名稱。
+    doctors.forEach(doctor => {
+        const option = document.createElement('option');
+        option.value = doctor.username;
+        // 取得翻譯後的職位名稱
+        const translatedRole = translate('醫師');
+        // 根據翻譯結果決定是否在姓名與職位之間插入空格。
+        const joiner = translatedRole !== '醫師' ? ' ' : '';
+        option.textContent = `${doctor.name}${joiner}${translatedRole}`;
+        // 若有註冊編號則加入括號顯示
+        if (doctor.registrationNumber) {
+            option.textContent += ` (${doctor.registrationNumber})`;
+        }
+        doctorSelect.appendChild(option);
+    });
+
+    // 如果當前用戶是醫師，預設選擇自己
+    if (currentUserData && currentUserData.position === '醫師') {
+        doctorSelect.value = currentUserData.username;
+    }
         }
         
         // 關閉掛號彈窗
@@ -5008,9 +5350,18 @@ function formatConsultationDateTime(dateInput) {
         
 // 1. 修改 createAppointmentRow 函數，確保診症記錄按鈕正確傳遞 patientId
 function createAppointmentRow(appointment, patient, index) {
-    // 獲取掛號醫師資訊
+    // 獲取掛號醫師資訊，並根據語言翻譯醫師稱謂
     const appointmentDoctor = users.find(u => u.username === appointment.appointmentDoctor);
-    const doctorName = appointmentDoctor ? `${appointmentDoctor.name}醫師` : '未指定醫師';
+    let doctorName;
+    if (appointmentDoctor) {
+        // 翻譯「醫師」後綴；非中文時在前面加空格
+        const suffix = window.t ? window.t('醫師') : '醫師';
+        const needsSpace = suffix && suffix !== '醫師';
+        doctorName = needsSpace ? `${appointmentDoctor.name} ${suffix}` : `${appointmentDoctor.name}${suffix}`;
+    } else {
+        // 沒有指定醫師時，仍顯示相應翻譯或原文
+        doctorName = window.t ? window.t('未指定醫師') : '未指定醫師';
+    }
     
     const statusInfo = getStatusInfo(appointment.status);
     const operationButtons = getOperationButtons(appointment, patient); // 傳遞 patient 參數
@@ -6449,6 +6800,13 @@ if (!patient) {
                                     <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.symptoms || '無記錄'}</div>
                                 </div>
                                 
+                                ${consultation.currentHistory ? `
+                                <div>
+                                    <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.currentHistory}</div>
+                                </div>
+                                ` : ''}
+                                
                                 ${consultation.tongue ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">舌象</span>
@@ -6460,13 +6818,6 @@ if (!patient) {
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">脈象</span>
                                     <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.pulse}</div>
-                                </div>
-                                ` : ''}
-                                
-                                ${consultation.currentHistory ? `
-                                <div>
-                                    <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.currentHistory}</div>
                                 </div>
                                 ` : ''}
                                 
@@ -6825,6 +7176,13 @@ function displayConsultationMedicalHistoryPage() {
                             <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.symptoms || '無記錄'}</div>
                         </div>
                         
+                        ${consultation.currentHistory ? `
+                        <div>
+                            <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.currentHistory}</div>
+                        </div>
+                        ` : ''}
+                        
                         ${consultation.tongue ? `
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">舌象</span>
@@ -6836,13 +7194,6 @@ function displayConsultationMedicalHistoryPage() {
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">脈象</span>
                             <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.pulse}</div>
-                        </div>
-                        ` : ''}
-                        
-                        ${consultation.currentHistory ? `
-                        <div>
-                            <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.currentHistory}</div>
                         </div>
                         ` : ''}
                         
@@ -7274,10 +7625,10 @@ async function printConsultationRecord(consultationId, consultationData = null) 
         // Rebuild medication information according to language
         let medInfoLocalized = '';
         if (medDays) {
-            medInfoLocalized += '<strong>' + (isEnglish ? 'Medication Days' : '服藥天數') + colon + '</strong>' + medDays + (isEnglish ? ' days ' : '天　');
+            medInfoLocalized += '<strong>' + (isEnglish ? 'Medication Days' : '服藥天數') + colon + '</strong>' + medDays + (isEnglish ? ' days ' : '天　');
         }
         if (medFreq) {
-            medInfoLocalized += '<strong>' + (isEnglish ? 'Daily Frequency' : '每日次數') + colon + '</strong>' + medFreq + (isEnglish ? ' times ' : '次　');
+            medInfoLocalized += '<strong>' + (isEnglish ? 'Daily Frequency' : '每日次數') + colon + '</strong>' + medFreq + (isEnglish ? ' times ' : '次　');
         }
         if (consultation.usage) {
             medInfoLocalized += '<strong>' + (isEnglish ? 'Administration Method' : '服用方法') + colon + '</strong>' + consultation.usage;
@@ -10231,6 +10582,27 @@ async function initializeSystemAfterLogin() {
             // 為避免 XSS，對文字內容進行轉義
             const safeName = window.escapeHtml(herb.name);
             const safeAlias = herb.alias ? window.escapeHtml(herb.alias) : null;
+            // Retrieve englishName if available and escape it. englishName contains the romanised
+            // name generated from the herb name. It may be undefined for legacy data. When
+            // displaying the card we choose between the Chinese name or the English name based
+            // on the current language stored in localStorage (default is zh). This mirrors
+            // the behaviour used for acupoint cards: in English mode we hide the Chinese
+            // name and show only the pinyin/English name, while in Chinese mode we show
+            // only the Chinese name.
+            const safeEnglishName = herb.englishName ? window.escapeHtml(herb.englishName) : null;
+            // Determine which name to display
+            let displayName = safeName;
+            try {
+                const langSel = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+                if (langSel && langSel.toLowerCase().startsWith('en')) {
+                    // In English mode prefer the englishName. If englishName is not
+                    // available fall back to the Chinese name.
+                    displayName = safeEnglishName || safeName;
+                }
+            } catch (_e) {
+                // If accessing localStorage fails just use the Chinese name
+                displayName = safeName;
+            }
             // 新增性味、歸經與主治欄位的轉義處理
             const safeNature = herb.nature ? window.escapeHtml(herb.nature) : null;
             const safeMeridian = herb.meridian ? window.escapeHtml(herb.meridian) : null;
@@ -10283,7 +10655,7 @@ async function initializeSystemAfterLogin() {
                 <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition duration-200">
                     <div class="flex justify-between items-start mb-3">
                         <div>
-                            <h4 class="text-lg font-semibold text-gray-900">${safeName}</h4>
+                            <h4 class="text-lg font-semibold text-gray-900">${displayName}</h4>
                             ${safeAlias ? `<p class="text-sm text-gray-600">${safeAlias}</p>` : ''}
                         </div>
                     </div>
@@ -10304,6 +10676,22 @@ async function initializeSystemAfterLogin() {
         function createFormulaCard(formula) {
             // 為避免 XSS，對文字內容進行轉義
             const safeName = window.escapeHtml(formula.name);
+            // Retrieve englishName if available and escape it. englishName contains
+            // the romanised name derived from the formula name. It may be undefined
+            // for legacy data. Similar to herbs and acupoints, we decide between
+            // the Chinese name and the English name based on the current language
+            // setting stored in localStorage. In English mode only the englishName
+            // is displayed; in Chinese mode only the Chinese name is shown.
+            const safeEnglishName = formula.englishName ? window.escapeHtml(formula.englishName) : null;
+            let displayName = safeName;
+            try {
+                const langSel = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+                if (langSel && langSel.toLowerCase().startsWith('en')) {
+                    displayName = safeEnglishName || safeName;
+                }
+            } catch (_e) {
+                displayName = safeName;
+            }
             const safeSource = formula.source ? window.escapeHtml(formula.source) : null;
             const safeEffects = formula.effects ? window.escapeHtml(formula.effects) : null;
             // 新增主治與用法欄位的轉義處理
@@ -10355,7 +10743,7 @@ async function initializeSystemAfterLogin() {
                 <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition duration-200">
                     <div class="flex justify-between items-start mb-3">
                         <div>
-                            <h4 class="text-lg font-semibold text-gray-900">${safeName}</h4>
+                            <h4 class="text-lg font-semibold text-gray-900">${displayName}</h4>
                             ${safeSource ? `<p class="text-sm text-gray-600">出處：${safeSource}</p>` : ''}
                         </div>
                     </div>
@@ -10754,7 +11142,28 @@ async function initializeSystemAfterLogin() {
          * @returns {string}
          */
         function createAcupointCard(ac) {
-            const safeName = window.escapeHtml(ac.name || '');
+            // 將穴位名稱定義為可再指派的變數，以便後續使用組合名稱覆蓋
+            let safeName = window.escapeHtml(ac.name || '');
+            // 新增英譯名稱與國際編碼的處理。從資料中讀取英譯名稱 (englishName) 與國際編碼 (internationalCode)，若不存在則使用空字串。
+            const safeEnglishName = ac.englishName ? window.escapeHtml(ac.englishName) : '';
+            const safeCode = ac.internationalCode ? window.escapeHtml(ac.internationalCode) : '';
+            // 組合顯示名稱：根據介面語言決定是否顯示中文
+            // 取得目前語言設定，預設為中文（zh）。localStorage.getItem('lang') 在英文版會是 'en'
+            const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+            let displayName;
+            if (lang === 'en' && safeEnglishName) {
+                // 英文介面：僅顯示英文名稱，不含中文
+                displayName = safeEnglishName;
+            } else {
+                // 中文介面或沒有英文名稱：僅顯示中文名稱
+                displayName = safeName;
+            }
+            // 如有國際編碼，一律加上 (國際編碼)
+            if (safeCode) {
+                displayName += ' (' + safeCode + ')';
+            }
+            // 將組合後的名稱覆蓋回 safeName，讓卡片標題使用
+            safeName = displayName;
             const safeMeridian = ac.meridian ? window.escapeHtml(ac.meridian) : '';
             const safeLocation = ac.location ? window.escapeHtml(ac.location) : '';
             const funcs = Array.isArray(ac.functions) ? ac.functions : (ac.functions ? [ac.functions] : []);
@@ -10915,11 +11324,26 @@ async function initializeSystemAfterLogin() {
             const safeName = window.escapeHtml(item.name);
             const safeUnit = item.unit ? window.escapeHtml(item.unit) : null;
             const safeDescription = item.description ? window.escapeHtml(item.description) : null;
+            // 讀取英譯名稱並轉義。某些收費項目可能包含英文名稱（englishName）
+            // 以便在英文介面顯示時使用。如果沒有提供 englishName，則預設為 null。
+            const safeEnglishName = item.englishName ? window.escapeHtml(item.englishName) : null;
+            // 根據當前語言選擇顯示名稱。預設為中文名稱，若介面語言為英文且
+            // 有提供英文名稱，則優先使用英文名稱。
+            let displayName = safeName;
+            try {
+                const langSel = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+                if (langSel && langSel.toLowerCase().startsWith('en')) {
+                    displayName = safeEnglishName || safeName;
+                }
+            } catch (_e) {
+                // 若讀取 localStorage 失敗或其他錯誤，退回顯示中文名稱
+                displayName = safeName;
+            }
             return `
                 <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition duration-200 ${!item.active ? 'opacity-75' : ''}">
                     <div class="flex justify-between items-start mb-3">
                         <div class="flex-1">
-                            <h4 class="text-lg font-semibold text-gray-900">${safeName}</h4>
+                            <h4 class="text-lg font-semibold text-gray-900">${displayName}</h4>
                             <div class="flex items-center mt-1">
                                 <span class="text-2xl font-bold ${priceColor}">${pricePrefix}${displayPrice}</span>
                                 ${safeUnit ? `<span class="text-sm text-gray-500 ml-1">/ ${safeUnit}</span>` : ''}
@@ -11182,26 +11606,41 @@ async function initializeSystemAfterLogin() {
             }
             
             // 搜索匹配的中藥材和方劑，並根據匹配程度排序
-            let matchedItems = (Array.isArray(herbLibrary) ? herbLibrary : []).filter(item => {
-                const lowerName = item.name ? item.name.toLowerCase() : '';
-                const lowerAlias = item.alias ? item.alias.toLowerCase() : '';
-                const lowerEffects = item.effects ? item.effects.toLowerCase() : '';
-                return lowerName.includes(searchTerm) || lowerAlias.includes(searchTerm) || lowerEffects.includes(searchTerm);
-            }).map(item => {
-                // 計算匹配分數：名稱匹配優先、別名次之、功效再次
-                const lowerName = item.name ? item.name.toLowerCase() : '';
-                const lowerAlias = item.alias ? item.alias.toLowerCase() : '';
-                const lowerEffects = item.effects ? item.effects.toLowerCase() : '';
-                let score = Infinity;
-                if (lowerName.includes(searchTerm)) {
-                    score = lowerName.indexOf(searchTerm);
-                } else if (lowerAlias.includes(searchTerm)) {
-                    score = 100 + lowerAlias.indexOf(searchTerm);
-                } else if (lowerEffects.includes(searchTerm)) {
-                    score = 200 + lowerEffects.indexOf(searchTerm);
-                }
-                return { item, score };
-            }).sort((a, b) => a.score - b.score).map(obj => obj.item);
+            let matchedItems = (Array.isArray(herbLibrary) ? herbLibrary : [])
+                .filter(item => {
+                    // 將各屬性轉為小寫以便比對
+                    const lowerName = item.name ? item.name.toLowerCase() : '';
+                    const lowerAlias = item.alias ? item.alias.toLowerCase() : '';
+                    const lowerEnglish = item.englishName ? item.englishName.toLowerCase() : '';
+                    const lowerEffects = item.effects ? item.effects.toLowerCase() : '';
+                    // 包含名稱、別名、英文名或功效即可視為匹配
+                    return (
+                        lowerName.includes(searchTerm) ||
+                        lowerAlias.includes(searchTerm) ||
+                        lowerEnglish.includes(searchTerm) ||
+                        lowerEffects.includes(searchTerm)
+                    );
+                })
+                .map(item => {
+                    // 計算匹配分數：名稱匹配優先，其次為別名、英文名，再次為功效
+                    const lowerName = item.name ? item.name.toLowerCase() : '';
+                    const lowerAlias = item.alias ? item.alias.toLowerCase() : '';
+                    const lowerEnglish = item.englishName ? item.englishName.toLowerCase() : '';
+                    const lowerEffects = item.effects ? item.effects.toLowerCase() : '';
+                    let score = Infinity;
+                    if (lowerName.includes(searchTerm)) {
+                        score = lowerName.indexOf(searchTerm);
+                    } else if (lowerAlias.includes(searchTerm)) {
+                        score = 100 + lowerAlias.indexOf(searchTerm);
+                    } else if (lowerEnglish.includes(searchTerm)) {
+                        score = 200 + lowerEnglish.indexOf(searchTerm);
+                    } else if (lowerEffects.includes(searchTerm)) {
+                        score = 300 + lowerEffects.indexOf(searchTerm);
+                    }
+                    return { item, score };
+                })
+                .sort((a, b) => a.score - b.score)
+                .map(obj => obj.item);
             // 只取前 10 個結果
             matchedItems = matchedItems.slice(0, 10);
             
@@ -11217,7 +11656,19 @@ async function initializeSystemAfterLogin() {
             
             // 顯示搜索結果，移除劑量欄，並使用自訂 tooltip
             resultsList.innerHTML = matchedItems.map(item => {
-                const typeName = item.type === 'herb' ? '中藥材' : '方劑';
+                // 根據當前介面語言決定名稱顯示。若為英文介面且存在英譯名稱，優先使用英譯名稱；否則使用中文名稱。
+                let displayName = item.name;
+                try {
+                    const langSel = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+                    if (langSel && langSel.toLowerCase().startsWith('en') && item.englishName) {
+                        displayName = item.englishName;
+                    }
+                } catch (_e) {
+                    displayName = item.name;
+                }
+                // 翻譯類型名稱：使用 window.t 函式進行翻譯，預設為中文
+                const typeLabelZh = item.type === 'herb' ? '中藥材' : '方劑';
+                const typeLabel = (typeof window.t === 'function') ? window.t(typeLabelZh) : typeLabelZh;
                 const bgColor = 'bg-yellow-50 hover:bg-yellow-100 border-yellow-200';
                 // 組合完整資訊作為 tooltip 內容，並進行編碼
                 const details = [];
@@ -11262,8 +11713,8 @@ async function initializeSystemAfterLogin() {
                          onmousemove="moveTooltip(event)" onmouseleave="hideTooltip()"
                          onclick="addToPrescription('${item.type}', ${item.id})">
                         <div class="text-center">
-                            <div class="font-semibold text-gray-900 text-sm mb-1">${window.escapeHtml(item.name)}</div>
-                            <div class="text-xs bg-white text-gray-600 px-2 py-1 rounded mb-2">${typeName}</div>
+                            <div class="font-semibold text-gray-900 text-sm mb-1">${window.escapeHtml(displayName)}</div>
+                            <div class="text-xs bg-white text-gray-600 px-2 py-1 rounded mb-2">${typeLabel}</div>
                             ${item.effects ? `<div class="text-xs text-gray-600 mt-1">${window.escapeHtml(item.effects.substring(0, 30))}${item.effects.length > 30 ? '...' : ''}</div>` : ''}
                             <div class="text-xs mt-1 ${stockClass}">${remainLabel} ${qtyDisplay}${unitTranslated}</div>
                         </div>
@@ -11381,6 +11832,28 @@ async function initializeSystemAfterLogin() {
                             if (fullItem.cautions) details.push('注意：' + fullItem.cautions);
                         }
                         const encoded = encodeURIComponent(details.join('\n'));
+                        // 決定名稱顯示。英語介面且有英譯名稱時，顯示英譯名稱；否則顯示中文名稱
+                        let displayName = item.name;
+                        try {
+                            const langSel = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+                            if (langSel && langSel.toLowerCase().startsWith('en') && fullItem && fullItem.englishName) {
+                                displayName = fullItem.englishName;
+                            }
+                        } catch (_e) {
+                            displayName = item.name;
+                        }
+                        // 決定類型標籤：依語言選擇英文或中文
+                        let typeLabel;
+                        try {
+                            const langSel2 = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+                            if (langSel2 && langSel2.toLowerCase().startsWith('en')) {
+                                typeLabel = item.type === 'formula' ? 'Formula' : 'Herb';
+                            } else {
+                                typeLabel = item.type === 'formula' ? '方劑' : '中藥材';
+                            }
+                        } catch (_err) {
+                            typeLabel = item.type === 'formula' ? '方劑' : '中藥材';
+                        }
                         // 建立 HTML，並綁定 tooltip 事件於整個項目容器
                         return `
                             <div class="${bgColor} border rounded-lg p-3 cursor-pointer"
@@ -11390,8 +11863,8 @@ async function initializeSystemAfterLogin() {
                                  onmouseleave="hideTooltip()">
                                 <div class="flex items-center">
                                     <div class="flex-1">
-                                        <div class="font-semibold text-gray-900">${window.escapeHtml(item.name)}</div>
-                                        ${item.type === 'formula' ? `<div class="text-xs text-gray-600">方劑</div>` : ''}
+                                        <div class="font-semibold text-gray-900">${window.escapeHtml(displayName)}</div>
+                                        ${item.type === 'formula' ? `<div class="text-xs text-gray-600">${typeLabel}</div>` : ''}
                                     </div>
                                     <div class="flex items-center space-x-2">
                                         ${(() => {
@@ -12801,11 +13274,16 @@ const consultationDate = (() => {
         // 獲取用戶顯示名稱（姓名全名 + 職位）
         function getUserDisplayName(user) {
             if (!user || !user.name) return '未知用戶';
-            
+
             const fullName = user.name;
             const position = user.position || '用戶';
-            
-            return `${fullName}${position}`;
+
+            // 使用國際化函式翻譯職位名稱，如果當前語言為中文，翻譯結果會與原文一致。
+            const translate = typeof window.t === 'function' ? window.t : (s) => s;
+            const translatedPosition = translate(position);
+            // 若翻譯後的職位與原職位不同（例如英文界面），則在姓名與職位之間插入空格。
+            const joiner = translatedPosition !== position ? ' ' : '';
+            return `${fullName}${joiner}${translatedPosition}`;
         }
         
         // 獲取醫師顯示名稱
@@ -12865,8 +13343,20 @@ async function loadUserManagement() {
 
 // 從 Firebase 載入用戶數據
 async function loadUsersFromFirebase() {
+    // 在載入用戶資料前先確保 Firebase DataManager 已就緒，避免尚未初始化造成讀取失敗
+    if (typeof waitForFirebaseDataManager === 'function') {
+        try {
+            await waitForFirebaseDataManager();
+        } catch (e) {
+            console.warn('等待 FirebaseDataManager 就緒時發生錯誤:', e);
+        }
+    }
     const tbody = document.getElementById('userList');
-    
+    // 若找不到 userList 元素，則提前結束
+    if (!tbody) {
+        console.warn('找不到 userList 元素，無法載入用戶列表');
+        return;
+    }
     // 顯示載入中
     tbody.innerHTML = `
         <tr>
@@ -12908,14 +13398,26 @@ function filterUsers(status) {
     document.querySelectorAll('[id^="user-filter-"]').forEach(btn => {
         btn.className = 'px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition duration-200';
     });
-    document.getElementById(`user-filter-${status}`).className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 transition duration-200';
-    
+    // 設定當前篩選按鈕樣式，若元素不存在則忽略
+    const activeBtn = document.getElementById(`user-filter-${status}`);
+    if (activeBtn) {
+        activeBtn.className = 'px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-800 transition duration-200';
+    }
     displayUsers();
 }
 
 function displayUsers() {
-    const searchTerm = document.getElementById('searchUser').value.toLowerCase();
+    // 取得搜尋關鍵字，若搜尋欄位不存在則使用空字串
+    const searchInput = document.getElementById('searchUser');
+    const searchTerm = searchInput && searchInput.value
+        ? String(searchInput.value).toLowerCase()
+        : '';
     const tbody = document.getElementById('userList');
+    // 若找不到 userList 元素則不進行渲染
+    if (!tbody) {
+        console.warn('找不到 userList 元素，無法渲染用戶列表');
+        return;
+    }
     
     // 使用 Firebase 數據或本地數據
     const currentUsers = usersFromFirebase.length > 0 ? usersFromFirebase : users;
@@ -13548,8 +14050,12 @@ async function deleteUser(id) {
         }
 
         // 格式化日期為 YYYY-MM-DD
+        // 使用本地時區組合字串，避免使用 toISOString() 導致跨日誤差
         function formatFinancialDate(date) {
-            return date.toISOString().split('T')[0];
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
         }
 
         // 載入醫師選項
@@ -13639,57 +14145,85 @@ async function deleteUser(id) {
 
         // 快速日期選擇
         function setQuickDate() {
+            /**
+             * 根據目前日期計算本週或上週的起始日期。
+             * 以週一作為每週的第一天，週日為最後一天。
+             * 例如，若今天是週三（getDay() 回傳 3），則本週開始為週一。
+             * 若今天是週日（getDay() 回傳 0），則本週開始仍為本週週一。
+             * @param {Date} date 當前日期
+             * @returns {Date} 當週週一的日期
+             */
+            function getStartOfWeek(date) {
+                const result = new Date(date);
+                const day = result.getDay();
+                // 將 Sunday (0) 視為一週的最後一天，需回溯 6 天至週一
+                // 其餘情況回溯 day-1 天至週一
+                const diff = day === 0 ? -6 : 1 - day;
+                result.setDate(result.getDate() + diff);
+                return result;
+            }
+
             const quickDate = document.getElementById('quickDate').value;
             const today = new Date();
             let startDate, endDate;
-            // 新增：嘗試取得舊的 reportType 元素供回寫；如元素不存在則忽略
+            // 嘗試取得舊的 reportType 元素供回寫；如元素不存在則忽略
             const rptElem = document.getElementById('reportType');
 
             switch (quickDate) {
                 case 'today':
-                    startDate = endDate = today;
+                    // 今日：開始與結束皆為今天
+                    startDate = new Date(today);
+                    endDate = new Date(today);
                     if (rptElem) rptElem.value = 'daily';
                     break;
                 case 'yesterday':
-                    startDate = endDate = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+                    // 昨天：開始與結束皆為昨天
+                    startDate = new Date(today);
+                    startDate.setDate(today.getDate() - 1);
+                    endDate = new Date(startDate);
                     if (rptElem) rptElem.value = 'daily';
                     break;
                 case 'thisWeek': {
-                    const thisWeekStart = new Date(today);
-                    thisWeekStart.setDate(today.getDate() - today.getDay());
-                    startDate = thisWeekStart;
-                    endDate = today;
+                    // 本週：以週一為起點，結束日期為今天
+                    startDate = getStartOfWeek(today);
+                    endDate = new Date(today);
                     if (rptElem) rptElem.value = 'weekly';
                     break;
                 }
                 case 'lastWeek': {
-                    const lastWeekStart = new Date(today);
-                    lastWeekStart.setDate(today.getDate() - today.getDay() - 7);
-                    const lastWeekEnd = new Date(lastWeekStart);
-                    lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
-                    startDate = lastWeekStart;
-                    endDate = lastWeekEnd;
+                    // 上週：取得本週週一後，再往前推七天得到上週週一；結束日期為上週週日
+                    const startOfThisWeek = getStartOfWeek(today);
+                    startDate = new Date(startOfThisWeek);
+                    startDate.setDate(startOfThisWeek.getDate() - 7);
+                    endDate = new Date(startDate);
+                    endDate.setDate(startDate.getDate() + 6);
                     if (rptElem) rptElem.value = 'weekly';
                     break;
                 }
                 case 'thisMonth':
+                    // 本月：起始為月初 (1 日)，結束為月末
                     startDate = new Date(today.getFullYear(), today.getMonth(), 1);
                     endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
                     if (rptElem) rptElem.value = 'monthly';
                     break;
                 case 'lastMonth':
+                    // 上月：起始為上個月 1 日，結束為上個月的最後一天
                     startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
                     endDate = new Date(today.getFullYear(), today.getMonth(), 0);
                     if (rptElem) rptElem.value = 'monthly';
                     break;
                 case 'thisYear':
+                    // 今年：起始為本年度 1 月 1 日，結束為本年度的最後一天（12 月 31 日）。
+                    // 為確保跨時區日期正確，使用 new Date(下一年, 0, 0) 取得本年度的最後一天。
                     startDate = new Date(today.getFullYear(), 0, 1);
-                    endDate = new Date(today.getFullYear(), 11, 31);
+                    endDate = new Date(today.getFullYear() + 1, 0, 0);
                     if (rptElem) rptElem.value = 'yearly';
                     break;
                 case 'lastYear':
+                    // 去年：起始為去年 1 月 1 日，結束為去年的最後一天。
+                    // 使用 new Date(今年, 0, 0) 取得去年的 12 月 31 日。
                     startDate = new Date(today.getFullYear() - 1, 0, 1);
-                    endDate = new Date(today.getFullYear() - 1, 11, 31);
+                    endDate = new Date(today.getFullYear(), 0, 0);
                     if (rptElem) rptElem.value = 'yearly';
                     break;
                 default:
@@ -13697,8 +14231,10 @@ async function deleteUser(id) {
             }
 
             if (startDate && endDate) {
+                // 將日期格式化為 YYYY-MM-DD 並更新 UI
                 document.getElementById('startDate').value = formatFinancialDate(startDate);
                 document.getElementById('endDate').value = formatFinancialDate(endDate);
+                // 重新生成報表
                 generateFinancialReport();
             }
         }
@@ -16314,7 +16850,33 @@ class FirebaseDataManager {
     async getUsers(forceRefresh = false) {
         if (!this.isReady) return { success: false, data: [] };
         try {
-            // 有快取且不需強制刷新時直接回傳現有快取
+            // 如果尚未登入（無 auth.currentUser），不要嘗試從 Firestore 讀取，以避免觸發權限錯誤。
+            const authCurrent = window.firebase && window.firebase.auth && window.firebase.auth.currentUser;
+            if (!authCurrent) {
+                // 未登入時，優先返回快取或本地資料；不嘗試遠端讀取
+                if (!forceRefresh && this.usersCache !== null) {
+                    return { success: true, data: this.usersCache, hasMore: !!this.usersHasMore };
+                }
+                if (!forceRefresh) {
+                    try {
+                        const stored = localStorage.getItem('users');
+                        if (stored) {
+                            const localData = JSON.parse(stored);
+                            if (Array.isArray(localData)) {
+                                this.usersCache = localData;
+                                this.usersLastVisible = null;
+                                this.usersHasMore = false;
+                                return { success: true, data: this.usersCache, hasMore: false };
+                            }
+                        }
+                    } catch (lsErr) {
+                        console.warn('載入本地用戶資料失敗:', lsErr);
+                    }
+                }
+                // 未登入且無可用資料，返回空陣列
+                return { success: true, data: [], hasMore: false };
+            }
+            // 已登入：若有快取且不需強制刷新，直接回傳現有快取
             if (!forceRefresh && this.usersCache !== null) {
                 return { success: true, data: this.usersCache, hasMore: !!this.usersHasMore };
             }
@@ -16326,7 +16888,6 @@ class FirebaseDataManager {
                         const localData = JSON.parse(stored);
                         if (Array.isArray(localData)) {
                             this.usersCache = localData;
-                            // localStorage 不保存游標與 hasMore，因為無分頁概念
                             this.usersLastVisible = null;
                             this.usersHasMore = false;
                             return { success: true, data: this.usersCache, hasMore: false };
@@ -16363,7 +16924,9 @@ class FirebaseDataManager {
             return { success: true, data: users, hasMore: this.usersHasMore };
         } catch (error) {
             console.error('讀取用戶數據失敗:', error);
-            return { success: false, data: [] };
+            // 發生錯誤時不要覆寫現有快取，仍返回當前快取資料以避免覆蓋
+            const fallbackData = Array.isArray(this.usersCache) ? this.usersCache : [];
+            return { success: true, data: fallbackData, hasMore: !!this.usersHasMore };
         }
     }
 
@@ -17043,6 +17606,88 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }, 300);
         patientSearchInput.addEventListener('input', debouncedSearchPatients);
+        // 加入鍵盤事件處理，支援方向鍵導航搜尋結果及 Enter 快捷掛號
+        patientSearchInput.addEventListener('keydown', handlePatientSearchKeyDown);
+    }
+
+    // 掛號時選擇醫師的下拉選單：按下 Enter 時直接確認掛號
+    const appointmentDoctorSelect = document.getElementById('appointmentDoctor');
+    if (appointmentDoctorSelect) {
+        // 避免重複綁定事件，可透過自定義屬性判斷是否已綁定
+        if (!appointmentDoctorSelect.dataset.bindEnterListener) {
+            appointmentDoctorSelect.addEventListener('keydown', function (ev) {
+                if (ev && ev.key === 'Enter') {
+                    ev.preventDefault();
+                    try {
+                        if (typeof confirmRegistration === 'function') {
+                            confirmRegistration();
+                        }
+                    } catch (_err) {
+                        console.error('從醫師下拉選單按 Enter 確認掛號失敗:', _err);
+                    }
+                }
+            });
+            appointmentDoctorSelect.dataset.bindEnterListener = 'true';
+        }
+    }
+
+    // 掛號時間輸入欄及其他欄位：按下 Enter 時直接確認掛號
+    // 日期時間輸入欄 (datetime-local)
+    const appointmentDateTimeInput = document.getElementById('appointmentDateTime');
+    if (appointmentDateTimeInput) {
+        if (!appointmentDateTimeInput.dataset.bindEnterListener) {
+            appointmentDateTimeInput.addEventListener('keydown', function(ev) {
+                if (ev && ev.key === 'Enter') {
+                    ev.preventDefault();
+                    try {
+                        if (typeof confirmRegistration === 'function') {
+                            confirmRegistration();
+                        }
+                    } catch (err) {
+                        console.error('按 Enter 確認掛號（時間輸入）失敗:', err);
+                    }
+                }
+            });
+            appointmentDateTimeInput.dataset.bindEnterListener = 'true';
+        }
+    }
+    // 問診資料下拉選單
+    const inquirySelectInput = document.getElementById('inquirySelect');
+    if (inquirySelectInput) {
+        if (!inquirySelectInput.dataset.bindEnterListener) {
+            inquirySelectInput.addEventListener('keydown', function(ev) {
+                if (ev && ev.key === 'Enter') {
+                    ev.preventDefault();
+                    try {
+                        if (typeof confirmRegistration === 'function') {
+                            confirmRegistration();
+                        }
+                    } catch (err) {
+                        console.error('按 Enter 確認掛號（問診選擇）失敗:', err);
+                    }
+                }
+            });
+            inquirySelectInput.dataset.bindEnterListener = 'true';
+        }
+    }
+    // 主訴症狀輸入欄 (textarea)
+    const chiefComplaintInput = document.getElementById('quickChiefComplaint');
+    if (chiefComplaintInput) {
+        if (!chiefComplaintInput.dataset.bindEnterListener) {
+            chiefComplaintInput.addEventListener('keydown', function(ev) {
+                if (ev && ev.key === 'Enter') {
+                    ev.preventDefault();
+                    try {
+                        if (typeof confirmRegistration === 'function') {
+                            confirmRegistration();
+                        }
+                    } catch (err) {
+                        console.error('按 Enter 確認掛號（主訴症狀）失敗:', err);
+                    }
+                }
+            });
+            chiefComplaintInput.dataset.bindEnterListener = 'true';
+        }
     }
 
     // 當選擇問診資料時，自動隱藏主訴症狀輸入欄位。
@@ -20716,24 +21361,28 @@ ${item.points.map(pt => {
               }
               return;
             }
-            // 搜索並根據匹配程度排序 herbLibrary 中的中藥材與方劑（名稱、別名或功效）
+            // 搜索並根據匹配程度排序 herbLibrary 中的中藥材與方劑（名稱、別名、英文名或功效）
             let matched = (Array.isArray(herbLibrary) ? herbLibrary : [])
               .filter(item => item && (item.type === 'herb' || item.type === 'formula') && (
                 (item.name && item.name.toLowerCase().includes(searchTerm)) ||
                 (item.alias && item.alias.toLowerCase().includes(searchTerm)) ||
+                (item.englishName && item.englishName.toLowerCase().includes(searchTerm)) ||
                 (item.effects && item.effects.toLowerCase().includes(searchTerm))
               ))
               .map(item => {
                 const ln = item.name ? item.name.toLowerCase() : '';
                 const la = item.alias ? item.alias.toLowerCase() : '';
+                const en = item.englishName ? item.englishName.toLowerCase() : '';
                 const le = item.effects ? item.effects.toLowerCase() : '';
                 let score = Infinity;
                 if (ln.includes(searchTerm)) {
                   score = ln.indexOf(searchTerm);
                 } else if (la.includes(searchTerm)) {
                   score = 100 + la.indexOf(searchTerm);
+                } else if (en.includes(searchTerm)) {
+                  score = 200 + en.indexOf(searchTerm);
                 } else if (le.includes(searchTerm)) {
-                  score = 200 + le.indexOf(searchTerm);
+                  score = 300 + le.indexOf(searchTerm);
                 }
                 return { item, score };
               })
@@ -20883,14 +21532,15 @@ ${item.points.map(pt => {
               }
               return;
             }
-            // 過濾並根據匹配程度排序 acupointLibrary 中的穴位（名稱、經絡、定位、功效或主治）
+            // 過濾並根據匹配程度排序 acupointLibrary 中的穴位（名稱、經絡、定位、功效、主治或英文名）
             let matched = (Array.isArray(acupointLibrary) ? acupointLibrary : [])
               .filter(item => item && (
                 (item.name && item.name.toLowerCase().includes(searchTerm)) ||
                 (item.meridian && item.meridian.toLowerCase().includes(searchTerm)) ||
                 (item.location && item.location.toLowerCase().includes(searchTerm)) ||
                 (item.functions && (Array.isArray(item.functions) ? item.functions.join(' ').toLowerCase().includes(searchTerm) : String(item.functions).toLowerCase().includes(searchTerm))) ||
-                (item.indications && (Array.isArray(item.indications) ? item.indications.join(' ').toLowerCase().includes(searchTerm) : String(item.indications).toLowerCase().includes(searchTerm)))
+                (item.indications && (Array.isArray(item.indications) ? item.indications.join(' ').toLowerCase().includes(searchTerm) : String(item.indications).toLowerCase().includes(searchTerm))) ||
+                (item.englishName && item.englishName.toLowerCase().includes(searchTerm))
               ))
               .map(item => {
                 const n = item.name ? item.name.toLowerCase() : '';
@@ -20898,6 +21548,7 @@ ${item.points.map(pt => {
                 const l = item.location ? item.location.toLowerCase() : '';
                 const f = item.functions ? (Array.isArray(item.functions) ? item.functions.join(' ').toLowerCase() : String(item.functions).toLowerCase()) : '';
                 const i = item.indications ? (Array.isArray(item.indications) ? item.indications.join(' ').toLowerCase() : String(item.indications).toLowerCase()) : '';
+                const e = item.englishName ? item.englishName.toLowerCase() : '';
                 let score = Infinity;
                 if (n.includes(searchTerm)) {
                   score = n.indexOf(searchTerm);
@@ -20909,6 +21560,8 @@ ${item.points.map(pt => {
                   score = 300 + f.indexOf(searchTerm);
                 } else if (i.includes(searchTerm)) {
                   score = 400 + i.indexOf(searchTerm);
+                } else if (e.includes(searchTerm)) {
+                  score = 500 + e.indexOf(searchTerm);
                 }
                 return { item, score };
               })
@@ -21202,7 +21855,8 @@ if (typeof window !== 'undefined' && !window.removeParentElement) {
           (item.meridian && item.meridian.toLowerCase().includes(searchTerm)) ||
           (item.location && item.location.toLowerCase().includes(searchTerm)) ||
           (item.functions && (Array.isArray(item.functions) ? item.functions.join(' ').toLowerCase().includes(searchTerm) : String(item.functions).toLowerCase().includes(searchTerm))) ||
-          (item.indications && (Array.isArray(item.indications) ? item.indications.join(' ').toLowerCase().includes(searchTerm) : String(item.indications).toLowerCase().includes(searchTerm)))
+          (item.indications && (Array.isArray(item.indications) ? item.indications.join(' ').toLowerCase().includes(searchTerm) : String(item.indications).toLowerCase().includes(searchTerm))) ||
+          (item.englishName && item.englishName.toLowerCase().includes(searchTerm))
         ))
         .map(item => {
           const nameStr = item.name ? item.name.toLowerCase() : '';
@@ -21210,6 +21864,7 @@ if (typeof window !== 'undefined' && !window.removeParentElement) {
           const locStr = item.location ? item.location.toLowerCase() : '';
           const funcStr = item.functions ? (Array.isArray(item.functions) ? item.functions.join(' ').toLowerCase() : String(item.functions).toLowerCase()) : '';
           const indStr = item.indications ? (Array.isArray(item.indications) ? item.indications.join(' ').toLowerCase() : String(item.indications).toLowerCase()) : '';
+          const engStr = item.englishName ? item.englishName.toLowerCase() : '';
           let score = Infinity;
           if (nameStr.includes(searchTerm)) {
             score = nameStr.indexOf(searchTerm);
@@ -21221,6 +21876,8 @@ if (typeof window !== 'undefined' && !window.removeParentElement) {
             score = 300 + funcStr.indexOf(searchTerm);
           } else if (indStr.includes(searchTerm)) {
             score = 400 + indStr.indexOf(searchTerm);
+          } else if (engStr.includes(searchTerm)) {
+            score = 500 + engStr.indexOf(searchTerm);
           }
           return { item, score };
         })
@@ -21240,6 +21897,16 @@ if (typeof window !== 'undefined' && !window.removeParentElement) {
       // 建立結果列表，每個結果可以點擊加入針灸備註
       resultsList.innerHTML = matched.map(item => {
         const safeName = (item.name || '').replace(/'/g, "\\'");
+        // 決定顯示名稱：英語介面且有英譯名稱時顯示英譯名稱，否則顯示中文名稱
+        let displayName = item.name || '';
+        try {
+          const langSel = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+          if (langSel && langSel.toLowerCase().startsWith('en') && item.englishName) {
+            displayName = item.englishName;
+          }
+        } catch (_e) {
+          displayName = item.name || '';
+        }
         const details = [];
         details.push('名稱：' + (item.name || ''));
         if (item.meridian) details.push('經絡：' + item.meridian);
@@ -21256,7 +21923,7 @@ if (typeof window !== 'undefined' && !window.removeParentElement) {
         if (item.category) details.push('分類：' + item.category);
         const encoded = encodeURIComponent(details.join('\n'));
         // 使用藍色背景與邊框呈現搜尋結果，每個結果可點擊加入備註
-        return `<div class="p-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded cursor-pointer text-center text-sm" data-tooltip="${encoded}" onmouseenter="showTooltip(event, this.getAttribute('data-tooltip'))" onmousemove="moveTooltip(event)" onmouseleave="hideTooltip()" onclick="addAcupointToNotes('${safeName}')">${window.escapeHtml(item.name)}</div>`;
+        return `<div class="p-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded cursor-pointer text-center text-sm" data-tooltip="${encoded}" onmouseenter="showTooltip(event, this.getAttribute('data-tooltip'))" onmousemove="moveTooltip(event)" onmouseleave="hideTooltip()" onclick="addAcupointToNotes('${safeName}')">${window.escapeHtml(displayName)}</div>`;
       }).join('');
       resultsContainer.classList.remove('hidden');
     } catch (e) {
@@ -21744,4 +22411,317 @@ function hideGlobalCopyright() {
 
   // 在 DOMContentLoaded 後立即檢測網路狀態
   document.addEventListener('DOMContentLoaded', updateNetworkStatus);
+})();
+
+/*
+ * 全域鍵盤快捷與閒置監控 IIFE
+ *
+ * 提供按鍵控制：
+ *  1. Esc：若有彈窗則關閉彈窗；若無彈窗則切換側邊功能選單（開啟或關閉）。
+ *  2. Enter：在彈窗中按下 Enter 會觸發主要操作，例如儲存、確定或確認掛號。
+ *  3. ArrowLeft / ArrowRight：當查看病歷或診症記錄彈窗開啟時，使用左右方向鍵切換較舊/較新紀錄。
+ *
+ * 此 IIFE 亦提供閒置自動登出功能。登入時可調用 startInactivityMonitoring() 開始監控；登出時調用 stopInactivityMonitoring() 停止。
+ */
+(function() {
+  // ======== 全域按鍵處理邏輯 ========
+  /**
+   * 全域鍵盤事件處理函式
+   * @param {KeyboardEvent} ev 
+   */
+  function handleGlobalKeyDown(ev) {
+    const key = ev && ev.key;
+    const eventType = ev && ev.type;
+    // 只處理特定按鍵
+    if (!key || !(['Escape', 'Enter', 'ArrowLeft', 'ArrowRight'].includes(key))) {
+      return;
+    }
+    // 僅在主系統頁面顯示時響應
+    const mainSystem = document.getElementById('mainSystem');
+    if (!mainSystem || mainSystem.classList.contains('hidden')) {
+      return;
+    }
+    // 收集可視彈窗
+    // 預設只選取固定定位 (position: fixed) 的彈窗，並且 ID 包含 "modal"，且未被 Tailwind 的 hidden 類別隱藏。
+    // 另外納入排班管理的彈窗（#scheduleManagement .modal.show）以支援 ESC/Enter 快捷操作。
+    const modalNodes = [];
+    // 選取 .fixed 的彈窗
+    document.querySelectorAll('.fixed').forEach(el => modalNodes.push(el));
+    // 納入排班管理中的 .modal.show 視窗
+    document.querySelectorAll('#scheduleManagement .modal.show').forEach(el => modalNodes.push(el));
+    const modals = modalNodes.filter(el => {
+      // 排班管理的視窗以 .show 為顯示標記，無需判斷 hidden
+      if (el.matches('#scheduleManagement .modal.show')) {
+        return true;
+      }
+      // 其他彈窗需符合條件：未隱藏且 id 名稱含 modal
+      const id = (el.id || '').toLowerCase();
+      return !el.classList.contains('hidden') && id.includes('modal');
+    });
+    // 取得事件目標元素，用於判斷是否在可編輯欄位中
+    const target = ev.target;
+    const tagName = target && target.tagName ? target.tagName.toUpperCase() : '';
+    // 將 SELECT 從可編輯輸入排除，讓在下拉選單中按 Enter 也能觸發快捷操作
+    const isEditableInput = tagName === 'INPUT' || tagName === 'TEXTAREA' || (target && target.isContentEditable);
+
+    // 處理左右方向鍵：僅在 keydown 階段且病歷或診症記錄彈窗開啟時有效
+    if ((key === 'ArrowLeft' || key === 'ArrowRight')) {
+      // 只在 keydown 事件處理方向鍵，避免 keypress 重複處理
+      if (eventType !== 'keydown') {
+        return;
+      }
+      if (modals.length > 0 && !isEditableInput) {
+        const activeModal = modals[modals.length - 1];
+        const direction = key === 'ArrowLeft' ? -1 : 1;
+        const modalId = activeModal.id || '';
+        try {
+          if (modalId === 'patientMedicalHistoryModal' && typeof changePatientHistoryPage === 'function') {
+            changePatientHistoryPage(direction);
+            ev.preventDefault();
+            ev.stopPropagation();
+            return;
+          }
+          if (modalId === 'medicalHistoryModal' && typeof changeConsultationHistoryPage === 'function') {
+            changeConsultationHistoryPage(direction);
+            ev.preventDefault();
+            ev.stopPropagation();
+            return;
+          }
+        } catch (_e) {
+          // 若換頁失敗則忽略
+        }
+      }
+      return;
+    }
+
+    // 處理 Esc 鍵：僅在 keydown 階段關閉聊天視窗、彈窗或切換側邊欄
+    if (key === 'Escape') {
+      // 僅處理 keydown，忽略 keypress
+      if (eventType !== 'keydown') {
+        return;
+      }
+      // 首先處理聊天彈窗。如果聊天彈窗存在且未隱藏，則優先關閉
+      try {
+        const chatPopup = document.getElementById('chatPopup');
+        if (chatPopup && !chatPopup.classList.contains('hidden')) {
+          // 隱藏聊天視窗
+          chatPopup.classList.add('hidden');
+          ev.preventDefault();
+          ev.stopPropagation();
+          return;
+        }
+      } catch (_e) {
+        // 忽略查找或關閉聊天彈窗時的錯誤
+      }
+      if (modals.length > 0) {
+        const modal = modals[modals.length - 1];
+        const modalId = modal.id || '';
+        // 若為排班管理的排班或固定班視窗，直接調用其關閉函式
+        try {
+          if (modalId === 'shiftModal' && typeof scheduleCloseModal === 'function') {
+            scheduleCloseModal();
+            ev.preventDefault();
+            ev.stopPropagation();
+            return;
+          }
+          if (modalId === 'fixedScheduleModal' && typeof scheduleCloseFixedScheduleModal === 'function') {
+            scheduleCloseFixedScheduleModal();
+            ev.preventDefault();
+            ev.stopPropagation();
+            return;
+          }
+        } catch (_e) {
+          // ignore errors and continue fallback
+        }
+        // 嘗試尋找取消/關閉按鈕，避免選中導覽按鈕（如上一頁/下一頁）
+        let cancelBtn =
+          modal.querySelector('button[id*="cancel" i]') ||
+          modal.querySelector('button[id*="hide" i]') ||
+          modal.querySelector('button[id*="close" i]') ||
+          modal.querySelector('button[onclick*="hide"]') ||
+          modal.querySelector('button[onclick*="close"]');
+        if (cancelBtn && typeof cancelBtn.click === 'function') {
+          cancelBtn.click();
+        } else {
+          // 若找不到可點擊的關閉按鈕，依彈窗 id 呼叫指定的關閉函式或直接隱藏
+          try {
+            if (modalId === 'patientDetailModal' && typeof closePatientDetail === 'function') {
+              closePatientDetail();
+            } else if (modalId === 'patientMedicalHistoryModal' && typeof closePatientMedicalHistoryModal === 'function') {
+              closePatientMedicalHistoryModal();
+            } else if (modalId === 'medicalHistoryModal' && typeof closeMedicalHistoryModal === 'function') {
+              closeMedicalHistoryModal();
+            } else if (modalId === 'registrationModal' && typeof closeRegistrationModal === 'function') {
+              closeRegistrationModal();
+            } else {
+              // 對於排班管理模態框以外的固定定位彈窗，可嘗試用 Tailwind 的 hidden 類關閉
+              modal.classList.add('hidden');
+            }
+          } catch (_e) {
+            // 若調用關閉函式失敗，直接隱藏
+            modal.classList.add('hidden');
+          }
+        }
+        ev.preventDefault();
+        ev.stopPropagation();
+      } else {
+        // 無彈窗時切換側邊欄：開啟或關閉
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar && typeof toggleSidebar === 'function') {
+          toggleSidebar();
+          ev.preventDefault();
+          ev.stopPropagation();
+        }
+      }
+      return;
+    }
+
+    // 處理 Enter 鍵：在彈窗中觸發主要操作。僅在 keypress 階段處理，避免在 keydown 重複觸發。
+    if (key === 'Enter') {
+      // 僅處理 keypress 事件，忽略 keydown 以避免重複觸發
+      if (eventType !== 'keypress') {
+        return;
+      }
+      // 沒有彈窗時無需處理
+      if (modals.length === 0) {
+        return;
+      }
+      const modal = modals[modals.length - 1];
+      const modalId = modal.id || '';
+      // 若為掛號彈窗，直接執行 confirmRegistration（即使焦點在下拉選單中）
+      if (modalId === 'registrationModal' && typeof confirmRegistration === 'function') {
+        try {
+          confirmRegistration();
+        } catch (_e) {
+          // 忽略錯誤
+        }
+        ev.preventDefault();
+        ev.stopPropagation();
+        return;
+      }
+      // 排班管理彈窗：shiftModal 與 fixedScheduleModal
+      // 按 Enter 時直接執行新增或建立，無論焦點是否在下拉選單中。
+      try {
+        if (modalId === 'shiftModal' && typeof scheduleAddShift === 'function') {
+          scheduleAddShift();
+          ev.preventDefault();
+          ev.stopPropagation();
+          return;
+        }
+        if (modalId === 'fixedScheduleModal' && typeof scheduleCreateFixedSchedule === 'function') {
+          scheduleCreateFixedSchedule();
+          ev.preventDefault();
+          ev.stopPropagation();
+          return;
+        }
+      } catch (_e) {
+        // 忽略調用錯誤，繼續以下邏輯
+      }
+      // 在其他可編輯輸入（如 INPUT/TEXTAREA/contentEditable）中，不攔截 Enter
+      if (isEditableInput) {
+        return;
+      }
+      // 一般彈窗：尋找主要確認按鈕
+      const buttons = Array.from(modal.querySelectorAll('button')).filter(btn => !btn.disabled && btn.offsetParent !== null);
+      let confirmBtn = null;
+      // 優先根據 id 或 onclick 屬性匹配 save/confirm/apply/ok 或包含 confirm
+      confirmBtn = buttons.find(btn => {
+        const idAttr = btn.id || '';
+        const onclickAttr = (btn.getAttribute && btn.getAttribute('onclick')) || '';
+        return /save|confirm|apply|ok/i.test(idAttr) || /confirm/i.test(onclickAttr);
+      });
+      if (!confirmBtn) {
+        // 再以按鈕文字匹配常見中文文案
+        confirmBtn = buttons.find(btn => {
+          const text = (btn.textContent || '').trim();
+          return /儲存|保存|更新|確定|套用|新增|確認|掛號/.test(text);
+        });
+      }
+      if (!confirmBtn) {
+        // 取第一個背景非灰色按鈕
+        confirmBtn = buttons.find(btn => !/bg-gray/.test(btn.className || ''));
+      }
+      if (!confirmBtn && buttons.length > 0) {
+        // 最後退而求其次取最後一個按鈕
+        confirmBtn = buttons[buttons.length - 1];
+      }
+      if (confirmBtn && typeof confirmBtn.click === 'function') {
+        confirmBtn.click();
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+      return;
+    }
+  }
+  // 註冊全域鍵盤監聽
+  // 使用 capture 階段並同時監聽 keydown 與 keypress，以便在某些表單元件（如 <select>）中
+  // 按下 Enter 時仍能捕捉事件。對於不同事件類型使用同一處理函式。
+  document.addEventListener('keydown', handleGlobalKeyDown, true);
+  document.addEventListener('keypress', handleGlobalKeyDown, true);
+
+  // ======== 閒置自動登出邏輯 ========
+  // 閒置時間限制（毫秒），預設為 30 分鐘
+  const INACTIVITY_LIMIT = 30 * 60 * 1000;
+  let inactivityTimeoutId = null;
+  let activityHandler = null;
+  const activityEvents = ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'];
+
+  /**
+   * 重置閒置計時器。
+   */
+  function resetInactivityTimer() {
+    if (inactivityTimeoutId) {
+      clearTimeout(inactivityTimeoutId);
+    }
+    inactivityTimeoutId = setTimeout(() => {
+      try {
+        // 到達閒置時間後自動登出
+        if (typeof showToast === 'function') {
+          const lang = localStorage.getItem('lang') || 'zh';
+          const zhMsg = '閒置時間過長，自動登出';
+          const enMsg = 'Logged out due to inactivity';
+          showToast(lang === 'en' ? enMsg : zhMsg, 'warning');
+        }
+        if (typeof logout === 'function') {
+          logout();
+        }
+      } catch (e) {
+        console.error('自動登出時發生錯誤:', e);
+      }
+    }, INACTIVITY_LIMIT);
+  }
+
+  /**
+   * 開始閒置監控。在登入後調用。
+   */
+  function startInactivityMonitoring() {
+    stopInactivityMonitoring();
+    activityHandler = function() {
+      resetInactivityTimer();
+    };
+    activityEvents.forEach(evt => {
+      document.addEventListener(evt, activityHandler);
+    });
+    resetInactivityTimer();
+  }
+
+  /**
+   * 停止閒置監控。在登出後調用。
+   */
+  function stopInactivityMonitoring() {
+    if (activityHandler) {
+      activityEvents.forEach(evt => {
+        document.removeEventListener(evt, activityHandler);
+      });
+      activityHandler = null;
+    }
+    if (inactivityTimeoutId) {
+      clearTimeout(inactivityTimeoutId);
+      inactivityTimeoutId = null;
+    }
+  }
+
+  // 將控制函式掛到 window，使其可被外部調用
+  window.startInactivityMonitoring = startInactivityMonitoring;
+  window.stopInactivityMonitoring = stopInactivityMonitoring;
 })();

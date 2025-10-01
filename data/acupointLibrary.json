@@ -17,7 +17,9 @@
       "皮膚病"
     ],
     "method": "斜刺或平刺0.5-0.8寸",
-    "category": "肺之募穴"
+    "category": "肺之募穴",
+    "englishName": "Zhongfu (Central Authority)",
+    "internationalCode": "LU-1"
   },
   {
     "id": 2,
@@ -36,7 +38,9 @@
       "肩臂痛"
     ],
     "method": "直刺0.5-0.8寸，不可深刺",
-    "category": "肺經穴"
+    "category": "肺經穴",
+    "englishName": "Yunmen (Cloud Gate)",
+    "internationalCode": "LU-2"
   },
   {
     "id": 3,
@@ -55,7 +59,9 @@
       "臂痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "肺經穴"
+    "category": "肺經穴",
+    "englishName": "Tianfu (Heaven's Authority)",
+    "internationalCode": "LU-3"
   },
   {
     "id": 4,
@@ -74,7 +80,9 @@
       "臂痛"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "肺經穴"
+    "category": "肺經穴",
+    "englishName": "Xiabai (Purely Doing as One Likes)",
+    "internationalCode": "LU-4"
   },
   {
     "id": 5,
@@ -94,7 +102,9 @@
       "肘臂攣痛"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "合穴(水穴)"
+    "category": "合穴(水穴)",
+    "englishName": "Chize (Cubit Marsh)",
+    "internationalCode": "LU-5"
   },
   {
     "id": 6,
@@ -114,7 +124,9 @@
       "肘臂痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "郄穴"
+    "category": "郄穴",
+    "englishName": "Kongzui (Greatest Hole)",
+    "internationalCode": "LU-6"
   },
   {
     "id": 7,
@@ -134,7 +146,9 @@
       "小便不利"
     ],
     "method": "斜刺0.3-0.5寸",
-    "category": "絡穴、八脈交會穴（通任脈）"
+    "category": "絡穴、八脈交會穴（通任脈）",
+    "englishName": "Lieque (Wedge Gap)",
+    "internationalCode": "LU-7"
   },
   {
     "id": 8,
@@ -154,7 +168,9 @@
       "腕臂痛"
     ],
     "method": "避開動脈，直刺0.2-0.3寸",
-    "category": "經穴(金穴)"
+    "category": "經穴(金穴)",
+    "englishName": "Jingqu (Lengthwise Gutter)",
+    "internationalCode": "LU-8"
   },
   {
     "id": 9,
@@ -174,7 +190,9 @@
       "腕臂痛"
     ],
     "method": "避開動脈，直刺0.2-0.3寸",
-    "category": "輸穴(土穴)、原穴、八會穴之脈會"
+    "category": "輸穴(土穴)、原穴、八會穴之脈會",
+    "englishName": "Taiyuan (Largest Depth)",
+    "internationalCode": "LU-9"
   },
   {
     "id": 10,
@@ -194,7 +212,9 @@
       "發熱"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "滎穴(火穴)"
+    "category": "滎穴(火穴)",
+    "englishName": "Yuji (Fishing Side)",
+    "internationalCode": "LU-10"
   },
   {
     "id": 11,
@@ -214,7 +234,9 @@
       "昏迷"
     ],
     "method": "點刺出血",
-    "category": "井穴(木穴)"
+    "category": "井穴(木穴)",
+    "englishName": "Shaoshang (Littlest Exchange)",
+    "internationalCode": "LU-11"
   },
   {
     "id": 12,
@@ -234,7 +256,9 @@
       "耳聾"
     ],
     "method": "點刺出血",
-    "category": "井穴(金穴)"
+    "category": "井穴(金穴)",
+    "englishName": "Shangyang (Yang Exchanges)",
+    "internationalCode": "LI-1"
   },
   {
     "id": 13,
@@ -254,7 +278,9 @@
       "鼻衄"
     ],
     "method": "直刺0.2-0.3寸",
-    "category": "滎穴(水穴)"
+    "category": "滎穴(水穴)",
+    "englishName": "Erjian (Second Space)",
+    "internationalCode": "LI-2"
   },
   {
     "id": 14,
@@ -274,7 +300,9 @@
       "腹脹"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "輸穴(木穴)"
+    "category": "輸穴(木穴)",
+    "englishName": "Sanjian (Third Space)",
+    "internationalCode": "LI-3"
   },
   {
     "id": 15,
@@ -294,7 +322,9 @@
       "月經不調"
     ],
     "method": "直刺0.5-1寸，孕婦禁針",
-    "category": "原穴"
+    "category": "原穴",
+    "englishName": "Hegu (Closed Valley)",
+    "internationalCode": "LI-4"
   },
   {
     "id": 16,
@@ -314,7 +344,9 @@
       "耳鳴"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "經穴(火穴)"
+    "category": "經穴(火穴)",
+    "englishName": "Yangxi (Yang Valley Stream)",
+    "internationalCode": "LI-5"
   },
   {
     "id": 17,
@@ -334,7 +366,9 @@
       "水腫"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "絡穴"
+    "category": "絡穴",
+    "englishName": "Pianli (Veering Passage)",
+    "internationalCode": "LI-6"
   },
   {
     "id": 18,
@@ -354,7 +388,9 @@
       "肩臂痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "郄穴"
+    "category": "郄穴",
+    "englishName": "Wenliu (Warm Drops)",
+    "internationalCode": "LI-7"
   },
   {
     "id": 19,
@@ -374,7 +410,9 @@
       "眩暈"
     ],
     "method": "直刺0.5-1寸",
-    "category": "大腸經穴"
+    "category": "大腸經穴",
+    "englishName": "Xialian (Lower One at the Angle)",
+    "internationalCode": "LI-8"
   },
   {
     "id": 20,
@@ -394,7 +432,9 @@
       "頭痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "大腸經穴"
+    "category": "大腸經穴",
+    "englishName": "Shanglian (Upper One at the Angle)",
+    "internationalCode": "LI-9"
   },
   {
     "id": 21,
@@ -414,7 +454,9 @@
       "頸項痛"
     ],
     "method": "直刺1-1.5寸",
-    "category": "大腸經穴"
+    "category": "大腸經穴",
+    "englishName": "Shousanli (Hand's Three Quarter Miles)",
+    "internationalCode": "LI-10"
   },
   {
     "id": 22,
@@ -434,7 +476,9 @@
       "癱瘓"
     ],
     "method": "直刺1-1.5寸",
-    "category": "合穴(土穴)"
+    "category": "合穴(土穴)",
+    "englishName": "Quchi (Pond at the Bend)",
+    "internationalCode": "LI-11"
   },
   {
     "id": 23,
@@ -453,7 +497,9 @@
       "頸項強痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "大腸經穴"
+    "category": "大腸經穴",
+    "englishName": "Zhouliao (Elbow Bone Notch)",
+    "internationalCode": "LI-12"
   },
   {
     "id": 24,
@@ -472,7 +518,9 @@
       "胸滿"
     ],
     "method": "直刺0.5-1寸",
-    "category": "大腸經穴"
+    "category": "大腸經穴",
+    "englishName": "Shouwuli (Hand's Five Quarter Miles)",
+    "internationalCode": "LI-13"
   },
   {
     "id": 25,
@@ -491,7 +539,9 @@
       "目疾"
     ],
     "method": "直刺0.8-1.5寸",
-    "category": "大腸經穴"
+    "category": "大腸經穴",
+    "englishName": "Binao (Upper Arm)",
+    "internationalCode": "LI-14"
   },
   {
     "id": 26,
@@ -510,7 +560,9 @@
       "皮膚病"
     ],
     "method": "直刺0.8-1.5寸",
-    "category": "大腸經穴"
+    "category": "大腸經穴",
+    "englishName": "Jianyu (Shoulder Bone)",
+    "internationalCode": "LI-15"
   },
   {
     "id": 27,
@@ -529,7 +581,9 @@
       "氣喘"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "大腸經穴"
+    "category": "大腸經穴",
+    "englishName": "Jugu (Big Bones)",
+    "internationalCode": "LI-16"
   },
   {
     "id": 28,
@@ -548,7 +602,9 @@
       "暴喑"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "大腸經穴"
+    "category": "大腸經穴",
+    "englishName": "Tianding (Heaven's Tripod)",
+    "internationalCode": "LI-17"
   },
   {
     "id": 29,
@@ -567,7 +623,9 @@
       "瘰癧"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "大腸經穴"
+    "category": "大腸經穴",
+    "englishName": "Futu (Aiding the Chimney)",
+    "internationalCode": "LI-18"
   },
   {
     "id": 30,
@@ -586,7 +644,9 @@
       "面腫"
     ],
     "method": "斜刺0.3-0.5寸",
-    "category": "大腸經穴"
+    "category": "大腸經穴",
+    "englishName": "Kouheliao (Taste's Grain-like Bone Notch)",
+    "internationalCode": "LI-19"
   },
   {
     "id": 31,
@@ -605,7 +665,9 @@
       "面癢"
     ],
     "method": "斜刺0.3-0.5寸",
-    "category": "大腸經穴"
+    "category": "大腸經穴",
+    "englishName": "Yingxiang (Welcoming Fragrance)",
+    "internationalCode": "LI-20"
   },
   {
     "id": 32,
@@ -625,7 +687,9 @@
       "口眼歪斜"
     ],
     "method": "沿眶緣緩慢直刺0.5-1寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Chengqi (Accept the Tears)",
+    "internationalCode": "ST-1"
   },
   {
     "id": 33,
@@ -645,7 +709,9 @@
       "面痛"
     ],
     "method": "直刺0.3-0.7寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Sibai (Four Whites)",
+    "internationalCode": "ST-2"
   },
   {
     "id": 34,
@@ -665,7 +731,9 @@
       "面癱"
     ],
     "method": "直刺0.3-0.8寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Juliao (Large Bone Notch)",
+    "internationalCode": "ST-3"
   },
   {
     "id": 35,
@@ -684,7 +752,9 @@
       "面癱"
     ],
     "method": "斜刺0.5-1寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Dicang (Land's Granary)",
+    "internationalCode": "ST-4"
   },
   {
     "id": 36,
@@ -704,7 +774,9 @@
       "面癱"
     ],
     "method": "斜刺0.3-0.5寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Daying (Big Welcome)",
+    "internationalCode": "ST-5"
   },
   {
     "id": 37,
@@ -724,7 +796,9 @@
       "面癱"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Jiache (Jaw Wheel)",
+    "internationalCode": "ST-6"
   },
   {
     "id": 38,
@@ -744,7 +818,9 @@
       "面痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Xiaguan (Underneath the Joint)",
+    "internationalCode": "ST-7"
   },
   {
     "id": 39,
@@ -764,7 +840,9 @@
       "面痛"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Touwei (Corner of the Hair)",
+    "internationalCode": "ST-8"
   },
   {
     "id": 40,
@@ -783,7 +861,9 @@
       "高血壓"
     ],
     "method": "避開動脈，直刺0.3-0.8寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Renying (Welcoming Others)",
+    "internationalCode": "ST-9"
   },
   {
     "id": 41,
@@ -802,7 +882,9 @@
       "瘰癧"
     ],
     "method": "直刺0.3-0.8寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Shuitu (Fluids Chimney)",
+    "internationalCode": "ST-10"
   },
   {
     "id": 42,
@@ -821,7 +903,9 @@
       "頸項強痛"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Qishe (Qi Lodge)",
+    "internationalCode": "ST-11"
   },
   {
     "id": 43,
@@ -840,7 +924,9 @@
       "缺盆中痛"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Quepen (Empty Basin)",
+    "internationalCode": "ST-12"
   },
   {
     "id": 44,
@@ -859,7 +945,9 @@
       "肩背痛"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Qihu (Qi Door)",
+    "internationalCode": "ST-13"
   },
   {
     "id": 45,
@@ -878,7 +966,9 @@
       "肋間神經痛"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Kufang (Store Room)",
+    "internationalCode": "ST-14"
   },
   {
     "id": 46,
@@ -897,7 +987,9 @@
       "乳癰"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Wuyi (Room Screen)",
+    "internationalCode": "ST-15"
   },
   {
     "id": 47,
@@ -916,7 +1008,9 @@
       "肋間神經痛"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Yingchuang (Chest Window)",
+    "internationalCode": "ST-16"
   },
   {
     "id": 48,
@@ -933,7 +1027,9 @@
       "胸痛"
     ],
     "method": "禁針，可灸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Ruzhong (Center of the Nipple)",
+    "internationalCode": "ST-17"
   },
   {
     "id": 49,
@@ -953,7 +1049,9 @@
       "乳癰"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Rugen (Base of the Breasts)",
+    "internationalCode": "ST-18"
   },
   {
     "id": 50,
@@ -972,7 +1070,9 @@
       "食不下"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Burong (Not Accepted)",
+    "internationalCode": "ST-19"
   },
   {
     "id": 51,
@@ -991,7 +1091,9 @@
       "食積"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Chengman (Receiving Enough)",
+    "internationalCode": "ST-20"
   },
   {
     "id": 52,
@@ -1010,7 +1112,9 @@
       "洩瀉"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Liangmen (Gate Beam)",
+    "internationalCode": "ST-21"
   },
   {
     "id": 53,
@@ -1030,7 +1134,9 @@
       "水腫"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Guanmen (Barrier Gate)",
+    "internationalCode": "ST-22"
   },
   {
     "id": 54,
@@ -1049,7 +1155,9 @@
       "心煩"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Taiyi (Greatest Oneness)",
+    "internationalCode": "ST-23"
   },
   {
     "id": 55,
@@ -1068,7 +1176,9 @@
       "舌強"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Huaroumen (Supple Flesh Gate)",
+    "internationalCode": "ST-24"
   },
   {
     "id": 56,
@@ -1088,7 +1198,9 @@
       "痢疾"
     ],
     "method": "直刺1-1.5寸",
-    "category": "大腸募穴"
+    "category": "大腸募穴",
+    "englishName": "Tianshu (Heaven's Pivot)",
+    "internationalCode": "ST-25"
   },
   {
     "id": 57,
@@ -1107,7 +1219,9 @@
       "帶下"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Wailing (Outside the High Mound)",
+    "internationalCode": "ST-26"
   },
   {
     "id": 58,
@@ -1126,7 +1240,9 @@
       "痛經"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Daju (Very Rough)",
+    "internationalCode": "ST-27"
   },
   {
     "id": 59,
@@ -1145,7 +1261,9 @@
       "痛經"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Shuidao (Fluid Passage)",
+    "internationalCode": "ST-28"
   },
   {
     "id": 60,
@@ -1164,7 +1282,9 @@
       "腹痛"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Guilai (Arriving Home)",
+    "internationalCode": "ST-29"
   },
   {
     "id": 61,
@@ -1183,7 +1303,9 @@
       "陽痿"
     ],
     "method": "直刺0.5-1寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Qichong (Qi Infusion)",
+    "internationalCode": "ST-30"
   },
   {
     "id": 62,
@@ -1201,7 +1323,9 @@
       "膝痛"
     ],
     "method": "直刺1-2寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Biguan (Thigh Joint)",
+    "internationalCode": "ST-31"
   },
   {
     "id": 63,
@@ -1219,7 +1343,9 @@
       "腰痛"
     ],
     "method": "直刺1-2寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Futu (Prostrating Hare)",
+    "internationalCode": "ST-32"
   },
   {
     "id": 64,
@@ -1238,7 +1364,9 @@
       "腰痛"
     ],
     "method": "直刺1-1.5寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Yinshi (Yin at the Market)",
+    "internationalCode": "ST-33"
   },
   {
     "id": 65,
@@ -1257,7 +1385,9 @@
       "膝腫痛"
     ],
     "method": "直刺1-1.5寸",
-    "category": "郄穴"
+    "category": "郄穴",
+    "englishName": "Liangqiu (Beam to the Mound)",
+    "internationalCode": "ST-34"
   },
   {
     "id": 66,
@@ -1275,7 +1405,9 @@
       "腳氣"
     ],
     "method": "向後內斜刺0.5-1寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Dubi (Calf's Nose)",
+    "internationalCode": "ST-35"
   },
   {
     "id": 67,
@@ -1296,7 +1428,9 @@
       "下肢痿痺"
     ],
     "method": "直刺1-2寸",
-    "category": "合穴(土穴)、下合穴"
+    "category": "合穴(土穴)、下合穴",
+    "englishName": "Zusanli (Leg's Three Quarter Miles)",
+    "internationalCode": "ST-36"
   },
   {
     "id": 68,
@@ -1315,7 +1449,9 @@
       "下肢痿痺"
     ],
     "method": "直刺1-2寸",
-    "category": "大腸下合穴"
+    "category": "大腸下合穴",
+    "englishName": "Shangjuxu (At the Top of the Big Hollow)",
+    "internationalCode": "ST-37"
   },
   {
     "id": 69,
@@ -1333,7 +1469,9 @@
       "肩臂痛"
     ],
     "method": "直刺1-1.5寸",
-    "category": "胃經穴"
+    "category": "胃經穴",
+    "englishName": "Tiaokou (Long Narrow Opening)",
+    "internationalCode": "ST-38"
   },
   {
     "id": 70,
@@ -1352,7 +1490,9 @@
       "下肢痿痺"
     ],
     "method": "直刺1-1.5寸",
-    "category": "小腸下合穴"
+    "category": "小腸下合穴",
+    "englishName": "Xiajuxu (At the Bottom of the Big Hollow)",
+    "internationalCode": "ST-39"
   },
   {
     "id": 71,
@@ -1371,7 +1511,9 @@
       "下肢痿痺"
     ],
     "method": "直刺1-1.5寸",
-    "category": "絡穴"
+    "category": "絡穴",
+    "englishName": "Fenglong (Ample Enrichment)",
+    "internationalCode": "ST-40"
   },
   {
     "id": 72,
@@ -1390,7 +1532,9 @@
       "足踝腫痛"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "經穴(火穴)"
+    "category": "經穴(火穴)",
+    "englishName": "Jiexi (Melting Valley Stream)",
+    "internationalCode": "ST-41"
   },
   {
     "id": 73,
@@ -1409,7 +1553,9 @@
       "癲狂"
     ],
     "method": "避開動脈，直刺0.3-0.5寸",
-    "category": "原穴"
+    "category": "原穴",
+    "englishName": "Chongyang (Infusing Yang)",
+    "internationalCode": "ST-42"
   },
   {
     "id": 74,
@@ -1427,7 +1573,9 @@
       "足背腫痛"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "輸穴(木穴)"
+    "category": "輸穴(木穴)",
+    "englishName": "Xiangu (Trapped in the Valley)",
+    "internationalCode": "ST-43"
   },
   {
     "id": 75,
@@ -1446,7 +1594,9 @@
       "足背腫痛"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "滎穴(水穴)"
+    "category": "滎穴(水穴)",
+    "englishName": "Neiting (Inner Courtyard)",
+    "internationalCode": "ST-44"
   },
   {
     "id": 76,
@@ -1466,7 +1616,9 @@
       "多夢"
     ],
     "method": "點刺出血",
-    "category": "井穴(金穴)"
+    "category": "井穴(金穴)",
+    "englishName": "Lidui (Dangerous Exchange)",
+    "internationalCode": "ST-45"
   },
   {
     "id": 77,
@@ -1487,7 +1639,9 @@
       "多夢"
     ],
     "method": "點刺出血",
-    "category": "井穴(木穴)"
+    "category": "井穴(木穴)",
+    "englishName": "Yinbai (Hidden Purity)",
+    "internationalCode": "SP-1"
   },
   {
     "id": 78,
@@ -1506,7 +1660,9 @@
       "足趾痛"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "滎穴(火穴)"
+    "category": "滎穴(火穴)",
+    "englishName": "Dadu (Big City)",
+    "internationalCode": "SP-2"
   },
   {
     "id": 79,
@@ -1526,7 +1682,9 @@
       "體重節痛"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "輸穴(土穴)、原穴"
+    "category": "輸穴(土穴)、原穴",
+    "englishName": "Taibai (Greatest Purity)",
+    "internationalCode": "SP-3"
   },
   {
     "id": 80,
@@ -1546,7 +1704,9 @@
       "痢疾"
     ],
     "method": "直刺0.6-1.2寸",
-    "category": "絡穴、八脈交會穴（通衝脈）"
+    "category": "絡穴、八脈交會穴（通衝脈）",
+    "englishName": "Gongsun (Going Along Fairly)",
+    "internationalCode": "SP-4"
   },
   {
     "id": 81,
@@ -1565,7 +1725,9 @@
       "足踝腫痛"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "經穴(金穴)"
+    "category": "經穴(金穴)",
+    "englishName": "Shangqiu (Deliberation Mound)",
+    "internationalCode": "SP-5"
   },
   {
     "id": 82,
@@ -1589,7 +1751,9 @@
       "洩瀉"
     ],
     "method": "直刺1-1.5寸，孕婦禁針",
-    "category": "脾經穴"
+    "category": "脾經穴",
+    "englishName": "Sanyinjiao (Three Yin in Interaction)",
+    "internationalCode": "SP-6"
   },
   {
     "id": 83,
@@ -1609,7 +1773,9 @@
       "月經不調"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "脾經穴"
+    "category": "脾經穴",
+    "englishName": "Lougu (Leaking Valley)",
+    "internationalCode": "SP-7"
   },
   {
     "id": 84,
@@ -1629,7 +1795,9 @@
       "痛經"
     ],
     "method": "直刺1-1.5寸",
-    "category": "郄穴"
+    "category": "郄穴",
+    "englishName": "Diji (Ground Pivot)",
+    "internationalCode": "SP-8"
   },
   {
     "id": 85,
@@ -1651,7 +1819,9 @@
       "膝痛"
     ],
     "method": "直刺1-1.5寸",
-    "category": "合穴(水穴)"
+    "category": "合穴(水穴)",
+    "englishName": "Yinlingquan (Yin Mound Spring)",
+    "internationalCode": "SP-9"
   },
   {
     "id": 86,
@@ -1673,7 +1843,9 @@
       "蕁麻疹"
     ],
     "method": "直刺1-1.5寸",
-    "category": "脾經穴"
+    "category": "脾經穴",
+    "englishName": "Xuehai (Sea of Blood)",
+    "internationalCode": "SP-10"
   },
   {
     "id": 87,
@@ -1692,7 +1864,9 @@
       "下肢痿痺"
     ],
     "method": "直刺1-1.5寸",
-    "category": "脾經穴"
+    "category": "脾經穴",
+    "englishName": "Jimen (Winnowing Gate)",
+    "internationalCode": "SP-11"
   },
   {
     "id": 88,
@@ -1711,7 +1885,9 @@
       "月經不調"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "脾經穴"
+    "category": "脾經穴",
+    "englishName": "Chongmen (Rinsing the Gate)",
+    "internationalCode": "SP-12"
   },
   {
     "id": 89,
@@ -1729,7 +1905,9 @@
       "積聚"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "脾經穴"
+    "category": "脾經穴",
+    "englishName": "Fushe (Official Building's Lodge)",
+    "internationalCode": "SP-13"
   },
   {
     "id": 90,
@@ -1747,7 +1925,9 @@
       "疝氣"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "脾經穴"
+    "category": "脾經穴",
+    "englishName": "Fujie (Belly Knot)",
+    "internationalCode": "SP-14"
   },
   {
     "id": 91,
@@ -1765,7 +1945,9 @@
       "腹痛"
     ],
     "method": "直刺1-1.5寸",
-    "category": "脾經穴"
+    "category": "脾經穴",
+    "englishName": "Daheng (Wide Horizontally)",
+    "internationalCode": "SP-15"
   },
   {
     "id": 92,
@@ -1783,7 +1965,9 @@
       "消化不良"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "脾經穴"
+    "category": "脾經穴",
+    "englishName": "Fuai (Belly Lament)",
+    "internationalCode": "SP-16"
   },
   {
     "id": 93,
@@ -1801,7 +1985,9 @@
       "水腫"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "脾經穴"
+    "category": "脾經穴",
+    "englishName": "Shidou (Feeding Opening)",
+    "internationalCode": "SP-17"
   },
   {
     "id": 94,
@@ -1820,7 +2006,9 @@
       "乳少"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "脾經穴"
+    "category": "脾經穴",
+    "englishName": "Tianxi (Heavenly Valley Stream)",
+    "internationalCode": "SP-18"
   },
   {
     "id": 95,
@@ -1838,7 +2026,9 @@
       "痰多"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "脾經穴"
+    "category": "脾經穴",
+    "englishName": "Xiongxiang (Countryside of the Chest)",
+    "internationalCode": "SP-19"
   },
   {
     "id": 96,
@@ -1856,7 +2046,9 @@
       "胸脅脹痛"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "脾經穜"
+    "category": "脾經穜",
+    "englishName": "Zhourong (Flourishing All-Around)",
+    "internationalCode": "SP-20"
   },
   {
     "id": 97,
@@ -1875,7 +2067,9 @@
       "全身疼痛"
     ],
     "method": "斜刺0.3-0.5寸",
-    "category": "脾之大絡"
+    "category": "脾之大絡",
+    "englishName": "Dabao (Big Embrace)",
+    "internationalCode": "SP-21"
   },
   {
     "id": 98,
@@ -1895,7 +2089,9 @@
       "腋臭"
     ],
     "method": "避開動脈，直刺0.3-0.6寸",
-    "category": "心經穴"
+    "category": "心經穴",
+    "englishName": "Jiquan (Highest Source)",
+    "internationalCode": "HT-1"
   },
   {
     "id": 99,
@@ -1914,7 +2110,9 @@
       "振寒"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "心經穴"
+    "category": "心經穴",
+    "englishName": "Qingling (Blue-Green Spirit)",
+    "internationalCode": "HT-2"
   },
   {
     "id": 100,
@@ -1934,7 +2132,9 @@
       "手顫"
     ],
     "method": "直刺0.5-1寸",
-    "category": "合穴(水穴)"
+    "category": "合穴(水穴)",
+    "englishName": "Shaohai (Smallest Sea)",
+    "internationalCode": "HT-3"
   },
   {
     "id": 101,
@@ -1953,7 +2153,9 @@
       "肘臂痛"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "經穴(金穴)"
+    "category": "經穴(金穴)",
+    "englishName": "Lingdao (Spirit's Path)",
+    "internationalCode": "HT-4"
   },
   {
     "id": 102,
@@ -1973,7 +2175,9 @@
       "腕臂痛"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "絡穴"
+    "category": "絡穴",
+    "englishName": "Tongli (Passing Through the Village)",
+    "internationalCode": "HT-5"
   },
   {
     "id": 103,
@@ -1993,7 +2197,9 @@
       "鼻衄"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "郄穴"
+    "category": "郄穴",
+    "englishName": "Yinxi (Yin Cleft)",
+    "internationalCode": "HT-6"
   },
   {
     "id": 104,
@@ -2014,7 +2220,9 @@
       "胸痛"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "輸穴(土穴)、原穴"
+    "category": "輸穴(土穴)、原穴",
+    "englishName": "Shenmen (Gate to the Heart)",
+    "internationalCode": "HT-7"
   },
   {
     "id": 105,
@@ -2034,7 +2242,9 @@
       "陰癢"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "滎穴(火穴)"
+    "category": "滎穴(火穴)",
+    "englishName": "Shaofu (Smallest Authority)",
+    "internationalCode": "HT-8"
   },
   {
     "id": 106,
@@ -2054,7 +2264,9 @@
       "昏迷"
     ],
     "method": "點刺出血",
-    "category": "井穴(木穴)"
+    "category": "井穴(木穴)",
+    "englishName": "Shaochong (Smallest Infusion)",
+    "internationalCode": "HT-9"
   },
   {
     "id": 107,
@@ -2075,7 +2287,9 @@
       "目翳"
     ],
     "method": "點刺出血",
-    "category": "井穴(金穴)"
+    "category": "井穴(金穴)",
+    "englishName": "Shaoze (Smallest Marsh)",
+    "internationalCode": "SI-1"
   },
   {
     "id": 108,
@@ -2095,7 +2309,9 @@
       "目痛"
     ],
     "method": "直刺0.2-0.3寸",
-    "category": "滎穴(水穴)"
+    "category": "滎穴(水穴)",
+    "englishName": "Qiangu (In Front of the Valley)",
+    "internationalCode": "SI-2"
   },
   {
     "id": 109,
@@ -2115,7 +2331,9 @@
       "瘧疾"
     ],
     "method": "直刺0.5-1寸",
-    "category": "輸穴(木穴)、八脈交會穴（通督脈）"
+    "category": "輸穴(木穴)、八脈交會穴（通督脈）",
+    "englishName": "Houxi (Behind the Valley Stream)",
+    "internationalCode": "SI-3"
   },
   {
     "id": 110,
@@ -2135,7 +2353,9 @@
       "熱病"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "原穴"
+    "category": "原穴",
+    "englishName": "Wangu (Wrist Bones)",
+    "internationalCode": "SI-4"
   },
   {
     "id": 111,
@@ -2156,7 +2376,9 @@
       "腕痛"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "經穴(火穴)"
+    "category": "經穴(火穴)",
+    "englishName": "Yanggu (Yang Valley)",
+    "internationalCode": "SI-5"
   },
   {
     "id": 112,
@@ -2175,7 +2397,9 @@
       "手臂不舉"
     ],
     "method": "直刺0.5-1寸",
-    "category": "郄穴"
+    "category": "郄穴",
+    "englishName": "Yanglao (Nurture the Old)",
+    "internationalCode": "SI-6"
   },
   {
     "id": 113,
@@ -2195,7 +2419,9 @@
       "瘰癧"
     ],
     "method": "直刺0.5-1寸",
-    "category": "絡穴"
+    "category": "絡穴",
+    "englishName": "Zhizheng (Support the Upright)",
+    "internationalCode": "SI-7"
   },
   {
     "id": 114,
@@ -2214,7 +2440,9 @@
       "癲癇"
     ],
     "method": "直刺0.3-0.8寸",
-    "category": "合穴(土穴)"
+    "category": "合穴(土穴)",
+    "englishName": "Xiaohai (Little Sea)",
+    "internationalCode": "SI-8"
   },
   {
     "id": 115,
@@ -2233,7 +2461,9 @@
       "瘰癧"
     ],
     "method": "直刺0.5-1寸",
-    "category": "小腸經穴"
+    "category": "小腸經穴",
+    "englishName": "Jianzhen (Persistent Shouldering)",
+    "internationalCode": "SI-9"
   },
   {
     "id": 116,
@@ -2251,7 +2481,9 @@
       "瘰癧"
     ],
     "method": "直刺0.5-1寸",
-    "category": "小腸經穴"
+    "category": "小腸經穴",
+    "englishName": "Naoyu (Upper Arm Increase)",
+    "internationalCode": "SI-10"
   },
   {
     "id": 117,
@@ -2270,7 +2502,9 @@
       "肘臂外後側痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "小腸經穴"
+    "category": "小腸經穴",
+    "englishName": "Tianzong (Heavenly Ancestor)",
+    "internationalCode": "SI-11"
   },
   {
     "id": 118,
@@ -2288,7 +2522,9 @@
       "肩周炎"
     ],
     "method": "直刺0.5-1寸",
-    "category": "小腸經穴"
+    "category": "小腸經穴",
+    "englishName": "Bingfeng (Handling Wind)",
+    "internationalCode": "SI-12"
   },
   {
     "id": 119,
@@ -2306,7 +2542,9 @@
       "上肢不遂"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "小腸經穴"
+    "category": "小腸經穴",
+    "englishName": "Quyuan (Fence at the Curve)",
+    "internationalCode": "SI-13"
   },
   {
     "id": 120,
@@ -2325,7 +2563,9 @@
       "氣喘"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "小腸經穴"
+    "category": "小腸經穴",
+    "englishName": "Jianwaiyu (Side of the Shoulder Increase)",
+    "internationalCode": "SI-14"
   },
   {
     "id": 121,
@@ -2344,7 +2584,9 @@
       "視物不清"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "小腸經穴"
+    "category": "小腸經穴",
+    "englishName": "Jianzhongyu (Between the Shoulders Increase)",
+    "internationalCode": "SI-15"
   },
   {
     "id": 122,
@@ -2363,7 +2605,9 @@
       "頸項強痛"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "小腸經穴"
+    "category": "小腸經穴",
+    "englishName": "Tianchuang (Window to Heaven)",
+    "internationalCode": "SI-16"
   },
   {
     "id": 123,
@@ -2383,7 +2627,9 @@
       "面腫"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "小腸經穴"
+    "category": "小腸經穴",
+    "englishName": "Tianrong (Heaven's Container)",
+    "internationalCode": "SI-17"
   },
   {
     "id": 124,
@@ -2402,7 +2648,9 @@
       "目赤腫痛"
     ],
     "method": "斜刺0.3-0.5寸",
-    "category": "小腸經穴"
+    "category": "小腸經穴",
+    "englishName": "Quanliao (Cheekbone Notch)",
+    "internationalCode": "SI-18"
   },
   {
     "id": 125,
@@ -2422,7 +2670,9 @@
       "癲狂"
     ],
     "method": "直刺0.5-1寸",
-    "category": "小腸經穴"
+    "category": "小腸經穴",
+    "englishName": "Tinggong (Hearing Palace)",
+    "internationalCode": "SI-19"
   },
   {
     "id": 126,
@@ -2443,7 +2693,9 @@
       "色盲"
     ],
     "method": "直刺0.5-1寸，不宜提插捻轉",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Jingming (Brightening the Eyes)",
+    "internationalCode": "BL-1"
   },
   {
     "id": 127,
@@ -2463,7 +2715,9 @@
       "眼瞼瞤動"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Zanzhu (Gathered Bamboo)",
+    "internationalCode": "BL-2"
   },
   {
     "id": 128,
@@ -2482,7 +2736,9 @@
       "鼻塞"
     ],
     "method": "平刺0.3-0.5寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Meichong (Eyebrow Thoroughfare)",
+    "internationalCode": "BL-3"
   },
   {
     "id": 129,
@@ -2501,7 +2757,9 @@
       "目視不清"
     ],
     "method": "平刺0.3-0.5寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Qucha (Uneven Curve)",
+    "internationalCode": "BL-4"
   },
   {
     "id": 130,
@@ -2520,7 +2778,9 @@
       "小兒驚風"
     ],
     "method": "平刺0.3-0.5寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Wuchu (Fifth Position)",
+    "internationalCode": "BL-5"
   },
   {
     "id": 131,
@@ -2539,7 +2799,9 @@
       "熱病"
     ],
     "method": "平刺0.3-0.5寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Chengguang (Receiving Light)",
+    "internationalCode": "BL-6"
   },
   {
     "id": 132,
@@ -2559,7 +2821,9 @@
       "鼻淵"
     ],
     "method": "平刺0.3-0.5寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Tongtian (Unhindered Heaven)",
+    "internationalCode": "BL-7"
   },
   {
     "id": 133,
@@ -2578,7 +2842,9 @@
       "耳鳴"
     ],
     "method": "平刺0.3-0.5寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Luoque (Receding Yoke)",
+    "internationalCode": "BL-8"
   },
   {
     "id": 134,
@@ -2597,7 +2863,9 @@
       "項強"
     ],
     "method": "平刺0.3-0.5寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Yuzhen (Jade Pillow)",
+    "internationalCode": "BL-9"
   },
   {
     "id": 135,
@@ -2617,7 +2885,9 @@
       "癲狂"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Tianzhu (Heaven's Pillar)",
+    "internationalCode": "BL-10"
   },
   {
     "id": 136,
@@ -2637,7 +2907,9 @@
       "咳嗽"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "八會穴之骨會"
+    "category": "八會穴之骨會",
+    "englishName": "Dazhu (Many Shuttles)",
+    "internationalCode": "BL-11"
   },
   {
     "id": 137,
@@ -2658,7 +2930,9 @@
       "胸背痛"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Fengmen (Wind Gate)",
+    "internationalCode": "BL-12"
   },
   {
     "id": 138,
@@ -2679,7 +2953,9 @@
       "鼻塞"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "肺之背俞穴"
+    "category": "肺之背俞穴",
+    "englishName": "Feiyu (Lung Increase)",
+    "internationalCode": "BL-13"
   },
   {
     "id": 139,
@@ -2699,7 +2975,9 @@
       "胸悶"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "心包之背俞穴"
+    "category": "心包之背俞穴",
+    "englishName": "Jueyinyu (Body Yin Increase)",
+    "internationalCode": "BL-14"
   },
   {
     "id": 140,
@@ -2720,7 +2998,9 @@
       "咳血"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "心之背俞穴"
+    "category": "心之背俞穴",
+    "englishName": "Xinyu (Heart Increase)",
+    "internationalCode": "BL-15"
   },
   {
     "id": 141,
@@ -2740,7 +3020,9 @@
       "腹痛"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Duyu (Supervision Increase)",
+    "internationalCode": "BL-16"
   },
   {
     "id": 142,
@@ -2761,7 +3043,9 @@
       "蕁麻疹"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "八會穴之血會"
+    "category": "八會穴之血會",
+    "englishName": "Geyu (Diaphragm Increase)",
+    "internationalCode": "BL-17"
   },
   {
     "id": 143,
@@ -2782,7 +3066,9 @@
       "癲狂"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "肝之背俞穴"
+    "category": "肝之背俞穴",
+    "englishName": "Ganyu (Liver Increase)",
+    "internationalCode": "BL-18"
   },
   {
     "id": 144,
@@ -2802,7 +3088,9 @@
       "潮熱"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膽之背俞穴"
+    "category": "膽之背俞穴",
+    "englishName": "Danyu (Gallbladder Increase)",
+    "internationalCode": "BL-19"
   },
   {
     "id": 145,
@@ -2823,7 +3111,9 @@
       "便血"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "脾之背俞穴"
+    "category": "脾之背俞穴",
+    "englishName": "Piyu (Spleen Increase)",
+    "internationalCode": "BL-20"
   },
   {
     "id": 146,
@@ -2843,7 +3133,9 @@
       "水腫"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "胃之背俞穴"
+    "category": "胃之背俞穴",
+    "englishName": "Weiyu (Stomach Increase)",
+    "internationalCode": "BL-21"
   },
   {
     "id": 147,
@@ -2864,7 +3156,9 @@
       "腰背強痛"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "三焦之背俞穴"
+    "category": "三焦之背俞穴",
+    "englishName": "Sanjiaoyu (Triple Burner Increase)",
+    "internationalCode": "BL-22"
   },
   {
     "id": 148,
@@ -2886,7 +3180,9 @@
       "耳聾"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "腎之背俞穴"
+    "category": "腎之背俞穴",
+    "englishName": "Shenyu (Kidney Increase)",
+    "internationalCode": "BL-23"
   },
   {
     "id": 149,
@@ -2905,7 +3201,9 @@
       "帶下"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Qihaiyu (Sea of Qi Increase)",
+    "internationalCode": "BL-24"
   },
   {
     "id": 150,
@@ -2926,7 +3224,9 @@
       "坐骨神經痛"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "大腸之背俞穴"
+    "category": "大腸之背俞穴",
+    "englishName": "Dachangyu (Large Intestine Increase)",
+    "internationalCode": "BL-25"
   },
   {
     "id": 151,
@@ -2946,7 +3246,9 @@
       "腰痛"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Guanyuanyu (Bar's Beginning Increase)",
+    "internationalCode": "BL-26"
   },
   {
     "id": 152,
@@ -2966,7 +3268,9 @@
       "腰痛"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "小腸之背俞穴"
+    "category": "小腸之背俞穴",
+    "englishName": "Xiaochangyu (Small Intestine Increase)",
+    "internationalCode": "BL-27"
   },
   {
     "id": 153,
@@ -2987,7 +3291,9 @@
       "坐骨神經痛"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "膀胱之背俞穴"
+    "category": "膀胱之背俞穴",
+    "englishName": "Pangguangyu (Bladder Increase)",
+    "internationalCode": "BL-28"
   },
   {
     "id": 154,
@@ -3006,7 +3312,9 @@
       "月經不調"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Zhonglvyu (Middle Spine Muscles Increase)",
+    "internationalCode": "BL-29"
   },
   {
     "id": 155,
@@ -3026,7 +3334,9 @@
       "下肢痿痺"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Baihuanyu (White Ring Increase)",
+    "internationalCode": "BL-30"
   },
   {
     "id": 156,
@@ -3047,7 +3357,9 @@
       "下肢痿痺"
     ],
     "method": "直刺1-1.5寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Shangliao (Upper Bone Notch)",
+    "internationalCode": "BL-31"
   },
   {
     "id": 157,
@@ -3068,7 +3380,9 @@
       "下肢痿痺"
     ],
     "method": "直刺1-1.5寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Ciliao (Second Bone Notch)",
+    "internationalCode": "BL-32"
   },
   {
     "id": 158,
@@ -3088,7 +3402,9 @@
       "腰痛"
     ],
     "method": "直刺1-1.5寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Zhongliao (Middle Bone Notch)",
+    "internationalCode": "BL-33"
   },
   {
     "id": 159,
@@ -3109,7 +3425,9 @@
       "下肢痿痺"
     ],
     "method": "直刺1-1.5寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Xialiao (Lower Bone Notch)",
+    "internationalCode": "BL-34"
   },
   {
     "id": 160,
@@ -3129,7 +3447,9 @@
       "帶下"
     ],
     "method": "直刺1-1.5寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Huiyang (Meeting of Yangs)",
+    "internationalCode": "BL-35"
   },
   {
     "id": 161,
@@ -3148,7 +3468,9 @@
       "便秘"
     ],
     "method": "直刺1-2寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Chengfu (Receiving Help)",
+    "internationalCode": "BL-36"
   },
   {
     "id": 162,
@@ -3166,7 +3488,9 @@
       "大腿後側痛"
     ],
     "method": "直刺1-2寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Yinmen (Prosperity Gate)",
+    "internationalCode": "BL-37"
   },
   {
     "id": 163,
@@ -3185,7 +3509,9 @@
       "膝痛"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Fuxi (Floating Gap)",
+    "internationalCode": "BL-38"
   },
   {
     "id": 164,
@@ -3204,7 +3530,9 @@
       "下肢痿痹"
     ],
     "method": "直刺1-1.5寸",
-    "category": "三焦下合穴"
+    "category": "三焦下合穴",
+    "englishName": "Weiyang (Yield to Yang)",
+    "internationalCode": "BL-39"
   },
   {
     "id": 165,
@@ -3225,7 +3553,9 @@
       "癰疽"
     ],
     "method": "直刺1-1.5寸，或點刺出血",
-    "category": "合穴(土穴)、下合穴"
+    "category": "合穴(土穴)、下合穴",
+    "englishName": "Weizhong (Yield to Within)",
+    "internationalCode": "BL-40"
   },
   {
     "id": 166,
@@ -3243,7 +3573,9 @@
       "肘臂麻木"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Fufen (Connecting the Segments)",
+    "internationalCode": "BL-41"
   },
   {
     "id": 167,
@@ -3263,7 +3595,9 @@
       "肩背痛"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Pohu (Door to the Corporeal)",
+    "internationalCode": "BL-42"
   },
   {
     "id": 168,
@@ -3284,7 +3618,9 @@
       "完穀不化"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Gaohuang (Heavy Breathing)",
+    "internationalCode": "BL-43"
   },
   {
     "id": 169,
@@ -3304,7 +3640,9 @@
       "健忘"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Shentang (Hall of Consciousness)",
+    "internationalCode": "BL-44"
   },
   {
     "id": 170,
@@ -3323,7 +3661,9 @@
       "熱病"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Yixi (Cry)",
+    "internationalCode": "BL-45"
   },
   {
     "id": 171,
@@ -3342,7 +3682,9 @@
       "脊背強痛"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Geguan (Diaphragm Barrier)",
+    "internationalCode": "BL-46"
   },
   {
     "id": 172,
@@ -3361,7 +3703,9 @@
       "背痛"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Hunmen (Hun Gate)",
+    "internationalCode": "BL-47"
   },
   {
     "id": 173,
@@ -3380,7 +3724,9 @@
       "黃疸"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Yanggang (Yang Headrope)",
+    "internationalCode": "BL-48"
   },
   {
     "id": 174,
@@ -3399,7 +3745,9 @@
       "背痛"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Yishe (Dwelling of Thought)",
+    "internationalCode": "BL-49"
   },
   {
     "id": 175,
@@ -3418,7 +3766,9 @@
       "背痛"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Weicang (Stomach Granary)",
+    "internationalCode": "BL-50"
   },
   {
     "id": 176,
@@ -3437,7 +3787,9 @@
       "腰背痛"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Huangmen (Breathing Gate)",
+    "internationalCode": "BL-51"
   },
   {
     "id": 177,
@@ -3457,7 +3809,9 @@
       "腰痛"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Zhishi (Chamber of Will)",
+    "internationalCode": "BL-52"
   },
   {
     "id": 178,
@@ -3476,7 +3830,9 @@
       "腰骶痛"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Baohuang (Womb Breathing)",
+    "internationalCode": "BL-53"
   },
   {
     "id": 179,
@@ -3496,7 +3852,9 @@
       "痔疾"
     ],
     "method": "直刺1-2寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Zhibian (Edge of the Sides)",
+    "internationalCode": "BL-54"
   },
   {
     "id": 180,
@@ -3515,7 +3873,9 @@
       "崩漏"
     ],
     "method": "直刺1-2寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Heyang (Junction of Yang)",
+    "internationalCode": "BL-55"
   },
   {
     "id": 181,
@@ -3534,7 +3894,9 @@
       "便秘"
     ],
     "method": "直刺1-2寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Chengjin (Supporting Muscles)",
+    "internationalCode": "BL-56"
   },
   {
     "id": 182,
@@ -3553,7 +3915,9 @@
       "腳氣"
     ],
     "method": "直刺1-2寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Chengshan (Supporting the Mountain)",
+    "internationalCode": "BL-57"
   },
   {
     "id": 183,
@@ -3573,7 +3937,9 @@
       "腿痛"
     ],
     "method": "直刺1-1.5寸",
-    "category": "絡穴"
+    "category": "絡穴",
+    "englishName": "Feiyang (Scattered Yang)",
+    "internationalCode": "BL-58"
   },
   {
     "id": 184,
@@ -3592,7 +3958,9 @@
       "外踝腫痛"
     ],
     "method": "直刺1-1.5寸",
-    "category": "陽蹻脈郄穴"
+    "category": "陽蹻脈郄穴",
+    "englishName": "Fuyang (Calyx Yang)",
+    "internationalCode": "BL-59"
   },
   {
     "id": 185,
@@ -3612,7 +3980,9 @@
       "難產"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "經穴"
+    "category": "經穴",
+    "englishName": "Kunlun (Kunlun Mountains)",
+    "internationalCode": "BL-60"
   },
   {
     "id": 186,
@@ -3631,7 +4001,9 @@
       "小兒驚風"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "膀胱經穴"
+    "category": "膀胱經穴",
+    "englishName": "Pucan (Group Participation)",
+    "internationalCode": "BL-61"
   },
   {
     "id": 187,
@@ -3651,7 +4023,9 @@
       "不寐"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "八脈交會穴（通陽蹻脈）"
+    "category": "八脈交會穴（通陽蹻脈）",
+    "englishName": "Shenmai (Extended Vessel)",
+    "internationalCode": "BL-62"
   },
   {
     "id": 188,
@@ -3671,7 +4045,9 @@
       "下肢痿痺"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "郄穴"
+    "category": "郄穴",
+    "englishName": "Jinmen (Golden Gate)",
+    "internationalCode": "BL-63"
   },
   {
     "id": 189,
@@ -3691,7 +4067,9 @@
       "腰腿痛"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "原穴"
+    "category": "原穴",
+    "englishName": "Jinggu (Fear Bone)",
+    "internationalCode": "BL-64"
   },
   {
     "id": 190,
@@ -3711,7 +4089,9 @@
       "腰腿痛"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "輸穴"
+    "category": "輸穴",
+    "englishName": "Shugu (Bundle of Bones)",
+    "internationalCode": "BL-65"
   },
   {
     "id": 191,
@@ -3731,7 +4111,9 @@
       "足痛"
     ],
     "method": "直刺0.2-0.3寸",
-    "category": "滎穴"
+    "category": "滎穴",
+    "englishName": "Zutonggu (Walking Through the Valley)",
+    "internationalCode": "BL-66"
   },
   {
     "id": 192,
@@ -3751,7 +4133,9 @@
       "難產"
     ],
     "method": "點刺出血，或艾灸",
-    "category": "井穴"
+    "category": "井穴",
+    "englishName": "Zhiyin (Most Yin)",
+    "internationalCode": "BL-67"
   },
   {
     "id": 193,
@@ -3773,7 +4157,9 @@
       "小便不利"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "井穴(木穴)"
+    "category": "井穴(木穴)",
+    "englishName": "Yongquan (Bubbling Spring)",
+    "internationalCode": "KI-1"
   },
   {
     "id": 194,
@@ -3794,7 +4180,9 @@
       "咽喉腫痛"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "滎穴(火穴)"
+    "category": "滎穴(火穴)",
+    "englishName": "Rangu (Burning Valley)",
+    "internationalCode": "KI-2"
   },
   {
     "id": 195,
@@ -3816,7 +4204,9 @@
       "耳聾"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "輸穴(土穴)、原穴"
+    "category": "輸穴(土穴)、原穴",
+    "englishName": "Taixi (Largest Valley Stream)",
+    "internationalCode": "KI-3"
   },
   {
     "id": 196,
@@ -3837,7 +4227,9 @@
       "痴呆"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "絡穴"
+    "category": "絡穴",
+    "englishName": "Dazhong (Big Bell)",
+    "internationalCode": "KI-4"
   },
   {
     "id": 197,
@@ -3856,7 +4248,9 @@
       "目昏花"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "郄穴"
+    "category": "郄穴",
+    "englishName": "Shuiquan (Water Spring)",
+    "internationalCode": "KI-5"
   },
   {
     "id": 198,
@@ -3877,7 +4271,9 @@
       "小便頻數"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "八脈交會穴（通陰蹻脈）"
+    "category": "八脈交會穴（通陰蹻脈）",
+    "englishName": "Zhaohai (Shining Sea)",
+    "internationalCode": "KI-6"
   },
   {
     "id": 199,
@@ -3897,7 +4293,9 @@
       "腰脊強痛"
     ],
     "method": "直刺0.8-1寸",
-    "category": "經穴(金穴)"
+    "category": "經穴(金穴)",
+    "englishName": "Fuliu (Restoring the Trickle)",
+    "internationalCode": "KI-7"
   },
   {
     "id": 200,
@@ -3917,7 +4315,9 @@
       "洩瀉"
     ],
     "method": "直刺0.8-1寸",
-    "category": "陰蹻脈郄穴"
+    "category": "陰蹻脈郄穴",
+    "englishName": "Jiaoxin (Mutual Trust)",
+    "internationalCode": "KI-8"
   },
   {
     "id": 201,
@@ -3936,7 +4336,9 @@
       "疝氣"
     ],
     "method": "直刺1-1.5寸",
-    "category": "陰維脈郄穴"
+    "category": "陰維脈郄穴",
+    "englishName": "Zhubin (Construction Guide)",
+    "internationalCode": "KI-9"
   },
   {
     "id": 202,
@@ -3957,7 +4359,9 @@
       "膝股痛"
     ],
     "method": "直刺1-1.5寸",
-    "category": "合穴(水穴)"
+    "category": "合穴(水穴)",
+    "englishName": "Yingu (Yin Valley)",
+    "internationalCode": "KI-10"
   },
   {
     "id": 203,
@@ -3977,7 +4381,9 @@
       "疝氣"
     ],
     "method": "直刺1-1.5寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Henggu (Pubic Bone)",
+    "internationalCode": "KI-11"
   },
   {
     "id": 204,
@@ -3997,7 +4403,9 @@
       "陰痛"
     ],
     "method": "直刺1-1.5寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Dahe (Great Vitality)",
+    "internationalCode": "KI-12"
   },
   {
     "id": 205,
@@ -4016,7 +4424,9 @@
       "洩瀉"
     ],
     "method": "直刺1-1.5寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Qixue (Qi Point)",
+    "internationalCode": "KI-13"
   },
   {
     "id": 206,
@@ -4036,7 +4446,9 @@
       "水腫"
     ],
     "method": "直刺1-1.5寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Siman (Four Fullnesses)",
+    "internationalCode": "KI-14"
   },
   {
     "id": 207,
@@ -4055,7 +4467,9 @@
       "洩瀉"
     ],
     "method": "直刺1-1.5寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Zhongzhu (Pour into the Center)",
+    "internationalCode": "KI-15"
   },
   {
     "id": 208,
@@ -4075,7 +4489,9 @@
       "月經不調"
     ],
     "method": "直刺1-1.5寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Huangyu (Breathing Increase)",
+    "internationalCode": "KI-16"
   },
   {
     "id": 209,
@@ -4094,7 +4510,9 @@
       "洩瀉"
     ],
     "method": "直刺1-1.5寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Shangqu (Crooked Exchanges)",
+    "internationalCode": "KI-17"
   },
   {
     "id": 210,
@@ -4113,7 +4531,9 @@
       "不孕"
     ],
     "method": "直刺1-1.5寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Shiguan (Stone Barrier)",
+    "internationalCode": "KI-18"
   },
   {
     "id": 211,
@@ -4132,7 +4552,9 @@
       "不孕"
     ],
     "method": "直刺1-1.5寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Yindu (Yin City)",
+    "internationalCode": "KI-19"
   },
   {
     "id": 212,
@@ -4151,7 +4573,9 @@
       "心悸"
     ],
     "method": "直刺0.5-1寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Futonggu (On the Belly Through the Valley)",
+    "internationalCode": "KI-20"
   },
   {
     "id": 213,
@@ -4170,7 +4594,9 @@
       "消化不良"
     ],
     "method": "直刺0.5-1寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Youmen (Gate to Darkness)",
+    "internationalCode": "KI-21"
   },
   {
     "id": 214,
@@ -4189,7 +4615,9 @@
       "嘔吐"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Bulang (Walking Corridor)",
+    "internationalCode": "KI-22"
   },
   {
     "id": 215,
@@ -4209,7 +4637,9 @@
       "失眠"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Shenfeng (Blocked Heart)",
+    "internationalCode": "KI-23"
   },
   {
     "id": 216,
@@ -4228,7 +4658,9 @@
       "乳癰"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Lingxu (Spiritual Wasteland)",
+    "internationalCode": "KI-24"
   },
   {
     "id": 217,
@@ -4248,7 +4680,9 @@
       "嘔吐"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Shenzang (Container of the Mind)",
+    "internationalCode": "KI-25"
   },
   {
     "id": 218,
@@ -4267,7 +4701,9 @@
       "痰多"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Yuzhong (Inner Refinement)",
+    "internationalCode": "KI-26"
   },
   {
     "id": 219,
@@ -4286,7 +4722,9 @@
       "嘔吐"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "腎經穴"
+    "category": "腎經穴",
+    "englishName": "Yufu (Increase of Authority)",
+    "internationalCode": "KI-27"
   },
   {
     "id": 220,
@@ -4306,7 +4744,9 @@
       "瘰癧"
     ],
     "method": "斜刺0.3-0.5寸",
-    "category": "心包經穴"
+    "category": "心包經穴",
+    "englishName": "Tianchi (Heavenly Pond)",
+    "internationalCode": "P-1"
   },
   {
     "id": 221,
@@ -4325,7 +4765,9 @@
       "臂痛"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "心包經穴"
+    "category": "心包經穴",
+    "englishName": "Tianquan (Heavenly Spring)",
+    "internationalCode": "P-2"
   },
   {
     "id": 222,
@@ -4346,7 +4788,9 @@
       "肘臂痛"
     ],
     "method": "直刺0.8-1寸",
-    "category": "合穴(水穴)"
+    "category": "合穴(水穴)",
+    "englishName": "Quze (Marsh at the Bend)",
+    "internationalCode": "P-3"
   },
   {
     "id": 223,
@@ -4366,7 +4810,9 @@
       "癲狂"
     ],
     "method": "直刺0.5-1寸",
-    "category": "郄穴"
+    "category": "郄穴",
+    "englishName": "Ximen (Gate Ajar)",
+    "internationalCode": "P-4"
   },
   {
     "id": 224,
@@ -4387,7 +4833,9 @@
       "癲狂"
     ],
     "method": "直刺0.5-1寸",
-    "category": "經穴(金穴)"
+    "category": "經穴(金穴)",
+    "englishName": "Jianshi (Using the Space)",
+    "internationalCode": "P-5"
   },
   {
     "id": 225,
@@ -4409,7 +4857,9 @@
       "癲狂"
     ],
     "method": "直刺0.5-1寸",
-    "category": "絡穴、八脈交會穴（通陰維脈）"
+    "category": "絡穴、八脈交會穴（通陰維脈）",
+    "englishName": "Neiguan (Barrier Gate to the Inside)",
+    "internationalCode": "P-6"
   },
   {
     "id": 226,
@@ -4430,7 +4880,9 @@
       "腕痛"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "輸穴(土穴)、原穴"
+    "category": "輸穴(土穴)、原穴",
+    "englishName": "Daling (Much Abuse)",
+    "internationalCode": "P-7"
   },
   {
     "id": 227,
@@ -4450,7 +4902,9 @@
       "嘔血"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "滎穴(火穴)"
+    "category": "滎穴(火穴)",
+    "englishName": "Laogong (Working in the Palace)",
+    "internationalCode": "P-8"
   },
   {
     "id": 228,
@@ -4470,7 +4924,9 @@
       "心痛"
     ],
     "method": "點刺出血",
-    "category": "井穴(木穴)"
+    "category": "井穴(木穴)",
+    "englishName": "Zhongchong (Thoroughfare in the Middle)",
+    "internationalCode": "P-9"
   },
   {
     "id": 229,
@@ -4491,7 +4947,9 @@
       "昏厥"
     ],
     "method": "點刺出血",
-    "category": "井穴(金穴)"
+    "category": "井穴(金穴)",
+    "englishName": "Guanchong (Through the Barrier Gate)",
+    "internationalCode": "TB-1"
   },
   {
     "id": 230,
@@ -4511,7 +4969,9 @@
       "瘧疾"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "滎穴(水穴)"
+    "category": "滎穴(水穴)",
+    "englishName": "Yemen (Juices Gate)",
+    "internationalCode": "TB-2"
   },
   {
     "id": 231,
@@ -4532,7 +4992,9 @@
       "手指不能屈伸"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "輸穴(木穴)"
+    "category": "輸穴(木穴)",
+    "englishName": "Zhongzhu (Between the Sandbars)",
+    "internationalCode": "TB-3"
   },
   {
     "id": 232,
@@ -4552,7 +5014,9 @@
       "消渴"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "原穴"
+    "category": "原穴",
+    "englishName": "Yangchi (Yang Pond)",
+    "internationalCode": "TB-4"
   },
   {
     "id": 233,
@@ -4573,7 +5037,9 @@
       "上肢痹痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "絡穴、八脈交會穴（通陽維脈）"
+    "category": "絡穴、八脈交會穴（通陽維脈）",
+    "englishName": "Waiguan (Barrier Gate to the Outside)",
+    "internationalCode": "TB-5"
   },
   {
     "id": 234,
@@ -4594,7 +5060,9 @@
       "熱病"
     ],
     "method": "直刺0.5-1寸",
-    "category": "經穴(火穴)"
+    "category": "經穴(火穴)",
+    "englishName": "Zhigou (Limb's Ditch)",
+    "internationalCode": "TB-6"
   },
   {
     "id": 235,
@@ -4612,7 +5080,9 @@
       "上肢痹痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "郄穴"
+    "category": "郄穴",
+    "englishName": "Huizong (Clan Meeting)",
+    "internationalCode": "TB-7"
   },
   {
     "id": 236,
@@ -4631,7 +5101,9 @@
       "上肢痺痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Sanyangluo (Triple Yang Twist)",
+    "internationalCode": "TB-8"
   },
   {
     "id": 237,
@@ -4650,7 +5122,9 @@
       "上肢痺痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Sidu (Fourth Ditch)",
+    "internationalCode": "TB-9"
   },
   {
     "id": 238,
@@ -4670,7 +5144,9 @@
       "肘臂痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "合穴(土穴)"
+    "category": "合穴(土穴)",
+    "englishName": "Tianjing (Heavenly Well)",
+    "internationalCode": "TB-10"
   },
   {
     "id": 239,
@@ -4688,7 +5164,9 @@
       "肩臂痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Qinglengyuan (Clear Cold Depths)",
+    "internationalCode": "TB-11"
   },
   {
     "id": 240,
@@ -4707,7 +5185,9 @@
       "齒痛"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Xiaoluo (Thawing Lake)",
+    "internationalCode": "TB-12"
   },
   {
     "id": 241,
@@ -4725,7 +5205,9 @@
       "上肢痺痛"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Naohui (Upper Arm Junction)",
+    "internationalCode": "TB-13"
   },
   {
     "id": 242,
@@ -4743,7 +5225,9 @@
       "肩周炎"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Jianliao (Shoulder Bones Notch)",
+    "internationalCode": "TB-14"
   },
   {
     "id": 243,
@@ -4761,7 +5245,9 @@
       "胸中煩滿"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Tianliao (Heavenly Bone Notch)",
+    "internationalCode": "TB-15"
   },
   {
     "id": 244,
@@ -4781,7 +5267,9 @@
       "瘰癧"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Tianyou (Lattice Window to Heaven)",
+    "internationalCode": "TB-16"
   },
   {
     "id": 245,
@@ -4802,7 +5290,9 @@
       "瘰癧"
     ],
     "method": "直刺0.8-1.2寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Yifeng (Wind Screen)",
+    "internationalCode": "TB-17"
   },
   {
     "id": 246,
@@ -4821,7 +5311,9 @@
       "小兒驚風"
     ],
     "method": "平刺0.3-0.5寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Chimai (Spasm Bloodvessel)",
+    "internationalCode": "TB-18"
   },
   {
     "id": 247,
@@ -4840,7 +5332,9 @@
       "小兒驚風"
     ],
     "method": "平刺0.3-0.5寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Luxi (Quieting the Head)",
+    "internationalCode": "TB-19"
   },
   {
     "id": 248,
@@ -4859,7 +5353,9 @@
       "頭痛"
     ],
     "method": "平刺0.3-0.5寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Jiaosun (Following the Angle)",
+    "internationalCode": "TB-20"
   },
   {
     "id": 249,
@@ -4878,7 +5374,9 @@
       "齒痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Ermen (Ear Opening)",
+    "internationalCode": "TB-21"
   },
   {
     "id": 250,
@@ -4897,7 +5395,9 @@
       "口歪"
     ],
     "method": "斜刺0.3-0.5寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Erheliao (Attuned Listening Bone Notch)",
+    "internationalCode": "TB-22"
   },
   {
     "id": 251,
@@ -4917,7 +5417,9 @@
       "癲狂"
     ],
     "method": "平刺0.5-1寸",
-    "category": "三焦經穴"
+    "category": "三焦經穴",
+    "englishName": "Sizhukong (Bamboo Hairs Cavity)",
+    "internationalCode": "TB-23"
   },
   {
     "id": 252,
@@ -4936,7 +5438,9 @@
       "青盲"
     ],
     "method": "平刺0.3-0.5寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Tongziliao (Pupil Bone Notch)",
+    "internationalCode": "GB-1"
   },
   {
     "id": 253,
@@ -4956,7 +5460,9 @@
       "齒痛"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Tinghui (Listening to the Group)",
+    "internationalCode": "GB-2"
   },
   {
     "id": 254,
@@ -4976,7 +5482,9 @@
       "齒痛"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Shangguan (Above the Joint)",
+    "internationalCode": "GB-3"
   },
   {
     "id": 255,
@@ -4996,7 +5504,9 @@
       "癲癇"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Hanyan (Clenched Jaws)",
+    "internationalCode": "GB-4"
   },
   {
     "id": 256,
@@ -5014,7 +5524,9 @@
       "齒痛"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Xuanlu (Hanging from the Forehead)",
+    "internationalCode": "GB-5"
   },
   {
     "id": 257,
@@ -5032,7 +5544,9 @@
       "耳鳴"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Xuanli (Hanging Little Bit)",
+    "internationalCode": "GB-6"
   },
   {
     "id": 258,
@@ -5051,7 +5565,9 @@
       "暴喑"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Qubin (Curve of the Hair on the Temples)",
+    "internationalCode": "GB-7"
   },
   {
     "id": 259,
@@ -5069,7 +5585,9 @@
       "小兒驚風"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Shuaigu (Follow the Valley)",
+    "internationalCode": "GB-8"
   },
   {
     "id": 260,
@@ -5087,7 +5605,9 @@
       "牙齦腫痛"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Tianchong (Heavenly Infusion)",
+    "internationalCode": "GB-9"
   },
   {
     "id": 261,
@@ -5107,7 +5627,9 @@
       "瘰癧"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Fubai (Purity Rising to the Surface)",
+    "internationalCode": "GB-10"
   },
   {
     "id": 262,
@@ -5126,7 +5648,9 @@
       "癲癇"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Touqiaoyin (Yin Openings Head Point)",
+    "internationalCode": "GB-11"
   },
   {
     "id": 263,
@@ -5146,7 +5670,9 @@
       "癲癇"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Wangu (Entire Bone)",
+    "internationalCode": "GB-12"
   },
   {
     "id": 264,
@@ -5165,7 +5691,9 @@
       "小兒驚風"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Benshen (Mind's Root)",
+    "internationalCode": "GB-13"
   },
   {
     "id": 265,
@@ -5185,7 +5713,9 @@
       "口眼歪斜"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Yangbai (Yang Purity)",
+    "internationalCode": "GB-14"
   },
   {
     "id": 266,
@@ -5206,7 +5736,9 @@
       "小兒驚風"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Toulinqi (Near to Tears in the Hair)",
+    "internationalCode": "GB-15"
   },
   {
     "id": 267,
@@ -5227,7 +5759,9 @@
       "癲癇"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Muchuang (See through the Window)",
+    "internationalCode": "GB-16"
   },
   {
     "id": 268,
@@ -5246,7 +5780,9 @@
       "唇吻強急"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Zhengying (Upright Conduct)",
+    "internationalCode": "GB-17"
   },
   {
     "id": 269,
@@ -5266,7 +5802,9 @@
       "鼻衄"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Chengling (Informed by the Spirit)",
+    "internationalCode": "GB-18"
   },
   {
     "id": 270,
@@ -5286,7 +5824,9 @@
       "癲癇"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Naokong (Brain Hollow)",
+    "internationalCode": "GB-19"
   },
   {
     "id": 271,
@@ -5309,7 +5849,9 @@
       "感冒"
     ],
     "method": "針尖微下，向鼻尖斜刺0.8-1.2寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Fengchi (Windy Pond)",
+    "internationalCode": "GB-20"
   },
   {
     "id": 272,
@@ -5330,7 +5872,9 @@
       "瘰癧"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Jianjing (Shoulder Well)",
+    "internationalCode": "GB-21"
   },
   {
     "id": 273,
@@ -5348,7 +5892,9 @@
       "上肢痺痛"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Yuanye (Abyss Under the Armpit)",
+    "internationalCode": "GB-22"
   },
   {
     "id": 274,
@@ -5367,7 +5913,9 @@
       "吞酸"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Zhejin (Flank Muscles)",
+    "internationalCode": "GB-23"
   },
   {
     "id": 275,
@@ -5386,7 +5934,9 @@
       "黃疸"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "膽募穴"
+    "category": "膽募穴",
+    "englishName": "Riyue (Daytime Moon)",
+    "internationalCode": "GB-24"
   },
   {
     "id": 276,
@@ -5407,7 +5957,9 @@
       "洩瀉"
     ],
     "method": "直刺0.5-1寸",
-    "category": "腎募穴"
+    "category": "腎募穴",
+    "englishName": "Jingmen (Gate of Fear)",
+    "internationalCode": "GB-25"
   },
   {
     "id": 277,
@@ -5426,7 +5978,9 @@
       "腰痛"
     ],
     "method": "直刺0.8-1寸",
-    "category": "帶脈穴"
+    "category": "帶脈穴",
+    "englishName": "Daimai (Girdle Vessel)",
+    "internationalCode": "GB-26"
   },
   {
     "id": 278,
@@ -5446,7 +6000,9 @@
       "少腹痛"
     ],
     "method": "直刺0.8-1.5寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Wushu (Five Pivots)",
+    "internationalCode": "GB-27"
   },
   {
     "id": 279,
@@ -5466,7 +6022,9 @@
       "水腫"
     ],
     "method": "直刺0.8-1.5寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Weidao (Holding the Path)",
+    "internationalCode": "GB-28"
   },
   {
     "id": 280,
@@ -5484,7 +6042,9 @@
       "疝氣"
     ],
     "method": "直刺1-1.5寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Juliao (Squatting Bone Notch)",
+    "internationalCode": "GB-29"
   },
   {
     "id": 281,
@@ -5502,7 +6062,9 @@
       "半身不遂"
     ],
     "method": "直刺2-3寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Huantiao (Jumping Around)",
+    "internationalCode": "GB-30"
   },
   {
     "id": 282,
@@ -5520,7 +6082,9 @@
       "腳氣"
     ],
     "method": "直刺1-2寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Fengshi (Windy Market)",
+    "internationalCode": "GB-31"
   },
   {
     "id": 283,
@@ -5538,7 +6102,9 @@
       "腳氣"
     ],
     "method": "直刺1-2寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Zhongdu (Middle of the Ditch)",
+    "internationalCode": "GB-32"
   },
   {
     "id": 284,
@@ -5556,7 +6122,9 @@
       "小腿麻木"
     ],
     "method": "直刺1-1.5寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Xiyangguan (Knee Yang Joint)",
+    "internationalCode": "GB-33"
   },
   {
     "id": 285,
@@ -5578,7 +6146,9 @@
       "小兒驚風"
     ],
     "method": "直刺1-1.5寸",
-    "category": "合穴(土穴)、八會穴之筋會"
+    "category": "合穴(土穴)、八會穴之筋會",
+    "englishName": "Yanglingquan (Yang Mound Spring)",
+    "internationalCode": "GB-34"
   },
   {
     "id": 286,
@@ -5596,7 +6166,9 @@
       "癲狂"
     ],
     "method": "直刺1-1.5寸",
-    "category": "陽維脈郄穴"
+    "category": "陽維脈郄穴",
+    "englishName": "Yangjiao (Yang in Interaction)",
+    "internationalCode": "GB-35"
   },
   {
     "id": 287,
@@ -5614,7 +6186,9 @@
       "癲狂"
     ],
     "method": "直刺1-1.5寸",
-    "category": "郄穴"
+    "category": "郄穴",
+    "englishName": "Waiqiu (Outside of the Mound)",
+    "internationalCode": "GB-36"
   },
   {
     "id": 288,
@@ -5633,7 +6207,9 @@
       "乳房脹痛"
     ],
     "method": "直刺1-1.5寸",
-    "category": "絡穴"
+    "category": "絡穴",
+    "englishName": "Guangming (Bright Sunlight)",
+    "internationalCode": "GB-37"
   },
   {
     "id": 289,
@@ -5653,7 +6229,9 @@
       "下肢痿痹"
     ],
     "method": "直刺1-1.5寸",
-    "category": "經穴(火穴)"
+    "category": "經穴(火穴)",
+    "englishName": "Yangfu (Yang Bars)",
+    "internationalCode": "GB-38"
   },
   {
     "id": 290,
@@ -5672,7 +6250,9 @@
       "腳氣"
     ],
     "method": "直刺1-1.5寸",
-    "category": "八會穴之髓會"
+    "category": "八會穴之髓會",
+    "englishName": "Xuanzhong (Hanging Bell)",
+    "internationalCode": "GB-39"
   },
   {
     "id": 291,
@@ -5690,7 +6270,9 @@
       "瘧疾"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "原穴"
+    "category": "原穴",
+    "englishName": "Qiuxu (Mound in the Wilderness)",
+    "internationalCode": "GB-40"
   },
   {
     "id": 292,
@@ -5711,7 +6293,9 @@
       "瘧疾"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "輸穴(木穴)、八脈交會穴（通帶脈）"
+    "category": "輸穴(木穴)、八脈交會穴（通帶脈）",
+    "englishName": "Zulinqi (Near to Tears on the Foot)",
+    "internationalCode": "GB-41"
   },
   {
     "id": 293,
@@ -5731,7 +6315,9 @@
       "脅痛"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "膽經穴"
+    "category": "膽經穴",
+    "englishName": "Diwuhui (Five Meeting on the Ground)",
+    "internationalCode": "GB-42"
   },
   {
     "id": 294,
@@ -5752,7 +6338,9 @@
       "乳癰"
     ],
     "method": "直刺0.3-0.5寸",
-    "category": "滎穴(水穴)"
+    "category": "滎穴(水穴)",
+    "englishName": "Xiaxi (Valley Creek Going as it Likes)",
+    "internationalCode": "GB-43"
   },
   {
     "id": 295,
@@ -5773,7 +6361,9 @@
       "失眠"
     ],
     "method": "點刺出血",
-    "category": "井穴(金穴)"
+    "category": "井穴(金穴)",
+    "englishName": "Zuqiaoyin (Yin Openings Foot Point)",
+    "internationalCode": "GB-44"
   },
   {
     "id": 296,
@@ -5794,7 +6384,9 @@
       "癇證"
     ],
     "method": "點刺出血",
-    "category": "井穴(木穴)"
+    "category": "井穴(木穴)",
+    "englishName": "Dadun (Big Vessel)",
+    "internationalCode": "LIV-1"
   },
   {
     "id": 297,
@@ -5816,7 +6408,9 @@
       "月經不調"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "滎穴(火穴)"
+    "category": "滎穴(火穴)",
+    "englishName": "Xingjian (Walking Pause)",
+    "internationalCode": "LIV-2"
   },
   {
     "id": 298,
@@ -5839,7 +6433,9 @@
       "癲狂"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "輸穴(土穴)、原穴"
+    "category": "輸穴(土穴)、原穴",
+    "englishName": "Taichong (Largest Infusion)",
+    "internationalCode": "LIV-3"
   },
   {
     "id": 299,
@@ -5858,7 +6454,9 @@
       "腹痛"
     ],
     "method": "直刺0.5-0.8寸",
-    "category": "經穴(金穴)"
+    "category": "經穴(金穴)",
+    "englishName": "Zhongfeng (Between the Dikes)",
+    "internationalCode": "LIV-4"
   },
   {
     "id": 300,
@@ -5878,7 +6476,9 @@
       "下肢痿痹"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "絡穴"
+    "category": "絡穴",
+    "englishName": "Ligou (Woodworm Canal)",
+    "internationalCode": "LIV-5"
   },
   {
     "id": 301,
@@ -5898,7 +6498,9 @@
       "下肢痿痹"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "郄穴"
+    "category": "郄穴",
+    "englishName": "Zhongdu (Between the Cities)",
+    "internationalCode": "LIV-6"
   },
   {
     "id": 302,
@@ -5915,7 +6517,9 @@
       "下肢痿痹"
     ],
     "method": "直刺1-1.5寸",
-    "category": "肝經穴"
+    "category": "肝經穴",
+    "englishName": "Xiguan (Knee Joint)",
+    "internationalCode": "LIV-7"
   },
   {
     "id": 303,
@@ -5936,7 +6540,9 @@
       "月經不調"
     ],
     "method": "直刺1-1.5寸",
-    "category": "合穴(水穴)"
+    "category": "合穴(水穴)",
+    "englishName": "Ququan (Spring at the Bend)",
+    "internationalCode": "LIV-8"
   },
   {
     "id": 304,
@@ -5955,7 +6561,9 @@
       "月經不調"
     ],
     "method": "直刺1-2寸",
-    "category": "肝經穴"
+    "category": "肝經穴",
+    "englishName": "Yinbao (Yin Wrapping)",
+    "internationalCode": "LIV-9"
   },
   {
     "id": 305,
@@ -5974,7 +6582,9 @@
       "睪丸腫痛"
     ],
     "method": "直刺1-2寸",
-    "category": "肝經穴"
+    "category": "肝經穴",
+    "englishName": "Zuwuli (Leg's Five Quarter Miles)",
+    "internationalCode": "LIV-10"
   },
   {
     "id": 306,
@@ -5992,7 +6602,9 @@
       "小腹痛"
     ],
     "method": "直刺1-2寸",
-    "category": "肝經穴"
+    "category": "肝經穴",
+    "englishName": "Yinlian (Yin Corner)",
+    "internationalCode": "LIV-11"
   },
   {
     "id": 307,
@@ -6010,7 +6622,9 @@
       "陰挺"
     ],
     "method": "避開動脈，直刺0.5-1寸",
-    "category": "肝經穴"
+    "category": "肝經穴",
+    "englishName": "Jimai (Hasty Pulse)",
+    "internationalCode": "LIV-12"
   },
   {
     "id": 308,
@@ -6029,7 +6643,9 @@
       "痞塊"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "脾募穴、八會穴之髒會"
+    "category": "脾募穴、八會穴之髒會",
+    "englishName": "Zhangmen (Chapter Gate)",
+    "internationalCode": "LIV-13"
   },
   {
     "id": 309,
@@ -6048,7 +6664,9 @@
       "乳癰"
     ],
     "method": "斜刺0.5-0.8寸",
-    "category": "肝募穴"
+    "category": "肝募穴",
+    "englishName": "Qimen (Gate of Hope)",
+    "internationalCode": "LIV-14"
   },
   {
     "id": 310,
@@ -6067,7 +6685,9 @@
       "癲狂癇"
     ],
     "method": "斜刺，針尖向上與骶骨平行刺入0.5-1寸",
-    "category": "絡穴"
+    "category": "絡穴",
+    "englishName": "Changqiang (Continuously Strong)",
+    "internationalCode": "DU-1"
   },
   {
     "id": 311,
@@ -6085,7 +6705,9 @@
       "下肢痿痺"
     ],
     "method": "向上斜刺0.5-1寸",
-    "category": "督脈穴"
+    "category": "督脈穴",
+    "englishName": "Yaoyu (Loins Increase)",
+    "internationalCode": "DU-2"
   },
   {
     "id": 312,
@@ -6104,7 +6726,9 @@
       "陽痿"
     ],
     "method": "直刺0.5-1寸",
-    "category": "督脈穴"
+    "category": "督脈穴",
+    "englishName": "Yaoyangguan (Waist's Yang Bar)",
+    "internationalCode": "DU-3"
   },
   {
     "id": 313,
@@ -6124,7 +6748,9 @@
       "腰脊強痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "督脈穴"
+    "category": "督脈穴",
+    "englishName": "Mingmen (Gate of Destiny)",
+    "internationalCode": "DU-4"
   },
   {
     "id": 314,
@@ -6143,7 +6769,9 @@
       "背痛"
     ],
     "method": "向上斜刺0.5-1寸",
-    "category": "督脈穴"
+    "category": "督脈穴",
+    "englishName": "Zhiyang (Most Yang)",
+    "internationalCode": "DU-9"
   },
   {
     "id": 315,
@@ -6164,7 +6792,9 @@
       "脊痛"
     ],
     "method": "直刺0.5-1寸",
-    "category": "督脈穴"
+    "category": "督脈穴",
+    "englishName": "Dazhui (Big Vertebra)",
+    "internationalCode": "DU-14"
   },
   {
     "id": 316,
@@ -6184,7 +6814,9 @@
       "陰挺"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "督脈穴"
+    "category": "督脈穴",
+    "englishName": "Baihui (Hundreds of Realizations)",
+    "internationalCode": "DU-20"
   },
   {
     "id": 317,
@@ -6203,7 +6835,9 @@
       "癲狂"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "督脈穴"
+    "category": "督脈穴",
+    "englishName": "Shangxing (Stars Above)",
+    "internationalCode": "DU-23"
   },
   {
     "id": 318,
@@ -6223,7 +6857,9 @@
       "鼻淵"
     ],
     "method": "平刺0.5-0.8寸",
-    "category": "督脈穴"
+    "category": "督脈穴",
+    "englishName": "Shenting (Courtyard of the Mind)",
+    "internationalCode": "DU-24"
   },
   {
     "id": 319,
@@ -6243,7 +6879,9 @@
       "腰脊強痛"
     ],
     "method": "向上斜刺0.3-0.5寸",
-    "category": "督脈穴"
+    "category": "督脈穴",
+    "englishName": "Shuigou (Water Trough)",
+    "internationalCode": "DU-26"
   },
   {
     "id": 320,
@@ -6263,7 +6901,9 @@
       "痔疾"
     ],
     "method": "直刺0.5-1寸",
-    "category": "任脈穴"
+    "category": "任脈穴",
+    "englishName": "Huiyin (Meeting of Yin)",
+    "internationalCode": "REN-1"
   },
   {
     "id": 321,
@@ -6283,7 +6923,9 @@
       "帶下"
     ],
     "method": "直刺0.5-1寸",
-    "category": "任脈穴"
+    "category": "任脈穴",
+    "englishName": "Qugu (Curved Bone)",
+    "internationalCode": "REN-2"
   },
   {
     "id": 322,
@@ -6304,7 +6946,9 @@
       "崩漏帶下"
     ],
     "method": "直刺0.5-1寸",
-    "category": "膀胱募穴"
+    "category": "膀胱募穴",
+    "englishName": "Zhongji (Balanced Fully)",
+    "internationalCode": "REN-3"
   },
   {
     "id": 323,
@@ -6326,7 +6970,9 @@
       "早洩"
     ],
     "method": "直刺0.5-1寸",
-    "category": "小腸募穴"
+    "category": "小腸募穴",
+    "englishName": "Guanyuan (Primary Barrier Gate)",
+    "internationalCode": "REN-4"
   },
   {
     "id": 324,
@@ -6346,7 +6992,9 @@
       "洩痢不禁"
     ],
     "method": "直刺0.5-1寸",
-    "category": "任脈穴"
+    "category": "任脈穴",
+    "englishName": "Qihai (Sea of Qi)",
+    "internationalCode": "REN-6"
   },
   {
     "id": 325,
@@ -6367,7 +7015,9 @@
       "洩利"
     ],
     "method": "禁刺，宜灸",
-    "category": "任脈穴"
+    "category": "任脈穴",
+    "englishName": "Shenque (Loss of Consciousness)",
+    "internationalCode": "REN-8"
   },
   {
     "id": 326,
@@ -6389,7 +7039,9 @@
       "黃疸"
     ],
     "method": "直刺0.5-1寸",
-    "category": "胃募穴、八會穴之腑會"
+    "category": "胃募穴、八會穴之腑會",
+    "englishName": "Zhongwan (Middle Inside of the Stomach)",
+    "internationalCode": "REN-12"
   },
   {
     "id": 327,
@@ -6410,7 +7062,9 @@
       "噎嗝"
     ],
     "method": "平刺0.3-0.5寸",
-    "category": "心包募穴、八會穴之氣會"
+    "category": "心包募穴、八會穴之氣會",
+    "englishName": "Shanzhong (Center of the Chest)",
+    "internationalCode": "REN-17"
   },
   {
     "id": 328,
@@ -6431,7 +7085,9 @@
       "癭氣"
     ],
     "method": "先直刺0.2-0.3寸，然後將針尖轉向下，緊靠胸骨後方刺入1-1.5寸",
-    "category": "任脈穴"
+    "category": "任脈穴",
+    "englishName": "Tiantu (Heaven's Chimney)",
+    "internationalCode": "REN-22"
   },
   {
     "id": 329,
@@ -6451,7 +7107,9 @@
       "吞咽困難"
     ],
     "method": "向舌根斜刺0.5-0.8寸",
-    "category": "任脈穴"
+    "category": "任脈穴",
+    "englishName": "Lianquan (Corner Spring)",
+    "internationalCode": "REN-23"
   },
   {
     "id": 330,
@@ -6470,6 +7128,8 @@
       "癲狂"
     ],
     "method": "斜刺0.3-0.5寸",
-    "category": "任脈穴"
+    "category": "任脈穴",
+    "englishName": "Chengjiang (Fluid Receptacle)",
+    "internationalCode": "REN-24"
   }
 ]

@@ -14,7 +14,8 @@
       "createdAt": "2025-08-12T10:00:15.229Z",
       "nature": "甘、微苦，微溫",
       "dosage": "3-9g",
-      "meridian": "脾、肺、心經"
+      "meridian": "脾、肺、心經",
+      "englishName": "RenShen"
     },
     {
       "id": 1754994245256,
@@ -28,7 +29,8 @@
       "alias": "於朮、冬朮",
       "nature": "甘、苦，溫",
       "meridian": "脾、胃經",
-      "effects": "健脾益氣，燥濕利水，止汗，安胎"
+      "effects": "健脾益氣，燥濕利水，止汗，安胎",
+      "englishName": "BaiShu"
     },
     {
       "id": 1754994245257,
@@ -42,7 +44,8 @@
       "dosage": "2-9g",
       "createdAt": "2025-08-12T10:24:05.257Z",
       "nature": "辛、微苦，溫",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "MaHuang"
     },
     {
       "id": 1754994245258,
@@ -56,7 +59,8 @@
       "effects": "發汗解肌，溫通經脈，助陽化氣",
       "createdAt": "2025-08-12T10:24:05.258Z",
       "updatedAt": "2025-08-12T10:24:05.258Z",
-      "indications": "風寒感冒，脘腹冷痛，血寒經閉，關節痺痛，痰飲水腫"
+      "indications": "風寒感冒，脘腹冷痛，血寒經閉，關節痺痛，痰飲水腫",
+      "englishName": "GuiZhi"
     },
     {
       "id": 1754994245259,
@@ -70,7 +74,8 @@
       "indications": "脾胃虛弱，倦怠乏力，心悸氣短，咳嗽痰多，脘腹四肢攣急疼痛，癰腫瘡毒",
       "createdAt": "2025-08-12T10:24:05.259Z",
       "meridian": "心、肺、脾、胃經",
-      "dosage": "2-10g"
+      "dosage": "2-10g",
+      "englishName": "GanCao"
     },
     {
       "id": 1754994245261,
@@ -84,7 +89,8 @@
       "type": "herb",
       "updatedAt": "2025-08-12T10:24:05.261Z",
       "indications": "風寒感冒，脾胃寒證，胃寒嘔吐，肺寒咳嗽",
-      "cautions": "陰虛內熱者慎用"
+      "cautions": "陰虛內熱者慎用",
+      "englishName": "ShengJiang"
     },
     {
       "id": 1754994245262,
@@ -98,7 +104,8 @@
       "dosage": "6-15g",
       "createdAt": "2025-08-12T10:24:05.262Z",
       "nature": "甘，溫",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "DaZao"
     },
     {
       "id": 1754994245263,
@@ -112,7 +119,8 @@
       "alias": "附片、黑順片",
       "dosage": "3-15g（炮製後使用，先煎久煎）",
       "cautions": "孕婦慎用；不宜與半夏、瓜蔞、瓜蔞子、瓜蔞皮、天花粉、川貝母、浙貝母、白蘞、白及同用",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "FuZi"
     },
     {
       "id": 1754994245264,
@@ -126,7 +134,8 @@
       "nature": "辛，熱",
       "effects": "溫中散寒，回陽通脈，溫肺化飲",
       "updatedAt": "2025-08-12T10:24:05.264Z",
-      "indications": "脘腹冷痛，嘔吐洩瀉，肢冷脈微，寒飲喘咳"
+      "indications": "脘腹冷痛，嘔吐洩瀉，肢冷脈微，寒飲喘咳",
+      "englishName": "GanJiang"
     },
     {
       "id": 1754994245265,
@@ -140,7 +149,8 @@
       "alias": "枯芩、條芩",
       "name": "黃芩",
       "cautions": "脾胃虛寒者慎用",
-      "meridian": "肺、膽、脾、大腸、小腸經"
+      "meridian": "肺、膽、脾、大腸、小腸經",
+      "englishName": "HuangQin"
     },
     {
       "id": 1754994245266,
@@ -154,7 +164,8 @@
       "type": "herb",
       "indications": "濕熱痞滿，嘔吐瀉痢，黃疸，高熱神昏，心火亢盛，心煩不寐，心悸不寧，血熱吐衄，目赤牙痛，消渴，癰腫疔瘡",
       "effects": "清熱燥濕，瀉火解毒",
-      "meridian": "心、脾、胃、肝、膽、大腸經"
+      "meridian": "心、脾、胃、肝、膽、大腸經",
+      "englishName": "HuangLian"
     },
     {
       "id": 1754994245267,
@@ -168,7 +179,8 @@
       "createdAt": "2025-08-12T10:24:05.267Z",
       "nature": "苦，寒",
       "indications": "濕熱瀉痢，黃疸尿赤，帶下陰癢，熱淋澀痛，腳氣痿躄，骨蒸勞熱，盜汗遺精，瘡瘍腫毒，濕疹濕瘡",
-      "alias": "檗木、黃檗"
+      "alias": "檗木、黃檗",
+      "englishName": "HuangBai"
     },
     {
       "id": 1754994245268,
@@ -182,7 +194,8 @@
       "meridian": "心、肺、三焦經",
       "dosage": "6-9g",
       "name": "梔子",
-      "updatedAt": "2025-08-12T10:24:05.268Z"
+      "updatedAt": "2025-08-12T10:24:05.268Z",
+      "englishName": "ZhiZi"
     },
     {
       "id": 1754994245269,
@@ -196,7 +209,8 @@
       "cautions": "孕婦及月經期、哺乳期慎用",
       "indications": "實熱積滯便秘，血熱吐衄，目赤咽腫，癰腫疔瘡，腸癰腹痛，瘀血經閉，產後瘀阻，跌打損傷，濕熱痢疾，黃疸尿赤，淋證水腫",
       "alias": "將軍、川軍",
-      "nature": "苦，寒"
+      "nature": "苦，寒",
+      "englishName": "DaHuang"
     },
     {
       "id": 1754994245270,
@@ -210,7 +224,8 @@
       "type": "herb",
       "alias": "朴硝、皮硝",
       "dosage": "6-12g（沖服），外用適量",
-      "meridian": "胃、大腸經"
+      "meridian": "胃、大腸經",
+      "englishName": "MangXiao"
     },
     {
       "id": 1754994245271,
@@ -224,7 +239,8 @@
       "effects": "燥濕消痰，下氣除滿",
       "alias": "川樸、紫油厚朴",
       "updatedAt": "2025-08-12T10:24:05.271Z",
-      "nature": "苦、辛，溫"
+      "nature": "苦、辛，溫",
+      "englishName": "HouPu"
     },
     {
       "id": 1754994245272,
@@ -238,7 +254,8 @@
       "effects": "破氣消積，化痰散痞",
       "updatedAt": "2025-08-12T10:24:05.272Z",
       "type": "herb",
-      "createdAt": "2025-08-12T10:24:05.272Z"
+      "createdAt": "2025-08-12T10:24:05.272Z",
+      "englishName": "ZhiShi"
     },
     {
       "id": 1754994245273,
@@ -252,7 +269,8 @@
       "createdAt": "2025-08-12T10:24:05.273Z",
       "nature": "辛，溫；有毒",
       "dosage": "3-9g（內服一般炮製後使用），外用適量",
-      "meridian": "脾、胃、肺經"
+      "meridian": "脾、胃、肺經",
+      "englishName": "BanXia"
     },
     {
       "id": 1754994245274,
@@ -266,7 +284,8 @@
       "cautions": "陰虛燥咳者慎用",
       "nature": "苦、辛，溫",
       "name": "陳皮",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "ChenPi"
     },
     {
       "id": 1754994245275,
@@ -280,7 +299,8 @@
       "nature": "甘、淡，平",
       "name": "茯苓",
       "effects": "利水滲濕，健脾，寧心",
-      "meridian": "心、肺、脾、腎經"
+      "meridian": "心、肺、脾、腎經",
+      "englishName": "FuLing"
     },
     {
       "id": 1754994245276,
@@ -294,7 +314,8 @@
       "effects": "利水滲濕",
       "updatedAt": "2025-08-12T10:24:05.276Z",
       "alias": "豕苓、野豬糞",
-      "meridian": "腎、膀胱經"
+      "meridian": "腎、膀胱經",
+      "englishName": "ZhuLing"
     },
     {
       "id": 1754994245277,
@@ -308,7 +329,8 @@
       "createdAt": "2025-08-12T10:24:05.277Z",
       "meridian": "腎、膀胱經",
       "type": "herb",
-      "dosage": "6-10g"
+      "dosage": "6-10g",
+      "englishName": "ZeXie"
     },
     {
       "id": 1754994245279,
@@ -322,7 +344,8 @@
       "dosage": "3-9g",
       "createdAt": "2025-08-12T10:24:05.279Z",
       "meridian": "脾、胃、肝經",
-      "cautions": "陰虛內熱，氣虛多汗者忌服"
+      "cautions": "陰虛內熱，氣虛多汗者忌服",
+      "englishName": "CangShu"
     },
     {
       "id": 1754994245280,
@@ -336,7 +359,8 @@
       "nature": "甘，平",
       "type": "herb",
       "indications": "脾虛食少，久瀉不止，肺虛喘咳，腎虛遺精，帶下尿頻，虛熱消渴",
-      "cautions": "有實邪者忌服"
+      "cautions": "有實邪者忌服",
+      "englishName": "ShanYao"
     },
     {
       "id": 1754994245281,
@@ -350,7 +374,8 @@
       "meridian": "脾、胃、肺經",
       "name": "薏苡仁",
       "updatedAt": "2025-08-12T10:24:05.281Z",
-      "cautions": "孕婦慎用"
+      "cautions": "孕婦慎用",
+      "englishName": "YiYiRen"
     },
     {
       "id": 1754994245282,
@@ -364,7 +389,8 @@
       "effects": "降氣止咳平喘，潤腸通便",
       "nature": "苦，微溫；有小毒",
       "cautions": "內服不宜過量；嬰兒慎用",
-      "indications": "咳嗽氣喘，胸滿痰多，腸燥便秘"
+      "indications": "咳嗽氣喘，胸滿痰多，腸燥便秘",
+      "englishName": "XingRen"
     },
     {
       "id": 1754994245283,
@@ -378,7 +404,8 @@
       "dosage": "3-10g",
       "meridian": "肺經",
       "effects": "宣肺，利咽，祛痰，排膿",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "JuGeng"
     },
     {
       "id": 1754994245284,
@@ -392,7 +419,8 @@
       "effects": "降氣化痰，散風清熱",
       "indications": "痰熱喘滿，咯痰黃稠，風熱咳嗽痰多",
       "nature": "苦、辛，微寒",
-      "alias": "信前胡、巖風"
+      "alias": "信前胡、巖風",
+      "englishName": "QianHu"
     },
     {
       "id": 1754994245285,
@@ -406,7 +434,8 @@
       "meridian": "肺、脾經",
       "effects": "解表散寒，行氣和胃",
       "indications": "風寒感冒，咳嗽嘔惡，魚蟹中毒",
-      "dosage": "5-10g"
+      "dosage": "5-10g",
+      "englishName": "ZiSuYe"
     },
     {
       "id": 1754994245286,
@@ -420,7 +449,8 @@
       "type": "herb",
       "updatedAt": "2025-08-12T10:24:05.286Z",
       "indications": "感冒頭痛，風濕痺痛，風疹瘙癢，破傷風",
-      "cautions": "陰血虧虛、熱病動風者慎用"
+      "cautions": "陰血虧虛、熱病動風者慎用",
+      "englishName": "FangFeng"
     },
     {
       "id": 1754994245287,
@@ -434,7 +464,8 @@
       "dosage": "5-10g",
       "nature": "辛，微溫",
       "indications": "感冒頭痛，麻疹不透，風疹瘙癢，瘡瘍初起，吐衄下血",
-      "alias": "假蘇、四稈蒿"
+      "alias": "假蘇、四稈蒿",
+      "englishName": "JingJie"
     },
     {
       "id": 1754994245288,
@@ -448,7 +479,8 @@
       "nature": "辛、苦，溫",
       "meridian": "膀胱、腎經",
       "updatedAt": "2025-08-12T10:24:05.288Z",
-      "indications": "風寒感冒頭痛，風濕痺痛，肩背酸痛"
+      "indications": "風寒感冒頭痛，風濕痺痛，肩背酸痛",
+      "englishName": "QiangHuo"
     },
     {
       "id": 1754994245289,
@@ -462,7 +494,8 @@
       "meridian": "腎、膀胱經",
       "createdAt": "2025-08-12T10:24:05.289Z",
       "dosage": "3-10g",
-      "cautions": "陰虛血燥者慎用"
+      "cautions": "陰虛血燥者慎用",
+      "englishName": "DuHuo"
     },
     {
       "id": 1754994245290,
@@ -476,7 +509,8 @@
       "dosage": "1-3g（散劑每次0.5-1g），外用適量",
       "nature": "辛，溫；有小毒",
       "name": "細辛",
-      "createdAt": "2025-08-12T10:24:05.290Z"
+      "createdAt": "2025-08-12T10:24:05.290Z",
+      "englishName": "XiXin"
     },
     {
       "id": 1754994245291,
@@ -490,7 +524,8 @@
       "createdAt": "2025-08-12T10:24:05.291Z",
       "type": "herb",
       "indications": "感冒發熱，寒熱往來，胸脅脹痛，月經不調，子宮脫垂，脫肛",
-      "name": "柴胡"
+      "name": "柴胡",
+      "englishName": "ChaiHu"
     },
     {
       "id": 1754994245292,
@@ -504,7 +539,8 @@
       "alias": "綠升麻、西升麻",
       "name": "升麻",
       "dosage": "3-10g",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "ShengMa"
     },
     {
       "id": 1754994245293,
@@ -518,7 +554,8 @@
       "effects": "解肌退熱，生津止渴，透疹，升陽止瀉，通經活絡，解酒毒",
       "createdAt": "2025-08-12T10:24:05.293Z",
       "type": "herb",
-      "meridian": "脾、胃、肺經"
+      "meridian": "脾、胃、肺經",
+      "englishName": "GeGen"
     },
     {
       "id": 1754994245294,
@@ -532,7 +569,8 @@
       "type": "herb",
       "effects": "清熱瀉火，除煩止渴",
       "updatedAt": "2025-08-12T10:24:05.294Z",
-      "indications": "外感熱病，高熱煩渴，肺熱喘咳，胃火亢盛，頭痛牙痛"
+      "indications": "外感熱病，高熱煩渴，肺熱喘咳，胃火亢盛，頭痛牙痛",
+      "englishName": "ShiGao"
     },
     {
       "id": 1754994245295,
@@ -546,7 +584,8 @@
       "createdAt": "2025-08-12T10:24:05.295Z",
       "indications": "外感熱病，高熱煩渴，肺熱燥咳，骨蒸潮熱，內熱消渴，腸燥便秘",
       "type": "herb",
-      "name": "知母"
+      "name": "知母",
+      "englishName": "ZhiMu"
     },
     {
       "id": 1754994245296,
@@ -560,7 +599,8 @@
       "dosage": "10-15g",
       "alias": "栝樓根、花粉",
       "updatedAt": "2025-08-12T10:24:05.296Z",
-      "nature": "甘、微苦，微寒"
+      "nature": "甘、微苦，微寒",
+      "englishName": "TianHuaFen"
     },
     {
       "id": 1754994245297,
@@ -574,7 +614,8 @@
       "dosage": "6-15g",
       "createdAt": "2025-08-12T10:24:05.297Z",
       "type": "herb",
-      "name": "竹葉"
+      "name": "竹葉",
+      "englishName": "ZhuYe"
     },
     {
       "id": 1754994245298,
@@ -588,7 +629,8 @@
       "indications": "熱病煩渴，肺熱咳嗽，肺癰吐膿，胃熱嘔噦，熱淋澀痛",
       "updatedAt": "2025-08-12T10:24:05.298Z",
       "name": "蘆根",
-      "alias": "葦莖、蘆茅根"
+      "alias": "葦莖、蘆茅根",
+      "englishName": "LuGen"
     },
     {
       "id": 1754994245299,
@@ -602,7 +644,8 @@
       "nature": "苦、辛，微寒",
       "updatedAt": "2025-08-12T10:24:05.299Z",
       "cautions": "血虛有寒、月經過多及孕婦不宜",
-      "effects": "清熱涼血，活血化瘀"
+      "effects": "清熱涼血，活血化瘀",
+      "englishName": "MuDanPi"
     },
     {
       "id": 1754994245300,
@@ -616,7 +659,8 @@
       "name": "赤芍",
       "nature": "苦，微寒",
       "effects": "清熱涼血，散瘀止痛",
-      "dosage": "6-12g"
+      "dosage": "6-12g",
+      "englishName": "ChiShao"
     },
     {
       "id": 1754994245301,
@@ -630,7 +674,8 @@
       "alias": "生地黃、乾地黃",
       "dosage": "10-15g",
       "indications": "熱入營血，溫毒發斑，吐血衄血，熱病傷陰，舌絳煩渴，津傷便秘，陰虛發熱，骨蒸勞熱，內熱消渴",
-      "createdAt": "2025-08-12T10:24:05.301Z"
+      "createdAt": "2025-08-12T10:24:05.301Z",
+      "englishName": "DeHuang"
     },
     {
       "id": 1754994245302,
@@ -644,7 +689,8 @@
       "effects": "清熱涼血，滋陰降火，解毒散結",
       "type": "herb",
       "name": "玄參",
-      "indications": "熱入營血，溫毒發斑，熱病傷陰，舌絳煩渴，津傷便秘，骨蒸勞嗽，目赤咽痛，瘰癧白喉，癰腫瘡毒"
+      "indications": "熱入營血，溫毒發斑，熱病傷陰，舌絳煩渴，津傷便秘，骨蒸勞嗽，目赤咽痛，瘰癧白喉，癰腫瘡毒",
+      "englishName": "XuanShen"
     },
     {
       "id": 1754994245303,
@@ -658,7 +704,8 @@
       "type": "herb",
       "updatedAt": "2025-08-12T10:24:05.303Z",
       "name": "麥冬",
-      "indications": "肺燥乾咳，陰虛勞嗽，喉痺咽痛，津傷口渴，內熱消渴，心煩失眠，腸燥便秘"
+      "indications": "肺燥乾咳，陰虛勞嗽，喉痺咽痛，津傷口渴，內熱消渴，心煩失眠，腸燥便秘",
+      "englishName": "MaiDong"
     },
     {
       "id": 1754994245304,
@@ -672,7 +719,8 @@
       "cautions": "脾胃虛寒洩瀉及外感風寒致嗽者忌服",
       "nature": "甘、苦，寒",
       "updatedAt": "2025-08-12T10:24:05.304Z",
-      "effects": "養陰潤燥，清肺生津"
+      "effects": "養陰潤燥，清肺生津",
+      "englishName": "TianDong"
     },
     {
       "id": 1754994245305,
@@ -686,7 +734,8 @@
       "effects": "益胃生津，滋陰清熱",
       "cautions": "濕溫病未化燥者忌用；脾胃虛寒者慎服",
       "indications": "熱病津傷，口乾煩渴，胃陰不足，食少乾嘔，病後虛熱不退，陰虛火旺，骨蒸勞熱，目暗不明，筋骨痿軟",
-      "alias": "林蘭、禁生"
+      "alias": "林蘭、禁生",
+      "englishName": "ShiHu"
     },
     {
       "id": 1754994245306,
@@ -700,7 +749,8 @@
       "meridian": "肺、胃經",
       "name": "玉竹",
       "effects": "養陰潤燥，生津止渴",
-      "indications": "肺陰虛證，燥熱咳嗽，咽乾口渴，內熱消渴"
+      "indications": "肺陰虛證，燥熱咳嗽，咽乾口渴，內熱消渴",
+      "englishName": "YuZhu"
     },
     {
       "id": 1754994245307,
@@ -714,7 +764,8 @@
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.307Z",
       "updatedAt": "2025-08-12T10:24:05.307Z",
-      "cautions": "風寒咳嗽及中寒便溏者忌服"
+      "cautions": "風寒咳嗽及中寒便溏者忌服",
+      "englishName": "BaiHe"
     },
     {
       "id": 1754994245308,
@@ -728,7 +779,8 @@
       "indications": "虛勞精虧，腰膝酸痛，眩暈耳鳴，陽痿遺精，內熱消渴，血虛萎黃，目昏不明",
       "name": "枸杞子",
       "type": "herb",
-      "cautions": "外邪實熱，脾虛有濕及洩瀉者忌服"
+      "cautions": "外邪實熱，脾虛有濕及洩瀉者忌服",
+      "englishName": "GouQiZi"
     },
     {
       "id": 1754994245309,
@@ -742,7 +794,8 @@
       "meridian": "肝、腎、心經",
       "nature": "甘、鹹，微寒",
       "createdAt": "2025-08-12T10:24:05.309Z",
-      "updatedAt": "2025-08-12T10:24:05.309Z"
+      "updatedAt": "2025-08-12T10:24:05.309Z",
+      "englishName": "GuiJia"
     },
     {
       "id": 1754994245310,
@@ -756,7 +809,8 @@
       "createdAt": "2025-08-12T10:24:05.310Z",
       "indications": "陰虛發熱，骨蒸勞熱，陰虛陽亢，頭暈目眩，虛風內動，經閉癥瘕，久瘧瘧母",
       "meridian": "肝、腎經",
-      "cautions": "脾胃虛寒，食少便溏及孕婦忌服"
+      "cautions": "脾胃虛寒，食少便溏及孕婦忌服",
+      "englishName": "BieJia"
     },
     {
       "id": 1754994245311,
@@ -770,7 +824,8 @@
       "updatedAt": "2025-08-12T10:24:05.311Z",
       "cautions": "脾胃虛弱，消化不良者慎服",
       "nature": "甘，平",
-      "createdAt": "2025-08-12T10:24:05.311Z"
+      "createdAt": "2025-08-12T10:24:05.311Z",
+      "englishName": "AJiao"
     },
     {
       "id": 1754994245312,
@@ -784,7 +839,8 @@
       "name": "何首烏",
       "cautions": "大便溏洩及有濕痰者不宜",
       "alias": "地精、赤斂",
-      "createdAt": "2025-08-12T10:24:05.312Z"
+      "createdAt": "2025-08-12T10:24:05.312Z",
+      "englishName": "HeShouWu"
     },
     {
       "id": 1754994245313,
@@ -798,7 +854,8 @@
       "cautions": "濕盛中滿、大便溏洩者忌服",
       "effects": "補血活血，調經止痛，潤腸通便",
       "dosage": "6-12g",
-      "name": "當歸"
+      "name": "當歸",
+      "englishName": "DangGui"
     },
     {
       "id": 1754994245314,
@@ -812,7 +869,8 @@
       "cautions": "陽衰虛寒之證不宜單用；反藜蘆",
       "effects": "養血調經，斂陰止汗，柔肝止痛，平抑肝陽",
       "name": "白芍",
-      "meridian": "肝、脾經"
+      "meridian": "肝、脾經",
+      "englishName": "BaiShao"
     },
     {
       "id": 1754994245315,
@@ -826,7 +884,8 @@
       "alias": "熟地",
       "name": "熟地黃",
       "updatedAt": "2025-08-12T10:24:05.315Z",
-      "nature": "甘，微溫"
+      "nature": "甘，微溫",
+      "englishName": "ShuDeHuang"
     },
     {
       "id": 1754994245316,
@@ -840,7 +899,8 @@
       "dosage": "3-10g",
       "nature": "辛，溫",
       "effects": "活血行氣，祛風止痛",
-      "name": "川芎"
+      "name": "川芎",
+      "englishName": "ChuanQiong"
     },
     {
       "id": 1754994245317,
@@ -854,7 +914,8 @@
       "dosage": "10-15g",
       "indications": "胸痺心痛，脘腹脅痛，癥瘕積聚，熱痺疼痛，心煩不眠，月經不調，痛經經閉，瘡瘍腫痛",
       "cautions": "不宜與藜蘆同用；孕婦慎用",
-      "updatedAt": "2025-08-12T10:24:05.317Z"
+      "updatedAt": "2025-08-12T10:24:05.317Z",
+      "englishName": "DanShen"
     },
     {
       "id": 1754994245318,
@@ -868,7 +929,8 @@
       "indications": "經閉痛經，惡露不行，癥瘕痞塊，胸痺心痛，瘀滯腹痛，胸脅刺痛，跌撲損傷，瘡瘍腫痛",
       "effects": "活血通經，散瘀止痛",
       "nature": "辛，溫",
-      "dosage": "3-10g"
+      "dosage": "3-10g",
+      "englishName": "HongHua"
     },
     {
       "id": 1754994245319,
@@ -882,7 +944,8 @@
       "dosage": "5-10g",
       "meridian": "心、肝、大腸經",
       "nature": "苦、甘，平；有小毒",
-      "name": "桃仁"
+      "name": "桃仁",
+      "englishName": "TaoRen"
     },
     {
       "id": 1754994245320,
@@ -896,7 +959,8 @@
       "type": "herb",
       "dosage": "5-12g",
       "name": "牛膝",
-      "indications": "經閉癥瘕，胞衣不下，跌撲損傷，腰膝酸痛，筋骨無力，淋證水腫，頭痛眩暈，牙痛口瘡，吐血衄血"
+      "indications": "經閉癥瘕，胞衣不下，跌撲損傷，腰膝酸痛，筋骨無力，淋證水腫，頭痛眩暈，牙痛口瘡，吐血衄血",
+      "englishName": "NiuXi"
     },
     {
       "id": 1754994245321,
@@ -910,7 +974,8 @@
       "effects": "破血通經，逐瘀消癥",
       "meridian": "肝經",
       "indications": "血瘀經閉，癥瘕痞塊，中風偏癱，跌撲損傷",
-      "nature": "鹹、苦，平；有小毒"
+      "nature": "鹹、苦，平；有小毒",
+      "englishName": "ShuiZhi"
     },
     {
       "id": 1754994245322,
@@ -924,7 +989,8 @@
       "nature": "苦，微寒；有小毒",
       "cautions": "孕婦及體虛無瘀者禁用",
       "updatedAt": "2025-08-12T10:24:05.322Z",
-      "effects": "破血逐瘀，散積消癥"
+      "effects": "破血逐瘀，散積消癥",
+      "englishName": "MengChong"
     },
     {
       "id": 1754994245323,
@@ -938,7 +1004,8 @@
       "type": "herb",
       "effects": "破血逐瘀，續筋接骨",
       "updatedAt": "2025-08-12T10:24:05.323Z",
-      "dosage": "3-10g"
+      "dosage": "3-10g",
+      "englishName": "ZheChong"
     },
     {
       "id": 1754994245324,
@@ -952,7 +1019,8 @@
       "effects": "活血，行氣，止痛",
       "createdAt": "2025-08-12T10:24:05.324Z",
       "alias": "元胡、玄胡索",
-      "nature": "辛、苦，溫"
+      "nature": "辛、苦，溫",
+      "englishName": "YanHuSuo"
     },
     {
       "id": 1754994245325,
@@ -966,7 +1034,8 @@
       "createdAt": "2025-08-12T10:24:05.325Z",
       "indications": "胸脅刺痛，胸痺心痛，經閉痛經，乳房脹痛，熱病神昏，癲癇發狂，血熱吐衄，黃疸尿赤",
       "type": "herb",
-      "meridian": "肝、心、肺經"
+      "meridian": "肝、心、肺經",
+      "englishName": "YuJin"
     },
     {
       "id": 1754994245326,
@@ -980,7 +1049,8 @@
       "nature": "辛、苦，溫",
       "type": "herb",
       "cautions": "血虛無氣滯血瘀者慎用；孕婦忌用",
-      "updatedAt": "2025-08-12T10:24:05.326Z"
+      "updatedAt": "2025-08-12T10:24:05.326Z",
+      "englishName": "JiangHuang"
     },
     {
       "id": 1754994245327,
@@ -994,7 +1064,8 @@
       "indications": "癥瘕痞塊，痛經瘀血經閉，胸痺心痛，食積脹痛",
       "cautions": "孕婦及月經過多者禁用；不宜與芒硝、玄明粉同用",
       "createdAt": "2025-08-12T10:24:05.327Z",
-      "name": "三稜"
+      "name": "三稜",
+      "englishName": "SanLeng"
     },
     {
       "id": 1754994245328,
@@ -1008,7 +1079,8 @@
       "effects": "破血行氣，消積止痛",
       "nature": "辛、苦，溫",
       "name": "莪朮",
-      "meridian": "肝、脾經"
+      "meridian": "肝、脾經",
+      "englishName": "EShu"
     },
     {
       "id": 1754994245329,
@@ -1022,7 +1094,8 @@
       "createdAt": "2025-08-12T10:24:05.329Z",
       "cautions": "孕婦慎用；癰疽已潰者忌用",
       "nature": "鹹，微寒",
-      "indications": "經閉癥瘕，乳汁不通，癰腫瘡毒，風濕痺痛，中風癱瘓，麻木拘攣"
+      "indications": "經閉癥瘕，乳汁不通，癰腫瘡毒，風濕痺痛，中風癱瘓，麻木拘攣",
+      "englishName": "ChuanShanJia"
     },
     {
       "id": 1754994245330,
@@ -1036,7 +1109,8 @@
       "name": "王不留行",
       "effects": "活血通經，下乳消腫，利尿通淋",
       "indications": "經閉痛經，乳汁不下，乳癰腫痛，淋證澀痛",
-      "alias": "不留行、王不留"
+      "alias": "不留行、王不留",
+      "englishName": "WangBuLiuXing"
     },
     {
       "id": 1754994245331,
@@ -1050,7 +1124,8 @@
       "createdAt": "2025-08-12T10:24:05.331Z",
       "alias": "通脫木、白通草",
       "cautions": "氣陰兩虛、內無濕熱及孕婦慎用",
-      "effects": "清熱利尿，通氣下乳"
+      "effects": "清熱利尿，通氣下乳",
+      "englishName": "TongCao"
     },
     {
       "id": 1754994245332,
@@ -1064,7 +1139,8 @@
       "type": "herb",
       "name": "麻黃根",
       "updatedAt": "2025-08-12T10:24:05.332Z",
-      "meridian": "肺經"
+      "meridian": "肺經",
+      "englishName": "MaHuangGen"
     },
     {
       "id": 1754994245333,
@@ -1078,7 +1154,8 @@
       "nature": "辛、苦，熱；有小毒",
       "meridian": "肝、脾、胃、腎經",
       "effects": "散寒止痛，降逆止嘔，助陽止瀉",
-      "dosage": "2-5g"
+      "dosage": "2-5g",
+      "englishName": "WuZhuYu"
     },
     {
       "id": 1754994245334,
@@ -1092,7 +1169,8 @@
       "createdAt": "2025-08-12T10:24:05.334Z",
       "cautions": "陰虛火旺者慎用",
       "alias": "茴香、穀茴香",
-      "meridian": "肝、腎、脾、胃經"
+      "meridian": "肝、腎、脾、胃經",
+      "englishName": "XiaoHuiXiang"
     },
     {
       "id": 1754994245335,
@@ -1106,7 +1184,8 @@
       "cautions": "陰虛有熱者忌服",
       "name": "高良薑",
       "alias": "良薑、小良薑",
-      "dosage": "3-6g"
+      "dosage": "3-6g",
+      "englishName": "GaoLiangJiang"
     },
     {
       "id": 1754994245336,
@@ -1120,7 +1199,8 @@
       "meridian": "脾、胃、腎經",
       "createdAt": "2025-08-12T10:24:05.336Z",
       "dosage": "3-6g；外用適量",
-      "effects": "溫中止痛，殺蟲止癢"
+      "effects": "溫中止痛，殺蟲止癢",
+      "englishName": "HuaJiao"
     },
     {
       "id": 1754994245337,
@@ -1134,7 +1214,8 @@
       "cautions": "熱證及陰虛內熱者忌用；不宜與鬱金同用",
       "updatedAt": "2025-08-12T10:24:05.337Z",
       "meridian": "脾、胃、肺、腎經",
-      "createdAt": "2025-08-12T10:24:05.337Z"
+      "createdAt": "2025-08-12T10:24:05.337Z",
+      "englishName": "DingXiang"
     },
     {
       "id": 1754994245338,
@@ -1148,7 +1229,8 @@
       "indications": "胸痺心痛，脘腹痞滿脹痛，瀉痢後重",
       "alias": "野蒜、小根蒜",
       "nature": "辛、苦，溫",
-      "updatedAt": "2025-08-12T10:24:05.338Z"
+      "updatedAt": "2025-08-12T10:24:05.338Z",
+      "englishName": "XieBai"
     },
     {
       "id": 1754994245339,
@@ -1162,7 +1244,8 @@
       "effects": "降氣，消痰，行水，止嘔",
       "dosage": "3-10g（包煎）",
       "indications": "風寒咳嗽，痰飲蓄結，胸膈痞滿，喘咳痰多，嘔吐噫氣",
-      "name": "旋覆花"
+      "name": "旋覆花",
+      "englishName": "XuanFuHua"
     },
     {
       "id": 1754994245340,
@@ -1176,7 +1259,8 @@
       "alias": "石藍、嗽藥",
       "effects": "降氣，消痰，止咳",
       "nature": "辛、苦，微溫",
-      "indications": "肺氣壅實，咳嗽痰多，胸滿喘急"
+      "indications": "肺氣壅實，咳嗽痰多，胸滿喘急",
+      "englishName": "BaiQian"
     },
     {
       "id": 1754994245341,
@@ -1190,7 +1274,8 @@
       "updatedAt": "2025-08-12T10:24:05.341Z",
       "name": "川貝母",
       "alias": "貝母、川貝",
-      "indications": "肺熱燥咳，乾咳少痰，陰虛勞嗽，咯痰帶血，瘰癧，乳癰，肺癰"
+      "indications": "肺熱燥咳，乾咳少痰，陰虛勞嗽，咯痰帶血，瘰癧，乳癰，肺癰",
+      "englishName": "ChuanBeiMu"
     },
     {
       "id": 1754994245342,
@@ -1204,7 +1289,8 @@
       "nature": "苦，寒",
       "type": "herb",
       "dosage": "5-10g",
-      "createdAt": "2025-08-12T10:24:05.342Z"
+      "createdAt": "2025-08-12T10:24:05.342Z",
+      "englishName": "ZheBeiMu"
     },
     {
       "id": 1754994245343,
@@ -1218,7 +1304,8 @@
       "dosage": "9-15g",
       "createdAt": "2025-08-12T10:24:05.343Z",
       "alias": "栝樓、藥瓜",
-      "name": "瓜蔞"
+      "name": "瓜蔞",
+      "englishName": "GuaLou"
     },
     {
       "id": 1754994245344,
@@ -1232,7 +1319,8 @@
       "alias": "淡竹茹、竹二青",
       "createdAt": "2025-08-12T10:24:05.344Z",
       "effects": "清熱化痰，除煩止嘔",
-      "indications": "痰熱咳嗽，膽火挾痰，煩熱嘔吐，驚悸失眠，中風痰迷，舌強不語，胃熱嘔吐，妊娠惡阻，胎動不安"
+      "indications": "痰熱咳嗽，膽火挾痰，煩熱嘔吐，驚悸失眠，中風痰迷，舌強不語，胃熱嘔吐，妊娠惡阻，胎動不安",
+      "englishName": "ZhuRu"
     },
     {
       "id": 1754994245345,
@@ -1246,7 +1334,8 @@
       "createdAt": "2025-08-12T10:24:05.345Z",
       "cautions": "無實熱痰火者慎用",
       "effects": "清熱豁痰，涼心定驚",
-      "alias": "竹黃、天竹黃"
+      "alias": "竹黃、天竹黃",
+      "englishName": "TianZhuHuang"
     },
     {
       "id": 1754994245346,
@@ -1260,7 +1349,8 @@
       "createdAt": "2025-08-12T10:24:05.346Z",
       "name": "海藻",
       "indications": "瘰癧，癭瘤，睪丸腫痛，痰飲水腫",
-      "cautions": "不宜與甘草同用"
+      "cautions": "不宜與甘草同用",
+      "englishName": "HaiZao"
     },
     {
       "id": 1754994245347,
@@ -1274,7 +1364,8 @@
       "updatedAt": "2025-08-12T10:24:05.347Z",
       "effects": "消痰軟堅散結，利水消腫",
       "dosage": "6-12g",
-      "cautions": "脾胃虛寒蘊濕者忌服"
+      "cautions": "脾胃虛寒蘊濕者忌服",
+      "englishName": "KunBu"
     },
     {
       "id": 1754994245348,
@@ -1288,7 +1379,8 @@
       "name": "黃藥子",
       "cautions": "本品有毒，不宜過量；肝腎功能不全者慎用",
       "effects": "化痰散結消癭，清熱解毒",
-      "nature": "苦，寒；有小毒"
+      "nature": "苦，寒；有小毒",
+      "englishName": "HuangYaoZi"
     },
     {
       "id": 1754994245350,
@@ -1302,7 +1394,8 @@
       "indications": "痰多喘咳，新久咳嗽，勞嗽咳血",
       "type": "herb",
       "updatedAt": "2025-08-12T10:24:05.350Z",
-      "nature": "辛、苦，溫"
+      "nature": "辛、苦，溫",
+      "englishName": "ZiWan"
     },
     {
       "id": 1754994245351,
@@ -1316,7 +1409,8 @@
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.351Z",
       "effects": "潤肺下氣，止咳化痰",
-      "dosage": "5-10g"
+      "dosage": "5-10g",
+      "englishName": "KuanDongHua"
     },
     {
       "id": 1754994245352,
@@ -1330,7 +1424,8 @@
       "meridian": "肺、大腸經",
       "name": "馬兜鈴",
       "nature": "苦，微寒",
-      "effects": "清肺降氣，止咳平喘，清腸消痔"
+      "effects": "清肺降氣，止咳平喘，清腸消痔",
+      "englishName": "MaDouLing"
     },
     {
       "id": 1754994245353,
@@ -1344,7 +1439,8 @@
       "dosage": "6-10g",
       "nature": "苦，微寒",
       "name": "枇杷葉",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "PiPaYe"
     },
     {
       "id": 1754994245354,
@@ -1358,7 +1454,8 @@
       "cautions": "肺寒無火及風寒咳嗽者慎用",
       "nature": "甘，寒",
       "effects": "瀉肺平喘，利水消腫",
-      "meridian": "肺經"
+      "meridian": "肺經",
+      "englishName": "SangBaiPi"
     },
     {
       "id": 1754994245355,
@@ -1372,7 +1469,8 @@
       "indications": "痰涎壅肺，喘咳痰多，胸脅脹滿，不得平臥，胸腹水腫，小便不利",
       "meridian": "肺、膀胱經",
       "type": "herb",
-      "name": "葶藶子"
+      "name": "葶藶子",
+      "englishName": "TingLiZi"
     },
     {
       "id": 1754994245356,
@@ -1386,7 +1484,8 @@
       "name": "白果",
       "meridian": "肺經",
       "nature": "甘、苦、澀，平；有毒",
-      "createdAt": "2025-08-12T10:24:05.356Z"
+      "createdAt": "2025-08-12T10:24:05.356Z",
+      "englishName": "BaiGuo"
     },
     {
       "id": 1754994245357,
@@ -1400,7 +1499,8 @@
       "alias": "平地木、老勿大",
       "name": "矮地茶",
       "cautions": "服用過量可有胃部不適、頭暈、腹脹、腸鳴等反應",
-      "meridian": "肺、肝經"
+      "meridian": "肺、肝經",
+      "englishName": "AiDeCha"
     },
     {
       "id": 1754994245358,
@@ -1414,7 +1514,8 @@
       "nature": "辛，溫；有毒",
       "dosage": "0.3-0.6g，宜入丸散；亦可作捲菸分次燃吸（一日量不超過1.5g）；外用適量",
       "alias": "曼陀羅花、風茄花",
-      "createdAt": "2025-08-12T10:24:05.358Z"
+      "createdAt": "2025-08-12T10:24:05.358Z",
+      "englishName": "YangJinHua"
     },
     {
       "id": 1754994245359,
@@ -1428,7 +1529,8 @@
       "indications": "寒痰喘咳，驚悸失眠",
       "meridian": "肺、心經",
       "effects": "溫肺祛痰，平喘止咳，安神鎮驚",
-      "nature": "甘、微苦，溫；有毒"
+      "nature": "甘、微苦，溫；有毒",
+      "englishName": "HuaShanShen"
     },
     {
       "id": 1754994245360,
@@ -1442,7 +1544,8 @@
       "indications": "肺熱燥咳，咽痛失音，腸燥便秘",
       "updatedAt": "2025-08-12T10:24:05.360Z",
       "name": "羅漢果",
-      "nature": "甘，涼"
+      "nature": "甘，涼",
+      "englishName": "LuoHanGuo"
     },
     {
       "id": 1754994245361,
@@ -1456,7 +1559,8 @@
       "effects": "止咳祛痰",
       "alias": "興安杜鵑、映山紅",
       "meridian": "肺經",
-      "name": "滿山紅"
+      "name": "滿山紅",
+      "englishName": "ManShanHong"
     },
     {
       "id": 1754994245362,
@@ -1470,7 +1574,8 @@
       "alias": "蒲頹葉、半春子葉",
       "updatedAt": "2025-08-12T10:24:05.362Z",
       "cautions": "暫無",
-      "meridian": "肺經"
+      "meridian": "肺經",
+      "englishName": "HuTuiZiYe"
     },
     {
       "id": 1754994245363,
@@ -1484,7 +1589,8 @@
       "createdAt": "2025-08-12T10:24:05.363Z",
       "cautions": "暫無",
       "nature": "辛、苦，平",
-      "indications": "咳嗽痰多，咽喉腫痛，跌打損傷，疔瘡癤腫，毒蛇咬傷"
+      "indications": "咳嗽痰多，咽喉腫痛，跌打損傷，疔瘡癤腫，毒蛇咬傷",
+      "englishName": "GuaZiJin"
     },
     {
       "id": 1754994245364,
@@ -1498,7 +1604,8 @@
       "type": "herb",
       "indications": "熱病燥渴，目赤，喉痺，黃疸，洩瀉，痢疾，咳嗽，哮喘，便秘，癰瘡腫毒",
       "updatedAt": "2025-08-12T10:24:05.364Z",
-      "meridian": "肝、膽、肺、大腸經"
+      "meridian": "肝、膽、肺、大腸經",
+      "englishName": "ZhuDanFen"
     },
     {
       "id": 1754994245365,
@@ -1512,7 +1619,8 @@
       "updatedAt": "2025-08-12T10:24:05.365Z",
       "createdAt": "2025-08-12T10:24:05.365Z",
       "effects": "墜痰下氣，平肝鎮驚",
-      "meridian": "肺、心、肝經"
+      "meridian": "肺、心、肝經",
+      "englishName": "MengShi"
     },
     {
       "id": 1754994245366,
@@ -1526,7 +1634,8 @@
       "effects": "清熱燥濕，殺蟲，利尿",
       "indications": "熱痢，便血，黃疸尿閉，赤白帶下，陰腫陰癢，濕疹，濕瘡，皮膚瘙癢，疥癬麻風；外治滴蟲性陰道炎",
       "alias": "地槐、好漢枝",
-      "dosage": "4.5-9g；外用適量"
+      "dosage": "4.5-9g；外用適量",
+      "englishName": "KuShen"
     },
     {
       "id": 1754994245367,
@@ -1540,7 +1649,8 @@
       "name": "白鮮皮",
       "indications": "濕熱瘡毒，黃水淋灕，濕疹，風疹，疥癬瘡癩，風濕熱痺，黃疸尿赤",
       "meridian": "脾、胃、膀胱經",
-      "effects": "清熱燥濕，祛風解毒"
+      "effects": "清熱燥濕，祛風解毒",
+      "englishName": "BaiXianPi"
     },
     {
       "id": 1754994245368,
@@ -1554,7 +1664,8 @@
       "effects": "清熱燥濕，收澀止痢，止帶，明目",
       "meridian": "肝、膽、大腸經",
       "nature": "苦、澀，寒",
-      "createdAt": "2025-08-12T10:24:05.368Z"
+      "createdAt": "2025-08-12T10:24:05.368Z",
+      "englishName": "QinPi"
     },
     {
       "id": 1754994245369,
@@ -1568,7 +1679,8 @@
       "nature": "苦，寒",
       "type": "herb",
       "dosage": "9-15g",
-      "createdAt": "2025-08-12T10:24:05.369Z"
+      "createdAt": "2025-08-12T10:24:05.369Z",
+      "englishName": "BaiTouWeng"
     },
     {
       "id": 1754994245370,
@@ -1582,7 +1694,8 @@
       "alias": "長命菜、五行草",
       "effects": "清熱解毒，涼血止血，止痢",
       "nature": "酸，寒",
-      "indications": "熱毒血痢，癰腫疔瘡，濕疹，丹毒，蛇蟲咬傷，便血，痔血，崩漏下血"
+      "indications": "熱毒血痢，癰腫疔瘡，濕疹，丹毒，蛇蟲咬傷，便血，痔血，崩漏下血",
+      "englishName": "MaChiXian"
     },
     {
       "id": 1754994245371,
@@ -1596,7 +1709,8 @@
       "alias": "苦參子、老鴉膽",
       "name": "鴉膽子",
       "type": "herb",
-      "updatedAt": "2025-08-12T10:24:05.371Z"
+      "updatedAt": "2025-08-12T10:24:05.371Z",
+      "englishName": "YaDanZi"
     },
     {
       "id": 1754994245372,
@@ -1610,7 +1724,8 @@
       "updatedAt": "2025-08-12T10:24:05.372Z",
       "createdAt": "2025-08-12T10:24:05.372Z",
       "nature": "辛，平",
-      "meridian": "肝、大腸經"
+      "meridian": "肝、大腸經",
+      "englishName": "DeJinCao"
     },
     {
       "id": 1754994245373,
@@ -1624,7 +1739,8 @@
       "type": "herb",
       "name": "蚤休",
       "dosage": "3-9g；外用適量",
-      "alias": "重樓、七葉一枝花"
+      "alias": "重樓、七葉一枝花",
+      "englishName": "ZaoXiu"
     },
     {
       "id": 1754994245374,
@@ -1638,7 +1754,8 @@
       "updatedAt": "2025-08-12T10:24:05.374Z",
       "name": "金銀花",
       "alias": "忍冬花、雙花",
-      "indications": "癰腫疔瘡，喉痹，丹毒，熱毒血痢，風熱感冒，溫病發熱"
+      "indications": "癰腫疔瘡，喉痹，丹毒，熱毒血痢，風熱感冒，溫病發熱",
+      "englishName": "JinYinHua"
     },
     {
       "id": 1754994245375,
@@ -1652,7 +1769,8 @@
       "createdAt": "2025-08-12T10:24:05.375Z",
       "meridian": "肺、心、小腸經",
       "dosage": "6-15g",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "LianQiao"
     },
     {
       "id": 1754994245376,
@@ -1666,7 +1784,8 @@
       "cautions": "脾胃虛寒者慎用",
       "updatedAt": "2025-08-12T10:24:05.376Z",
       "meridian": "肝、胃經",
-      "createdAt": "2025-08-12T10:24:05.376Z"
+      "createdAt": "2025-08-12T10:24:05.376Z",
+      "englishName": "PuGongYing"
     },
     {
       "id": 1754994245377,
@@ -1680,7 +1799,8 @@
       "createdAt": "2025-08-12T10:24:05.377Z",
       "cautions": "體虛者慎用",
       "alias": "地丁草、犁頭草",
-      "meridian": "心、肝經"
+      "meridian": "心、肝經",
+      "englishName": "ZiHuaDeDing"
     },
     {
       "id": 1754994245378,
@@ -1694,7 +1814,8 @@
       "nature": "苦，寒",
       "type": "herb",
       "meridian": "心、胃經",
-      "effects": "清熱解毒，涼血消斑"
+      "effects": "清熱解毒，涼血消斑",
+      "englishName": "DaQingYe"
     },
     {
       "id": 1754994245379,
@@ -1708,7 +1829,8 @@
       "updatedAt": "2025-08-12T10:24:05.379Z",
       "cautions": "體虛而無實火熱毒者忌服",
       "type": "herb",
-      "dosage": "9-15g"
+      "dosage": "9-15g",
+      "englishName": "BanLanGen"
     },
     {
       "id": 1754994245380,
@@ -1722,7 +1844,8 @@
       "createdAt": "2025-08-12T10:24:05.380Z",
       "meridian": "肝經",
       "indications": "溫毒發斑，血熱吐衄，胸痛咳血，口瘡，痄腮，喉痹，小兒驚癇",
-      "effects": "清熱解毒，涼血消斑，瀉火定驚"
+      "effects": "清熱解毒，涼血消斑，瀉火定驚",
+      "englishName": "QingDai"
     },
     {
       "id": 1754994245381,
@@ -1736,7 +1859,8 @@
       "cautions": "孕婦及脾胃虛寒者慎用",
       "name": "貫眾",
       "createdAt": "2025-08-12T10:24:05.381Z",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "GuanZhong"
     },
     {
       "id": 1754994245382,
@@ -1750,7 +1874,8 @@
       "meridian": "肺經",
       "cautions": "虛寒證及陰性瘡瘍忌服",
       "name": "魚腥草",
-      "updatedAt": "2025-08-12T10:24:05.382Z"
+      "updatedAt": "2025-08-12T10:24:05.382Z",
+      "englishName": "YuXingCao"
     },
     {
       "id": 1754994245383,
@@ -1764,7 +1889,8 @@
       "createdAt": "2025-08-12T10:24:05.383Z",
       "meridian": "大腸、肝經",
       "effects": "清熱解毒，活血，祛風止痛",
-      "alias": "大血藤、血通"
+      "alias": "大血藤、血通",
+      "englishName": "HongTeng"
     },
     {
       "id": 1754994245384,
@@ -1778,7 +1904,8 @@
       "effects": "清熱解毒，消癰排膿，祛瘀止痛",
       "createdAt": "2025-08-12T10:24:05.384Z",
       "alias": "苦菜、野苦菜",
-      "nature": "辛、苦，微寒"
+      "nature": "辛、苦，微寒",
+      "englishName": "BaiJiangCao"
     },
     {
       "id": 1754994245385,
@@ -1792,7 +1919,8 @@
       "createdAt": "2025-08-12T10:24:05.385Z",
       "meridian": "肺經",
       "cautions": "孕婦慎用",
-      "nature": "苦，寒"
+      "nature": "苦，寒",
+      "englishName": "SheGan"
     },
     {
       "id": 1754994245386,
@@ -1806,7 +1934,8 @@
       "effects": "清熱解毒，消腫利咽",
       "dosage": "3-6g",
       "createdAt": "2025-08-12T10:24:05.386Z",
-      "indications": "火毒蘊結，乳蛾喉痹，咽喉腫痛，齒齦腫痛，口舌生瘡"
+      "indications": "火毒蘊結，乳蛾喉痹，咽喉腫痛，齒齦腫痛，口舌生瘡",
+      "englishName": "ShanDouGen"
     },
     {
       "id": 1754994245387,
@@ -1820,7 +1949,8 @@
       "nature": "辛，平",
       "alias": "灰包、馬屁包",
       "dosage": "2-6g；外用適量",
-      "effects": "清肺利咽，止血"
+      "effects": "清肺利咽，止血",
+      "englishName": "MaBo"
     },
     {
       "id": 1754994245388,
@@ -1834,7 +1964,8 @@
       "type": "herb",
       "name": "橄欖",
       "updatedAt": "2025-08-12T10:24:05.388Z",
-      "dosage": "5-10g"
+      "dosage": "5-10g",
+      "englishName": "GanLan"
     },
     {
       "id": 1754994245389,
@@ -1848,7 +1979,8 @@
       "type": "herb",
       "meridian": "肺、脾、胃經",
       "alias": "油甘子、庵摩勒",
-      "name": "余甘子"
+      "name": "余甘子",
+      "englishName": "YuGanZi"
     },
     {
       "id": 1754994245390,
@@ -1862,7 +1994,8 @@
       "dosage": "1-3g",
       "type": "herb",
       "indications": "肺熱咳嗽，喉痹音啞，肝胃氣痛",
-      "name": "木蝴蝶"
+      "name": "木蝴蝶",
+      "englishName": "MuHuDie"
     },
     {
       "id": 1754994245391,
@@ -1876,7 +2009,8 @@
       "nature": "甘、淡，平",
       "dosage": "15-60g",
       "type": "herb",
-      "indications": "梅毒及汞中毒所致的肢體拘攣，筋骨疼痛；濕熱淋濁，帶下，癰腫，瘰癧，疥癬"
+      "indications": "梅毒及汞中毒所致的肢體拘攣，筋骨疼痛；濕熱淋濁，帶下，癰腫，瘰癧，疥癬",
+      "englishName": "TuFuLing"
     },
     {
       "id": 1754994245392,
@@ -1890,7 +2024,8 @@
       "alias": "白根、貓兒卵",
       "nature": "苦，微寒",
       "dosage": "5-10g；外用適量",
-      "effects": "清熱解毒，消癰散結，斂瘡生肌"
+      "effects": "清熱解毒，消癰散結，斂瘡生肌",
+      "englishName": "BaiLian"
     },
     {
       "id": 1754994245393,
@@ -1904,7 +2039,8 @@
       "dosage": "6-15g；研末吞服3-6g；外用適量",
       "alias": "白芨、連及草",
       "name": "白及",
-      "cautions": "不宜與川烏、製川烏、草烏、製草烏、附子同用"
+      "cautions": "不宜與川烏、製川烏、草烏、製草烏、附子同用",
+      "englishName": "BaiJi"
     },
     {
       "id": 1754994245394,
@@ -1918,7 +2054,8 @@
       "createdAt": "2025-08-12T10:24:05.394Z",
       "type": "herb",
       "nature": "苦、澀，平",
-      "meridian": "心、肝經"
+      "meridian": "心、肝經",
+      "englishName": "XianHeCao"
     },
     {
       "id": 1754994245395,
@@ -1932,7 +2069,8 @@
       "effects": "涼血收斂止血，散瘀解毒消腫",
       "name": "紫珠",
       "dosage": "3-15g；研末吞服1.5-3g；外用適量",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "ZiZhu"
     },
     {
       "id": 1754994245396,
@@ -1946,7 +2084,8 @@
       "effects": "收斂止血",
       "createdAt": "2025-08-12T10:24:05.396Z",
       "alias": "棕櫚灰、陳棕炭",
-      "dosage": "3-10g"
+      "dosage": "3-10g",
+      "englishName": "ZongLuTan"
     },
     {
       "id": 1754994245397,
@@ -1960,7 +2099,8 @@
       "dosage": "5-10g",
       "effects": "收斂止血，化瘀利尿",
       "nature": "苦，平",
-      "name": "血余炭"
+      "name": "血余炭",
+      "englishName": "XueYuTan"
     },
     {
       "id": 1754994245398,
@@ -1974,7 +2114,8 @@
       "nature": "甘、澀，平",
       "cautions": "暫無",
       "type": "herb",
-      "dosage": "9-15g"
+      "dosage": "9-15g",
+      "englishName": "OuJie"
     },
     {
       "id": 1754994245399,
@@ -1988,7 +2129,8 @@
       "effects": "溫經止血，散寒止痛；外用祛濕止癢",
       "cautions": "陰虛血熱者慎用",
       "indications": "吐血，衄血，崩漏，月經過多，胎漏下血，少腹冷痛，經寒不調，宮冷不孕；外治皮膚瘙癢",
-      "alias": "艾蒿、醫草"
+      "alias": "艾蒿、醫草",
+      "englishName": "AiYe"
     },
     {
       "id": 1754994245400,
@@ -2002,7 +2144,8 @@
       "name": "炮薑",
       "alias": "黑薑、乾薑炭",
       "meridian": "脾、胃、腎、心、肺經",
-      "cautions": "陰虛內熱及血熱妄行者忌服"
+      "cautions": "陰虛內熱及血熱妄行者忌服",
+      "englishName": "PaoJiang"
     },
     {
       "id": 1754994245401,
@@ -2016,7 +2159,8 @@
       "name": "灶心土",
       "effects": "溫中止血，止嘔止瀉",
       "cautions": "陰虛失血及熱證嘔吐反胃忌用",
-      "meridian": "脾、胃經"
+      "meridian": "脾、胃經",
+      "englishName": "ZaoXinTu"
     },
     {
       "id": 1754994245402,
@@ -2030,7 +2174,8 @@
       "indications": "脾肺氣虛，體虛乏力，食慾不振，肺腎兩虛，久咳虛喘，腎虛腰膝酸痛，心脾不足，失眠多夢",
       "dosage": "9-27g",
       "createdAt": "2025-08-12T10:24:05.402Z",
-      "nature": "辛、微苦，溫"
+      "nature": "辛、微苦，溫",
+      "englishName": "CiWuJia"
     },
     {
       "id": 1754994245403,
@@ -2044,7 +2189,8 @@
       "createdAt": "2025-08-12T10:24:05.403Z",
       "name": "絞股藍",
       "indications": "脾胃氣虛，體倦乏力，納差；肺虛燥咳，咽喉疼痛；高脂血症",
-      "cautions": "虛寒證慎用"
+      "cautions": "虛寒證慎用",
+      "englishName": "JiaoGuLan"
     },
     {
       "id": 1754994245404,
@@ -2058,7 +2204,8 @@
       "name": "沙棘",
       "cautions": "溫熱實邪者忌用",
       "alias": "達爾、醋柳果",
-      "createdAt": "2025-08-12T10:24:05.404Z"
+      "createdAt": "2025-08-12T10:24:05.404Z",
+      "englishName": "ShaJi"
     },
     {
       "id": 1754994245405,
@@ -2072,7 +2219,8 @@
       "effects": "益氣活血，通脈平喘",
       "dosage": "3-6g",
       "indications": "氣虛血瘀，胸痹心痛，中風偏癱，倦怠氣喘",
-      "createdAt": "2025-08-12T10:24:05.405Z"
+      "createdAt": "2025-08-12T10:24:05.405Z",
+      "englishName": "HongJingTian"
     },
     {
       "id": 1754994245406,
@@ -2086,7 +2234,8 @@
       "name": "飴糖",
       "dosage": "30-60g，烊化沖服",
       "type": "herb",
-      "cautions": "濕熱內鬱，中滿吐逆者忌服"
+      "cautions": "濕熱內鬱，中滿吐逆者忌服",
+      "englishName": "YiTang"
     },
     {
       "id": 1754994245407,
@@ -2100,7 +2249,8 @@
       "effects": "補中潤燥，止痛解毒",
       "nature": "甘，平",
       "name": "蜂蜜",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "FengMi"
     },
     {
       "id": 1754994245408,
@@ -2114,7 +2264,8 @@
       "dosage": "1-2g，研末沖服",
       "alias": "斑龍珠",
       "nature": "甘、鹹，溫",
-      "cautions": "服用本品宜從小量開始，緩緩增加，不宜驟用大量，以免陽升風動，頭暈目赤，或傷陰動血；凡陰虛陽亢，血分有熱，胃火盛或肺有痰熱，以及外感熱病者均應忌服"
+      "cautions": "服用本品宜從小量開始，緩緩增加，不宜驟用大量，以免陽升風動，頭暈目赤，或傷陰動血；凡陰虛陽亢，血分有熱，胃火盛或肺有痰熱，以及外感熱病者均應忌服",
+      "englishName": "LuRong"
     },
     {
       "id": 1754994245409,
@@ -2128,7 +2279,8 @@
       "updatedAt": "2025-08-12T10:24:05.409Z",
       "cautions": "陰虛火旺者不宜服用",
       "nature": "辛、甘，溫",
-      "createdAt": "2025-08-12T10:24:05.409Z"
+      "createdAt": "2025-08-12T10:24:05.409Z",
+      "englishName": "YinYangHuo"
     },
     {
       "id": 1754994245410,
@@ -2142,7 +2294,8 @@
       "cautions": "陰虛火旺及有濕熱者不宜服用",
       "meridian": "腎、肝經",
       "nature": "甘、辛，微溫",
-      "alias": "巴戟、雞腸風"
+      "alias": "巴戟、雞腸風",
+      "englishName": "BaJiTian"
     },
     {
       "id": 1754994245411,
@@ -2156,7 +2309,8 @@
       "createdAt": "2025-08-12T10:24:05.411Z",
       "updatedAt": "2025-08-12T10:24:05.411Z",
       "dosage": "3-10g",
-      "meridian": "腎、肝、脾經"
+      "meridian": "腎、肝、脾經",
+      "englishName": "XianMao"
     },
     {
       "id": 1754994245412,
@@ -2170,7 +2324,8 @@
       "cautions": "陰虛火旺者慎用",
       "updatedAt": "2025-08-12T10:24:05.412Z",
       "meridian": "肝、腎經",
-      "nature": "甘，溫"
+      "nature": "甘，溫",
+      "englishName": "DuZhong"
     },
     {
       "id": 1754994245413,
@@ -2184,7 +2339,8 @@
       "effects": "補肝腎，強筋骨，續折傷，止崩漏",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.413Z",
-      "updatedAt": "2025-08-12T10:24:05.413Z"
+      "updatedAt": "2025-08-12T10:24:05.413Z",
+      "englishName": "XuDuan"
     },
     {
       "id": 1754994245414,
@@ -2198,7 +2354,8 @@
       "updatedAt": "2025-08-12T10:24:05.414Z",
       "effects": "補腎陽，益精血，潤腸通便",
       "meridian": "腎、大腸經",
-      "createdAt": "2025-08-12T10:24:05.414Z"
+      "createdAt": "2025-08-12T10:24:05.414Z",
+      "englishName": "RouCongRong"
     },
     {
       "id": 1754994245415,
@@ -2212,7 +2369,8 @@
       "indications": "腎陽不足，精血虧虛，腰膝痿軟，陽痿滑精，腸燥便秘",
       "dosage": "5-10g",
       "alias": "不老藥、地毛球",
-      "cautions": "陰虛火旺，脾虛洩瀉及實熱便秘者不宜服用"
+      "cautions": "陰虛火旺，脾虛洩瀉及實熱便秘者不宜服用",
+      "englishName": "SuoYang"
     },
     {
       "id": 1754994245416,
@@ -2226,7 +2384,8 @@
       "alias": "破故紙、黑故子",
       "createdAt": "2025-08-12T10:24:05.416Z",
       "name": "補骨脂",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "BuGuZhi"
     },
     {
       "id": 1754994245417,
@@ -2240,7 +2399,8 @@
       "createdAt": "2025-08-12T10:24:05.417Z",
       "updatedAt": "2025-08-12T10:24:05.417Z",
       "alias": "明天麻、赤箭",
-      "nature": "甘，平"
+      "nature": "甘，平",
+      "englishName": "TianMa"
     },
     {
       "id": 1754994245418,
@@ -2254,7 +2414,8 @@
       "effects": "清熱平肝，息風定驚",
       "nature": "甘，涼",
       "name": "鉤藤",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "GouTeng"
     },
     {
       "id": 1754994245419,
@@ -2268,7 +2429,8 @@
       "meridian": "肝、肺、胃經",
       "cautions": "血虛無風熱者慎用",
       "createdAt": "2025-08-12T10:24:05.419Z",
-      "indications": "驚癇抽搐，口眼喎斜，風熱頭痛，目赤咽痛，風疹瘙癢，瘰癧痰核"
+      "indications": "驚癇抽搐，口眼喎斜，風熱頭痛，目赤咽痛，風疹瘙癢，瘰癧痰核",
+      "englishName": "JiangCan"
     },
     {
       "id": 1754994245420,
@@ -2282,7 +2444,8 @@
       "createdAt": "2025-08-12T10:24:05.420Z",
       "indications": "肝風內動，痙攣抽搐，小兒驚風，中風口喎，半身不遂，破傷風，風濕頑痹，偏正頭痛，瘡瘍瘰癧",
       "meridian": "肝經",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "QuanXie"
     },
     {
       "id": 1754994245421,
@@ -2296,7 +2459,8 @@
       "name": "蜈蚣",
       "indications": "肝風內動，痙攣抽搐，小兒驚風，中風口喎，半身不遂，破傷風，風濕頑痹，瘡瘍瘰癧，蛇蟲咬傷",
       "meridian": "肝經",
-      "effects": "息風鎮痙，通絡止痛，攻毒散結"
+      "effects": "息風鎮痙，通絡止痛，攻毒散結",
+      "englishName": "WuGong"
     },
     {
       "id": 1754994245422,
@@ -2310,7 +2474,8 @@
       "createdAt": "2025-08-12T10:24:05.422Z",
       "effects": "清熱定驚，通絡，平喘，利尿",
       "updatedAt": "2025-08-12T10:24:05.422Z",
-      "dosage": "5-10g"
+      "dosage": "5-10g",
+      "englishName": "DeLong"
     },
     {
       "id": 1754994245423,
@@ -2324,7 +2489,8 @@
       "effects": "安神定驚，明目消翳，解毒生肌",
       "createdAt": "2025-08-12T10:24:05.423Z",
       "indications": "驚悸失眠，驚風癲癇，目赤翳障，瘡瘍不斂",
-      "name": "珍珠"
+      "name": "珍珠",
+      "englishName": "ZhenZhu"
     },
     {
       "id": 1754994245424,
@@ -2338,7 +2504,8 @@
       "updatedAt": "2025-08-12T10:24:05.424Z",
       "createdAt": "2025-08-12T10:24:05.424Z",
       "name": "珍珠母",
-      "meridian": "肝、心經"
+      "meridian": "肝、心經",
+      "englishName": "ZhenZhuMu"
     },
     {
       "id": 1754994245425,
@@ -2352,7 +2519,8 @@
       "effects": "平肝解鬱，活血祛風，明目止癢",
       "indications": "頭痛眩暈，胸脅脹痛，乳閉乳癰，目赤翳障，風疹瘙癢",
       "nature": "辛、苦，微溫；有小毒",
-      "dosage": "6-10g"
+      "dosage": "6-10g",
+      "englishName": "CiJiLi"
     },
     {
       "id": 1754994245426,
@@ -2366,7 +2534,8 @@
       "meridian": "肝經",
       "dosage": "6-12g",
       "cautions": "不宜過量或長期服用",
-      "createdAt": "2025-08-12T10:24:05.426Z"
+      "createdAt": "2025-08-12T10:24:05.426Z",
+      "englishName": "LuoBuMa"
     },
     {
       "id": 1754994245427,
@@ -2380,7 +2549,8 @@
       "alias": "紫貝、文貝",
       "indications": "肝陽上亢，頭暈目眩，驚悸失眠，目赤翳障",
       "cautions": "脾胃虛弱者慎用",
-      "name": "紫貝齒"
+      "name": "紫貝齒",
+      "englishName": "ZiBeiChi"
     },
     {
       "id": 1754994245428,
@@ -2394,7 +2564,8 @@
       "effects": "平肝潛陽，重鎮降逆，涼血止血",
       "createdAt": "2025-08-12T10:24:05.428Z",
       "name": "代赭石",
-      "indications": "眩暈耳鳴，嘔吐噫氣，呃逆喘息，吐血衄血，崩漏下血"
+      "indications": "眩暈耳鳴，嘔吐噫氣，呃逆喘息，吐血衄血，崩漏下血",
+      "englishName": "DaiZheShi"
     },
     {
       "id": 1754994245429,
@@ -2408,7 +2579,8 @@
       "createdAt": "2025-08-12T10:24:05.429Z",
       "alias": "真珠母、千里光",
       "meridian": "肝經",
-      "effects": "平肝潛陽，清肝明目"
+      "effects": "平肝潛陽，清肝明目",
+      "englishName": "ShiJueMing"
     },
     {
       "id": 1754994245430,
@@ -2422,7 +2594,8 @@
       "indications": "肝鬱氣滯，胸脅脹痛，疝氣疼痛，乳房脹痛，脾胃氣滯，脘腹痞悶，脹滿疼痛，月經不調，經閉痛經",
       "nature": "辛、微苦、微甘，平",
       "dosage": "6-10g",
-      "name": "香附"
+      "name": "香附",
+      "englishName": "XiangFu"
     },
     {
       "id": 1754994245431,
@@ -2436,7 +2609,8 @@
       "updatedAt": "2025-08-12T10:24:05.431Z",
       "createdAt": "2025-08-12T10:24:05.431Z",
       "effects": "行氣止痛，溫腎散寒",
-      "meridian": "肺、脾、腎、膀胱經"
+      "meridian": "肺、脾、腎、膀胱經",
+      "englishName": "WuYao"
     },
     {
       "id": 1754994245432,
@@ -2450,7 +2624,8 @@
       "dosage": "1-5g（後下）",
       "nature": "辛、苦，微溫",
       "updatedAt": "2025-08-12T10:24:05.432Z",
-      "meridian": "脾、胃、腎經"
+      "meridian": "脾、胃、腎經",
+      "englishName": "ChenXiang"
     },
     {
       "id": 1754994245433,
@@ -2464,7 +2639,8 @@
       "type": "herb",
       "meridian": "肝、小腸、膀胱經",
       "createdAt": "2025-08-12T10:24:05.433Z",
-      "name": "川楝子"
+      "name": "川楝子",
+      "englishName": "ChuanLianZi"
     },
     {
       "id": 1754994245434,
@@ -2478,7 +2654,8 @@
       "updatedAt": "2025-08-12T10:24:05.434Z",
       "createdAt": "2025-08-12T10:24:05.434Z",
       "effects": "行氣散結，祛寒止痛",
-      "meridian": "肝、腎經"
+      "meridian": "肝、腎經",
+      "englishName": "LiZhiHe"
     },
     {
       "id": 1754994245435,
@@ -2492,7 +2669,8 @@
       "alias": "佛手柑、五指柑",
       "updatedAt": "2025-08-12T10:24:05.435Z",
       "cautions": "陰虛有火者慎用",
-      "meridian": "肝、脾、胃、肺經"
+      "meridian": "肝、脾、胃、肺經",
+      "englishName": "FuShou"
     },
     {
       "id": 1754994245436,
@@ -2506,7 +2684,8 @@
       "indications": "肝胃氣滯，胸脅脹痛，脘腹痞滿，嘔吐噫氣，痰多咳嗽",
       "meridian": "肝、脾、肺經",
       "cautions": "陰虛血燥者慎用",
-      "updatedAt": "2025-08-12T10:24:05.436Z"
+      "updatedAt": "2025-08-12T10:24:05.436Z",
+      "englishName": "XiangYuan"
     },
     {
       "id": 1754994245437,
@@ -2520,7 +2699,8 @@
       "nature": "甘、微苦，溫",
       "effects": "行氣解鬱，和血止痛",
       "dosage": "3-6g",
-      "meridian": "肝、脾經"
+      "meridian": "肝、脾經",
+      "englishName": "MeiGuiHua"
     },
     {
       "id": 1754994245438,
@@ -2534,7 +2714,8 @@
       "alias": "白梅花、綠梅花",
       "createdAt": "2025-08-12T10:24:05.438Z",
       "name": "綠萼梅",
-      "nature": "微酸、澀，平"
+      "nature": "微酸、澀，平",
+      "englishName": "LvEMei"
     },
     {
       "id": 1754994245439,
@@ -2548,7 +2729,8 @@
       "cautions": "氣虛及陰虛者慎用",
       "name": "婆羅子",
       "alias": "天師栗、開心果",
-      "dosage": "3-9g"
+      "dosage": "3-9g",
+      "englishName": "PoLuoZi"
     },
     {
       "id": 1754994245440,
@@ -2562,7 +2744,8 @@
       "alias": "挾劍豆、刀豆子",
       "meridian": "胃、腎經",
       "dosage": "6-9g",
-      "nature": "甘，溫"
+      "nature": "甘，溫",
+      "englishName": "DaoDou"
     },
     {
       "id": 1754994245441,
@@ -2576,7 +2759,8 @@
       "indications": "呃逆",
       "type": "herb",
       "dosage": "5-10g",
-      "nature": "苦、澀，平"
+      "nature": "苦、澀，平",
+      "englishName": "ShiDi"
     },
     {
       "id": 1754994245442,
@@ -2590,7 +2774,8 @@
       "indications": "脘腹脹滿食慾不振；外治牙痛腳腫",
       "cautions": "氣虛血熱者忌服",
       "name": "甘松",
-      "createdAt": "2025-08-12T10:24:05.442Z"
+      "createdAt": "2025-08-12T10:24:05.442Z",
+      "englishName": "GanSong"
     },
     {
       "id": 1754994245443,
@@ -2604,7 +2789,8 @@
       "effects": "理氣止痛，溫中助陽",
       "type": "herb",
       "updatedAt": "2025-08-12T10:24:05.443Z",
-      "dosage": "3-9g"
+      "dosage": "3-9g",
+      "englishName": "JiuXiangChong"
     },
     {
       "id": 1754994245444,
@@ -2618,7 +2804,8 @@
       "cautions": "孕婦慎用",
       "createdAt": "2025-08-12T10:24:05.444Z",
       "type": "herb",
-      "name": "預知子"
+      "name": "預知子",
+      "englishName": "YuZhiZi"
     },
     {
       "id": 1754994245445,
@@ -2632,7 +2819,8 @@
       "nature": "酸、澀，微溫",
       "updatedAt": "2025-08-12T10:24:05.445Z",
       "type": "herb",
-      "dosage": "6-12g"
+      "dosage": "6-12g",
+      "englishName": "ShanZhuYu"
     },
     {
       "id": 1754994245446,
@@ -2646,7 +2834,8 @@
       "updatedAt": "2025-08-12T10:24:05.446Z",
       "createdatedAt": "2025-08-12T10:24:05.446Z",
       "cautions": "腎虛有火小便短澀者慎用",
-      "indications": "遺精滑精遺尿尿頻陽痿早洩目暗昏花"
+      "indications": "遺精滑精遺尿尿頻陽痿早洩目暗昏花",
+      "englishName": "FuPenZi"
     },
     {
       "id": 1754994245447,
@@ -2660,7 +2849,8 @@
       "createdAt": "2025-08-12T10:24:05.447Z",
       "dosage": "5-10g",
       "nature": "甘、鹹，平",
-      "cautions": "陰虛火旺膀胱有熱者慎服"
+      "cautions": "陰虛火旺膀胱有熱者慎服",
+      "englishName": "SangPiaoShao"
     },
     {
       "id": 1754994245448,
@@ -2674,7 +2864,8 @@
       "cautions": "有實火邪熱者忌服",
       "updatedAt": "2025-08-12T10:24:05.448Z",
       "alias": "糖罐子、刺梨子",
-      "nature": "酸、甘、澀，平"
+      "nature": "酸、甘、澀，平",
+      "englishName": "JinYingZi"
     },
     {
       "id": 1754994245449,
@@ -2688,7 +2879,8 @@
       "alias": "烏賊骨、墨魚骨",
       "type": "herb",
       "effects": "收斂止血澀精止帶制酸止痛收濕斂瘡",
-      "nature": "鹹、澀，溫"
+      "nature": "鹹、澀，溫",
+      "englishName": "HaiPiaoShao"
     },
     {
       "id": 1754994245450,
@@ -2702,7 +2894,8 @@
       "cautions": "中滿痞脹及大便燥結者忌服",
       "meridian": "脾、腎、心經",
       "dosage": "6-15g",
-      "effects": "補脾止瀉止帶益腎澀精養心安神"
+      "effects": "補脾止瀉止帶益腎澀精養心安神",
+      "englishName": "LianZi"
     },
     {
       "id": 1754994245451,
@@ -2716,7 +2909,8 @@
       "alias": "雞頭米、水流黃",
       "createdAt": "2025-08-12T10:24:05.451Z",
       "name": "芡實",
-      "nature": "甘、澀，平"
+      "nature": "甘、澀，平",
+      "englishName": "QianShi"
     },
     {
       "id": 1754994245452,
@@ -2730,7 +2924,8 @@
       "type": "herb",
       "name": "刺蝟皮",
       "dosage": "3-10g；研末吞服1.5-3g",
-      "alias": "蝟皮、仙人衣"
+      "alias": "蝟皮、仙人衣",
+      "englishName": "CiWeiPi"
     },
     {
       "id": 1754994245453,
@@ -2744,7 +2939,8 @@
       "type": "herb",
       "effects": "清熱燥濕收澀止帶止瀉止血",
       "dosage": "6-9g",
-      "name": "椿皮"
+      "name": "椿皮",
+      "englishName": "ChunPi"
     },
     {
       "id": 1754994245454,
@@ -2758,7 +2954,8 @@
       "alias": "雞髻花、老來紅",
       "nature": "甘、澀，涼",
       "name": "雞冠花",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "JiGuanHua"
     },
     {
       "id": 1754994245455,
@@ -2772,7 +2969,8 @@
       "type": "herb",
       "effects": "湧吐痰涎截瘧",
       "dosage": "5-9g",
-      "meridian": "肺、肝、心經"
+      "meridian": "肺、肝、心經",
+      "englishName": "ChangShan"
     },
     {
       "id": 1754994245456,
@@ -2786,7 +2984,8 @@
       "name": "瓜蒂",
       "nature": "苦，寒；有毒",
       "cautions": "體虛失血及上部無實邪者忌服",
-      "meridian": "胃經"
+      "meridian": "胃經",
+      "englishName": "GuaDi"
     },
     {
       "id": 1754994245457,
@@ -2800,7 +2999,8 @@
       "createdAt": "2025-08-12T10:24:05.457Z",
       "effects": "湧吐風痰殺蟲",
       "type": "herb",
-      "meridian": "肺、胃、肝經"
+      "meridian": "肺、胃、肝經",
+      "englishName": "LiLu"
     },
     {
       "id": 1754994245458,
@@ -2814,7 +3014,8 @@
       "type": "herb",
       "effects": "湧吐痰涎解毒收濕祛腐蝕瘡",
       "nature": "酸、辛，寒；有毒",
-      "cautions": "體虛者忌服"
+      "cautions": "體虛者忌服",
+      "englishName": "DanFan"
     },
     {
       "id": 1754994245459,
@@ -2828,7 +3029,8 @@
       "cautions": "陰虛火旺或下焦有濕熱者不宜內服",
       "indications": "陰癢帶下濕疹瘙癢濕痹腰痛腎虛陽痿宮冷不孕",
       "effects": "燥濕祛風殺蟲止癢溫腎壯陽",
-      "createdAt": "2025-08-12T10:24:05.459Z"
+      "createdAt": "2025-08-12T10:24:05.459Z",
+      "englishName": "SheChuangZi"
     },
     {
       "id": 1754994245460,
@@ -2842,7 +3044,8 @@
       "alias": "蜂房、馬蜂窩",
       "type": "herb",
       "effects": "攻毒殺蟲祛風止痛",
-      "nature": "甘，平；有毒"
+      "nature": "甘，平；有毒",
+      "englishName": "LuFengFang"
     },
     {
       "id": 1754994245461,
@@ -2856,7 +3059,8 @@
       "meridian": "心、腎、肺經",
       "createdAt": "2025-08-12T10:24:05.461Z",
       "alias": "小草根、棘菀",
-      "indications": "失眠多夢，心悸怔忡，健忘癲癇，咳嗽痰多，癰疽瘡毒"
+      "indications": "失眠多夢，心悸怔忡，健忘癲癇，咳嗽痰多，癰疽瘡毒",
+      "englishName": "YuanZhi"
     },
     {
       "id": 1754994245462,
@@ -2870,7 +3074,8 @@
       "effects": "解鬱安神，活血消腫",
       "alias": "夜合皮、合昏皮",
       "createdAt": "2025-08-12T10:24:05.462Z",
-      "cautions": "孕婦慎用"
+      "cautions": "孕婦慎用",
+      "englishName": "HeHuanPi"
     },
     {
       "id": 1754994245463,
@@ -2884,7 +3089,8 @@
       "nature": "甘、酸，平",
       "alias": "棗仁、酸棗核",
       "dosage": "10-15g",
-      "cautions": "有實邪鬱火者慎用"
+      "cautions": "有實邪鬱火者慎用",
+      "englishName": "SuanZaoRen"
     },
     {
       "id": 1754994245464,
@@ -2898,7 +3104,8 @@
       "meridian": "心、腎、大腸經",
       "dosage": "3-10g",
       "cautions": "便溏及多痰者慎用",
-      "createdAt": "2025-08-12T10:24:05.464Z"
+      "createdAt": "2025-08-12T10:24:05.464Z",
+      "englishName": "BaiZiRen"
     },
     {
       "id": 1754994245465,
@@ -2912,7 +3119,8 @@
       "createdAt": "2025-08-12T10:24:05.465Z",
       "effects": "養心安神，祛風通絡",
       "nature": "甘，平",
-      "meridian": "心、肝經"
+      "meridian": "心、肝經",
+      "englishName": "YeJiaoTeng"
     },
     {
       "id": 1754994245466,
@@ -2926,7 +3134,8 @@
       "indications": "眩暈不眠，心悸氣短，虛勞咳喘",
       "name": "靈芝",
       "effects": "補氣安神，止咳平喘",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "LingZhi"
     },
     {
       "id": 1754994245467,
@@ -2940,7 +3149,8 @@
       "cautions": "孕婦慎用",
       "nature": "甘、鹹，寒",
       "indications": "驚悸失眠，驚風癲癇，目生翳障，瘡瘍不斂",
-      "meridian": "心、肝經"
+      "meridian": "心、肝經",
+      "englishName": "ZhenZhuFen"
     },
     {
       "id": 1754994245468,
@@ -2954,7 +3164,8 @@
       "meridian": "心、脾經",
       "indications": "心悸怔忡，健忘失眠，血虛萎黃",
       "nature": "甘，溫",
-      "alias": "桂圓、益智"
+      "alias": "桂圓、益智",
+      "englishName": "LongYanRou"
     },
     {
       "id": 1754994245469,
@@ -2968,7 +3179,8 @@
       "alias": "孩兒參、童參",
       "createdAt": "2025-08-12T10:24:05.469Z",
       "type": "herb",
-      "name": "太子參"
+      "name": "太子參",
+      "englishName": "TaiZiShen"
     },
     {
       "id": 1754994245470,
@@ -2982,7 +3194,8 @@
       "meridian": "心、肺、腎經",
       "createdAt": "2025-08-12T10:24:05.470Z",
       "updatedAt": "2025-08-12T10:24:05.470Z",
-      "alias": "花旗參、洋參"
+      "alias": "花旗參、洋參",
+      "englishName": "XiYangShen"
     },
     {
       "id": 1754994245471,
@@ -2996,7 +3209,8 @@
       "createdAt": "2025-08-12T10:24:05.471Z",
       "effects": "補氣養陰，健脾潤肺益腎",
       "indications": "脾胃虛弱，體倦乏力，口乾食少，肺虛燥咳，精血不足，內熱消渴",
-      "name": "黃精"
+      "name": "黃精",
+      "englishName": "HuangJing"
     },
     {
       "id": 1754994245472,
@@ -3010,7 +3224,8 @@
       "nature": "甘、苦，涼",
       "name": "女貞子",
       "cautions": "脾胃虛寒洩瀉及陽虛者忌服",
-      "meridian": "肝、腎經"
+      "meridian": "肝、腎經",
+      "englishName": "NvZhenZi"
     },
     {
       "id": 1754994245473,
@@ -3024,7 +3239,8 @@
       "name": "墨旱蓮",
       "indications": "肝腎陰虛，牙齒鬆動，鬚髮早白，眩暈耳鳴，腰膝酸軟，陰虛血熱吐血衄血尿血血痢崩漏下血外傷出血",
       "cautions": "脾胃虛寒者慎服",
-      "effects": "滋補肝腎，涼血止血"
+      "effects": "滋補肝腎，涼血止血",
+      "englishName": "MoHanLian"
     },
     {
       "id": 1754994245474,
@@ -3038,7 +3254,8 @@
       "nature": "甘、酸，寒",
       "type": "herb",
       "meridian": "心、肝、腎經",
-      "createdAt": "2025-08-12T10:24:05.474Z"
+      "createdAt": "2025-08-12T10:24:05.474Z",
+      "englishName": "SangShen"
     },
     {
       "id": 1754994245475,
@@ -3052,7 +3269,8 @@
       "type": "herb",
       "nature": "甘，平",
       "effects": "補肝腎益精血潤腸燥",
-      "dosage": "9-15g"
+      "dosage": "9-15g",
+      "englishName": "HeiZhiMa"
     },
     {
       "id": 1754994245476,
@@ -3066,7 +3284,8 @@
       "effects": "滋陰養血止血",
       "meridian": "肝、腎、心經",
       "alias": "龜板膠",
-      "name": "龜甲膠"
+      "name": "龜甲膠",
+      "englishName": "GuiJiaJiao"
     },
     {
       "id": 1754994245477,
@@ -3080,7 +3299,8 @@
       "cautions": "月經過多者慎用",
       "effects": "活血補血調經止痛舒筋活絡",
       "name": "雞血藤",
-      "meridian": "肝、腎經"
+      "meridian": "肝、腎經",
+      "englishName": "JiXueTeng"
     },
     {
       "id": 1754994245478,
@@ -3094,7 +3314,8 @@
       "indications": "溫毒發斑血熱吐衄溫病傷陰陰虛發熱夜熱早涼無汗骨蒸血滯經閉痛經跌撲傷痛癰腫瘡毒",
       "createdAt": "2025-08-12T10:24:05.478Z",
       "nature": "苦、辛，微寒",
-      "dosage": "6-12g"
+      "dosage": "6-12g",
+      "englishName": "DanPi"
     },
     {
       "id": 1754994245479,
@@ -3108,7 +3329,8 @@
       "updatedAt": "2025-08-12T10:24:05.479Z",
       "meridian": "心、肝經",
       "cautions": "脾胃虛寒便溏者忌服",
-      "effects": "清熱涼血活血解毒透疹"
+      "effects": "清熱涼血活血解毒透疹",
+      "englishName": "ZiCao"
     },
     {
       "id": 1754994245480,
@@ -3122,7 +3344,8 @@
       "type": "herb",
       "cautions": "脾胃虛寒食少便溏者不宜",
       "effects": "清熱涼血利尿通淋解毒療瘡",
-      "name": "白薇"
+      "name": "白薇",
+      "englishName": "BaiWei"
     },
     {
       "id": 1754994245481,
@@ -3136,7 +3359,8 @@
       "type": "herb",
       "nature": "甘，寒",
       "dosage": "9-15g",
-      "alias": "枸杞根皮"
+      "alias": "枸杞根皮",
+      "englishName": "DeGuPi"
     },
     {
       "id": 1754994245482,
@@ -3150,7 +3374,8 @@
       "indications": "溫邪傷陰夜熱早涼陰虛發熱骨蒸勞熱暑邪發熱瘧疾寒熱濕熱黃疸",
       "alias": "草蒿、臭蒿",
       "createdAt": "2025-08-12T10:24:05.482Z",
-      "dosage": "6-12g"
+      "dosage": "6-12g",
+      "englishName": "QingHao"
     },
     {
       "id": 1754994245483,
@@ -3164,7 +3389,8 @@
       "alias": "銀胡",
       "createdAt": "2025-08-12T10:24:05.483Z",
       "indications": "陰虛發熱骨蒸勞熱小兒疳熱",
-      "updatedAt": "2025-08-12T10:24:05.483Z"
+      "updatedAt": "2025-08-12T10:24:05.483Z",
+      "englishName": "YinChaiHu"
     },
     {
       "id": 1754994245484,
@@ -3178,7 +3404,8 @@
       "meridian": "肝、胃、大腸經",
       "alias": "胡連",
       "name": "胡黃連",
-      "indications": "骨蒸潮熱小兒疳熱濕熱瀉痢黃疸痔瘡"
+      "indications": "骨蒸潮熱小兒疳熱濕熱瀉痢黃疸痔瘡",
+      "englishName": "HuHuangLian"
     },
     {
       "id": 1754994245485,
@@ -3192,7 +3419,8 @@
       "name": "秦艽",
       "createdAt": "2025-08-12T10:24:05.485Z",
       "alias": "秦膠、左秦艽",
-      "nature": "辛、苦，平"
+      "nature": "辛、苦，平",
+      "englishName": "QinJiao"
     },
     {
       "id": 1754994245486,
@@ -3206,7 +3434,8 @@
       "effects": "祛風止痛利水消腫",
       "dosage": "5-10g",
       "createdAt": "2025-08-12T10:24:05.486Z",
-      "indications": "風濕痹痛水腫腳氣小便不利濕疹瘡毒"
+      "indications": "風濕痹痛水腫腳氣小便不利濕疹瘡毒",
+      "englishName": "FangJi"
     },
     {
       "id": 1754994245487,
@@ -3220,7 +3449,8 @@
       "meridian": "肝、腎經",
       "alias": "南五加皮",
       "cautions": "陰虛火旺者慎用",
-      "effects": "祛風濕補肝腎強筋骨"
+      "effects": "祛風濕補肝腎強筋骨",
+      "englishName": "WuJiaPi"
     },
     {
       "id": 1754994245488,
@@ -3234,7 +3464,8 @@
       "effects": "祛風通絡止痙",
       "name": "蘄蛇",
       "dosage": "3-9g",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "QiShe"
     },
     {
       "id": 1754994245489,
@@ -3248,7 +3479,8 @@
       "meridian": "肝經",
       "name": "烏梢蛇",
       "updatedAt": "2025-08-12T10:24:05.489Z",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "WuShaoShe"
     },
     {
       "id": 1754994245490,
@@ -3262,7 +3494,8 @@
       "createdAt": "2025-08-12T10:24:05.490Z",
       "cautions": "陽虛畏寒便溏者慎服",
       "alias": "石龍藤",
-      "updatedAt": "2025-08-12T10:24:05.490Z"
+      "updatedAt": "2025-08-12T10:24:05.490Z",
+      "englishName": "LuoShiTeng"
     },
     {
       "id": 1754994245491,
@@ -3276,7 +3509,8 @@
       "dosage": "1-5g",
       "effects": "祛風除濕活血通絡消腫止痛殺蟲解毒",
       "updatedAt": "2025-08-12T10:24:05.491Z",
-      "cautions": "內服宜慎孕婦禁用"
+      "cautions": "內服宜慎孕婦禁用",
+      "englishName": "LeiGongTeng"
     },
     {
       "id": 1754994245492,
@@ -3290,7 +3524,8 @@
       "nature": "辛、苦，平",
       "cautions": "暫無",
       "type": "herb",
-      "dosage": "9-15g"
+      "dosage": "9-15g",
+      "englishName": "LaoGuanCao"
     },
     {
       "id": 1754994245503,
@@ -3304,7 +3539,8 @@
       "updatedAt": "2025-08-12T10:24:05.503Z",
       "meridian": "肝經",
       "effects": "活血通經消腫解毒",
-      "createdAt": "2025-08-12T10:24:05.503Z"
+      "createdAt": "2025-08-12T10:24:05.503Z",
+      "englishName": "ZiJingPi"
     },
     {
       "id": 1754994245504,
@@ -3318,7 +3554,8 @@
       "dosage": "9-15g",
       "updatedAt": "2025-08-12T10:24:05.504Z",
       "nature": "辛，溫",
-      "indications": "吐血衄血外傷出血肝鬱脅痛胸痹刺痛跌撲損傷嘔吐腹痛"
+      "indications": "吐血衄血外傷出血肝鬱脅痛胸痹刺痛跌撲損傷嘔吐腹痛",
+      "englishName": "JiangXiang"
     },
     {
       "id": 1754994245505,
@@ -3332,7 +3569,8 @@
       "effects": "化瘀止血",
       "createdAt": "2025-08-12T10:24:05.505Z",
       "alias": "花乳石",
-      "nature": "酸、澀，平"
+      "nature": "酸、澀，平",
+      "englishName": "HuaRuiShi"
     },
     {
       "id": 1754994245506,
@@ -3346,7 +3584,8 @@
       "updatedAt": "2025-08-12T10:24:05.506Z",
       "name": "瓦楞子",
       "type": "herb",
-      "alias": "蚶殼"
+      "alias": "蚶殼",
+      "englishName": "WaLengZi"
     },
     {
       "id": 1754994245507,
@@ -3360,7 +3599,8 @@
       "meridian": "肺、腎、胃經",
       "createdAt": "2025-08-12T10:24:05.507Z",
       "cautions": "脾胃虛寒者慎用",
-      "effects": "清肺化痰軟堅散結制酸止痛"
+      "effects": "清肺化痰軟堅散結制酸止痛",
+      "englishName": "HaKe"
     },
     {
       "id": 1754994245508,
@@ -3374,7 +3614,8 @@
       "alias": "大海子",
       "indications": "肺熱聲啞乾咳無痰咽喉乾痛熱結便秘頭痛目赤",
       "createdAt": "2025-08-12T10:24:05.508Z",
-      "meridian": "肺、大腸經"
+      "meridian": "肺、大腸經",
+      "englishName": "PangDaHai"
     },
     {
       "id": 1754999999001,
@@ -3388,7 +3629,8 @@
       "meridian": "肝、膽經",
       "nature": "苦，寒",
       "type": "herb",
-      "dosage": "3-6g"
+      "dosage": "3-6g",
+      "englishName": "LongDan"
     },
     {
       "id": 1754999999002,
@@ -3402,7 +3644,8 @@
       "createdAt": "2025-08-12T10:24:05.512Z",
       "nature": "苦、辛，微寒",
       "updatedAt": "2025-08-12T10:24:05.512Z",
-      "meridian": "脾、胃、肝、膽經"
+      "meridian": "脾、胃、肝、膽經",
+      "englishName": "YinChen"
     },
     {
       "id": 1754999999003,
@@ -3416,7 +3659,8 @@
       "effects": "利濕退黃，利尿通淋，解毒消腫",
       "meridian": "肝、膽、腎、膀胱經",
       "updatedAt": "2025-08-12T10:24:05.513Z",
-      "nature": "甘、鹹，微寒"
+      "nature": "甘、鹹，微寒",
+      "englishName": "JinQianCao"
     },
     {
       "id": 1754999999004,
@@ -3430,7 +3674,8 @@
       "effects": "利濕退黃，清熱解毒，散瘀止痛，止咳化痰",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.514Z",
-      "dosage": "9-15g"
+      "dosage": "9-15g",
+      "englishName": "HuZhang"
     },
     {
       "id": 1754999999005,
@@ -3444,7 +3689,8 @@
       "indications": "小便澀痛，陰癢帶下，風疹濕疹，皮膚瘙癢",
       "nature": "辛、苦，寒",
       "name": "地膚子",
-      "alias": "掃帚子、地葵"
+      "alias": "掃帚子、地葵",
+      "englishName": "DeFuZi"
     },
     {
       "id": 1754999999006,
@@ -3458,7 +3704,8 @@
       "cautions": "脾胃虛弱者慎用",
       "name": "萹蓄",
       "indications": "熱淋澀痛，小便短赤，蟲積腹痛，皮膚濕疹，陰癢帶下",
-      "updatedAt": "2025-08-12T10:24:05.516Z"
+      "updatedAt": "2025-08-12T10:24:05.516Z",
+      "englishName": "BianXu"
     },
     {
       "id": 1754999999007,
@@ -3472,7 +3719,8 @@
       "meridian": "心、小腸經",
       "dosage": "9-15g",
       "nature": "苦，寒",
-      "updatedAt": "2025-08-12T10:24:05.517Z"
+      "updatedAt": "2025-08-12T10:24:05.517Z",
+      "englishName": "QuMai"
     },
     {
       "id": 1754999999008,
@@ -3486,7 +3734,8 @@
       "cautions": "孕婦及脾虛腸滑者忌服",
       "nature": "甘，寒",
       "dosage": "3-9g",
-      "meridian": "大腸、小腸、膀胱經"
+      "meridian": "大腸、小腸、膀胱經",
+      "englishName": "DongKuiZi"
     },
     {
       "id": 1754999999009,
@@ -3500,7 +3749,8 @@
       "alias": "虎鬚草、碧玉草",
       "updatedAt": "2025-08-12T10:24:05.519Z",
       "effects": "清心火，利小便",
-      "indications": "心煩失眠，尿少澀痛，口舌生瘡"
+      "indications": "心煩失眠，尿少澀痛，口舌生瘡",
+      "englishName": "DengXinCao"
     },
     {
       "id": 1754999999010,
@@ -3514,7 +3764,8 @@
       "cautions": "陰虛血少者忌用",
       "updatedAt": "2025-08-12T10:24:05.520Z",
       "nature": "辛，溫",
-      "indications": "寒濕內阻，脘腹脹痛，痞滿嘔吐，瘧疾寒熱"
+      "indications": "寒濕內阻，脘腹脹痛，痞滿嘔吐，瘧疾寒熱",
+      "englishName": "CaoGuo"
     },
     {
       "id": 1754999999011,
@@ -3528,7 +3779,8 @@
       "cautions": "陰虛血少津液不足者忌用",
       "nature": "辛，溫",
       "dosage": "3-6g",
-      "meridian": "脾、胃經"
+      "meridian": "脾、胃經",
+      "englishName": "CaoDouKou"
     },
     {
       "id": 1754999999012,
@@ -3542,7 +3794,8 @@
       "meridian": "肺、脾、胃經",
       "dosage": "3-6g",
       "alias": "白蔻、蔻仁",
-      "indications": "濕濁中阻，不思飲食，胸悶不飢，寒濕嘔逆"
+      "indications": "濕濁中阻，不思飲食，胸悶不飢，寒濕嘔逆",
+      "englishName": "BaiDouKou"
     },
     {
       "id": 1754999999013,
@@ -3556,7 +3809,8 @@
       "name": "砂仁",
       "type": "herb",
       "effects": "化濕開胃，溫脾止瀉，理氣安胎",
-      "alias": "春砂仁、縮砂仁"
+      "alias": "春砂仁、縮砂仁",
+      "englishName": "ShaRen"
     },
     {
       "id": 1754999999014,
@@ -3570,7 +3824,8 @@
       "effects": "芳香化濕，醒脾開胃，發表解暑",
       "nature": "辛，平",
       "dosage": "3-10g",
-      "createdAt": "2025-08-12T10:24:05.524Z"
+      "createdAt": "2025-08-12T10:24:05.524Z",
+      "englishName": "PeiLan"
     },
     {
       "id": 1754999999015,
@@ -3584,7 +3839,8 @@
       "effects": "散風寒通鼻竅祛風濕",
       "alias": "蒼耳、蝨麻頭",
       "updatedAt": "2025-08-12T10:24:05.525Z",
-      "nature": "辛、苦，溫；有毒"
+      "nature": "辛、苦，溫；有毒",
+      "englishName": "CangErZi"
     },
     {
       "id": 1754999999016,
@@ -3598,7 +3854,8 @@
       "name": "辛夷",
       "createdAt": "2025-08-12T10:24:05.526Z",
       "updatedAt": "2025-08-12T10:24:05.526Z",
-      "nature": "辛，溫"
+      "nature": "辛，溫",
+      "englishName": "XinYi"
     },
     {
       "id": 1754999999017,
@@ -3612,7 +3869,8 @@
       "createdAt": "2025-08-12T10:24:05.527Z",
       "updatedAt": "2025-08-12T10:24:05.527Z",
       "meridian": "肺、胃經",
-      "indications": "風寒感冒陰寒腹痛乳汁不通二便不利"
+      "indications": "風寒感冒陰寒腹痛乳汁不通二便不利",
+      "englishName": "CongBai"
     },
     {
       "id": 1754999999018,
@@ -3626,7 +3884,8 @@
       "type": "herb",
       "indications": "感冒寒熱頭痛胸中煩悶虛煩不眠",
       "name": "淡豆豉",
-      "alias": "香豉、淡豉"
+      "alias": "香豉、淡豉",
+      "englishName": "DanDouShi"
     },
     {
       "id": 1754999999019,
@@ -3640,7 +3899,8 @@
       "type": "herb",
       "updatedAt": "2025-08-12T10:24:05.529Z",
       "indications": "風熱感冒麻疹不透風疹瘙癢水腫尿少",
-      "cautions": "表虛自汗者勿用"
+      "cautions": "表虛自汗者勿用",
+      "englishName": "FuPing"
     },
     {
       "id": 1754999999020,
@@ -3654,7 +3914,8 @@
       "effects": "疏散風熱明目退翳止血",
       "createdAt": "2025-08-12T10:24:05.530Z",
       "nature": "甘、苦，平",
-      "cautions": "氣虛者慎用"
+      "cautions": "氣虛者慎用",
+      "englishName": "MuZei"
     },
     {
       "id": 1754999999021,
@@ -3668,7 +3929,8 @@
       "createdAt": "2025-08-12T10:24:05.531Z",
       "updatedAt": "2025-08-12T10:24:05.531Z",
       "dosage": "5-10g",
-      "effects": "疏散風熱明目退翳"
+      "effects": "疏散風熱明目退翳",
+      "englishName": "GuJingCao"
     },
     {
       "id": 1754999999022,
@@ -3682,7 +3944,8 @@
       "alias": "蒙花、小錦花",
       "dosage": "3-9g",
       "updatedAt": "2025-08-12T10:24:05.532Z",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "MiMengHua"
     },
     {
       "id": 1754999999024,
@@ -3696,7 +3959,8 @@
       "cautions": "孕婦慎用",
       "dosage": "3-10g",
       "createdAt": "2025-08-12T10:24:05.534Z",
-      "nature": "辛，寒"
+      "nature": "辛，寒",
+      "englishName": "YeMingSha"
     },
     {
       "id": 1754999999027,
@@ -3710,7 +3974,8 @@
       "alias": "貓眼草、五朵雲",
       "updatedAt": "2025-08-12T10:24:05.537Z",
       "indications": "水腫腹水痰飲喘咳瘰癧癬瘡",
-      "effects": "利水消腫化痰止咳散結"
+      "effects": "利水消腫化痰止咳散結",
+      "englishName": "ZeQi"
     },
     {
       "id": 1754999999028,
@@ -3724,7 +3989,8 @@
       "name": "螻蛄",
       "updatedAt": "2025-08-12T10:24:05.538Z",
       "indications": "水腫喘滿小便不利石淋",
-      "cautions": "氣虛體弱者及孕婦忌服"
+      "cautions": "氣虛體弱者及孕婦忌服",
+      "englishName": "LouGu"
     },
     {
       "id": 1754999999030,
@@ -3738,7 +4004,8 @@
       "nature": "苦、辛，溫",
       "type": "herb",
       "dosage": "3-10g",
-      "cautions": "脾虛便溏氣虛下陷者忌服"
+      "cautions": "脾虛便溏氣虛下陷者忌服",
+      "englishName": "BinLang"
     },
     {
       "id": 1754999999031,
@@ -3752,7 +4019,8 @@
       "name": "南瓜子",
       "nature": "甘，平",
       "cautions": "多食壅氣滯膈",
-      "type": "herb"
+      "type": "herb",
+      "englishName": "NanGuaZi"
     },
     {
       "id": 1754999999032,
@@ -3766,7 +4034,8 @@
       "indications": "蟲積腹痛小兒疳積",
       "meridian": "脾、胃經",
       "nature": "苦、辛，平；有小毒",
-      "effects": "殺蟲消積"
+      "effects": "殺蟲消積",
+      "englishName": "HeShi"
     },
     {
       "id": 1754999999033,
@@ -3780,7 +4049,8 @@
       "dosage": "9-15g",
       "type": "herb",
       "meridian": "肺、胃、大腸經",
-      "effects": "殺蟲消積潤燥通便"
+      "effects": "殺蟲消積潤燥通便",
+      "englishName": "FeiZi"
     },
     {
       "id": 1754999999034,
@@ -3794,7 +4064,8 @@
       "createdAt": "2025-08-12T10:24:05.544Z",
       "cautions": "不宜入煎劑",
       "alias": "雷實、竹苓",
-      "meridian": "胃、大腸經"
+      "meridian": "胃、大腸經",
+      "englishName": "LeiWan"
     },
     {
       "id": 1754999999036,
@@ -3808,7 +4079,8 @@
       "indications": "目赤腫痛瞼弦赤爛目暗羞明",
       "meridian": "肝經",
       "cautions": "暫無",
-      "updatedAt": "2025-08-12T10:24:05.546Z"
+      "updatedAt": "2025-08-12T10:24:05.546Z",
+      "englishName": "RuiRen"
     },
     {
       "id": 1754999999037,
@@ -3822,7 +4094,8 @@
       "type": "herb",
       "updatedAt": "2025-08-12T10:24:05.547Z",
       "alias": "左轉藤灰",
-      "createdAt": "2025-08-12T10:24:05.547Z"
+      "createdAt": "2025-08-12T10:24:05.547Z",
+      "englishName": "HaiJinSha"
     },
     {
       "id": 1754999999038,
@@ -3836,7 +4109,8 @@
       "createdAt": "2025-08-12T10:24:05.548Z",
       "meridian": "肺、膀胱經",
       "cautions": "陰虛及無濕熱者忌服",
-      "nature": "甘、苦，微寒"
+      "nature": "甘、苦，微寒",
+      "englishName": "ShiWei"
     },
     {
       "id": 1754999999039,
@@ -3850,7 +4124,8 @@
       "dosage": "10-15g",
       "nature": "甘，涼",
       "createdAt": "2025-08-12T10:24:05.549Z",
-      "alias": "白瓜子、瓜瓣"
+      "alias": "白瓜子、瓜瓣",
+      "englishName": "DongGuaZi"
     },
     {
       "id": 1754999999040,
@@ -3864,7 +4139,8 @@
       "createdAt": "2025-08-12T10:24:05.550Z",
       "alias": "白瓜皮",
       "type": "herb",
-      "indications": "水腫小便不利"
+      "indications": "水腫小便不利",
+      "englishName": "DongGuaPi"
     },
     {
       "id": 1754999999041,
@@ -3878,7 +4154,8 @@
       "indications": "水腫小便淋瀝黃疸",
       "updatedAt": "2025-08-12T10:24:05.551Z",
       "effects": "利水消腫利濕退黃",
-      "createdAt": "2025-08-12T10:24:05.551Z"
+      "createdAt": "2025-08-12T10:24:05.551Z",
+      "englishName": "YuMiXu"
     },
     {
       "id": 1754999999042,
@@ -3892,7 +4169,8 @@
       "nature": "甘，平",
       "indications": "水腫腹水",
       "dosage": "15-30g",
-      "name": "葫蘆"
+      "name": "葫蘆",
+      "englishName": "HuLu"
     },
     {
       "id": 1754999999043,
@@ -3906,7 +4184,8 @@
       "effects": "利水消腫解酒毒",
       "updatedAt": "2025-08-12T10:24:05.553Z",
       "indications": "水腫證酒醉",
-      "alias": "拐棗、雞爪子"
+      "alias": "拐棗、雞爪子",
+      "englishName": "ZhiJuZi"
     },
     {
       "id": 1754999999044,
@@ -3920,7 +4199,8 @@
       "dosage": "6-12g",
       "meridian": "肝、脾經",
       "effects": "活血調經祛瘀消癰利水消腫",
-      "cautions": "血虛及無瘀滯者慎用"
+      "cautions": "血虛及無瘀滯者慎用",
+      "englishName": "ZeLan"
     },
     {
       "id": 1754999999045,
@@ -3934,7 +4214,8 @@
       "createdAt": "2025-08-12T10:24:05.555Z",
       "cautions": "孕婦忌服",
       "name": "接骨木",
-      "alias": "續骨木、公道老"
+      "alias": "續骨木、公道老",
+      "englishName": "JieGuMu"
     },
     {
       "id": 1754999999046,
@@ -3948,7 +4229,8 @@
       "cautions": "虛寒者慎用",
       "alias": "積雪草、馬蹄草",
       "dosage": "15-30g",
-      "nature": "苦、辛，寒"
+      "nature": "苦、辛，寒",
+      "englishName": "LuoDeDa"
     },
     {
       "id": 1754999999047,
@@ -3962,7 +4244,8 @@
       "updatedAt": "2025-08-12T10:24:05.557Z",
       "dosage": "10-15g",
       "cautions": "虛證水腫忌用",
-      "nature": "辛，平"
+      "nature": "辛，平",
+      "englishName": "BanBianLian"
     },
     {
       "id": 1754999999048,
@@ -3976,7 +4259,8 @@
       "createdAt": "2025-08-12T10:24:05.558Z",
       "alias": "蛇舌草、羊須草",
       "cautions": "孕婦慎用",
-      "name": "白花蛇舌草"
+      "name": "白花蛇舌草",
+      "englishName": "BaiHuaSheSheCao"
     },
     {
       "id": 1755000000001,
@@ -3990,7 +4274,8 @@
       "name": "紫蘇子",
       "indications": "痰壅氣逆，咳嗽氣喘，腸燥便秘",
       "meridian": "肺、大腸經",
-      "effects": "降氣化痰，止咳平喘，潤腸通便"
+      "effects": "降氣化痰，止咳平喘，潤腸通便",
+      "englishName": "ZiSuZi"
     },
     {
       "id": 1755000000002,
@@ -4004,7 +4289,8 @@
       "nature": "辛，溫",
       "alias": "芥菜子、辣菜子",
       "name": "白芥子",
-      "dosage": "3-9g"
+      "dosage": "3-9g",
+      "englishName": "BaiJieZi"
     },
     {
       "id": 1755000000003,
@@ -4018,7 +4304,8 @@
       "nature": "辛，溫",
       "alias": "皂刺、天丁",
       "dosage": "3-9g",
-      "effects": "消腫托毒，排膿，殺蟲"
+      "effects": "消腫托毒，排膿，殺蟲",
+      "englishName": "ZaoJiaoCi"
     },
     {
       "id": 1755000000049,
@@ -4032,7 +4319,8 @@
       "updatedAt": "2025-08-12T10:24:05.609Z",
       "indications": "蛔蟲病蟯蟲病小兒疳積",
       "alias": "留球子、史君子",
-      "name": "使君子"
+      "name": "使君子",
+      "englishName": "ShiJunZi"
     },
     {
       "id": 1755000001001,
@@ -4046,7 +4334,8 @@
       "updatedAt": "2025-08-12T10:24:05.611Z",
       "alias": "烏頭、五毒根",
       "cautions": "孕婦禁用；不宜與貝母、半夏、白及、白蘞、天花粉、瓜蔞同用",
-      "meridian": "心、肝、腎、脾經"
+      "meridian": "心、肝、腎、脾經",
+      "englishName": "ChuanWu"
     },
     {
       "id": 1755000001002,
@@ -4060,7 +4349,8 @@
       "updatedAt": "2025-08-12T10:24:05.612Z",
       "type": "herb",
       "indications": "風寒濕痹，關節疼痛，心腹冷痛，寒疝作痛",
-      "alias": "烏喙、奚毒"
+      "alias": "烏喙、奚毒",
+      "englishName": "CaoWu"
     },
     {
       "id": 1755000001003,
@@ -4074,7 +4364,8 @@
       "name": "威靈仙",
       "updatedAt": "2025-08-12T10:24:05.613Z",
       "nature": "辛、鹹，溫",
-      "effects": "祛風濕，通經絡，消骨鯁"
+      "effects": "祛風濕，通經絡，消骨鯁",
+      "englishName": "WeiLingXian"
     },
     {
       "id": 1755000001013,
@@ -4088,7 +4379,8 @@
       "type": "herb",
       "indications": "疔瘡腫毒，咽喉腫痛，毒蛇咬傷，跌撲傷痛，水腫，黃疸",
       "alias": "並頭草、牙刷草",
-      "name": "半枝蓮"
+      "name": "半枝蓮",
+      "englishName": "BanZhiLian"
     },
     {
       "id": 1755000001015,
@@ -4102,7 +4394,8 @@
       "type": "herb",
       "effects": "清熱解毒，化痰散結",
       "updatedAt": "2025-08-12T10:24:05.625Z",
-      "indications": "癰腫疔毒，瘰癧痰核，蛇蟲咬傷，癥瘕痞塊"
+      "indications": "癰腫疔毒，瘰癧痰核，蛇蟲咬傷，癥瘕痞塊",
+      "englishName": "ShanCiGu"
     },
     {
       "id": 1755000001017,
@@ -4116,7 +4409,8 @@
       "type": "herb",
       "meridian": "肺、心經",
       "effects": "清熱解毒，涼血止血，斂瘡",
-      "updatedAt": "2025-08-12T10:24:05.627Z"
+      "updatedAt": "2025-08-12T10:24:05.627Z",
+      "englishName": "SiJiQing"
     },
     {
       "id": 1755000001018,
@@ -4130,7 +4424,8 @@
       "meridian": "肺、大腸經",
       "indications": "咽喉腫痛，癰疽疔毒，洩瀉，痢疾，脘腹熱痛",
       "effects": "清熱解毒，利咽止痛",
-      "dosage": "3-9g"
+      "dosage": "3-9g",
+      "englishName": "JinGuoLan"
     },
     {
       "id": 1755000001020,
@@ -4144,7 +4439,8 @@
       "alias": "芙蓉葉、拒霜葉",
       "name": "木芙蓉葉",
       "dosage": "10-30g；外用適量",
-      "updatedAt": "2025-08-12T10:24:05.630Z"
+      "updatedAt": "2025-08-12T10:24:05.630Z",
+      "englishName": "MuFuRongYe"
     },
     {
       "id": 1755000001022,
@@ -4158,7 +4454,8 @@
       "effects": "清熱解毒，止血，止痢",
       "indications": "肺熱咳喘，瀉痢，瘧疾，咳血，吐血，便血，崩漏，癰腫瘡瘍",
       "nature": "甘、微苦，平",
-      "alias": "雞腿根、天藕"
+      "alias": "雞腿根、天藕",
+      "englishName": "FanBaiCao"
     },
     {
       "id": 1755000001031,
@@ -4172,7 +4469,8 @@
       "nature": "辛，微溫",
       "updatedAt": "2025-08-12T10:24:05.641Z",
       "name": "藿香",
-      "indications": "濕濁中阻，脘痞嘔吐，暑濕表證，濕溫初起，發熱倦怠，胸悶不舒"
+      "indications": "濕濁中阻，脘痞嘔吐，暑濕表證，濕溫初起，發熱倦怠，胸悶不舒",
+      "englishName": "HuoXiang"
     },
     {
       "id": 1755000002001,
@@ -4186,9 +4484,10 @@
       "cautions": "陰虛血熱者忌服",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.701Z",
-      "updatedAt": "2025-08-12T10:24:05.701Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.701Z",
+      "englishName": "BaiZhi"
+    },
+    {
       "id": 1755000002002,
       "name": "藁本",
       "alias": "川藁本、西芎",
@@ -4200,9 +4499,10 @@
       "cautions": "陰虛血虧者慎用",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.702Z",
-      "updatedAt": "2025-08-12T10:24:05.702Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.702Z",
+      "englishName": "GaoBen"
+    },
+    {
       "id": 1755000002003,
       "name": "白蘚皮",
       "alias": "白鮮皮、北鮮皮",
@@ -4214,9 +4514,10 @@
       "cautions": "脾胃虛寒者慎用",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.703Z",
-      "updatedAt": "2025-08-12T10:24:05.703Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.703Z",
+      "englishName": "BaiXianPi"
+    },
+    {
       "id": 1755000002006,
       "name": "桑枝",
       "alias": "嫩桑枝、童桑枝",
@@ -4228,9 +4529,10 @@
       "cautions": "暫無",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.706Z",
-      "updatedAt": "2025-08-12T10:24:05.706Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.706Z",
+      "englishName": "SangZhi"
+    },
+    {
       "id": 1755000002007,
       "name": "豨薟草",
       "alias": "肥豬草、粘糊菜",
@@ -4242,9 +4544,10 @@
       "cautions": "陰虛血虧者慎用",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.707Z",
-      "updatedAt": "2025-08-12T10:24:05.707Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.707Z",
+      "englishName": "XiXianCao"
+    },
+    {
       "id": 1755000002008,
       "name": "海桐皮",
       "alias": "刺桐皮、木棉皮",
@@ -4256,9 +4559,10 @@
       "cautions": "血虛者慎用",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.708Z",
-      "updatedAt": "2025-08-12T10:24:05.708Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.708Z",
+      "englishName": "HaiTongPi"
+    },
+    {
       "id": 1755000002009,
       "name": "路路通",
       "alias": "楓實、楓香果",
@@ -4270,9 +4574,10 @@
       "cautions": "孕婦慎用",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.709Z",
-      "updatedAt": "2025-08-12T10:24:05.709Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.709Z",
+      "englishName": "LuLuTong"
+    },
+    {
       "id": 1755000002010,
       "name": "絲瓜絡",
       "alias": "絲瓜網、絲瓜筋",
@@ -4284,9 +4589,10 @@
       "cautions": "暫無",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.710Z",
-      "updatedAt": "2025-08-12T10:24:05.710Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.710Z",
+      "englishName": "SiGuaLuo"
+    },
+    {
       "id": 1755000002011,
       "name": "千年健",
       "alias": "一包針、千年見",
@@ -4298,9 +4604,10 @@
       "cautions": "陰虛內熱者慎用",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.711Z",
-      "updatedAt": "2025-08-12T10:24:05.711Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.711Z",
+      "englishName": "QianNianJian"
+    },
+    {
       "id": 1755000002012,
       "name": "松節",
       "alias": "油松節、松郎頭",
@@ -4312,9 +4619,10 @@
       "cautions": "陰虛血燥者慎用",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.712Z",
-      "updatedAt": "2025-08-12T10:24:05.712Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.712Z",
+      "englishName": "SongJie"
+    },
+    {
       "id": 1755000002013,
       "name": "伸筋草",
       "alias": "石松、過山龍",
@@ -4326,9 +4634,10 @@
       "cautions": "孕婦及出血過多者忌服",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.713Z",
-      "updatedAt": "2025-08-12T10:24:05.713Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.713Z",
+      "englishName": "ShenJinCao"
+    },
+    {
       "id": 1755000002014,
       "name": "木瓜",
       "alias": "宣木瓜、皺皮木瓜",
@@ -4340,9 +4649,10 @@
       "cautions": "胃酸過多者慎用",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.714Z",
-      "updatedAt": "2025-08-12T10:24:05.714Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.714Z",
+      "englishName": "MuGua"
+    },
+    {
       "id": 1755000002015,
       "name": "蠶沙",
       "alias": "蠶矢、原蠶沙",
@@ -4354,9 +4664,10 @@
       "cautions": "血虛無風濕者慎用",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.715Z",
-      "updatedAt": "2025-08-12T10:24:05.715Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.715Z",
+      "englishName": "CanSha"
+    },
+    {
       "id": 1755000002016,
       "name": "海風藤",
       "alias": "風藤、巴岩香",
@@ -4368,9 +4679,10 @@
       "cautions": "陰虛血虧者慎用",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.716Z",
-      "updatedAt": "2025-08-12T10:24:05.716Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.716Z",
+      "englishName": "HaiFengTeng"
+    },
+    {
       "id": 1755000002017,
       "name": "老鶴草",
       "alias": "老觀草、五葉草",
@@ -4382,9 +4694,10 @@
       "cautions": "暫無",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.717Z",
-      "updatedAt": "2025-08-12T10:24:05.717Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.717Z",
+      "englishName": "LaoHeCao"
+    },
+    {
       "id": 1755000002018,
       "name": "透骨草",
       "alias": "珍珠透骨草、藥曲草",
@@ -4396,9 +4709,10 @@
       "cautions": "孕婦忌服",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.718Z",
-      "updatedAt": "2025-08-12T10:24:05.718Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.718Z",
+      "englishName": "TouGuCao"
+    },
+    {
       "id": 1755000002029,
       "name": "寬筋藤",
       "alias": "中華青牛膽、舒筋藤",
@@ -4410,9 +4724,10 @@
       "cautions": "暫無",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.729Z",
-      "updatedAt": "2025-08-12T10:24:05.729Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.729Z",
+      "englishName": "KuanJinTeng"
+    },
+    {
       "id": 1755000002030,
       "name": "丁公藤",
       "alias": "包公藤、麻辣子",
@@ -4424,9 +4739,10 @@
       "cautions": "孕婦忌服",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.730Z",
-      "updatedAt": "2025-08-12T10:24:05.730Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.730Z",
+      "englishName": "DingGongTeng"
+    },
+    {
       "id": 1755000003048,
       "name": "赤小豆",
       "alias": "紅小豆、朱小豆",
@@ -4438,9 +4754,10 @@
       "cautions": "陰虛津傷者慎用",
       "type": "herb",
       "createdAt": "2025-08-12T10:24:05.848Z",
-      "updatedAt": "2025-08-12T10:24:05.848Z"
-      },
-      {
+      "updatedAt": "2025-08-12T10:24:05.848Z",
+      "englishName": "ChiXiaoDou"
+    },
+    {
       "id": 1755000004001,
       "cautions": "陰虛津虧、火旺者慎用",
       "alias": "廣木香、雲木香",
@@ -4452,9 +4769,10 @@
       "createdAt": "2025-08-12T10:24:05.901Z",
       "nature": "辛、苦，溫",
       "dosage": "3-6g",
-      "meridian": "脾、胃、大腸、三焦經"
-      },
-      {
+      "meridian": "脾、胃、大腸、三焦經",
+      "englishName": "MuXiang"
+    },
+    {
       "id": 1755000004002,
       "cautions": "實證、熱證者不宜單用",
       "alias": "潞黨參、臺黨參",
@@ -4466,9 +4784,10 @@
       "createdAt": "2025-08-12T10:24:05.902Z",
       "nature": "甘，平",
       "dosage": "9-30g",
-      "meridian": "脾、肺經"
-      },
-      {
+      "meridian": "脾、肺經",
+      "englishName": "DangShen"
+    },
+    {
       "id": 1755000004003,
       "cautions": "脾虛無積滯者慎用",
       "alias": "雞肫皮、雞黃皮",
@@ -4480,9 +4799,10 @@
       "createdAt": "2025-08-12T10:24:05.903Z",
       "nature": "甘，平",
       "dosage": "3-10g",
-      "meridian": "脾、胃、小腸、膀胱經"
-      },
-      {
+      "meridian": "脾、胃、小腸、膀胱經",
+      "englishName": "JiNeiJin"
+    },
+    {
       "id": 1755000004004,
       "cautions": "表實邪盛、氣滯濕阻、食積內停、陰虛陽亢、癰疽初起或潰後熱毒尚盛者不宜",
       "alias": "黃芪、北芪",
@@ -4494,9 +4814,10 @@
       "createdAt": "2025-08-12T10:24:05.904Z",
       "nature": "甘，微溫",
       "dosage": "9-30g",
-      "meridian": "肺、脾經"
-      },
-      {
+      "meridian": "肺、脾經",
+      "englishName": "HuangQi"
+    },
+    {
       "id": 1755000004005,
       "cautions": "濕盛中滿者不宜",
       "alias": "蜜甘草、炙草",
@@ -4508,9 +4829,10 @@
       "createdAt": "2025-08-12T10:24:05.905Z",
       "nature": "甘，平",
       "dosage": "2-10g",
-      "meridian": "心、肺、脾、胃經"
-      },
-      {
+      "meridian": "心、肺、脾、胃經",
+      "englishName": "ZhiGanCao"
+    },
+    {
       "id": 1755000004006,
       "cautions": "不宜與川烏、製川烏、草烏、製草烏、附子同用；陰虛燥咳者慎用",
       "alias": "法夏、京半夏",
@@ -4522,9 +4844,10 @@
       "createdAt": "2025-08-12T10:24:05.906Z",
       "nature": "辛，溫",
       "dosage": "3-9g",
-      "meridian": "脾、胃、肺經"
-      },
-      {
+      "meridian": "脾、胃、肺經",
+      "englishName": "FaBanXia"
+    },
+    {
       "id": 1755000004007,
       "cautions": "胃火盛、陰虛火旺者忌用",
       "alias": "六神曲、建曲",
@@ -4536,9 +4859,10 @@
       "createdAt": "2025-08-12T10:24:05.907Z",
       "nature": "甘、辛，溫",
       "dosage": "6-15g",
-      "meridian": "脾、胃經"
-      },
-      {
+      "meridian": "脾、胃經",
+      "englishName": "ShenQu"
+    },
+    {
       "id": 1755000004008,
       "cautions": "氣虛及無食積、痰滯者慎用",
       "alias": "蘿蔔子",
@@ -4550,7 +4874,8 @@
       "createdAt": "2025-08-12T10:24:05.908Z",
       "nature": "辛、甘，平",
       "dosage": "5-12g",
-      "meridian": "肺、脾、胃經"
+      "meridian": "肺、脾、胃經",
+      "englishName": "LaiFuZi"
     }
   ]
 }
