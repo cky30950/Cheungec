@@ -4367,6 +4367,62 @@
       "usage": "水煎服",
       "updatedAt": "2025-08-17T10:00:00.046Z",
       "englishName": "DeHuangYinZi"
+    },
+    {
+      "id": 1755600000001,
+      "type": "formula",
+      "name": "身痛逐瘀湯",
+      "composition": "秦艽\n川芎\n桃仁\n紅花\n甘草\n羌活\n沒藥\n當歸\n五靈脂\n香附\n牛膝\n地龍",
+      "createdAt": "2025-08-18T10:00:00.001Z",
+      "source": "醫林改錯",
+      "effects": "活血祛瘀，通絡止痛",
+      "cautions": "孕婦及無瘀血者忌用",
+      "indications": "瘀血阻絡，肩痛、臂痛、腰痛、腿痛，或周身疼痛",
+      "usage": "水煎服",
+      "updatedAt": "2025-08-18T10:00:00.001Z",
+      "englishName": "ShenTongZhuYuTang"
+    },
+    {
+      "id": 1755600000002,
+      "type": "formula",
+      "name": "麻子仁丸",
+      "composition": "麻子仁\n芍藥\n枳實\n大黃\n厚朴\n杏仁",
+      "createdAt": "2025-08-18T10:00:00.002Z",
+      "source": "傷寒論",
+      "effects": "潤腸泄熱，行氣通便",
+      "cautions": "孕婦及虛寒便秘者慎用",
+      "indications": "腸胃燥熱，脾約便秘，小便頻數",
+      "usage": "丸劑，溫開水送服",
+      "updatedAt": "2025-08-18T10:00:00.002Z",
+      "englishName": "MaZiRenWan"
+    },
+    {
+      "id": 1755600000003,
+      "type": "formula",
+      "name": "止嗽散",
+      "composition": "桔梗\n荊芥\n紫菀\n百部\n白前\n甘草\n陳皮",
+      "createdAt": "2025-08-18T10:00:00.003Z",
+      "source": "醫學心悟",
+      "effects": "宣肺疏風，止咳化痰",
+      "cautions": "陰虛勞嗽者慎用",
+      "indications": "風邪犯肺，咳嗽咽癢，咯痰不爽",
+      "usage": "散劑，生薑湯調下",
+      "updatedAt": "2025-08-18T10:00:00.003Z",
+      "englishName": "ZhiSouSan"
+    },
+    {
+      "id": 1755600000004,
+      "type": "formula",
+      "name": "小建中湯",
+      "composition": "桂枝\n芍藥\n甘草\n生薑\n大棗\n飴糖",
+      "createdAt": "2025-08-18T10:00:00.004Z",
+      "source": "傷寒論",
+      "effects": "溫中補虛，和裡緩急",
+      "cautions": "嘔家及中滿者不宜使用",
+      "indications": "虛勞裡急，腹中痛，心悸，手足煩熱",
+      "usage": "水煎服，飴糖烊化",
+      "updatedAt": "2025-08-18T10:00:00.004Z",
+      "englishName": "XiaoJianZhongTang"
     }
   ]
 }
