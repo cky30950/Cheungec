@@ -25,6 +25,8 @@ import {
   ,
   // 匯入批次寫入函式以支援批次操作
   writeBatch
+  // 新增 onSnapshot 用於監聽 Firestore 文件變更
+  , onSnapshot
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import { getDatabase, ref, set, get, update, remove, onValue, off,
         // 新增 onDisconnect 用於在連線中斷時自動移除 presence
@@ -98,6 +100,8 @@ setPersistence(auth, browserSessionPersistence).catch((error) => {
         startAfter,   // Firestore 分頁用
         getDoc,       // 取得單筆 Firestore 文件
         getCountFromServer,
+        // 新增：透過 onSnapshot 監聽 Firestore 的即時更新
+        onSnapshot,
         // Realtime Database 基本操作函式
         ref,
         set,

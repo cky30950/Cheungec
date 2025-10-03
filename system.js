@@ -1014,6 +1014,56 @@ async function fetchPatients(forceRefresh = false, pageNumber = null) {
 }
 
 /**
+ * 根據病人 ID 取得病人資料。此函式將從本地快取尋找，
+ * 若找不到則強制重新從 Firebase 讀取一次，再次尋找。
+ * 如果仍未找到，最終會直接從 FirebaseDataManager 取得所有病人
+ * 並在其中搜尋，以避免多裝置間快取不一致的問題。
+ *
+ * @param {string|number} id - 病人文件的 ID
+ * @returns {Promise<Object|null>} 找到的病人物件，若找不到則為 null
+ */
+async function getPatientByIdWithRefresh(id) {
+    // 若未提供 ID，直接回傳 null
+    if (id === undefined || id === null) return null;
+    const idStr = String(id);
+    try {
+        // 先從本地快取尋找
+        let all = await fetchPatients(false);
+        if (Array.isArray(all) && all.length > 0) {
+            const found = all.find(p => p && String(p.id) === idStr);
+            if (found) return found;
+        }
+        // 若未找到，強制重新讀取整個列表
+        all = await fetchPatients(true);
+        if (Array.isArray(all) && all.length > 0) {
+            const found2 = all.find(p => p && String(p.id) === idStr);
+            if (found2) return found2;
+        }
+        // 仍未找到時，嘗試直接向 FirebaseDataManager 取得資料
+        try {
+            // 等待 FirebaseDataManager 就緒
+            if (typeof waitForFirebaseDataManager === 'function') {
+                await waitForFirebaseDataManager();
+            }
+            if (window.firebaseDataManager && typeof window.firebaseDataManager.getPatients === 'function') {
+                const result = await window.firebaseDataManager.getPatients();
+                if (result && result.success && Array.isArray(result.data)) {
+                    const found3 = result.data.find(p => p && String(p.id) === idStr);
+                    if (found3) {
+                        return found3;
+                    }
+                }
+            }
+        } catch (innerErr) {
+            console.error('直接從 Firebase 取得病人資料時發生錯誤:', innerErr);
+        }
+    } catch (err) {
+        console.error('取得病人資料時發生錯誤:', err);
+    }
+    return null;
+}
+
+/**
  * 透過游標及 limit 方式分頁讀取病人資料。
  * 頁數從 1 開始計算。讀取後會快取該頁資料及最後一筆文件，以利下一頁查詢。
  * 當 forceRefresh 為 true 時，會清除所有分頁快取並重新讀取。
@@ -1121,10 +1171,24 @@ async function fetchConsultations(forceRefresh = false) {
  * @param {boolean} forceRefresh 是否強制重新從 Firestore 讀取資料
  * @returns {Promise<Array>} 用戶資料陣列
  */
+/**
+ * 取得用戶列表並使用本地快取。
+ *
+ * 此函式會利用 fetchDataWithCache 封裝的快取機制，
+ * 但需注意的是，它會將 forceRefresh 參數傳遞至
+ * FirebaseDataManager.getUsers(forceRefresh) 中，以便在需要
+ * 強制重新載入資料時實際清空後端快取並讀取最新數據。
+ * 若不傳遞 forceRefresh，DataManager.getUsers() 永遠
+ * 預設為 false，導致無法在登入時更新舊資料。
+ *
+ * @param {boolean} forceRefresh 是否強制重新從 Firestore 讀取
+ * @returns {Promise<Array>} 用戶資料陣列
+ */
 async function fetchUsers(forceRefresh = false) {
+    // 將 forceRefresh 參數傳遞給 getUsers()，確保可在需要時重取資料
     userCache = await fetchDataWithCache(
         userCache,
-        () => window.firebaseDataManager.getUsers(),
+        () => window.firebaseDataManager.getUsers(forceRefresh),
         forceRefresh
     );
     return userCache;
@@ -1134,7 +1198,8 @@ async function fetchUsers(forceRefresh = false) {
         let clinicSettings = JSON.parse(localStorage.getItem('clinicSettings') || '{}');
         if (!clinicSettings.chineseName) {
             clinicSettings.chineseName = '名醫診所系統';
-            clinicSettings.englishName = 'TCM Clinic';
+            // 預設英文名稱改為 Dr.Great Clinic，而非原本的 TCM Clinic
+            clinicSettings.englishName = 'Dr.Great Clinic';
             clinicSettings.businessHours = '週一至週五 09:00-18:00';
             clinicSettings.phone = '(852) 2345-6789';
             clinicSettings.address = '香港中環皇后大道中123號';
@@ -1629,6 +1694,89 @@ let herbLibrary = [];
 let herbInventory = {};
 let herbInventoryInitialized = false;
 let herbInventoryListenerAttached = false;
+
+//
+// ===============================
+// 病人列表即時更新監聽設置
+//
+// 為了在其他使用者新增或編輯病人資料時能即時刷新列表，
+// 使用 Firestore 的 onSnapshot 建立即時監聽。下面的兩個變數
+// 追蹤監聽是否已掛載以及用於解除監聽的函式。掛載監聽後，當
+// 監聽回調觸發時會清空病人相關的本地快取並重新載入病人列表。
+
+// 標記是否已附加病人列表監聽
+let patientListListenerAttached = false;
+// 儲存解除監聽的函式，由 onSnapshot 回傳
+let patientListUnsubscribe = null;
+
+/**
+ * 附加病人列表的即時監聽。在監聽回調中會清除病人快取並刷新列表。
+ * 若監聽已存在則不會重複附加。當離開病人管理頁面時應呼叫
+ * detachPatientListListener() 以移除監聽，避免不必要的流量。
+ */
+async function attachPatientListListener() {
+    try {
+        // 等待 Firebase 初始化
+        await waitForFirebaseDb();
+        // 若已附加監聽則直接返回
+        if (patientListListenerAttached) return;
+        // 建立查詢：按照建立時間由新至舊排序，以與列表排序一致
+        const colRef = window.firebase.collection(window.firebase.db, 'patients');
+        let q;
+        try {
+            // 使用 orderBy 排序；若 createdAt 不存在於某些文件，則回傳順序可能不一致。
+            q = window.firebase.firestoreQuery(colRef, window.firebase.orderBy('createdAt', 'desc'));
+        } catch (_e) {
+            // 若 orderBy 無法使用，直接監聽整個集合
+            q = colRef;
+        }
+        // 使用 onSnapshot 監聽文件變化
+        patientListUnsubscribe = window.firebase.onSnapshot(q, (snapshot) => {
+            try {
+                // 監聽回調：清除病人資料相關的快取，確保下次讀取獲得最新資料
+                patientCache = null;
+                patientPagesCache = {};
+                patientPageCursors = {};
+                patientsCountCache = null;
+                try {
+                    // 移除本地儲存的快取，以便下次重新載入
+                    localStorage.removeItem('patients');
+                } catch (_lsErr) {
+                    /* 忽略 localStorage 錯誤 */
+                }
+                // 若當前仍在病人管理頁面，立即刷新列表
+                const sectionEl = document.getElementById('patientManagement');
+                if (sectionEl && !sectionEl.classList.contains('hidden')) {
+                    loadPatientList();
+                }
+            } catch (innerErr) {
+                console.error('病人資料即時更新處理失敗:', innerErr);
+            }
+        }, (err) => {
+            console.error('監聽病人資料失敗:', err);
+        });
+        patientListListenerAttached = true;
+    } catch (outerErr) {
+        console.error('附加病人資料監聽失敗:', outerErr);
+    }
+}
+
+/**
+ * 移除病人列表的即時監聽。若尚未附加監聽則不執行任何動作。
+ */
+function detachPatientListListener() {
+    if (patientListListenerAttached) {
+        try {
+            if (typeof patientListUnsubscribe === 'function') {
+                patientListUnsubscribe();
+            }
+        } catch (err) {
+            console.error('取消病人資料監聽失敗:', err);
+        }
+        patientListListenerAttached = false;
+        patientListUnsubscribe = null;
+    }
+}
 
 /**
  * 初始化中藥庫存資料，從 Firebase Realtime Database 讀取。
@@ -2699,56 +2847,8 @@ async function syncUserDataFromFirebase() {
             }
             console.log('已同步 Firebase 用戶數據到本地:', users.length, '筆 (使用快取)');
         } else {
-            // 當無法從 Firebase 取得完整用戶列表時，回退為僅同步當前登入者
-            console.log('無法從 Firebase 取得完整用戶列表，嘗試僅同步當前使用者');
-            try {
-                const authCurrent = window.firebase && window.firebase.auth && window.firebase.auth.currentUser;
-                if (authCurrent && window.firebaseDataManager && typeof window.firebaseDataManager.getUserByUid === 'function') {
-                    const uid = authCurrent.uid;
-                    const res = await window.firebaseDataManager.getUserByUid(uid);
-                    if (res && res.success && res.data) {
-                        // 從 res.data 組裝用戶資料並排除 personalSettings
-                        const { personalSettings, ...rest } = res.data || {};
-                        const userObj = {
-                            ...rest,
-                            createdAt: res.data.createdAt
-                              ? (res.data.createdAt.seconds
-                                ? new Date(res.data.createdAt.seconds * 1000).toISOString()
-                                : res.data.createdAt)
-                              : new Date().toISOString(),
-                            updatedAt: res.data.updatedAt
-                              ? (res.data.updatedAt.seconds
-                                ? new Date(res.data.updatedAt.seconds * 1000).toISOString()
-                                : res.data.updatedAt)
-                              : new Date().toISOString(),
-                            lastLogin: res.data.lastLogin
-                              ? (res.data.lastLogin.seconds
-                                ? new Date(res.data.lastLogin.seconds * 1000).toISOString()
-                                : res.data.lastLogin)
-                              : null
-                        };
-                        // 使用現有 users 陣列（若存在），並合併或新增當前用戶
-                        let mergedList = Array.isArray(users) ? [...users] : [];
-                        // 如果 mergedList 中已有此使用者，則更新其資料，否則加入
-                        const existingIndex = mergedList.findIndex(u => String(u.id) === String(userObj.id));
-                        if (existingIndex >= 0) {
-                            mergedList[existingIndex] = { ...mergedList[existingIndex], ...userObj };
-                        } else {
-                            mergedList.push(userObj);
-                        }
-                        users = mergedList;
-                        // 更新本地存儲
-                        try {
-                            localStorage.setItem('users', JSON.stringify(users));
-                        } catch (lsErr) {
-                            console.warn('保存當前用戶資料到本地失敗:', lsErr);
-                        }
-                        console.log('已回退同步單一使用者資料');
-                    }
-                }
-            } catch (fallbackErr) {
-                console.warn('同步當前使用者資料發生錯誤:', fallbackErr);
-            }
+            // 無法取得完整用戶列表時，不回退單一用戶資料，以避免影響其他功能
+            console.warn('無法從 Firebase 取得完整用戶列表，未回退同步單一用戶資料');
         }
     } catch (error) {
         console.error('同步 Firebase 用戶數據失敗:', error);
@@ -3018,7 +3118,9 @@ async function logout() {
             if (sectionEl) sectionEl.classList.remove('hidden');
             // 根據 sectionId 載入相應功能
             if (sectionId === 'patientManagement') {
+                // 載入病人列表後設置即時監聽，確保他人新增或編輯病人資料時能即時更新畫面。
                 loadPatientList();
+                attachPatientListListener();
             } else if (sectionId === 'consultationSystem') {
                 loadConsultationSystem();
             } else if (sectionId === 'herbLibrary') {
@@ -3088,6 +3190,14 @@ async function logout() {
                         }
                     } catch (err) {
                         console.error('離開掛號系統時取消掛號監聽失敗:', err);
+                    }
+                }
+                // 離開病人資料管理時，取消病人列表的監聽，以減少 Firestore 讀取
+                if (id === 'patientManagement') {
+                    try {
+                        detachPatientListListener();
+                    } catch (err) {
+                        console.error('離開病人管理時取消病人監聽失敗:', err);
                     }
                 }
                 const el = document.getElementById(id);
@@ -3415,6 +3525,33 @@ function renderPatientListTable(pageChange = false) {
     if (!pageChange) {
         paginationSettings.patientList.currentPage = 1;
     }
+    // 在渲染表格之前，根據建立時間 (createdAt) 由新到舊排序病人資料
+    // 由於 patientListFiltered 可能已經按照其他條件排序，在這裡額外排序可以
+    // 確保「創建時間最新」的病人顯示在列表上方。當 createdAt 不存在時，將其
+    // 時間值視為 0，這樣會將沒有時間戳的資料排在最後。
+    if (Array.isArray(patientListFiltered) && patientListFiltered.length > 1) {
+        patientListFiltered.sort((a, b) => {
+            let dateA = 0;
+            let dateB = 0;
+            if (a && a.createdAt) {
+                if (a.createdAt.seconds !== undefined) {
+                    dateA = a.createdAt.seconds * 1000;
+                } else {
+                    const d = new Date(a.createdAt);
+                    dateA = d instanceof Date && !isNaN(d) ? d.getTime() : 0;
+                }
+            }
+            if (b && b.createdAt) {
+                if (b.createdAt.seconds !== undefined) {
+                    dateB = b.createdAt.seconds * 1000;
+                } else {
+                    const d = new Date(b.createdAt);
+                    dateB = d instanceof Date && !isNaN(d) ? d.getTime() : 0;
+                }
+            }
+            return dateB - dateA;
+        });
+    }
     const totalItems = patientListFiltered.length;
     const itemsPerPage = paginationSettings.patientList.itemsPerPage;
     let currentPage = paginationSettings.patientList.currentPage;
@@ -3428,7 +3565,8 @@ function renderPatientListTable(pageChange = false) {
     // 清空表格
     tbody.innerHTML = '';
     // 判斷當前用戶是否具有刪除病人權限
-    const showDelete = currentUserData && currentUserData.position && currentUserData.position.trim() === '診所管理';
+    // 刪除權限開放給診所管理者、護理師與醫師
+    const showDelete = currentUserData && currentUserData.position && ['診所管理', '護理師', '醫師'].includes(currentUserData.position.trim());
     // 渲染當前頁病人資料
     pageItems.forEach(patient => {
         const row = document.createElement('tr');
@@ -3440,13 +3578,13 @@ function renderPatientListTable(pageChange = false) {
         const safeGender = window.escapeHtml(patient.gender);
         const safePhone = window.escapeHtml(patient.phone);
         let actions = `
-                <button onclick="viewPatient('${patient.id}')" class="text-blue-600 hover:text-blue-800">查看</button>
-                <button onclick="showPatientMedicalHistory('${patient.id}')" class="text-purple-600 hover:text-purple-800">病歷</button>
-                <button onclick="editPatient('${patient.id}')" class="text-green-600 hover:text-green-800">編輯</button>
+                <button onclick="handleViewPatient(event, '${patient.id}')" class="bg-blue-500 hover:bg-blue-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">查看</button>
+                <button onclick="handleShowMedicalHistory(event, '${patient.id}')" class="bg-purple-500 hover:bg-purple-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">病歷</button>
+                <button onclick="handleEditPatient(event, '${patient.id}')" class="bg-green-500 hover:bg-green-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">編輯</button>
         `;
         if (showDelete) {
             actions += `
-                <button onclick="deletePatient('${patient.id}')" class="text-red-600 hover:text-red-800">刪除</button>
+                <button onclick="handleDeletePatient(event, '${patient.id}')" class="bg-red-500 hover:bg-red-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">刪除</button>
             `;
         }
         row.innerHTML = `
@@ -3455,7 +3593,16 @@ function renderPatientListTable(pageChange = false) {
             <td class="px-4 py-3 text-sm text-gray-900">${safeAge}</td>
             <td class="px-4 py-3 text-sm text-gray-900">${safeGender}</td>
             <td class="px-4 py-3 text-sm text-gray-900">${safePhone}</td>
-            <td class="px-4 py-3 text-sm space-x-2">${actions}</td>
+            <!--
+              將操作按鈕容器設置為 flex 並加入 whitespace-nowrap，
+              以避免在按鈕顯示讀取圈時造成換行。space-x-2
+              用於按鈕間距，items-center 使按鈕垂直對齊。
+            -->
+            <td class="px-4 py-3 text-sm whitespace-nowrap">
+                <div class="flex items-center space-x-2">
+                    ${actions}
+                </div>
+            </td>
         `;
         tbody.appendChild(row);
     });
@@ -3497,8 +3644,36 @@ function renderPatientListPage(pageItems, totalItems, currentPage) {
     // 重新渲染表格內容
     tbody.innerHTML = '';
     // 判斷是否具有刪除權限
-    const showDelete = currentUserData && currentUserData.position && currentUserData.position.trim() === '診所管理';
-    pageItems.forEach(patient => {
+    // 刪除權限開放給診所管理者、護理師與醫師
+    const showDelete = currentUserData && currentUserData.position && ['診所管理', '護理師', '醫師'].includes(currentUserData.position.trim());
+    // 先按照建立時間 (createdAt) 將頁面項目由新到舊排序，確保最新建立的病人位於最前面。
+    let sortedPageItems;
+    if (Array.isArray(pageItems) && pageItems.length > 1) {
+        sortedPageItems = pageItems.slice().sort((a, b) => {
+            let dateA = 0;
+            let dateB = 0;
+            if (a && a.createdAt) {
+                if (a.createdAt.seconds !== undefined) {
+                    dateA = a.createdAt.seconds * 1000;
+                } else {
+                    const d = new Date(a.createdAt);
+                    dateA = d instanceof Date && !isNaN(d) ? d.getTime() : 0;
+                }
+            }
+            if (b && b.createdAt) {
+                if (b.createdAt.seconds !== undefined) {
+                    dateB = b.createdAt.seconds * 1000;
+                } else {
+                    const d = new Date(b.createdAt);
+                    dateB = d instanceof Date && !isNaN(d) ? d.getTime() : 0;
+                }
+            }
+            return dateB - dateA;
+        });
+    } else {
+        sortedPageItems = pageItems;
+    }
+    sortedPageItems.forEach(patient => {
         const row = document.createElement('tr');
         row.className = 'hover:bg-gray-50';
         // 安全轉義顯示的值
@@ -3508,13 +3683,13 @@ function renderPatientListPage(pageItems, totalItems, currentPage) {
         const safeGender = window.escapeHtml(patient.gender);
         const safePhone = window.escapeHtml(patient.phone);
         let actions = `
-                <button onclick="viewPatient('${patient.id}')" class="text-blue-600 hover:text-blue-800">查看</button>
-                <button onclick="showPatientMedicalHistory('${patient.id}')" class="text-purple-600 hover:text-purple-800">病歷</button>
-                <button onclick="editPatient('${patient.id}')" class="text-green-600 hover:text-green-800">編輯</button>
+                <button onclick="handleViewPatient(event, '${patient.id}')" class="bg-blue-500 hover:bg-blue-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">查看</button>
+                <button onclick="handleShowMedicalHistory(event, '${patient.id}')" class="bg-purple-500 hover:bg-purple-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">病歷</button>
+                <button onclick="handleEditPatient(event, '${patient.id}')" class="bg-green-500 hover:bg-green-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">編輯</button>
         `;
         if (showDelete) {
             actions += `
-                <button onclick="deletePatient('${patient.id}')" class="text-red-600 hover:text-red-800">刪除</button>
+                <button onclick="handleDeletePatient(event, '${patient.id}')" class="bg-red-500 hover:bg-red-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">刪除</button>
             `;
         }
         row.innerHTML = `
@@ -3523,7 +3698,15 @@ function renderPatientListPage(pageItems, totalItems, currentPage) {
             <td class="px-4 py-3 text-sm text-gray-900">${safeAge}</td>
             <td class="px-4 py-3 text-sm text-gray-900">${safeGender}</td>
             <td class="px-4 py-3 text-sm text-gray-900">${safePhone}</td>
-            <td class="px-4 py-3 text-sm space-x-2">${actions}</td>
+            <!--
+              將操作按鈕放入 flex 容器並設定 whitespace-nowrap，
+              避免按下按鈕時因為讀取圈或寬度變化而換行。
+            -->
+            <td class="px-4 py-3 text-sm whitespace-nowrap">
+                <div class="flex items-center space-x-2">
+                    ${actions}
+                </div>
+            </td>
         `;
         tbody.appendChild(row);
     });
@@ -3540,14 +3723,8 @@ function renderPatientListPage(pageItems, totalItems, currentPage) {
         
 async function editPatient(id) {
     try {
-        // 從快取或 Firebase 取得病人資料
-        const allPatients = await fetchPatients();
-        if (!allPatients || allPatients.length === 0) {
-            showToast('無法讀取病人資料', 'error');
-            return;
-        }
-
-        const patient = allPatients.find(p => p.id === id);
+        // 使用新的 getPatientByIdWithRefresh 尋找病人，避免因快取未更新而讀取不到
+        const patient = await getPatientByIdWithRefresh(id);
         if (!patient) {
             showToast('找不到病人資料', 'error');
             return;
@@ -3579,20 +3756,14 @@ async function editPatient(id) {
 }
 async function deletePatient(id) {
     try {
-        // 只有診所管理者可以刪除病人
-        if (!currentUserData || !currentUserData.position || currentUserData.position.trim() !== '診所管理') {
-            showToast('只有管理員可以刪除病人', 'error');
+        // 刪除病人權限開放給診所管理者、護理師與醫師
+        if (!currentUserData || !currentUserData.position || !['診所管理', '護理師', '醫師'].includes(currentUserData.position.trim())) {
+            showToast('只有管理員、護理師或醫師可以刪除病人', 'error');
             return;
         }
 
-        // 從快取或 Firebase 取得病人資料
-        const allPatients = await fetchPatients();
-        if (!allPatients || allPatients.length === 0) {
-            showToast('無法讀取病人資料', 'error');
-            return;
-        }
-
-        const patient = allPatients.find(p => p.id === id);
+        // 使用新的 getPatientByIdWithRefresh 取得病人資料，確保跨裝置讀取正確
+        const patient = await getPatientByIdWithRefresh(id);
         if (!patient) {
             showToast('找不到病人資料', 'error');
             return;
@@ -3706,14 +3877,11 @@ async function deletePatientAssociatedData(patientId) {
 
 async function viewPatient(id) {
     try {
-        // 從快取或 Firebase 取得病人資料
-        const allPatients = await fetchPatients();
-        if (!allPatients || allPatients.length === 0) {
-            showToast('無法讀取病人資料', 'error');
-            return;
-        }
-        const patient = allPatients.find(p => p.id === id);
+        // 使用新的 getPatientByIdWithRefresh 尋找病人，
+        // 避免跨裝置快取不一致導致找不到剛新增的病人
+        const patient = await getPatientByIdWithRefresh(id);
         if (!patient) {
+            // 若無法取得病人資料，提示錯誤
             showToast('找不到病人資料', 'error');
             return;
         }
@@ -4462,43 +4630,32 @@ async function selectPatientForRegistration(patientId) {
     
     if (consultingAppointment) {
         try {
-            // 從快取或 Firebase 取得正在診症的病人資料
-            const allPatients = await fetchPatients();
-            if (allPatients && allPatients.length > 0) {
-                const consultingPatient = allPatients.find(p => p.id === consultingAppointment.patientId);
-                const consultingPatientName = consultingPatient ? consultingPatient.name : '某位病人';
-                // If the doctor is currently consulting another patient, inform the user in their chosen language
-                {
-                    const lang = localStorage.getItem('lang') || 'zh';
-                    const zhMsg = `無法進行掛號！您目前正在為 ${consultingPatientName} 診症中，請完成後再進行掛號操作。`;
-                    const enMsg = `Cannot register! You are currently consulting ${consultingPatientName}. Please finish before registering another patient.`;
-                    const msg = lang === 'en' ? enMsg : zhMsg;
-                    showToast(msg, 'warning');
-                }
-                return;
+            // 若醫師正在診症其他病人，取得該病人資料（使用新函式以防快取過期）
+            const consultingPatient = await getPatientByIdWithRefresh(consultingAppointment.patientId);
+            const consultingPatientName = consultingPatient ? consultingPatient.name : '某位病人';
+            // If the doctor is currently consulting another patient, inform the user in their chosen language
+            {
+                const lang = localStorage.getItem('lang') || 'zh';
+                const zhMsg = `無法進行掛號！您目前正在為 ${consultingPatientName} 診症中，請完成後再進行掛號操作。`;
+                const enMsg = `Cannot register! You are currently consulting ${consultingPatientName}. Please finish before registering another patient.`;
+                const msg = lang === 'en' ? enMsg : zhMsg;
+                showToast(msg, 'warning');
             }
+            return;
         } catch (error) {
             console.error('檢查診症狀態錯誤:', error);
         }
     }
     
     try {
-        // 從快取或 Firebase 取得病人資料
-        const allPatients = await fetchPatients();
-        if (!allPatients || allPatients.length === 0) {
-            showToast('讀取病人資料失敗', 'error');
-            return;
-        }
-        
-        const patient = allPatients.find(p => p.id === patientId);
+        // 使用新的函式取得選擇的病人資料
+        const patient = await getPatientByIdWithRefresh(patientId);
         if (!patient) {
             showToast('找不到病人資料', 'error');
             return;
         }
-        
         selectedPatientForRegistration = patient;
         showRegistrationModal(patient);
-        
     } catch (error) {
         console.error('選擇病人資料錯誤:', error);
         showToast('讀取病人資料失敗', 'error');
@@ -4925,12 +5082,18 @@ async function loadTodayAppointments() {
         // 對於每一筆掛號資料，直接使用該次掛號的主訴，不再從病歷回填主訴。
         const rows = await Promise.all(todayAppointments.map(async (appointment, index) => {
             // 從資料集中尋找對應病人
-            const patient = patientsData.find(p => p.id === appointment.patientId);
-
-            // 若無對應病人資料，採用原本的處理邏輯
+            let patient = patientsData.find(p => p && p.id === appointment.patientId);
+            // 若無對應病人資料，嘗試刷新後取得
             if (!patient) {
-                // 如果在快取找不到，嘗試從全域陣列找（向後兼容）
-                const localPatient = patients.find(p => p.id === appointment.patientId);
+                try {
+                    patient = await getPatientByIdWithRefresh(appointment.patientId);
+                } catch (_e) {
+                    patient = null;
+                }
+            }
+            // 若仍無病人資料，嘗試從全域 patients 變數尋找（向後兼容）
+            if (!patient) {
+                const localPatient = Array.isArray(patients) ? patients.find(p => p && p.id === appointment.patientId) : null;
                 if (!localPatient) {
                     return `
                         <tr class="hover:bg-gray-50">
@@ -4943,8 +5106,7 @@ async function loadTodayAppointments() {
                 // 使用本地病人資料
                 return createAppointmentRow(appointment, localPatient, index);
             }
-
-            // 移除從病歷取得主訴的回填，僅顯示此次掛號的主訴
+            // 使用找到的病人資料建立掛號列
             return createAppointmentRow(appointment, patient, index);
         }));
 
@@ -5045,7 +5207,15 @@ function subscribeToAppointments() {
                                 }
                             }
                             if (Array.isArray(patientsList)) {
-                                const patient = patientsList.find(p => p.id === apt.patientId);
+                                let patient = patientsList.find(p => p && p.id === apt.patientId);
+                                // 若未找到，嘗試跨裝置刷新取得病人資料
+                                if (!patient) {
+                                    try {
+                                        patient = await getPatientByIdWithRefresh(apt.patientId);
+                                    } catch (_e) {
+                                        patient = null;
+                                    }
+                                }
                                 patientName = patient ? patient.name : '';
                             }
                         }
@@ -5413,8 +5583,13 @@ function createAppointmentRow(appointment, patient, index) {
               為了讓表頭「操作」與診症記錄按鈕左對齊，移除 w-full 以及 justify-end，
               使按鈕自然靠左排列。
             -->
-            <td class="px-4 py-3 text-sm">
-                <div class="flex flex-wrap gap-1">
+            <td class="px-4 py-3 text-sm whitespace-nowrap">
+                <!--
+                  將操作按鈕容器改為單行顯示並禁止內容換行。
+                  使用 flex 搭配 items-center 使按鈕垂直置中，space-x-1 控制按鈕之間的間距。
+                  這可以避免在按鈕進入讀取狀態或因寬度變化時將下一個按鈕推到下一行，保持排版穩定。
+                -->
+                <div class="flex items-center space-x-1">
                     ${operationButtons}
                 </div>
             </td>
@@ -5464,7 +5639,7 @@ function getOperationButtons(appointment, patient = null) {
     const patientId = patient ? patient.id : appointment.patientId;
     
     // 所有狀態都可以查看診症記錄
-    buttons.push(`<button onclick="viewPatientMedicalHistory('${patientId}')" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition duration-200">診症記錄</button>`);
+    buttons.push(`<button onclick="viewPatientMedicalHistory('${patientId}')" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">診症記錄</button>`);
     
     // 僅當醫師正在為其他病人診症時禁用其對其他掛號的操作
     const isDisabled = isDoctorConsulting && !isCurrentConsulting;
@@ -5478,17 +5653,17 @@ function getOperationButtons(appointment, patient = null) {
         case 'registered':
             if (isDisabled) {
                 if (canConfirmArrival) {
-                    buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>確認到達</span>`);
+                    buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs whitespace-nowrap cursor-not-allowed" ${disabledTooltip}>確認到達</span>`);
                 }
                 if (canManage) {
-                    buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>移除掛號</span>`);
+                    buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs whitespace-nowrap cursor-not-allowed" ${disabledTooltip}>移除掛號</span>`);
                 }
             } else {
                 if (canConfirmArrival) {
-                    buttons.push(`<button onclick="confirmPatientArrival(${appointment.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs transition duration-200">確認到達</button>`);
+                    buttons.push(`<button onclick="confirmPatientArrival(${appointment.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">確認到達</button>`);
                 }
                 if (canManage) {
-                    buttons.push(`<button onclick="removeAppointment(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">移除掛號</button>`);
+                    buttons.push(`<button onclick="removeAppointment(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">移除掛號</button>`);
                 }
             }
             break;
@@ -5496,42 +5671,42 @@ function getOperationButtons(appointment, patient = null) {
         case 'waiting':
             if (isDisabled) {
                 if (isAppointmentDoctor) {
-                    buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>開始診症</span>`);
+                    buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs whitespace-nowrap cursor-not-allowed" ${disabledTooltip}>開始診症</span>`);
                 }
             } else {
                 if (isAppointmentDoctor) {
-                    buttons.push(`<button onclick="startConsultation(${appointment.id})" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition duration-200">開始診症</button>`);
+                    buttons.push(`<button onclick="startConsultation(${appointment.id})" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">開始診症</button>`);
                 }
             }
             break;
             
         case 'consulting':
             if (isAppointmentDoctor) {
-                buttons.push(`<button onclick="continueConsultation(${appointment.id})" class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs transition duration-200">繼續診症</button>`);
+                buttons.push(`<button onclick="continueConsultation(${appointment.id})" class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">繼續診症</button>`);
             }
             break;
             
         case 'completed':
             // 列印收據功能不受診症狀態限制
-            buttons.push(`<button onclick="printReceiptFromAppointment(${appointment.id})" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs transition duration-200">列印收據</button>`);
+            buttons.push(`<button onclick="printReceiptFromAppointment(${appointment.id})" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">列印收據</button>`);
             // 新增方藥醫囑列印功能，位於列印收據旁
-            buttons.push(`<button onclick="printPrescriptionInstructionsFromAppointment(${appointment.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs transition duration-200">藥單醫囑</button>`);
-            buttons.push(`<button onclick="printAttendanceCertificateFromAppointment(${appointment.id})" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs transition duration-200">到診證明</button>`);
-            buttons.push(`<button onclick="printSickLeaveFromAppointment(${appointment.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs transition duration-200">病假證明</button>`);
+            buttons.push(`<button onclick="printPrescriptionInstructionsFromAppointment(${appointment.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">藥單醫囑</button>`);
+            buttons.push(`<button onclick="printAttendanceCertificateFromAppointment(${appointment.id})" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">到診證明</button>`);
+            buttons.push(`<button onclick="printSickLeaveFromAppointment(${appointment.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">病假證明</button>`);
             
             if (isDisabled) {
                 if (isAppointmentDoctor) {
-                    buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>修改病歷</span>`);
+                    buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs whitespace-nowrap cursor-not-allowed" ${disabledTooltip}>修改病歷</span>`);
                 }
                 if (canManage) {
-                    buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs cursor-not-allowed" ${disabledTooltip}>撤回診症</span>`);
+                    buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs whitespace-nowrap cursor-not-allowed" ${disabledTooltip}>撤回診症</span>`);
                 }
             } else {
                 if (isAppointmentDoctor) {
-                    buttons.push(`<button onclick="editMedicalRecord(${appointment.id})" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs transition duration-200">修改病歷</button>`);
+                    buttons.push(`<button onclick="editMedicalRecord(${appointment.id})" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">修改病歷</button>`);
                 }
                 if (canManage) {
-                    buttons.push(`<button onclick="withdrawConsultation(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs transition duration-200">撤回診症</button>`);
+                    buttons.push(`<button onclick="withdrawConsultation(${appointment.id})" class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">撤回診症</button>`);
                 }
             }
             break;
@@ -7820,7 +7995,7 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                     <!-- Clinic Header -->
                     <div class="clinic-header">
                         <div class="clinic-name">${clinicSettings.chineseName || '名醫診所系統'}</div>
-                        <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
+                        <div class="clinic-subtitle">${clinicSettings.englishName || 'Dr.Great Clinic'}</div>
                         <div class="clinic-subtitle">${isEnglish ? 'Tel:' : '電話：'}${clinicSettings.phone || '(852) 2345-6789'}　${isEnglish ? 'Address:' : '地址：'}${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                     </div>
                     
@@ -8298,7 +8473,7 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
                         <!-- Clinic Header -->
                         <div class="clinic-header">
                             <div class="clinic-name">${clinicSettings.chineseName || '名醫診所系統'}</div>
-                            <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
+                            <div class="clinic-subtitle">${clinicSettings.englishName || 'Dr.Great Clinic'}</div>
                             <div class="clinic-subtitle">${isEnglish ? 'Tel:' : '電話：'}${clinicSettings.phone || '(852) 2345-6789'}　${isEnglish ? 'Address:' : '地址：'}${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                         </div>
                         
@@ -8719,7 +8894,7 @@ async function printSickLeave(consultationId, consultationData = null) {
                     <div class="content">
                         <div class="clinic-header">
                             <div class="clinic-name">${clinicSettings.chineseName || '名醫診所系統'}</div>
-                            <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
+                            <div class="clinic-subtitle">${clinicSettings.englishName || 'Dr.Great Clinic'}</div>
                             <div class="clinic-subtitle">${isEnglish ? 'Tel' : '電話'}${colon}${clinicSettings.phone || '(852) 2345-6789'}　${isEnglish ? 'Address' : '地址'}${colon}${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                         </div>
                         <div class="certificate-number">${SL.certificateNumber}${colon}SL${consultation.id.toString().padStart(6, '0')}</div>
@@ -9160,7 +9335,7 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                 <div class="advice-container">
                     <div class="clinic-header">
                         <div class="clinic-name">${clinicSettings.chineseName || '名醫診所系統'}</div>
-                        <div class="clinic-subtitle">${clinicSettings.englishName || 'TCM Clinic'}</div>
+                        <div class="clinic-subtitle">${clinicSettings.englishName || 'Dr.Great Clinic'}</div>
                         <div class="clinic-subtitle">${isEnglish ? 'Tel' : '電話'}${colon}${clinicSettings.phone || '(852) 2345-6789'}　${isEnglish ? 'Address' : '地址'}${colon}${clinicSettings.address || '香港中環皇后大道中123號'}</div>
                     </div>
                     <div class="advice-title">${PI.title}</div>
@@ -10324,7 +10499,7 @@ async function initializeSystemAfterLogin() {
                 chineseNameSpan.textContent = clinicSettings.chineseName || '名醫診所系統';
             }
             if (englishNameSpan) {
-                englishNameSpan.textContent = clinicSettings.englishName || 'TCM Clinic';
+                englishNameSpan.textContent = clinicSettings.englishName || 'Dr.Great Clinic';
             }
             
             // 更新登入頁面的診所名稱
@@ -10334,7 +10509,7 @@ async function initializeSystemAfterLogin() {
                 loginTitle.textContent = clinicSettings.chineseName || '名醫診所系統';
             }
             if (loginEnglishTitle) {
-                loginEnglishTitle.textContent = clinicSettings.englishName || 'TCM Clinic';
+                loginEnglishTitle.textContent = clinicSettings.englishName || 'Dr.Great Clinic';
             }
             
             // 更新主頁面的診所名稱
@@ -10344,7 +10519,7 @@ async function initializeSystemAfterLogin() {
                 systemTitle.textContent = clinicSettings.chineseName || '名醫診所系統';
             }
             if (systemEnglishTitle) {
-                systemEnglishTitle.textContent = clinicSettings.englishName || 'TCM Clinic';
+                systemEnglishTitle.textContent = clinicSettings.englishName || 'Dr.Great Clinic';
             }
             
             // 更新歡迎頁面的診所名稱
@@ -10354,7 +10529,7 @@ async function initializeSystemAfterLogin() {
                 welcomeTitle.textContent = `歡迎使用${clinicSettings.chineseName || '名醫診所系統'}`;
             }
             if (welcomeEnglishTitle) {
-                welcomeEnglishTitle.textContent = `Welcome to ${clinicSettings.englishName || 'TCM Clinic'}`;
+                welcomeEnglishTitle.textContent = `Welcome to ${clinicSettings.englishName || 'Dr.Great Clinic'}`;
             }
         }
 
@@ -11601,7 +11776,11 @@ async function initializeSystemAfterLogin() {
             const resultsList = document.getElementById('prescriptionSearchList');
             
             if (searchTerm.length < 1) {
+                // 當搜尋字串為空時隱藏結果容器，並同步隱藏任何殘留的提示框
                 resultsContainer.classList.add('hidden');
+                if (typeof hideTooltip === 'function') {
+                    hideTooltip();
+                }
                 return;
             }
             
@@ -11651,6 +11830,10 @@ async function initializeSystemAfterLogin() {
                     </div>
                 `;
                 resultsContainer.classList.remove('hidden');
+                // 若沒有任何匹配結果，也應當隱藏提示框，避免殘留
+                if (typeof hideTooltip === 'function') {
+                    hideTooltip();
+                }
                 return;
             }
             
@@ -11911,15 +12094,13 @@ async function initializeSystemAfterLogin() {
             // 更新隱藏的文本域
             let prescriptionText = '';
             
+            // 將處方列表轉為純文字，每個項目後面加上一個換行符號。
+            // 過去版本對方劑類型使用了兩個換行符號 ("\n\n") 來額外留白，
+            // 但這會在病歷或診症記錄中呈現為項目上下出現空行。
+            // 因此統一將 herb 與 formula 項目都只添加一個換行符號，避免多餘空白。
             selectedPrescriptionItems.forEach(item => {
-                if (item.type === 'herb') {
-                    const dosage = item.customDosage || '6';
-                    prescriptionText += `${item.name} ${dosage}g\n`;
-                } else if (item.type === 'formula') {
-                    const dosage = item.customDosage || '6';
-                    // 為方劑僅記錄名稱與劑量，不包含組成
-                    prescriptionText += `${item.name} ${dosage}g\n\n`;
-                }
+                const dosage = item.customDosage || '6';
+                prescriptionText += `${item.name} ${dosage}g\n`;
             });
             
             hiddenTextarea.value = prescriptionText.trim();
@@ -12138,6 +12319,10 @@ async function initializeSystemAfterLogin() {
         function clearPrescriptionSearch() {
             document.getElementById('prescriptionSearch').value = '';
             document.getElementById('prescriptionSearchResults').classList.add('hidden');
+            // 清除搜索時同步隱藏任何已顯示的 tooltip，避免游標仍停留在原位導致提示框殘留
+            if (typeof hideTooltip === 'function') {
+                hideTooltip();
+            }
         }
         
         // 收費項目搜索功能
@@ -14297,7 +14482,8 @@ async function deleteUser(id) {
         }
 
         // 生成財務報表
-        function generateFinancialReport() {
+        // 改為 async 以便在更新報表前重新載入最新的診症資料，確保「更新報表」按鈕真正更新內容。
+        async function generateFinancialReport() {
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             const doctorFilter = document.getElementById('doctorFilter').value;
@@ -14310,6 +14496,15 @@ async function deleteUser(id) {
             if (!startDate || !endDate) {
                 showToast('請選擇日期範圍！', 'error');
                 return;
+            }
+
+            // 在生成報表前重新載入診症資料，以取得最新收入與統計
+            if (typeof loadConsultationsForFinancial === 'function') {
+                try {
+                    await loadConsultationsForFinancial();
+                } catch (err) {
+                    console.error('重新載入財務資料失敗:', err);
+                }
             }
 
             // 過濾診症資料
@@ -18236,6 +18431,61 @@ document.addEventListener('DOMContentLoaded', function() {
   window.loadAccountSecurity = loadAccountSecurity;
   window.changeCurrentUserPassword = changeCurrentUserPassword;
   window.deleteCurrentUserAccount = deleteCurrentUserAccount;
+
+  // 病人管理按鈕的封裝函式：為查看、病歷、編輯和刪除操作添加讀取圈，並在操作完成後清除。
+  async function handleViewPatient(ev, id) {
+    let btn = ev && ev.currentTarget ? ev.currentTarget : null;
+    if (btn) setButtonLoading(btn);
+    try {
+      await viewPatient(id);
+    } catch (error) {
+      console.error('Error viewing patient:', error);
+    } finally {
+      if (btn) clearButtonLoading(btn);
+    }
+  }
+
+  async function handleShowMedicalHistory(ev, id) {
+    let btn = ev && ev.currentTarget ? ev.currentTarget : null;
+    if (btn) setButtonLoading(btn);
+    try {
+      await showPatientMedicalHistory(id);
+    } catch (error) {
+      console.error('Error showing medical history:', error);
+    } finally {
+      if (btn) clearButtonLoading(btn);
+    }
+  }
+
+  async function handleEditPatient(ev, id) {
+    let btn = ev && ev.currentTarget ? ev.currentTarget : null;
+    if (btn) setButtonLoading(btn);
+    try {
+      await editPatient(id);
+    } catch (error) {
+      console.error('Error editing patient:', error);
+    } finally {
+      if (btn) clearButtonLoading(btn);
+    }
+  }
+
+  async function handleDeletePatient(ev, id) {
+    let btn = ev && ev.currentTarget ? ev.currentTarget : null;
+    if (btn) setButtonLoading(btn);
+    try {
+      await deletePatient(id);
+    } catch (error) {
+      console.error('Error deleting patient:', error);
+    } finally {
+      if (btn) clearButtonLoading(btn);
+    }
+  }
+
+  // 將這些封裝函式掛載到 window，供 HTML 的 onclick 直接調用
+  window.handleViewPatient = handleViewPatient;
+  window.handleShowMedicalHistory = handleShowMedicalHistory;
+  window.handleEditPatient = handleEditPatient;
+  window.handleDeletePatient = handleDeletePatient;
 
   // 模板庫：診斷模板與醫囑模板彈窗
   // 顯示診斷模板選擇彈窗，並動態生成模板列表
