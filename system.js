@@ -5094,17 +5094,19 @@ async function loadTodayAppointments() {
             // 若仍無病人資料，嘗試從全域 patients 變數尋找（向後兼容）
             if (!patient) {
                 const localPatient = Array.isArray(patients) ? patients.find(p => p && p.id === appointment.patientId) : null;
-                if (!localPatient) {
-                    return `
-                        <tr class="hover:bg-gray-50">
-                            <td colspan="7" class="px-4 py-3 text-center text-red-500">
-                                找不到病人資料 (ID: ${appointment.patientId})
-                            </td>
-                        </tr>
-                    `;
+                if (localPatient) {
+                    // 使用本地病人資料
+                    return createAppointmentRow(appointment, localPatient, index);
                 }
-                // 使用本地病人資料
-                return createAppointmentRow(appointment, localPatient, index);
+                // 最終仍無病人資料時，使用掛號物件中的病人姓名作為後備顯示，避免顯示錯誤行。
+                // 由於此情況通常發生於其他使用者剛新增病人後立即掛號，本地快取尚未更新。
+                // 此處以 appointment.patientName 作為名稱，病歷號碼暫留空。
+                const fallbackPatient = {
+                    id: appointment.patientId,
+                    name: appointment.patientName || (window.t ? window.t('未知病人') : '未知病人'),
+                    patientNumber: ''
+                };
+                return createAppointmentRow(appointment, fallbackPatient, index);
             }
             // 使用找到的病人資料建立掛號列
             return createAppointmentRow(appointment, patient, index);
