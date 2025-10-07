@@ -239,6 +239,11 @@ window.translations = {
         "病史及備註": "病史及備註",
         "病史及備註：": "病史及備註：",
         "病歷記錄": "病歷記錄",
+        // 病歷管理功能
+        "病歷管理": "病歷管理",
+        "搜尋病歷編號、病人姓名或醫師...": "搜尋病歷編號、病人姓名或醫師...",
+        "病歷詳細資訊": "病歷詳細資訊",
+        "檢視": "檢視",
         "療程": "療程",
         "登入系統": "登入系統",
         "登出": "登出",
@@ -1239,6 +1244,11 @@ window.translations = {
         "病史及備註": "Medical History & Notes",
         "病史及備註：": "Medical History & Notes:",
         "病歷記錄": "Medical Records",
+        // Medical record management page
+        "病歷管理": "Medical Record Management",
+        "搜尋病歷編號、病人姓名或醫師...": "Search record number, patient name or doctor...",
+        "病歷詳細資訊": "Medical Record Details",
+        "檢視": "View",
         "療程": "Treatment Course",
         "登入系統": "Login",
         "登出": "Logout",

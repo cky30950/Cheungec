@@ -1837,6 +1837,64 @@
         <!-- 個人設置與模板庫內容 -->
         <!-- 個人設置區：在外層加入與其他頁面一致的寬度與內邊距容器，卡片樣式位於內層 -->
         <!-- 個人設置區：包裝在與其他頁面相同的寬度限制與內外邊距容器中，使版面保持一致 -->
+        <!-- 病歷管理 -->
+        <!-- 將病歷管理區外層調整為與其他版面一致的寬度限制與內外邊距，
+             將原本的白色卡片樣式移至內層，讓外層有左右留白空間 -->
+        <div id="medicalRecordManagement" class="hidden max-w-7xl mx-auto px-4 py-6">
+            <!-- 將整個病歷管理內文字縮小一級，採用 text-sm 作為基準字級 -->
+            <div class="bg-white rounded-xl shadow-lg p-6 text-sm">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <h2 class="text-2xl font-bold text-gray-800"><span class="text-3xl mr-3">📋</span>病歷管理</h2>
+                <div class="flex flex-col md:flex-row gap-3">
+                    <div class="relative">
+                        <input type="text" id="searchMedicalRecord" placeholder="搜尋病歷編號、病人姓名或醫師..." class="border border-gray-300 rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full md:w-64">
+                        <span class="absolute right-3 top-2.5 text-gray-400">🔍</span>
+                    </div>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <!-- 列表容器：用於插入分頁控制 -->
+                <div id="medicalRecordList">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <!-- 將表頭字體與大小調整為與其他版面一致，使用 text-sm、font-semibold，移除 uppercase 與 tracking-wider -->
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">病歷編號</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">病人姓名</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">主訴</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">醫師</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">日期</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="medicalRecordTableBody" class="divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                                    <!-- 內容將由 JavaScript 動態填充 -->
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="medicalRecordPagination" class="mt-4 flex justify-center hidden"></div>
+            </div><!-- 內層卡片結束 -->
+        </div>
+
+        <!-- 病歷詳細資訊彈窗 -->
+        <div id="medicalRecordDetailModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+            <!-- 調整彈窗寬度以與病人資料管理的病歷查看保持一致，從 max-w-3xl 改為 max-w-6xl -->
+            <div class="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-xl">
+                    <h3 class="text-xl font-bold text-gray-800">病歷詳細資訊</h3>
+                    <button onclick="closeMedicalRecordDetail()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+                </div>
+                <div id="medicalRecordDetailContent" class="p-6 space-y-4">
+                    <!-- 病歷詳細內容將由 JavaScript 動態填充 -->
+                </div>
+            </div>
+        </div>
+
         <div id="personalSettings" class="hidden max-w-7xl mx-auto px-4 py-6">
           <div class="bg-white rounded-xl shadow-lg p-6">
             <!-- 移除內層多餘的背景框，避免重複包裹 -->
@@ -4476,6 +4534,8 @@
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"b2074e7888b746fe9fbbc15492b4c3d4","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
