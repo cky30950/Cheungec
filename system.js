@@ -207,6 +207,9 @@ function renderPagination(totalItems, itemsPerPage, currentPage, onPageChange, c
         });
         return btn;
     };
+    // 最前一頁按鈕
+    // 始終提供跳轉至第一頁的按鈕，若目前已在第一頁則禁用
+    container.appendChild(createBtn(1, '最前一頁', currentPage === 1));
     // 上一頁按鈕
     container.appendChild(createBtn(Math.max(1, currentPage - 1), '上一頁', currentPage === 1));
     // 決定要顯示的頁碼範圍，最多顯示 5 個頁碼
@@ -221,6 +224,9 @@ function renderPagination(totalItems, itemsPerPage, currentPage, onPageChange, c
     }
     // 下一頁按鈕
     container.appendChild(createBtn(Math.min(totalPages, currentPage + 1), '下一頁', currentPage === totalPages));
+    // 最後一頁按鈕
+    // 提供快速跳轉至最後一頁的按鈕，若目前已在最後一頁則禁用
+    container.appendChild(createBtn(totalPages, '最後一頁', currentPage === totalPages));
 }
 
 /**
@@ -1853,10 +1859,13 @@ function getHerbInventory(itemId) {
         return {
             quantity: inv.quantity ?? 0,
             threshold: inv.threshold ?? 0,
-            unit: inv.unit || 'g'
+            unit: inv.unit || 'g',
+            // 若 inv.disabled 為真則表示此中藥被停用
+            disabled: !!inv.disabled
         };
     }
-    return { quantity: 0, threshold: 0, unit: 'g' };
+    // 預設 disabled 為 false，表示啟用
+    return { quantity: 0, threshold: 0, unit: 'g', disabled: false };
 }
 
 /**
@@ -1866,7 +1875,7 @@ function getHerbInventory(itemId) {
  * @param {number} quantity
  * @param {number} threshold
  */
-async function setHerbInventory(itemId, quantity, threshold, unit) {
+async function setHerbInventory(itemId, quantity, threshold, unit, disabled) {
     await waitForFirebaseDb();
     const data = {};
     if (quantity !== undefined && quantity !== null) {
@@ -1878,6 +1887,11 @@ async function setHerbInventory(itemId, quantity, threshold, unit) {
     if (unit !== undefined && unit !== null) {
         // 儲存使用者選擇的單位，以便日後顯示
         data.unit = unit;
+    }
+    // 新增 disabled 屬性：若提供此參數則更新停用狀態
+    if (disabled !== undefined && disabled !== null) {
+        // 確保為布林值
+        data.disabled = !!disabled;
     }
     const refPath = window.firebase.ref(window.firebase.rtdb, 'herbInventory/' + String(itemId));
     await window.firebase.update(refPath, data);
@@ -2119,6 +2133,16 @@ async function openInventoryModal(itemId) {
                 const qtyUnitSel = document.getElementById('inventoryQuantityUnit');
                 if (qtyUnitSel) qtyUnitSel.value = unit;
             } catch (_e) {}
+            // 設定啟用/停用下拉選擇的值
+            try {
+                const disSel = document.getElementById('inventoryDisabled');
+                if (disSel) {
+                    // inv.disabled 為 true 時將下拉設為 'true' 表示停用，否則為 'false' 表示啟用
+                    disSel.value = inv && inv.disabled ? 'true' : 'false';
+                }
+            } catch (_e) {
+                /* 忽略錯誤 */
+            }
         }
         if (modal) {
             modal.classList.remove('hidden');
@@ -2161,9 +2185,19 @@ async function saveInventoryChanges() {
         const quantityBase = quantity * factor;
         const thresholdBase = threshold * factor;
         const id = currentInventoryItemId;
-        // 更新 Realtime Database，包含所選單位
+        // 讀取啟用/停用狀態
+        let disabledVal = false;
+        try {
+            const disSel = document.getElementById('inventoryDisabled');
+            if (disSel) {
+                disabledVal = (disSel.value === 'true');
+            }
+        } catch (_e) {
+            disabledVal = false;
+        }
+        // 更新 Realtime Database，包含所選單位與停用狀態
         if (typeof setHerbInventory === 'function') {
-            await setHerbInventory(id, quantityBase, thresholdBase, qtyUnit);
+            await setHerbInventory(id, quantityBase, thresholdBase, qtyUnit, disabledVal);
         }
         // 更新本地 herbLibrary 的預設庫存與單位（若存在）
         try {
@@ -3509,7 +3543,8 @@ function renderPatientListTable(pageChange = false) {
         const searchTerm = searchTermEl ? searchTermEl.value.toLowerCase() : '';
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                <!-- 調整 colspan 以符合增加的建檔日期欄位 -->
+                <td colspan="7" class="px-4 py-8 text-center text-gray-500">
                     ${searchTerm ? '沒有找到符合條件的病人' : '尚無病人資料'}
                 </td>
             </tr>
@@ -3577,12 +3612,35 @@ function renderPatientListTable(pageChange = false) {
         const safeAge = window.escapeHtml(formatAge(patient.birthDate));
         const safeGender = window.escapeHtml(patient.gender);
         const safePhone = window.escapeHtml(patient.phone);
+        // 取得建檔日期，只顯示年月日，不顯示時間
+        let createdAtDateStr = '';
+        if (patient && patient.createdAt) {
+            let d;
+            if (typeof patient.createdAt.seconds !== 'undefined') {
+                d = new Date(patient.createdAt.seconds * 1000);
+            } else {
+                d = new Date(patient.createdAt);
+            }
+            if (d instanceof Date && !isNaN(d)) {
+                // 根據目前語言選擇適當的在地化格式
+                const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+                const locale = lang === 'en' ? 'en-US' : 'zh-TW';
+                createdAtDateStr = d.toLocaleDateString(locale, {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+            }
+        }
+        const safeCreatedAt = window.escapeHtml(createdAtDateStr || '');
+        // 調整操作按鈕顏色為較淡的配色，降低視覺突兀感
         let actions = `
                 <button onclick="handleViewPatient(event, '${patient.id}')" class="bg-blue-500 hover:bg-blue-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">查看</button>
                 <button onclick="handleShowMedicalHistory(event, '${patient.id}')" class="bg-purple-500 hover:bg-purple-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">病歷</button>
                 <button onclick="handleEditPatient(event, '${patient.id}')" class="bg-green-500 hover:bg-green-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">編輯</button>
         `;
         if (showDelete) {
+            // 刪除按鈕也採用淡色配色
             actions += `
                 <button onclick="handleDeletePatient(event, '${patient.id}')" class="bg-red-500 hover:bg-red-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">刪除</button>
             `;
@@ -3593,6 +3651,7 @@ function renderPatientListTable(pageChange = false) {
             <td class="px-4 py-3 text-sm text-gray-900">${safeAge}</td>
             <td class="px-4 py-3 text-sm text-gray-900">${safeGender}</td>
             <td class="px-4 py-3 text-sm text-gray-900">${safePhone}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${safeCreatedAt}</td>
             <!--
               將操作按鈕容器設置為 flex 並加入 whitespace-nowrap，
               以避免在按鈕顯示讀取圈時造成換行。space-x-2
@@ -3629,7 +3688,8 @@ function renderPatientListPage(pageItems, totalItems, currentPage) {
     if (!Array.isArray(pageItems) || pageItems.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                <!-- 調整 colspan 以符合增加的建檔日期欄位 -->
+                <td colspan="7" class="px-4 py-8 text-center text-gray-500">
                     尚無病人資料
                 </td>
             </tr>
@@ -3682,12 +3742,34 @@ function renderPatientListPage(pageItems, totalItems, currentPage) {
         const safeAge = window.escapeHtml(formatAge(patient.birthDate));
         const safeGender = window.escapeHtml(patient.gender);
         const safePhone = window.escapeHtml(patient.phone);
+        // 取得建檔日期，只顯示年月日，不顯示時間
+        let createdAtDateStr = '';
+        if (patient && patient.createdAt) {
+            let d;
+            if (typeof patient.createdAt.seconds !== 'undefined') {
+                d = new Date(patient.createdAt.seconds * 1000);
+            } else {
+                d = new Date(patient.createdAt);
+            }
+            if (d instanceof Date && !isNaN(d)) {
+                const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+                const locale = lang === 'en' ? 'en-US' : 'zh-TW';
+                createdAtDateStr = d.toLocaleDateString(locale, {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+            }
+        }
+        const safeCreatedAt = window.escapeHtml(createdAtDateStr || '');
+        // 使用較淡的背景色使按鈕不那麼鮮艷
         let actions = `
                 <button onclick="handleViewPatient(event, '${patient.id}')" class="bg-blue-500 hover:bg-blue-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">查看</button>
                 <button onclick="handleShowMedicalHistory(event, '${patient.id}')" class="bg-purple-500 hover:bg-purple-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">病歷</button>
                 <button onclick="handleEditPatient(event, '${patient.id}')" class="bg-green-500 hover:bg-green-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">編輯</button>
         `;
         if (showDelete) {
+            // 刪除按鈕使用淡色配色，與其他操作一致
             actions += `
                 <button onclick="handleDeletePatient(event, '${patient.id}')" class="bg-red-500 hover:bg-red-600 text-white w-14 px-2 py-1 rounded text-xs transition duration-200">刪除</button>
             `;
@@ -3698,6 +3780,7 @@ function renderPatientListPage(pageItems, totalItems, currentPage) {
             <td class="px-4 py-3 text-sm text-gray-900">${safeAge}</td>
             <td class="px-4 py-3 text-sm text-gray-900">${safeGender}</td>
             <td class="px-4 py-3 text-sm text-gray-900">${safePhone}</td>
+            <td class="px-4 py-3 text-sm text-gray-900">${safeCreatedAt}</td>
             <!--
               將操作按鈕放入 flex 容器並設定 whitespace-nowrap，
               避免按下按鈕時因為讀取圈或寬度變化而換行。
@@ -5535,14 +5618,54 @@ function createAppointmentRow(appointment, patient, index) {
         doctorName = window.t ? window.t('未指定醫師') : '未指定醫師';
     }
     
+    // --------- 顯示病人姓名時加上性別 ---------
+    // 取得病人性別並根據語言顯示適當文字
+    let genderRaw = patient && patient.gender ? patient.gender : '';
+    let genderDisplay = genderRaw;
+    // 使用 window.t 進行翻譯；若未提供翻譯函式則回退為原始值
+    if (genderDisplay) {
+        try {
+            if (typeof window !== 'undefined' && typeof window.t === 'function') {
+                const translated = window.t(genderDisplay);
+                // window.t 可能返回與輸入不同的值
+                if (translated) {
+                    genderDisplay = translated;
+                }
+            }
+        } catch (e) {
+            // ignore translation error
+        }
+    }
+    // 若當前語言為英文，將不同表示方式統一為 Male 或 Female
+    try {
+        const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+        const isEnglish = lang && lang.toLowerCase().startsWith('en');
+        if (isEnglish && genderDisplay) {
+            const gLower = genderDisplay.toLowerCase();
+            // In English, display abbreviated gender with single letter rather than full word.
+            // Treat various representations of male and female uniformly.
+            if (gLower === '男' || gLower === 'male' || gLower === 'm') {
+                genderDisplay = 'M';
+            } else if (gLower === '女' || gLower === 'female' || gLower === 'f') {
+                genderDisplay = 'F';
+            }
+        }
+    } catch (e) {
+        // ignore language detection errors
+    }
+    // 根據是否存在性別資訊構造姓名字串
+    const nameWithGender = genderDisplay ? `${patient.name} (${genderDisplay})` : patient.name;
+    // 為避免 XSS，使用 escapeHtml 轉義姓名及括號內容（若可用）
+    const safeNameWithGender = (typeof window !== 'undefined' && window.escapeHtml) ? window.escapeHtml(nameWithGender) : nameWithGender;
+
     const statusInfo = getStatusInfo(appointment.status);
     const operationButtons = getOperationButtons(appointment, patient); // 傳遞 patient 參數
-    
+
     return `
         <tr class="hover:bg-gray-50">
             <td class="px-4 py-3 text-sm text-gray-900 font-medium">${index + 1}</td>
             <td class="px-4 py-3 text-sm font-medium text-gray-900">
-                ${patient.name}
+                ${safeNameWithGender}
                 <div class="text-xs text-gray-500">${patient.patientNumber}</div>
             </td>
             <td class="px-4 py-3 text-sm text-gray-900">
@@ -10623,6 +10746,18 @@ async function initializeSystemAfterLogin() {
                 const totalAll = searchFiltered.length;
                 const totalHerbsAll = searchFiltered.filter(item => item.type === 'herb').length;
                 const totalFormulasAll = searchFiltered.filter(item => item.type === 'formula').length;
+                // 新增計算已停用資料數量：根據庫存資訊中的 disabled 屬性
+                const totalDisabledAll = searchFiltered.filter(item => {
+                    try {
+                        if (typeof getHerbInventory === 'function') {
+                            const inv = getHerbInventory(item.id);
+                            return inv && inv.disabled;
+                        }
+                    } catch (_e) {
+                        // 忽略錯誤
+                    }
+                    return false;
+                }).length;
                 // 更新各分類按鈕的顯示文字
                 const allBtn = document.getElementById('filter-all');
                 if (allBtn) {
@@ -10635,6 +10770,11 @@ async function initializeSystemAfterLogin() {
                 const formulaBtn = document.getElementById('filter-formula');
                 if (formulaBtn) {
                     formulaBtn.innerHTML = `方劑 (${totalFormulasAll})`;
+                }
+                // 更新已停用分類按鈕的顯示文字
+                const disabledBtn = document.getElementById('filter-disabled');
+                if (disabledBtn) {
+                    disabledBtn.innerHTML = `已停用 (${totalDisabledAll})`;
                 }
             })();
             // 過濾資料：同樣使用全文搜尋，並根據類型篩選
@@ -10657,17 +10797,52 @@ async function initializeSystemAfterLogin() {
                 } catch (_e) {
                     matchesSearch = false;
                 }
-                const matchesFilter = currentHerbFilter === 'all' || item.type === currentHerbFilter;
+                // 根據當前分類篩選。
+                let matchesFilter = false;
+                if (currentHerbFilter === 'all') {
+                    matchesFilter = true;
+                } else if (currentHerbFilter === 'herb') {
+                    matchesFilter = item.type === 'herb';
+                } else if (currentHerbFilter === 'formula') {
+                    matchesFilter = item.type === 'formula';
+                } else if (currentHerbFilter === 'disabled') {
+                    // 已停用：需要檢查庫存資訊的 disabled 屬性
+                    try {
+                        if (typeof getHerbInventory === 'function') {
+                            const inv = getHerbInventory(item.id);
+                            matchesFilter = inv && inv.disabled;
+                        }
+                    } catch (_e) {
+                        matchesFilter = false;
+                    }
+                }
                 return matchesSearch && matchesFilter;
             }) : [];
-            // 依照排序條件重新排序 filteredItems
-            if (herbSortOrder) {
-                try {
-                    filteredItems.sort((a, b) => {
+            // 依照停用狀態與排序條件重新排序 filteredItems
+            try {
+                filteredItems.sort((a, b) => {
+                    // 取得停用狀態，停用項目應排在最末
+                    let invA = { disabled: false };
+                    let invB = { disabled: false };
+                    try {
+                        if (typeof getHerbInventory === 'function') {
+                            invA = getHerbInventory(a.id) || { disabled: false };
+                            invB = getHerbInventory(b.id) || { disabled: false };
+                        }
+                    } catch (_e) {
+                        invA = { disabled: false };
+                        invB = { disabled: false };
+                    }
+                    const disA = invA && invA.disabled ? 1 : 0;
+                    const disB = invB && invB.disabled ? 1 : 0;
+                    if (disA !== disB) {
+                        // 停用 (1) 排在啟用 (0) 之後
+                        return disA - disB;
+                    }
+                    // 如果已選擇排序方式，則在非停用條件下進行庫存或使用次數排序
+                    if (herbSortOrder) {
                         // 庫存排序
                         if (herbSortOrder === 'most' || herbSortOrder === 'least') {
-                            const invA = (typeof getHerbInventory === 'function') ? getHerbInventory(a.id) : { quantity: 0 };
-                            const invB = (typeof getHerbInventory === 'function') ? getHerbInventory(b.id) : { quantity: 0 };
                             const qtyA = invA && typeof invA.quantity === 'number' ? invA.quantity : 0;
                             const qtyB = invB && typeof invB.quantity === 'number' ? invB.quantity : 0;
                             return herbSortOrder === 'most' ? qtyB - qtyA : qtyA - qtyB;
@@ -10678,11 +10853,12 @@ async function initializeSystemAfterLogin() {
                             const countB = (typeof b.usageCount === 'number') ? b.usageCount : 0;
                             return herbSortOrder === 'useMost' ? countB - countA : countA - countB;
                         }
-                        return 0;
-                    });
-                } catch (_e) {
-                    // 若排序過程出現錯誤則忽略排序
-                }
+                    }
+                    // 若未設定排序方式，或排序比較值相同，保持原順序
+                    return 0;
+                });
+            } catch (_e) {
+                // 若排序過程出現錯誤則忽略排序
             }
             // 若無資料，顯示提示並清除分頁
             if (!filteredItems || filteredItems.length === 0) {
@@ -10722,7 +10898,7 @@ async function initializeSystemAfterLogin() {
             const herbsInPage = pageItems.filter(item => item.type === 'herb');
             const formulasInPage = pageItems.filter(item => item.type === 'formula');
             let html = '';
-            if (herbsInPage.length > 0 && (currentHerbFilter === 'all' || currentHerbFilter === 'herb')) {
+            if (herbsInPage.length > 0 && (currentHerbFilter === 'all' || currentHerbFilter === 'herb' || currentHerbFilter === 'disabled')) {
                 html += `
                     <div class="mb-8">
                         <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
@@ -10734,7 +10910,7 @@ async function initializeSystemAfterLogin() {
                     </div>
                 `;
             }
-            if (formulasInPage.length > 0 && (currentHerbFilter === 'all' || currentHerbFilter === 'formula')) {
+            if (formulasInPage.length > 0 && (currentHerbFilter === 'all' || currentHerbFilter === 'formula' || currentHerbFilter === 'disabled')) {
                 html += `
                     <div class="mb-8">
                         <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
@@ -10788,8 +10964,13 @@ async function initializeSystemAfterLogin() {
             const safeDosage = herb.dosage ? window.escapeHtml(String(herb.dosage)) : null;
             const safeCautions = herb.cautions ? window.escapeHtml(herb.cautions) : null;
             // 中藥卡片：僅顯示資訊，不提供編輯/刪除操作
-            // 取得庫存資料
+            // 取得庫存資料（含停用狀態）
             const inv = typeof getHerbInventory === 'function' ? getHerbInventory(herb.id) : { quantity: 0, threshold: 0 };
+            // 判斷是否停用以決定狀態標籤
+            const isDisabled = inv && inv.disabled ? true : false;
+            const statusLabel = isDisabled ? '停用' : '啟用';
+            // Tailwind 樣式：停用用紅色背景，啟用用綠色背景
+            const statusClass = isDisabled ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
             const qty = inv && typeof inv.quantity === 'number' ? inv.quantity : 0;
             const thr = inv && typeof inv.threshold === 'number' ? inv.threshold : 0;
             const unit = (inv && inv.unit) ? inv.unit : 'g';
@@ -10835,6 +11016,7 @@ async function initializeSystemAfterLogin() {
                             <h4 class="text-lg font-semibold text-gray-900">${displayName}</h4>
                             ${safeAlias ? `<p class="text-sm text-gray-600">${safeAlias}</p>` : ''}
                         </div>
+                        <span class="ml-2 text-xs px-2 py-1 rounded ${statusClass}">${statusLabel}</span>
                     </div>
                     <div class="space-y-2 text-sm">
                         ${safeNature ? `<div><span class="font-medium text-gray-700">性味：</span>${safeNature}</div>` : ''}
@@ -10877,8 +11059,12 @@ async function initializeSystemAfterLogin() {
             const safeUsage = formula.usage ? window.escapeHtml(formula.usage) : null;
             const safeCautions = formula.cautions ? window.escapeHtml(formula.cautions) : null;
             // 方劑卡片：僅顯示資訊，不提供編輯/刪除操作
-            // 取得庫存資料
+            // 取得庫存資料（含停用狀態）
             const inv = typeof getHerbInventory === 'function' ? getHerbInventory(formula.id) : { quantity: 0, threshold: 0 };
+            // 判斷是否停用以決定狀態標籤
+            const isDisabled = inv && inv.disabled ? true : false;
+            const statusLabel = isDisabled ? '停用' : '啟用';
+            const statusClass = isDisabled ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
             const qty = inv && typeof inv.quantity === 'number' ? inv.quantity : 0;
             const thr = inv && typeof inv.threshold === 'number' ? inv.threshold : 0;
             const unit = (inv && inv.unit) ? inv.unit : 'g';
@@ -10923,6 +11109,7 @@ async function initializeSystemAfterLogin() {
                             <h4 class="text-lg font-semibold text-gray-900">${displayName}</h4>
                             ${safeSource ? `<p class="text-sm text-gray-600">出處：${safeSource}</p>` : ''}
                         </div>
+                        <span class="ml-2 text-xs px-2 py-1 rounded ${statusClass}">${statusLabel}</span>
                     </div>
                     <div class="space-y-3 text-sm">
                         ${safeEffects ? `<div><span class="font-medium text-gray-700">功效：</span>${safeEffects}</div>` : ''}
@@ -11789,6 +11976,17 @@ async function initializeSystemAfterLogin() {
             // 搜索匹配的中藥材和方劑，並根據匹配程度排序
             let matchedItems = (Array.isArray(herbLibrary) ? herbLibrary : [])
                 .filter(item => {
+                    // 停用的中藥不出現在處方搜尋結果中
+                    try {
+                        if (typeof getHerbInventory === 'function') {
+                            const inv = getHerbInventory(item.id);
+                            if (inv && inv.disabled) {
+                                return false;
+                            }
+                        }
+                    } catch (_e) {
+                        /* 若無法取得庫存資訊則忽略停用判斷 */
+                    }
                     // 將各屬性轉為小寫以便比對
                     const lowerName = item.name ? item.name.toLowerCase() : '';
                     const lowerAlias = item.alias ? item.alias.toLowerCase() : '';
