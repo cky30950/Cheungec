@@ -238,12 +238,13 @@ function renderPagination(totalItems, itemsPerPage, currentPage, onPageChange, c
 const ROLE_PERMISSIONS = {
   // 新增個人統計分析 (personalStatistics) 權限，診所管理者與醫師可使用
   // 管理員不需要個人設置與個人統計分析，故移除這兩項
-  // 將模板庫移至穴位庫之後，使側邊選單順序為：患者管理 -> 診症系統 -> 中藥庫 -> 穴位庫 -> 模板庫 -> 收費管理 -> 用戶管理 -> 財務報表 -> 系統管理 -> 帳號安全
-  '診所管理': ['patientManagement', 'consultationSystem', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'medicalRecordManagement', 'billingManagement', 'userManagement', 'financialReports', 'systemManagement', 'accountSecurity'],
-  // 醫師不需要系統管理權限，將模板庫移至穴位庫之後
-  '醫師': ['patientManagement', 'consultationSystem', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'medicalRecordManagement', 'billingManagement', 'personalSettings', 'personalStatistics', 'accountSecurity'],
-  // 將模板庫移至穴位庫之後
-  '護理師': ['patientManagement', 'consultationSystem', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'accountSecurity'],
+  // 將模板庫移至穴位庫之後，並將病歷管理調整至診症系統之下，使側邊選單順序為：
+  // 患者管理 -> 診症系統 -> 病歷管理 -> 中藥庫 -> 穴位庫 -> 模板庫 -> 醫療排班 -> 收費管理 -> 用戶管理 -> 財務報表 -> 系統管理 -> 帳號安全
+  '診所管理': ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'billingManagement', 'userManagement', 'financialReports', 'systemManagement', 'accountSecurity'],
+  // 醫師不需要系統管理權限，也將病歷管理置於診症系統之下，並將模板庫移至穴位庫之後
+  '醫師': ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'billingManagement', 'personalSettings', 'personalStatistics', 'accountSecurity'],
+  // 護理師可使用病歷管理功能，因此將 medicalRecordManagement 置於診症系統之後，同時保留模板庫移至穴位庫之後
+  '護理師': ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'accountSecurity'],
   // 用戶無中藥庫或穴位庫權限，維持模板庫在最後
   '用戶': ['patientManagement', 'consultationSystem', 'templateLibrary', 'accountSecurity']
 };
@@ -3255,7 +3256,10 @@ async function logout() {
         // 隱藏所有區域
         function hideAllSections() {
             // 隱藏所有區域，包括新增的個人設置與模板庫管理
-            ['patientManagement', 'consultationSystem', 'herbLibrary', 'acupointLibrary', 'scheduleManagement', 'medicalRecordManagement', 'billingManagement', 'userManagement', 'financialReports', 'systemManagement', 'personalSettings', 'personalStatistics', 'accountSecurity', 'templateLibrary', 'welcomePage'].forEach(id => {
+            // 按照新的側邊選單排序隱藏區域：
+            // 病歷管理應位於診症系統之後，模板庫應位於穴位庫之後。
+            // 因此調整順序為 patientManagement -> consultationSystem -> medicalRecordManagement -> herbLibrary -> acupointLibrary -> templateLibrary -> scheduleManagement -> 其他管理項
+            ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'billingManagement', 'userManagement', 'financialReports', 'systemManagement', 'personalSettings', 'personalStatistics', 'accountSecurity', 'welcomePage'].forEach(id => {
                 // 在隱藏中藥庫時，取消其資料監聽以減少 Realtime Database 讀取
                 if (id === 'herbLibrary') {
                     try {
