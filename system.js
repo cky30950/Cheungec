@@ -11734,9 +11734,10 @@ async function initializeSystemAfterLogin() {
         showToast('權限不足，無法存取收費項目管理', 'error');
         return;
     }
-            // 若尚未載入收費項目資料，才從 Firestore 重新載入
-            if (typeof initBillingItems === 'function' && (!Array.isArray(billingItems) || billingItems.length === 0)) {
-                await initBillingItems();
+            // 每次進入收費項目管理時，強制從 Firestore 取得最新資料，
+            // 以避免其他裝置在本地儲存的舊資料未同步更新。
+            if (typeof initBillingItems === 'function') {
+                await initBillingItems(true);
             }
             displayBillingItems();
             
@@ -12079,6 +12080,13 @@ async function initializeSystemAfterLogin() {
                     showToast('收費項目已新增！', 'success');
                 }
 
+                // 將最新收費項目存回本地以支援跨裝置同步讀取。
+                try {
+                    localStorage.setItem('billingItems', JSON.stringify(billingItems));
+                } catch (lsErrUpdate) {
+                    console.warn('保存收費項目到本地失敗:', lsErrUpdate);
+                }
+
                 try {
                     // 將收費項目寫入 Firestore
                     // 不儲存 id 欄位，避免與文件 ID 重複
@@ -12129,6 +12137,12 @@ async function initializeSystemAfterLogin() {
                         );
                     } catch (error) {
                         console.error('刪除收費項目資料至 Firestore 失敗:', error);
+                    }
+                    // 刪除後更新本地存儲，以便其他裝置下次載入時取得最新資料
+                    try {
+                        localStorage.setItem('billingItems', JSON.stringify(billingItems));
+                    } catch (lsErrDel) {
+                        console.warn('刪除收費項目後保存本地資料失敗:', lsErrDel);
                     }
                     const zhToastDel = `收費項目「${item.name}」已刪除！`;
                     const enToastDel = `Billing item \"${item.name}\" has been deleted!`;
