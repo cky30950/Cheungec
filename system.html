@@ -213,6 +213,38 @@
                 padding-left: 0.5rem !important;
                 padding-right: 0.5rem !important;
             }
+
+            /*
+             * 下拉選單樣式調整
+             *
+             * 在手機版面中，許多 <select> 元素會因為預設寬度或選項文字較長而超出容器，
+             * 導致橫向滾動或被截斷。為了改善在小螢幕上的呈現，
+             * 將所有 select（排除語言切換器 #languageSelector）設定為 100% 寬度、
+             * 同時將最小寬度設為 0，確保它們可以隨容器縮放。這能避免因內容過長而溢出框外。
+             *
+             * 另外，某些選單在桌面版使用 ml-auto 將其推到容器的右側，
+             * 在窄螢幕換行後會造成難以預料的位置偏移。透過移除 margin-left，讓
+             * 排序選單在換行時保持靠左對齊。
+             */
+            select:not(#languageSelector) {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+            }
+            #herbSortSelect {
+                margin-left: 0 !important;
+            }
+            /* 指定部分自訂下拉選單的寬度，避免在小螢幕下造成水平滾動 */
+            #herbComboCategoryFilter,
+            #acupointComboCategoryFilter,
+            #diagnosisTemplateCategoryFilter,
+            #prescriptionTemplateCategoryFilter,
+            #holidaySelector,
+            #inventoryQuantityUnit,
+            #roleFilter,
+            #shiftTypeFilter {
+                width: 100% !important;
+            }
         }
     </style>
 </head>
@@ -2800,7 +2832,19 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             position: sticky;
             top: 20px;
-            z-index: 100;
+            /*
+             * Reduce z-index for staff panel so it doesn't overlap
+             * the sidebar (診所功能列表). The sidebar uses z-index 50 via
+             * Tailwind’s z-50 utility class. Setting the staff panel below
+             * this value ensures the sidebar remains on top when open.
+             */
+            /*
+             * Lower the z-index further so that the sidebar overlay (which uses
+             * Tailwind’s z-40 class) appears on top when the clinic functions
+             * sidebar is open. A lower z-index prevents the staff panel from
+             * blocking the dark overlay effect.
+             */
+            z-index: 30;
         }
 
 #scheduleManagement .staff-panel h3 {
@@ -4534,6 +4578,7 @@
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"b2074e7888b746fe9fbbc15492b4c3d4","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
