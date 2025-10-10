@@ -4164,7 +4164,8 @@ async function viewPatient(id) {
             </div>
             <div id="patientConsultationSummary">
                 <div class="text-center py-4">
-                    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+                    <!-- 使用較大的讀取圈以與其他頁面一致 -->
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
                     <div class="mt-2 text-sm">${lblLoadingConsultations}</div>
                 </div>
             </div>
@@ -4662,10 +4663,10 @@ async function searchPatientsForRegistration() {
         return;
     }
     
-    // 顯示載入中
+    // 顯示載入中，使用大讀取圈以統一風格
     resultsList.innerHTML = `
         <div class="p-4 text-center text-gray-500">
-            <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
             <div class="mt-2">搜尋中...</div>
         </div>
     `;
@@ -5224,6 +5225,23 @@ async function loadTodayAppointments() {
         } catch (error) {
             console.error('讀取掛號資料錯誤:', error);
         }
+    }
+
+    // 取得掛號列表容器並先顯示大讀取圈。
+    try {
+        const tbodyLoading = document.getElementById('todayAppointmentsList');
+        if (tbodyLoading) {
+            tbodyLoading.innerHTML = `
+                <tr>
+                    <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                        <div class="mt-2">載入中...</div>
+                    </td>
+                </tr>
+            `;
+        }
+    } catch (_err) {
+        // 如果渲染讀取圈失敗，不影響後續流程
     }
 
     // 根據日期選擇器決定要顯示的日期；若未選擇則使用今日
@@ -10540,7 +10558,8 @@ async function loadPatientConsultationSummary(patientId) {
                     <!-- 使用動態渲染的套票區塊，初始顯示載入中動畫 -->
                     <div id="packageStatusContent">
                         <div class="text-center py-4">
-                            <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+                            <!-- 使用較大的讀取圈以與其他頁面一致 -->
+                            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
                             <div class="mt-2 text-sm">載入套票資料中...</div>
                         </div>
                     </div>
@@ -10597,7 +10616,8 @@ async function loadPatientConsultationSummary(patientId) {
                 <!-- 使用動態渲染的套票區塊，初始顯示載入中動畫 -->
                 <div id="packageStatusContent">
                     <div class="text-center py-4">
-                        <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+                        <!-- 使用較大的讀取圈以與其他頁面一致 -->
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
                         <div class="mt-2 text-sm">載入套票資料中...</div>
                     </div>
                 </div>
@@ -12110,6 +12130,8 @@ async function initializeSystemAfterLogin() {
                 }
                 hideAddBillingItemForm();
                 displayBillingItems();
+                // 新增或更新收費項目後，標記已載入，避免診症搜尋時判定為未載入
+                billingItemsLoaded = true;
             } finally {
                 // 恢復按鈕狀態與內容
                 clearButtonLoading(saveBtn);
@@ -12724,25 +12746,37 @@ async function initializeSystemAfterLogin() {
         }
         
         // 收費項目搜索功能
-        function searchBillingForConsultation() {
+async function searchBillingForConsultation() {
             const searchTerm = document.getElementById('billingSearch').value.trim().toLowerCase();
             const resultsContainer = document.getElementById('billingSearchResults');
             const resultsList = document.getElementById('billingSearchList');
-            
+
             if (searchTerm.length < 1) {
                 resultsContainer.classList.add('hidden');
                 return;
             }
-            
+
+            // 確保收費項目資料已載入。若尚未載入，呼叫初始化函式載入本地或遠端資料。
+            try {
+                if (typeof initBillingItems === 'function' && !billingItemsLoaded) {
+                    await initBillingItems();
+                }
+            } catch (err) {
+                console.error('載入收費項目資料時發生錯誤:', err);
+            }
+
+            // 檢查是否仍無資料，避免搜尋出現空白
+            const itemsForSearch = Array.isArray(billingItems) ? billingItems : [];
+
             // 搜索匹配的收費項目（只顯示啟用的項目）
-            const matchedItems = billingItems.filter(item => 
-                item.active && (
-                    item.name.toLowerCase().includes(searchTerm) ||
+            const matchedItems = itemsForSearch.filter(item => 
+                item && item.active && (
+                    (item.name && item.name.toLowerCase().includes(searchTerm)) ||
                     (item.description && item.description.toLowerCase().includes(searchTerm))
                 )
             ).slice(0, 10); // 限制顯示前10個結果
-            
-            if (matchedItems.length === 0) {
+
+            if (!matchedItems || matchedItems.length === 0) {
                 resultsList.innerHTML = `
                     <div class="p-3 text-center text-gray-500 text-sm">
                         找不到符合條件的收費項目
@@ -12751,7 +12785,7 @@ async function initializeSystemAfterLogin() {
                 resultsContainer.classList.remove('hidden');
                 return;
             }
-            
+
             // 顯示搜索結果
             resultsList.innerHTML = matchedItems.map(item => {
                 const categoryNames = {
@@ -12765,7 +12799,7 @@ async function initializeSystemAfterLogin() {
                 };
                 const categoryName = categoryNames[item.category] || '未分類';
                 const bgColor = getCategoryBgColor(item.category);
-                
+
                 return `
                     <div class="p-3 ${bgColor} border rounded-lg cursor-pointer transition duration-200" onclick="addToBilling('${item.id}')">
                         <div class="text-center">
@@ -12782,7 +12816,7 @@ async function initializeSystemAfterLogin() {
                     </div>
                 `;
             }).join('');
-            
+
             resultsContainer.classList.remove('hidden');
         }
         
@@ -18750,7 +18784,10 @@ function displayMedicalRecords(pageChange = false) {
     let filtered = medicalRecords;
     if (term) {
         filtered = medicalRecords.filter(rec => {
-            const recordNum = String(rec.id || '').toLowerCase();
+            // 使用病歷編號進行搜尋時優先採用 rec.medicalRecordNumber
+            // 若不存在則回退至 Firebase 文件 ID。這樣可讓使用者輸入「MR」開頭的編號
+            // 就能搜尋到對應病歷，而不會只比對隱晦的文件 ID。【857813225103928†L1617-L1625】
+            const recordNum = String(rec.medicalRecordNumber || rec.id || '').toLowerCase();
             const patientName = String(medicalRecordPatients[rec.patientId] || '').toLowerCase();
             let doctorName = '';
             // 依據醫師資料設定顯示名稱，若為字串（可能為 username 或角色），
@@ -18835,7 +18872,10 @@ function displayMedicalRecords(pageChange = false) {
         `;
     } else {
         pageItems.forEach(rec => {
-            const recordNum = rec.id || '';
+            // 顯示給使用者看的病歷編號應為系統產生的 medicalRecordNumber；若無則回退至文件 ID。
+            const recordNumDisplay = rec.medicalRecordNumber || rec.id || '';
+            // 實際用於載入與刪除的病歷 ID 必須使用 Firebase 文件 ID
+            const recordId = rec.id || '';
             const patientName = medicalRecordPatients[rec.patientId] || '';
             let doctorName = '';
             if (rec.doctor) {
@@ -18877,14 +18917,14 @@ function displayMedicalRecords(pageChange = false) {
             }
             tbody.innerHTML += `
                 <tr>
-                    <td class="px-4 py-2 whitespace-nowrap">${window.escapeHtml(recordNum)}</td>
+                    <td class="px-4 py-2 whitespace-nowrap">${window.escapeHtml(recordNumDisplay)}</td>
                     <td class="px-4 py-2 whitespace-nowrap">${window.escapeHtml(patientName)}</td>
                     <td class="px-4 py-2 whitespace-nowrap">${window.escapeHtml(complaintDisplay)}</td>
                     <td class="px-4 py-2 whitespace-nowrap">${window.escapeHtml(doctorName)}</td>
                     <td class="px-4 py-2 whitespace-nowrap">${window.escapeHtml(dateStr)}</td>
                     <td class="px-4 py-2 whitespace-nowrap">
-                        <button class="text-blue-600 hover:underline mr-2" onclick="viewMedicalRecord('${recordNum}', '${rec.patientId}')">${window.escapeHtml(viewLabel)}</button>
-                        <button class="text-red-600 hover:underline" onclick="confirmDeleteMedicalRecord('${recordNum}', '${patientName}')">${window.escapeHtml(deleteLabel)}</button>
+                        <button class="text-blue-600 hover:underline mr-2" onclick="viewMedicalRecord('${recordId}', '${rec.patientId}')">${window.escapeHtml(viewLabel)}</button>
+                        <button class="text-red-600 hover:underline" onclick="confirmDeleteMedicalRecord('${recordId}', '${patientName}')">${window.escapeHtml(deleteLabel)}</button>
                     </td>
                 </tr>
             `;
