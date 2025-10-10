@@ -17210,7 +17210,7 @@ class FirebaseDataManager {
      * @param {boolean} forceRefresh 是否強制重新從 Firestore 讀取第一頁資料
      * @returns {Promise<{ success: boolean, data: Array, hasMore: boolean }>}
      */
-    async getConsultations(forceRefresh = false, pageSize = 100) {
+    async getConsultations(forceRefresh = false) {
         if (!this.isReady) return { success: false, data: [] };
         try {
             // 有內存快取且不需強制刷新時直接返回
@@ -17239,13 +17239,11 @@ class FirebaseDataManager {
             this.consultationsCache = [];
             this.consultationsLastVisible = null;
             this.consultationsHasMore = false;
-            // 儲存頁面大小，供下一頁使用
-            this.consultationsPageSize = pageSize || 100;
-            const limitSize = this.consultationsPageSize;
+            const pageSize = 100;
             // 建立查詢：使用 limit 控制單次載入筆數
             const q = window.firebase.firestoreQuery(
                 window.firebase.collection(window.firebase.db, 'consultations'),
-                window.firebase.limit(limitSize)
+                window.firebase.limit(pageSize)
             );
             const querySnapshot = await window.firebase.getDocs(q);
             const consultations = [];
@@ -17255,7 +17253,7 @@ class FirebaseDataManager {
             // 設定游標為最後一筆文件
             this.consultationsLastVisible = querySnapshot.docs.length > 0 ? querySnapshot.docs[querySnapshot.docs.length - 1] : null;
             // 判斷是否還有下一頁
-            this.consultationsHasMore = querySnapshot.docs.length === limitSize;
+            this.consultationsHasMore = querySnapshot.docs.length === pageSize;
             // 更新快取
             this.consultationsCache = consultations;
             // 將結果寫入 localStorage 供下次使用
@@ -17281,34 +17279,28 @@ class FirebaseDataManager {
      * @returns {Promise<{ success: boolean, data: Array, hasMore: boolean }>}
      */
     async getConsultationsNextPage() {
-        /**
-         * 讀取診症記錄的下一頁資料。
-         * 此方法會根據前一次讀取時儲存的分頁大小 (consultationsPageSize)
-         * 來決定需要讀取的筆數。若尚未指定，則以 100 為預設值。
-         */
         if (!this.isReady) return { success: false, data: [] };
         try {
-            // 若上一頁沒有讀取滿 pageSize 或沒有游標，表示沒有更多資料
+            // 若上一頁沒有讀取滿 pageSize，表示沒有更多資料
             if (!this.consultationsHasMore || !this.consultationsLastVisible) {
                 return { success: true, data: [], hasMore: false };
             }
-            // 使用先前儲存的頁面大小，如果不存在則退回 100
-            const limitSize = this.consultationsPageSize || 100;
+            const pageSize = 100;
             // 建立查詢：從上一頁最後一筆之後開始
             const q = window.firebase.firestoreQuery(
                 window.firebase.collection(window.firebase.db, 'consultations'),
                 window.firebase.startAfter(this.consultationsLastVisible),
-                window.firebase.limit(limitSize)
+                window.firebase.limit(pageSize)
             );
             const snapshot = await window.firebase.getDocs(q);
             const newData = [];
             snapshot.forEach((docSnap) => {
                 newData.push({ id: docSnap.id, ...docSnap.data() });
             });
-            // 更新游標，如果本次讀取有資料，設為最後一筆；否則保持原游標
+            // 更新游標
             this.consultationsLastVisible = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : this.consultationsLastVisible;
             // 判斷是否還有更多資料
-            this.consultationsHasMore = snapshot.docs.length === limitSize;
+            this.consultationsHasMore = snapshot.docs.length === pageSize;
             // 將新資料附加至快取
             this.consultationsCache = Array.isArray(this.consultationsCache) ? this.consultationsCache.concat(newData) : newData;
             // 更新 localStorage 快取，用於下次頁面載入
@@ -18689,46 +18681,6 @@ document.addEventListener('DOMContentLoaded', function() {
 // 儲存所有病歷與對應病人名稱，以供列表與搜尋使用
 let medicalRecords = [];
 let medicalRecordPatients = {};
-
-/**
- * 確保從 Firebase 讀取足夠的診症記錄以支援顯示指定頁面。
- * 此函式會根據當前設定的每頁項目數量，計算需要的總資料筆數，
- * 如果尚未加載足夠的資料，則利用 DataManager.getConsultationsNextPage()
- * 持續載入下一批診症記錄，直到滿足需求或沒有更多資料可載入。
- *
- * @param {number} page 需要顯示的頁碼（從 1 開始）
- */
-async function ensureConsultationsLoadedForPage(page) {
-    try {
-        const itemsPerPage = (paginationSettings.medicalRecordList && paginationSettings.medicalRecordList.itemsPerPage)
-            ? paginationSettings.medicalRecordList.itemsPerPage
-            : 10;
-        const requiredCount = page * itemsPerPage;
-        // 如果醫療紀錄總長度已足夠，或 DataManager 尚未就緒，不需額外載入
-        if (!Array.isArray(medicalRecords)) {
-            return;
-        }
-        while (medicalRecords.length < requiredCount) {
-            // 確認 DataManager 及 nextPage 方法可用
-            if (!window.firebaseDataManager || typeof window.firebaseDataManager.getConsultationsNextPage !== 'function') {
-                break;
-            }
-            const nextRes = await window.firebaseDataManager.getConsultationsNextPage();
-            if (nextRes && nextRes.success && Array.isArray(nextRes.data)) {
-                // 更新全局 medicalRecords 以反映最新的診症資料
-                medicalRecords = nextRes.data;
-                // 若沒有更多資料，結束迭代
-                if (!nextRes.hasMore) {
-                    break;
-                }
-            } else {
-                break;
-            }
-        }
-    } catch (err) {
-        console.error('ensureConsultationsLoadedForPage 發生錯誤:', err);
-    }
-}
 /**
  * 載入病歷管理頁面：重置搜尋欄、讀取診症記錄與病人資料，並綁定搜尋事件。
  */
@@ -18755,16 +18707,11 @@ function loadMedicalRecordManagement() {
             searchInput._medicalRecordListener = listener;
         }
         // 同時讀取診症記錄與病人列表（使用安全方法等待 DataManager 就緒）
-        // 根據分頁設定決定每頁讀取的診症筆數，預設為 10
-        const itemsPerPage = (paginationSettings.medicalRecordList && paginationSettings.medicalRecordList.itemsPerPage)
-            ? paginationSettings.medicalRecordList.itemsPerPage
-            : 10;
         Promise.all([
             window.firebaseDataManager && typeof window.firebaseDataManager.getConsultations === 'function'
                 ? (async () => {
                       await waitForFirebaseDataManager();
-                      // 以 itemsPerPage 作為 pageSize 讀取診症記錄的第一頁
-                      return await window.firebaseDataManager.getConsultations(true, itemsPerPage);
+                      return await window.firebaseDataManager.getConsultations(true);
                   })()
                 : { success: false, data: [] },
             // 使用 safeGetPatients 以避免 DataManager 尚未載入
@@ -18794,30 +18741,11 @@ function loadMedicalRecordManagement() {
  * 顯示病歷列表，可依搜尋條件篩選並進行分頁。
  * @param {boolean} pageChange 若為 true 表示僅更換頁碼，不重置目前頁
  */
-async function displayMedicalRecords(pageChange = false) {
+function displayMedicalRecords(pageChange = false) {
     const tbody = document.getElementById('medicalRecordTableBody');
     if (!tbody) return;
     const searchInput = document.getElementById('searchMedicalRecord');
     const term = searchInput && searchInput.value ? searchInput.value.toLowerCase().trim() : '';
-    // 決定每頁顯示數量
-    const itemsPerPage = (paginationSettings.medicalRecordList && paginationSettings.medicalRecordList.itemsPerPage) ? paginationSettings.medicalRecordList.itemsPerPage : 10;
-    // 確定當前頁
-    let currentPage = (paginationSettings.medicalRecordList && paginationSettings.medicalRecordList.currentPage) ? paginationSettings.medicalRecordList.currentPage : 1;
-    if (!pageChange) {
-        currentPage = 1;
-    }
-    // 更新分頁設定中的當前頁
-    if (paginationSettings.medicalRecordList) {
-        paginationSettings.medicalRecordList.currentPage = currentPage;
-    }
-    // 確保在顯示當前頁之前已經從 Firestore 載入足夠的診症資料
-    if (typeof ensureConsultationsLoadedForPage === 'function') {
-        try {
-            await ensureConsultationsLoadedForPage(currentPage);
-        } catch (_err) {
-            console.warn('確保診症資料載入時出錯:', _err);
-        }
-    }
     // 依照搜尋條件過濾
     let filtered = medicalRecords;
     if (term) {
@@ -18825,6 +18753,10 @@ async function displayMedicalRecords(pageChange = false) {
             const recordNum = String(rec.id || '').toLowerCase();
             const patientName = String(medicalRecordPatients[rec.patientId] || '').toLowerCase();
             let doctorName = '';
+            // 依據醫師資料設定顯示名稱，若為字串（可能為 username 或角色），
+            // 則使用 getDoctorDisplayName() 嘗試從用戶列表取得顯示名稱；
+            // 若為物件，則優先使用其 username 再以 getDoctorDisplayName() 轉換，
+            // 否則回退至其自身的 displayName/name/fullName 或 email。
             if (rec.doctor) {
                 try {
                     if (typeof rec.doctor === 'string') {
@@ -18845,6 +18777,7 @@ async function displayMedicalRecords(pageChange = false) {
         });
     }
     // 將過濾後的病歷依日期排序，最新日期優先。
+    // 透過 parseConsultationDate 解析 date、createdAt 或 updatedAt，若解析失敗視為 0。
     try {
         const getTimestamp = (rec) => {
             try {
@@ -18863,14 +18796,21 @@ async function displayMedicalRecords(pageChange = false) {
     } catch (_sortErr) {
         // 忽略排序失敗
     }
-    // 計算總項目與頁數
+    if (!pageChange) {
+        // 重置當前頁至第一頁
+        if (paginationSettings.medicalRecordList) {
+            paginationSettings.medicalRecordList.currentPage = 1;
+        }
+    }
+    const itemsPerPage = (paginationSettings.medicalRecordList && paginationSettings.medicalRecordList.itemsPerPage) ? paginationSettings.medicalRecordList.itemsPerPage : 10;
+    let currentPage = (paginationSettings.medicalRecordList && paginationSettings.medicalRecordList.currentPage) ? paginationSettings.medicalRecordList.currentPage : 1;
     const totalItems = filtered.length;
     const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
     if (currentPage > totalPages) {
         currentPage = totalPages;
-        if (paginationSettings.medicalRecordList) {
-            paginationSettings.medicalRecordList.currentPage = currentPage;
-        }
+    }
+    if (paginationSettings.medicalRecordList) {
+        paginationSettings.medicalRecordList.currentPage = currentPage;
     }
     const startIdx = (currentPage - 1) * itemsPerPage;
     const pageItems = filtered.slice(startIdx, startIdx + itemsPerPage);
