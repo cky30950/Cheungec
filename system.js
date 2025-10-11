@@ -20174,7 +20174,20 @@ function _oldSelectPrescriptionTemplate(id) {
       // 在編輯模板介面中，`note` 對應的是「中藥服用方法」，`content` 對應的是「醫囑內容及注意事項」。
       // 因此在套用模板時，應將 note 填入使用方式欄位，content 填入醫囑欄位。
       if (usageField) {
-        usageField.value = (template.note && typeof template.note === 'string') ? template.note.trim() : '';
+        // 原本載入醫囑模板會覆蓋「中藥服用方法」欄位內容，需求改為保留既有文字並附加模板中的用藥說明。
+        const existingVal = usageField.value || '';
+        // 取得模板內的 note（對應中藥服用方法），並去除首尾空白
+        const newNote = (template.note && typeof template.note === 'string') ? template.note.trim() : '';
+        if (newNote) {
+          if (existingVal) {
+            // 若已有內容，則在末尾附加新內容，並在兩者間加入換行符以區隔
+            const separator = existingVal.endsWith('\n') ? '' : '\n';
+            usageField.value = existingVal + separator + newNote;
+          } else {
+            // 若原本沒有內容，直接填入新內容
+            usageField.value = newNote;
+          }
+        }
       }
       if (instructionsField) {
         instructionsField.value = (template.content && typeof template.content === 'string') ? template.content.trim() : '';
