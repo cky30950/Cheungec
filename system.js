@@ -232,6 +232,59 @@ function renderPagination(totalItems, itemsPerPage, currentPage, onPageChange, c
 }
 
 /**
+ * 使用方向鍵在當前可見的分頁容器中移動上一頁或下一頁。
+ *
+ * 此函式會搜尋所有 id 以 "Pagination" 結尾的 div 元素，
+ * 判斷其是否可見（未被隱藏且可點擊），並在第一個找到的容器中
+ * 尋找對應的「上一頁」或「下一頁」按鈕，並觸發點擊。
+ * 如果按鈕為禁用狀態或不存在，將不進行任何操作。
+ * 若有多個分頁容器同時可見，只會處理最先找到的一個。
+ *
+ * @param {number} direction - 移動方向，-1 表示上一頁，1 表示下一頁
+ */
+function navigatePagination(direction) {
+  try {
+    // 搜尋所有分頁容器（id 以 Pagination 結尾）
+    const containers = document.querySelectorAll('div[id$="Pagination"]');
+    for (const container of containers) {
+      // 判斷容器是否可見：不存在 hidden 類且在頁面上有可見尺寸
+      const isHidden = container.classList && container.classList.contains('hidden');
+      const isVisible = !isHidden && container.offsetParent !== null;
+      if (!isVisible) {
+        continue;
+      }
+      // 取得所有按鈕
+      const buttons = Array.from(container.querySelectorAll('button'));
+      // 檢查方向並尋找相應按鈕
+      if (direction < 0) {
+        // 尋找上一頁按鈕，支持中文與英文描述
+        const prevBtn = buttons.find(btn => {
+          const text = (btn.textContent || '').trim().toLowerCase();
+          return !btn.disabled && (text.includes('上一頁') || text.includes('上一页') || text.includes('previous') || text.includes('prev'));
+        });
+        if (prevBtn && typeof prevBtn.click === 'function') {
+          prevBtn.click();
+          break;
+        }
+      } else if (direction > 0) {
+        // 尋找下一頁按鈕
+        const nextBtn = buttons.find(btn => {
+          const text = (btn.textContent || '').trim().toLowerCase();
+          return !btn.disabled && (text.includes('下一頁') || text.includes('下一页') || text.includes('next'));
+        });
+        if (nextBtn && typeof nextBtn.click === 'function') {
+          nextBtn.click();
+          break;
+        }
+      }
+    }
+  } catch (e) {
+    // 若搜尋或點擊時發生錯誤，忽略避免影響其他操作
+    console.error(e);
+  }
+}
+
+/**
  * 角色與對應可存取的系統區塊對照表。
  * 每個角色可存取哪些頁面（功能），在此集中定義。
  */
@@ -23745,15 +23798,16 @@ function hideGlobalCopyright() {
     // 將 SELECT 從可編輯輸入排除，讓在下拉選單中按 Enter 也能觸發快捷操作
     const isEditableInput = tagName === 'INPUT' || tagName === 'TEXTAREA' || (target && target.isContentEditable);
 
-    // 處理左右方向鍵：僅在 keydown 階段且病歷或診症記錄彈窗開啟時有效
-    if ((key === 'ArrowLeft' || key === 'ArrowRight')) {
+    // 處理左右方向鍵：在 keydown 階段根據情境切換頁面。
+    if (key === 'ArrowLeft' || key === 'ArrowRight') {
       // 只在 keydown 事件處理方向鍵，避免 keypress 重複處理
       if (eventType !== 'keydown') {
         return;
       }
+      const direction = key === 'ArrowLeft' ? -1 : 1;
       if (modals.length > 0 && !isEditableInput) {
+        // 若有病歷或診症彈窗，優先切換彈窗內容頁
         const activeModal = modals[modals.length - 1];
-        const direction = key === 'ArrowLeft' ? -1 : 1;
         const modalId = activeModal.id || '';
         try {
           if (modalId === 'patientMedicalHistoryModal' && typeof changePatientHistoryPage === 'function') {
@@ -23770,6 +23824,18 @@ function hideGlobalCopyright() {
           }
         } catch (_e) {
           // 若換頁失敗則忽略
+        }
+      }
+      // 如果沒有彈窗並且目前焦點不在可編輯輸入中，則嘗試在有分頁的列表中換頁
+      if (!isEditableInput) {
+        try {
+          if (typeof navigatePagination === 'function') {
+            navigatePagination(direction);
+            ev.preventDefault();
+            ev.stopPropagation();
+          }
+        } catch (_e) {
+          // 忽略換頁錯誤以避免影響其他操作
         }
       }
       return;
