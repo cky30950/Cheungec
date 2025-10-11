@@ -2060,6 +2060,7 @@ async function openInventoryModal(itemId) {
          * saveInventoryChanges()。
          */
         try {
+            // 綁定「剩餘數量」欄位的 Enter 鍵儲存事件
             if (qtyInput) {
                 // 移除先前的事件處理器，避免重複觸發
                 if (qtyInput._enterSaveHandler) {
@@ -2093,9 +2094,38 @@ async function openInventoryModal(itemId) {
                 // 綁定新的處理器
                 qtyInput.addEventListener('keypress', qtyInput._enterSaveHandler);
             }
+            // 新增：為「補貨警戒量」(警戒值)欄位綁定 Enter 鍵事件，與剩餘數量欄位相同邏輯
+            if (thrInput) {
+                // 移除先前的事件處理器，避免重複觸發
+                if (thrInput._enterSaveHandler) {
+                    thrInput.removeEventListener('keypress', thrInput._enterSaveHandler);
+                }
+                thrInput._enterSaveHandler = function (ev) {
+                    if (ev && ev.key === 'Enter') {
+                        ev.preventDefault();
+                        try {
+                            const saveBtn = modal ? modal.querySelector('button[onclick*="saveInventoryChanges"]') : null;
+                            if (saveBtn && typeof saveBtn.click === 'function') {
+                                saveBtn.click();
+                                return;
+                            }
+                        } catch (_e) {
+                            /* ignore */
+                        }
+                        try {
+                            if (typeof saveInventoryChanges === 'function') {
+                                saveInventoryChanges();
+                            }
+                        } catch (_e) {
+                            console.error('Enter 鍵觸發庫存儲存失敗:', _e);
+                        }
+                    }
+                };
+                thrInput.addEventListener('keypress', thrInput._enterSaveHandler);
+            }
         } catch (_e) {
             // 若綁定事件時發生錯誤，僅記錄但不會阻斷彈窗開啟
-            console.error('綁定庫存數量輸入 Enter 鍵事件失敗:', _e);
+            console.error('綁定庫存數量或警戒量輸入 Enter 鍵事件失敗:', _e);
         }
         const titleEl = document.getElementById('inventoryModalTitle');
         // 設定彈窗標題包含藥材名稱
