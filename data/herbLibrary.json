@@ -5056,6 +5056,36 @@
       "englishName": "XuanMingFen",
       "createdAt": "2025-08-12T10:24:05.812Z",
       "updatedAt": "2025-08-12T10:24:05.812Z"
-    }
+    },
+{
+  "id": 1755000009998,
+  "name": "石菖蒲",
+  "alias": "菖蒲、水劍草",
+  "nature": "辛、苦，溫",
+  "meridian": "心、胃經",
+  "effects": "開竅豁痰，醒神益智，化濕開胃",
+  "indications": "痰蒙清竅，神昏癲癇，健忘失眠，耳鳴耳聾，脘痞不飢，噤口下痢",
+  "dosage": "3-9g",
+  "cautions": "陰虛陽亢、煩躁汗多者慎用",
+  "type": "herb",
+  "englishName": "ShiChangPu",
+  "createdAt": "2025-08-12T10:24:05.998Z",
+  "updatedAt": "2025-08-12T10:24:05.998Z"
+},
+{
+  "id": 1755000009999,
+  "name": "生磁石",
+  "alias": "磁石、靈磁石",
+  "nature": "咸，寒",
+  "meridian": "肝、心、腎經",
+  "effects": "平肝潛陽，聰耳明目，鎮驚安神，納氣平喘",
+  "indications": "頭暈目眩，視物昏花，耳鳴耳聾，驚悸失眠，腎虛氣喘",
+  "dosage": "9-30g（先煎）",
+  "cautions": "脾胃虛弱者慎用",
+  "type": "herb",
+  "englishName": "ShengCiShi",
+  "createdAt": "2025-08-12T10:24:05.999Z",
+  "updatedAt": "2025-08-12T10:24:05.999Z"
+}
   ]
 }
