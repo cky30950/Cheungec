@@ -7434,7 +7434,7 @@ if (!patient) {
                                     <div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 whitespace-pre-line medical-field">${consultation.prescription || '無記錄'}</div>
                                 </div>
                                 
-                        ${consultation.usage ? `
+                        ${consultation.usage && consultation.prescription ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">服用方法</span>
                                     <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">
@@ -7811,7 +7811,7 @@ function displayConsultationMedicalHistoryPage() {
                             <div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 whitespace-pre-line medical-field">${consultation.prescription || '無記錄'}</div>
                         </div>
                         
-                        ${consultation.usage ? `
+                        ${consultation.usage && consultation.prescription ? `
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">服用方法</span>
                             <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">
@@ -8218,6 +8218,11 @@ async function printConsultationRecord(consultationId, consultationData = null) 
         }
         if (consultation.usage) {
             medInfoLocalized += '<strong>' + (isEnglish ? 'Administration Method' : '服用方法') + colon + '</strong>' + consultation.usage;
+        }
+        // If there is no Chinese medicine prescription, clear medication info
+        if (!originalPrescription || (typeof originalPrescription === 'string' && originalPrescription.trim() === '')) {
+            medInfoHtml = '';
+            medInfoLocalized = '';
         }
         // Translation dictionary for receipt labels
         const TR = {
@@ -9586,6 +9591,10 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
         }
         if (consultation.usage) {
             medInfoHtml += `<strong>${isEnglish ? 'Usage' : '服用方法'}${colon}</strong>${consultation.usage}`;
+        }
+        // If there is no prescription (Chinese medicine), clear medication info
+        if (!consultation.prescription || (typeof consultation.prescription === 'string' && consultation.prescription.trim() === '')) {
+            medInfoHtml = '';
         }
         // 醫囑及注意事項
         const instructionsHtml = consultation.instructions ? consultation.instructions.replace(/\n/g, '<br>') : '';
@@ -19165,7 +19174,7 @@ function viewMedicalRecord(recordId, patientId) {
         detailHtml += `<div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 whitespace-pre-line medical-field">${rec.prescription ? window.escapeHtml(rec.prescription) : '無記錄'}</div>`;
         detailHtml += '</div>';
         // 服用方法
-        if (rec.usage) {
+if (rec.usage && rec.prescription) {
             detailHtml += '<div>';
             detailHtml += '<span class="text-sm font-semibold text-gray-700 block mb-2">服用方法</span>';
             let usageText = '';
