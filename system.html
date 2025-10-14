@@ -8,7 +8,14 @@
     <link rel="icon" type="image/png" href="images/myLogo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Firebase SDK -->
-<script type="module" src="firebase_init.js"></script>
+    <script type="module" src="firebase_init.js"></script>
+    <!-- 引入 jQuery (Toastr 的依賴) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <!-- 引入 Toastr 用於提示訊息 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <!-- 引入 SweetAlert2 用於彈窗 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; }
@@ -21,55 +28,7 @@
             color: #9ca3af; /* text-gray-400 */
         }
         
-        /* 浮動提示樣式 */
-        .toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            min-width: 300px;
-            max-width: 500px;
-            padding: 16px 20px;
-            border-radius: 12px;
-            color: white;
-            font-weight: 500;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            transform: translateX(100%);
-            transition: all 0.3s ease-in-out;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .toast.show {
-            transform: translateX(0);
-        }
-        
-        .toast.success {
-            background: linear-gradient(135deg, #10b981, #059669);
-        }
-        
-        .toast.error {
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-        }
-        
-        .toast.warning {
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-        }
-        
-        .toast.info {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-        }
-        
-        .toast-icon {
-            font-size: 20px;
-            flex-shrink: 0;
-        }
-        
-        .toast-content {
-            flex: 1;
-            line-height: 1.4;
-        }
+        /* 移除自訂 .toast 樣式，改由 Toastr 的 CSS 提供提示樣式 */
 
         /* 讓病歷欄位內容長字串換行避免溢出 */
         .medical-field {
@@ -120,13 +79,7 @@
                 grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
             }
 
-            /* Toast 提示在手機上自適應寬度並靠左右居中 */
-            .toast {
-                min-width: auto !important;
-                max-width: 90% !important;
-                right: 5% !important;
-                left: 5% !important;
-            }
+            /* 移除舊的 .toast 手機樣式，使用 Toastr 預設樣式即可 */
 
             /*
              * 手機檢視時，診症記錄卡片的日期／醫師資訊與列印按鈕等操作無法全部水平顯示，
@@ -3240,7 +3193,7 @@
                     </select>
                 </div>
                 <div class="sync-controls">
-                    <button class="sync-btn" onclick="scheduleSyncToGoogle()"><span class="text-1xl mr-1">📅</span> 同步 Google</button>
+                    <!-- 已移除同步 Google 功能 -->
                     <button class="sync-btn" onclick="scheduleExportToICal()"><span class="text-1xl mr-1">📋</span> 匯出 iCal</button>
                     <!-- 新增列印更表按鈕：列印當前月份的排班表 -->
                     <button class="sync-btn" onclick="schedulePrintShiftTable()"><span class="text-1xl mr-1">🖨️</span> 列印更表</button>
@@ -3256,6 +3209,8 @@
                         <option value="">所有職位</option>
                         <option value="doctor">醫師</option>
                         <option value="nurse">護理師</option>
+                        <!-- 新增選項：自己。當選擇此選項時，只會顯示當前登入用戶的排班 -->
+                        <option value="self">自己</option>
                     </select>
                 </div>
                 <div class="filter-group">
@@ -4163,52 +4118,7 @@
             updateStats();
         }
 
-        // 同步到 Google Calendar
-        function syncToGoogle() {
-            // 創建 Google Calendar 事件格式，支援跨日班次與 24:00 結束時間
-            const events = shifts.map(shift => {
-                const member = getStaffMemberById(shift.staffId);
-                // 計算結束日期與時間
-                let endDateStr = shift.date;
-                let endTimeStr = shift.endTime;
-                const startMinutes = parseTimeToMinutes(shift.startTime);
-                let endMinutes = parseTimeToMinutes(shift.endTime);
-                // 若班次跨日或結束時間為 24:00，調整結束日期與時間
-                if (endMinutes <= startMinutes || endMinutes >= 24 * 60) {
-                    const dateObj = new Date(shift.date);
-                    dateObj.setDate(dateObj.getDate() + 1);
-                    endDateStr = dateObj.toISOString().split('T')[0];
-                    // 若為 24:00 或更晚，設為 00:00
-                    if (endMinutes >= 24 * 60) {
-                        endTimeStr = '00:00';
-                    }
-                }
-                const startDateTime = `${shift.date}T${shift.startTime}:00`;
-                const endDateTime = `${endDateStr}T${endTimeStr}:00`;
-                return {
-                    title: `${member.name} - ${member.role === 'doctor' ? '醫師' : '護理師'}排班`,
-                    start: startDateTime,
-                    end: endDateTime,
-                    // 移除部門與狀態，僅顯示班別與備註
-                    description: `班別: ${shift.type}${shift.notes ? '\n備註: ' + shift.notes : ''}`
-                };
-            });
-
-            // 生成 Google Calendar URL
-            const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
-            const event = events[0]; // 只取第一個事件示範
-            if (event) {
-                const params = new URLSearchParams({
-                    text: event.title,
-                    dates: `${event.start.replace(/[-:]/g, '')}/${event.end.replace(/[-:]/g, '')}`,
-                    details: event.description
-                });
-                window.open(`${baseUrl}&${params.toString()}`, '_blank', 'noopener,noreferrer');
-                showNotification('正在開啟 Google Calendar...');
-            } else {
-                showNotification('沒有排班資料可同步');
-            }
-        }
+        // 已移除同步至 Google Calendar 功能，原有程式碼已刪除
 
         // 匯出 iCal
         function exportToICal() {
@@ -4578,6 +4488,10 @@
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"b2074e7888b746fe9fbbc15492b4c3d4","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>

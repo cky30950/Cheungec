@@ -1172,8 +1172,19 @@
             const type = document.getElementById('shiftType').value;
 
             if (!staffId || !date || !startTime || !endTime || !type) {
-                // Show translated message when required fields are missing
-                alert(translate('請填寫所有必填欄位！'));
+                // 必填欄位缺漏時使用 toast 提示錯誤。若 toast 未定義則回退至 alert。
+                const msgRequired = translate('請填寫所有必填欄位！');
+                try {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(msgRequired, 'error');
+                    } else if (typeof showToast === 'function') {
+                        showToast(msgRequired, 'error');
+                    } else {
+                        alert(msgRequired);
+                    }
+                } catch (_e) {
+                    alert(msgRequired);
+                }
                 // 釋放提交鎖定，讓使用者可以再次嘗試
                 shiftSubmitInProgress = false;
                 return;
@@ -1257,62 +1268,10 @@
             }, 0);
         }
 
-        // 同步到 Google Calendar
-        function syncToGoogle() {
-            // 創建 Google Calendar 事件格式
-            const events = shifts.map(shift => {
-                // 透過 ID 找到對應的人員
-                const staffMember = findStaffById(shift.staffId);
-                let endDateStr = shift.date;
-                let endTimeStr = shift.endTime;
-                const startMinutes = parseTimeToMinutes(shift.startTime);
-                let endMinutes = parseTimeToMinutes(shift.endTime);
-                // 若班次跨日或結束時間為 24:00，需將結束日期加一天並將時間設為 00:00
-                if (endMinutes <= startMinutes || endMinutes >= 24 * 60) {
-                    const dateObj = new Date(shift.date);
-                    dateObj.setDate(dateObj.getDate() + 1);
-                    endDateStr = dateObj.toISOString().split('T')[0];
-                    // 24:00 或跨日情況下結束時間設為 00:00
-                    endTimeStr = '00:00';
-                }
-                const startDateTime = `${shift.date}T${shift.startTime}:00`;
-                const endDateTime = `${endDateStr}T${endTimeStr}:00`;
-                // Localised role label and shift type for the title and description
-                const roleLabel = staffMember.role === 'doctor' ? translate('醫師') : staffMember.role === 'nurse' ? translate('護理師') : '';
-                const shiftTypeName = translate(getShiftTypeName(shift.type));
-                return {
-                    title: `${staffMember.name} - ${roleLabel}${translate('排班')}`,
-                    start: startDateTime,
-                    end: endDateTime,
-                    // 移除部門資訊，以避免顯示不必要的欄位
-                    description: `${translate('班別:')} ${shiftTypeName}${shift.notes ? '\n' + translate('備註:') + ' ' + shift.notes : ''}`
-                };
-            });
-
-            // 生成 Google Calendar URL
-            const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
-            const event = events[0]; // 示範用第一個事件
-            if (event) {
-                const params = new URLSearchParams({
-                    text: event.title,
-                    dates: `${event.start.replace(/[-:]/g, '')}/${event.end.replace(/[-:]/g, '')}`,
-                    details: event.description
-                });
-                // 從本地取得診所設定，以設定事件的地點
-                try {
-                    const clinicSettings = JSON.parse(localStorage.getItem('clinicSettings') || '{}');
-                    if (clinicSettings && clinicSettings.address) {
-                        params.set('location', clinicSettings.address);
-                    }
-                } catch (_e) {
-                    /* 如果解析失敗，忽略地點設定 */
-                }
-                window.open(`${baseUrl}&${params.toString()}`, '_blank', 'noopener,noreferrer');
-                showNotification(translate('正在開啟 Google Calendar...'));
-            } else {
-            showNotification(translate('沒有排班資料可同步'));
-            }
-        }
+        // 已移除同步至 Google Calendar 的功能
+        // function syncToGoogle() {
+        //     /* 此函式已停用。 */
+        // }
 
         // 匯出 iCal
         function exportToICal() {
@@ -1433,13 +1392,42 @@
         // 檢查排班是否符合篩選條件
         function passesFilter(shift) {
             const staffMember = findStaffById(shift.staffId);
-            
-            // Do not filter by department.  The department filter has been
-            // removed from the UI, so always allow all departments.
-            if (currentFilters.role && staffMember.role !== currentFilters.role) return false;
+
+            // When the role filter is set to "self" we want to show only
+            // the current user's own shifts.  The current user information
+            // may be stored in several different global variables depending
+            // on how authentication data is loaded.  Try each possible
+            // location in turn to find a user object with an id.
+            if (currentFilters.role === 'self') {
+                let currentUser = null;
+                try {
+                    if (typeof currentUserData !== 'undefined' && currentUserData && currentUserData.id !== undefined) {
+                        currentUser = currentUserData;
+                    } else if (typeof window !== 'undefined' && window.currentUserData && window.currentUserData.id !== undefined) {
+                        currentUser = window.currentUserData;
+                    } else if (typeof window !== 'undefined' && window.currentUser && window.currentUser.id !== undefined) {
+                        currentUser = window.currentUser;
+                    }
+                } catch (_e) {
+                    // ignore errors when retrieving currentUser
+                    currentUser = null;
+                }
+                const currentUserId = currentUser && currentUser.id;
+                // If we cannot determine the current user's id or the shift
+                // does not belong to the current user, exclude the shift.
+                if (!currentUserId || String(shift.staffId) !== String(currentUserId)) return false;
+            } else {
+                // Do not filter by department.  The department filter has been
+                // removed from the UI, so always allow all departments.  For
+                // role filters like doctor or nurse, ensure the staff member's
+                // role matches the selected value.
+                if (currentFilters.role && staffMember.role !== currentFilters.role) return false;
+            }
+
+            // Apply remaining filters for shift type and staff name search.
             if (currentFilters.shiftType && shift.type !== currentFilters.shiftType) return false;
             if (currentFilters.staffSearch && !staffMember.name.toLowerCase().includes(currentFilters.staffSearch)) return false;
-            
+
             return true;
         }
 
@@ -1457,7 +1445,8 @@
             if (!ensureAdmin('清空所有排班')) {
                 return;
             }
-            if (confirm(translate('確定要清空所有排班嗎？此操作無法復原。'))) {
+            const confirmedClear = await showConfirmation(translate('確定要清空所有排班嗎？此操作無法復原。'), 'warning');
+            if (confirmedClear) {
                 // 清除目前月份的所有排班
                 shifts = [];
                 // 從資料庫移除當月節點
@@ -1532,7 +1521,8 @@
                                  translate('備註：') + `${shift.notes || translate('無')}\n\n` +
                                  translate('此操作無法復原！');
             
-            if (confirm(confirmMessage)) {
+            const confirmedDelShift = await showConfirmation(confirmMessage, 'warning');
+            if (confirmedDelShift) {
                 const shiftIndex = shifts.findIndex(s => s.id == shiftId);
                 if (shiftIndex !== -1) {
                     // 儲存將要刪除的排班資訊，以便刪除資料庫
@@ -1555,20 +1545,40 @@
         }
 
         // 顯示排班詳情
-        function showShiftDetails(shift) {
+        async function showShiftDetails(shift) {
             const staffMember = findStaffById(shift.staffId);
             const duration = calculateShiftDuration(shift.startTime, shift.endTime);
-            
-            // 顯示排班詳情，移除部門與狀態資訊以簡化顯示
-            // Display shift details with translated labels while preserving dynamic data.
-            alert(`${translate('排班詳情：')}
-${translate('姓名：')}${staffMember.name}
-${translate('職位：')}${staffMember.level}
-${translate('日期：')}${shift.date}
-${translate('時間：')}${shift.startTime} - ${shift.endTime} (${duration} ${translate('小時')})
-${translate('備註：')}${shift.notes || translate('無')}
-${translate('聯絡電話：')}${staffMember.phone}
-${translate('電子郵件：')}${staffMember.email}`);
+            // 使用 SweetAlert2 顯示排班詳情。若 Swal 不存在則退回 alert。
+            try {
+                // 決定確定按鈕的標籤文字
+                const langOk = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+                const okLabel = langOk === 'en' ? 'OK' : '確定';
+                // 使用 HTML 格式的字串展示排班詳情，替換換行為 <br/>
+                const html =
+                    `${translate('姓名：')}${staffMember.name}<br>` +
+                    `${translate('職位：')}${staffMember.level}<br>` +
+                    `${translate('日期：')}${shift.date}<br>` +
+                    `${translate('時間：')}${shift.startTime} - ${shift.endTime} (${duration} ${translate('小時')})<br>` +
+                    `${translate('備註：')}${shift.notes || translate('無')}<br>` +
+                    `${translate('聯絡電話：')}${staffMember.phone}<br>` +
+                    `${translate('電子郵件：')}${staffMember.email}`;
+                await Swal.fire({
+                    icon: 'info',
+                    title: translate('排班詳情：'),
+                    html: html,
+                    confirmButtonText: okLabel
+                });
+            } catch (_err) {
+                // 若 SweetAlert2 不可用則回退到 alert
+                alert(`${translate('排班詳情：')}` + '\n' +
+                    `${translate('姓名：')}${staffMember.name}` + '\n' +
+                    `${translate('職位：')}${staffMember.level}` + '\n' +
+                    `${translate('日期：')}${shift.date}` + '\n' +
+                    `${translate('時間：')}${shift.startTime} - ${shift.endTime} (${duration} ${translate('小時')})` + '\n' +
+                    `${translate('備註：')}${shift.notes || translate('無')}` + '\n' +
+                    `${translate('聯絡電話：')}${staffMember.phone}` + '\n' +
+                    `${translate('電子郵件：')}${staffMember.email}`);
+            }
         }
 
         // 根據ID顯示排班詳情
@@ -1596,14 +1606,42 @@ ${translate('電子郵件：')}${staffMember.email}`);
 
 
         // 顯示通知
-        function showNotification(message) {
+        /**
+         * 顯示通知訊息的輔助函式。
+         *
+         * 這個函式會優先嘗試使用全域的 showToast（由 system.js 提供），
+         * 讓訊息以 Toastr 的形式顯示。如果 showToast 不存在，則會退回
+         * 到原本的 notification DOM 元素，最後如果連 DOM 也沒有，才會
+         * 使用 alert 作為終極回退。可接受第二個參數 type 以指定訊息類型。
+         * @param {string} message 要顯示的訊息
+         * @param {string} [type='info'] 訊息類型，可為 'info'、'success'、'warning'、'error'
+         */
+        function showNotification(message, type = 'info') {
+            try {
+                // 優先使用全域 showToast（由 system.js 定義）。
+                if (typeof window.showToast === 'function') {
+                    window.showToast(message, type);
+                    return;
+                } else if (typeof showToast === 'function') {
+                    // 若非在 window 上仍存在 showToast，則呼叫之
+                    showToast(message, type);
+                    return;
+                }
+            } catch (_e) {
+                // 忽略錯誤，繼續回退
+            }
+            // 如果沒有 toast 功能，嘗試使用頁面上的 notification 元素顯示訊息
             const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.classList.add('show');
-            
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 3000);
+            if (notification) {
+                notification.textContent = message;
+                notification.classList.add('show');
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 3000);
+            } else {
+                // 最後退回到 alert
+                alert(message);
+            }
         }
 
         // 固定排班功能
@@ -1669,7 +1707,19 @@ ${translate('電子郵件：')}${staffMember.email}`);
             }
             
             if (selectedDays.length === 0) {
-                alert(translate('請至少選擇一個工作日！'));
+                // 未選擇工作日時提示錯誤
+                const msgNoDay = translate('請至少選擇一個工作日！');
+                try {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(msgNoDay, 'error');
+                    } else if (typeof showToast === 'function') {
+                        showToast(msgNoDay, 'error');
+                    } else {
+                        alert(msgNoDay);
+                    }
+                } catch (_e) {
+                    alert(msgNoDay);
+                }
                 return;
             }
             
@@ -1679,7 +1729,19 @@ ${translate('電子郵件：')}${staffMember.email}`);
                 startTime = document.getElementById('fixedStartTime').value;
                 endTime = document.getElementById('fixedEndTime').value;
                 if (!startTime || !endTime) {
-                    alert(translate('請設定自訂時間！'));
+                    // 自訂班別未填寫起迄時間，使用 toast 提示
+                    const msgCustomTime = translate('請設定自訂時間！');
+                    try {
+                        if (typeof window.showToast === 'function') {
+                            window.showToast(msgCustomTime, 'error');
+                        } else if (typeof showToast === 'function') {
+                            showToast(msgCustomTime, 'error');
+                        } else {
+                            alert(msgCustomTime);
+                        }
+                    } catch (_e) {
+                        alert(msgCustomTime);
+                    }
                     return;
                 }
             } else {
@@ -1714,8 +1776,20 @@ ${translate('電子郵件：')}${staffMember.email}`);
                     const startDateStr = document.getElementById('rangeStartDate').value;
                     const endDateStr = document.getElementById('rangeEndDate').value;
                     if (!startDateStr || !endDateStr) {
-                    alert(translate('請設定自訂日期範圍！'));
-                    return;
+                        // 自訂日期範圍未填寫時提示錯誤
+                        const msgRange = translate('請設定自訂日期範圍！');
+                        try {
+                            if (typeof window.showToast === 'function') {
+                                window.showToast(msgRange, 'error');
+                            } else if (typeof showToast === 'function') {
+                                showToast(msgRange, 'error');
+                            } else {
+                                alert(msgRange);
+                            }
+                        } catch (_e) {
+                            alert(msgRange);
+                        }
+                        return;
                     }
                     startDate = new Date(startDateStr);
                     endDate = new Date(endDateStr);
@@ -1828,13 +1902,25 @@ ${translate('電子郵件：')}${staffMember.email}`);
         }
 
         // 查看人員排班
-        function viewStaffSchedule(staffId) {
+        async function viewStaffSchedule(staffId) {
             const staffMember = findStaffById(staffId);
             const staffShifts = shifts.filter(s => String(s.staffId) === String(staffId))
                 .sort((a, b) => new Date(a.date) - new Date(b.date));
             
             if (staffShifts.length === 0) {
-                alert(`${staffMember.name} ${translate('目前沒有排班記錄。')}`);
+                // 若沒有排班記錄則使用 toast 提示。若 toast 不存在則回退至 alert。
+                const noScheduleMsg = `${staffMember.name} ${translate('目前沒有排班記錄。')}`;
+                try {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(noScheduleMsg, 'info');
+                    } else if (typeof showToast === 'function') {
+                        showToast(noScheduleMsg, 'info');
+                    } else {
+                        alert(noScheduleMsg);
+                    }
+                } catch (_e) {
+                    alert(noScheduleMsg);
+                }
                 return;
             }
             
@@ -1854,12 +1940,23 @@ ${translate('電子郵件：')}${staffMember.email}`);
                 scheduleText += `📅 ${formattedDate} ${shift.startTime}-${shift.endTime} (${duration}h) - ${shiftTypeName}\n`;
                 if (shift.notes) scheduleText += `   ${translate('備註:')} ${shift.notes}\n`;
             });
-            // Display the assembled schedule text
-            alert(scheduleText);
+            // 使用 SweetAlert2 顯示排班記錄；若 SweetAlert2 不可用則回退 alert
+            try {
+                const langOk = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+                const okLabel = langOk === 'en' ? 'OK' : '確定';
+                const scheduleHtml = scheduleText.replace(/\n/g, '<br/>');
+                await Swal.fire({
+                    icon: 'info',
+                    html: scheduleHtml,
+                    confirmButtonText: okLabel
+                });
+            } catch (_err) {
+                alert(scheduleText);
+            }
         }
 
         // 聯絡人員
-        function contactStaff(staffId) {
+        async function contactStaff(staffId) {
             const staffMember = findStaffById(staffId);
             // Build contact information using translated labels while preserving icons and data.
             const contactInfo = `${translate('聯絡')} ${staffMember.name}:\n\n` +
@@ -1868,7 +1965,9 @@ ${translate('電子郵件：')}${staffMember.email}`);
                               `🏥 ${translate('部門:')} ${staffMember.department}\n` +
                               `👔 ${translate('職位:')} ${staffMember.level}`;
             
-            if (confirm(contactInfo + '\n\n' + translate('要撥打電話嗎？'))) {
+            // 使用 SweetAlert2 確認是否撥打電話。使用 showConfirmation（由 system.js 提供）提示使用者。
+            const confirmedCall = await showConfirmation(contactInfo + '\n\n' + translate('要撥打電話嗎？'), 'question');
+            if (confirmedCall) {
                 // 在實際應用中，這裡可以整合電話系統
                 window.open(`tel:${staffMember.phone}`, '_blank', 'noopener,noreferrer');
             }
@@ -1964,18 +2063,43 @@ ${translate('電子郵件：')}${staffMember.email}`);
                         try { printWin.print(); } catch (_) {} finally { printWin.close(); }
                     }, 300);
                 } else {
-                    alert(translate('無法開啟列印視窗，請檢查瀏覽器設定。'));
+                    // 使用 Toast 提示無法開啟列印視窗的錯誤；若無 toast 則回退 alert
+                    const unableMsg = translate('無法開啟列印視窗，請檢查瀏覽器設定。');
+                    try {
+                        if (typeof window.showToast === 'function') {
+                            window.showToast(unableMsg, 'error');
+                        } else if (typeof showToast === 'function') {
+                            showToast(unableMsg, 'error');
+                        } else {
+                            alert(unableMsg);
+                        }
+                    } catch (_e) {
+                        alert(unableMsg);
+                    }
                 }
             } catch (err) {
                 console.error('printCurrentMonthSchedule error', err);
-                alert(translate('列印排班表時發生錯誤！'));
+                // 於列印排班表錯誤時使用 Toast 通知；若無 toast 則回退 alert
+                const errMsg = translate('列印排班表時發生錯誤！');
+                try {
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(errMsg, 'error');
+                    } else if (typeof showToast === 'function') {
+                        showToast(errMsg, 'error');
+                    } else {
+                        alert(errMsg);
+                    }
+                } catch (_e) {
+                    alert(errMsg);
+                }
             }
         }
 
 // Expose functions to global schedule namespace
   window.scheduleNavigateCalendar = navigateCalendar;
   window.scheduleGoToToday = goToToday;
-  window.scheduleSyncToGoogle = syncToGoogle;
+  // 已移除同步 Google 功能，不再暴露 scheduleSyncToGoogle
+  // window.scheduleSyncToGoogle = undefined;
   window.scheduleExportToICal = exportToICal;
   // 列印功能：暴露 schedulePrintShiftTable 以列印當前月份的排班表
   window.scheduleApplyFilters = applyFilters;
