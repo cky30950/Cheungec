@@ -3303,21 +3303,6 @@
       "englishName": "JiXueTeng"
     },
     {
-      "id": 1754994245478,
-      "name": "丹皮",
-      "effects": "清熱涼血活血化瘀",
-      "cautions": "血虛有寒月經過多及孕婦不宜",
-      "alias": "牡丹皮",
-      "type": "herb",
-      "meridian": "心、肝、腎經",
-      "updatedAt": "2025-08-12T10:24:05.478Z",
-      "indications": "溫毒發斑血熱吐衄溫病傷陰陰虛發熱夜熱早涼無汗骨蒸血滯經閉痛經跌撲傷痛癰腫瘡毒",
-      "createdAt": "2025-08-12T10:24:05.478Z",
-      "nature": "苦、辛，微寒",
-      "dosage": "6-12g",
-      "englishName": "DanPi"
-    },
-    {
       "id": 1754994245479,
       "type": "herb",
       "dosage": "5-10g",
