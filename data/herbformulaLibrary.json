@@ -4353,6 +4353,20 @@
       "usage": "水煎服，飴糖烊化",
       "updatedAt": "2025-08-18T10:00:00.004Z",
       "englishName": "XiaoJianZhongTang"
+    },
+    {
+      "id": 1755700000001,
+      "type": "formula",
+      "name": "防風通聖散",
+      "composition": "防風\n荊芥\n連翹\n麻黃\n薄荷\n川芎\n當歸\n白芍\n白朮\n山梔\n大黃\n芒硝\n石膏\n黃芩\n桔梗\n甘草\n滑石\n生薑",
+      "createdAt": "2025-08-19T10:00:00.001Z",
+      "source": "宣明論方",
+      "effects": "疏風解表，瀉熱通便",
+      "cautions": "孕婦及體虛者慎用",
+      "indications": "風熱壅盛，表裡俱實，憎寒壯熱，頭目昏眩，目赤睛痛，口苦口乾，咽喉不利，胸膈痞悶，咳嘔喘滿，涕唾稠黏，大便秘結，小便赤澀",
+      "usage": "散劑，生薑湯調服；或水煎服，芒硝溶服",
+      "updatedAt": "2025-08-19T10:00:00.001Z",
+      "englishName": "FangFengTongShengSan"
     }
   ]
 }
