@@ -3641,20 +3641,6 @@
       "englishName": "DangGuiYinZi"
     },
     {
-      "id": 1755400000010,
-      "type": "formula",
-      "name": "黃連阿膠雞子黃湯",
-      "composition": "黃連\n黃芩\n芍藥\n雞子黃\n阿膠",
-      "createdAt": "2025-08-16T10:00:00.010Z",
-      "source": "傷寒論",
-      "effects": "滋陰降火，除煩安神",
-      "cautions": "脾胃虛寒者慎用",
-      "indications": "少陰病，心中煩，不得臥",
-      "usage": "水煎服，阿膠烊化，雞子黃攪勻兌服",
-      "updatedAt": "2025-08-16T10:00:00.010Z",
-      "englishName": "HuangLianAJiaoJiZiHuangTang"
-    },
-    {
       "id": 1755400000012,
       "type": "formula",
       "name": "瀉黃散",
