@@ -477,20 +477,6 @@
       "englishName": "GuiZhiGanCaoTang"
     },
     {
-      "id": 1755100000033,
-      "type": "formula",
-      "name": "茯苓桂枝白朮甘草湯",
-      "composition": "茯苓\n桂枝\n白朮\n甘草",
-      "createdAt": "2025-08-13T12:00:00.033Z",
-      "source": "傷寒論",
-      "effects": "溫陽化飲，健脾利濕",
-      "cautions": "陰虛津虧者忌用",
-      "indications": "中陽不足，痰飲內停，胸脅支滿，目眩心悸，或短氣而咳，舌苔白滑，脈弦滑",
-      "usage": "水煎服",
-      "updatedAt": "2025-08-13T12:00:00.033Z",
-      "englishName": "FuLingGuiZhiBaiShuGanCaoTang"
-    },
-    {
       "id": 1755100000034,
       "type": "formula",
       "name": "桂枝人參湯",
