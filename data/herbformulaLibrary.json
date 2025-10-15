@@ -3417,20 +3417,6 @@
       "englishName": "RenShenYangRongTang"
     },
     {
-      "id": 1755300000037,
-      "type": "formula",
-      "name": "泰山磐石飲",
-      "composition": "人參\n黃耆\n當歸\n川續斷\n黃芩\n白朮\n川芎\n芍藥\n熟地黃\n砂仁\n甘草\n糯米",
-      "createdAt": "2025-08-15T10:00:00.037Z",
-      "source": "景岳全書",
-      "effects": "益氣健脾，養血安胎",
-      "cautions": "有熱者慎用",
-      "indications": "氣血虛弱，胎元不固，胎動不安，屢有墮胎宿疾",
-      "usage": "水煎服",
-      "updatedAt": "2025-08-15T10:00:00.037Z",
-      "englishName": "TaiShanPanShiYin"
-    },
-    {
       "id": 1755300000038,
       "type": "formula",
       "name": "膠艾湯",
