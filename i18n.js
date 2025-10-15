@@ -245,6 +245,9 @@ window.translations = {
         "病歷詳細資訊": "病歷詳細資訊",
         "檢視": "檢視",
         "療程": "療程",
+        // 新增：病歷管理功能的介紹與診症列表中的取消候診
+        "查看及搜尋病歷": "查看及搜尋病歷",
+        "取消候診": "取消候診",
         "登入系統": "登入系統",
         "登出": "登出",
         "登出系統": "登出系統",
@@ -1250,6 +1253,9 @@ window.translations = {
         "病歷詳細資訊": "Medical Record Details",
         "檢視": "View",
         "療程": "Treatment Course",
+        // Added translations for medical record management description and cancel waiting action
+        "查看及搜尋病歷": "View and search medical records",
+        "取消候診": "Cancel Waiting",
         "登入系統": "Login",
         "登出": "Logout",
         "登出系統": "Logout System",
