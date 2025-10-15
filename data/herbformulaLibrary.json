@@ -1975,20 +1975,6 @@
       "englishName": "BaiHeHuaShiSan"
     },
     {
-      "id": 1755100000141,
-      "type": "formula",
-      "name": "甘草小麥大棗湯",
-      "composition": "甘草\n小麥\n大棗",
-      "createdAt": "2025-08-13T12:00:00.141Z",
-      "source": "金匱要略",
-      "effects": "養心安神，和中緩急",
-      "cautions": "痰火擾心者慎用",
-      "indications": "婦人臟躁，喜悲傷欲哭，象如神靈所作，數欠伸",
-      "usage": "水煎服",
-      "updatedAt": "2025-08-13T12:00:00.141Z",
-      "englishName": "GanCaoXiaoMaiDaZaoTang"
-    },
-    {
       "id": 1755100000142,
       "type": "formula",
       "name": "酸棗仁湯",
@@ -3611,20 +3597,6 @@
       "usage": "水煎服",
       "updatedAt": "2025-08-16T10:00:00.003Z",
       "englishName": "LianPuYin"
-    },
-    {
-      "id": 1755400000004,
-      "type": "formula",
-      "name": "八味逍遙散",
-      "composition": "當歸\n白芍\n白朮\n茯苓\n柴胡\n甘草\n煨薑\n薄荷\n牡丹皮\n梔子",
-      "createdAt": "2025-08-16T10:00:00.004Z",
-      "source": "太平惠民和劑局方",
-      "effects": "疏肝清熱，養血健脾",
-      "cautions": "陰虛津虧者慎用",
-      "indications": "肝鬱血虛，化火生熱，煩躁易怒，頭痛目澀，頰赤口乾，月經不調",
-      "usage": "水煎服",
-      "updatedAt": "2025-08-16T10:00:00.004Z",
-      "englishName": "BaWeiXiaoYaoSan"
     },
     {
       "id": 1755400000005,
