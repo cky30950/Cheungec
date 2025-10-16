@@ -5071,6 +5071,21 @@
   "englishName": "ShengCiShi",
   "createdAt": "2025-08-12T10:24:05.999Z",
   "updatedAt": "2025-08-12T10:24:05.999Z"
+},
+{
+  "id": 1755000009999,
+  "name": "滑石",
+  "alias": "畫石、液石",
+  "nature": "甘、淡，寒",
+  "meridian": "膀胱、肺、胃經",
+  "effects": "利尿通淋，清熱解暑，祛濕斂瘡",
+  "indications": "熱淋石淋，尿熱澀痛，暑濕煩渴，濕熱水瀉；外治濕疹濕瘡，痱子",
+  "dosage": "10-20g（包煎），外用適量",
+  "cautions": "脾虛氣弱，滑精及熱病津傷者忌服；孕婦慎用",
+  "type": "herb",
+  "englishName": "HuaShi",
+  "createdAt": "2025-08-12T10:24:05.999Z",
+  "updatedAt": "2025-08-12T10:24:05.999Z"
 }
   ]
 }
