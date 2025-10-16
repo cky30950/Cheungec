@@ -1255,7 +1255,7 @@ window.translations = {
         "療程": "Treatment Course",
         // Added translations for medical record management description and cancel waiting action
         "查看及搜尋病歷": "View and search medical records",
-        "取消候診": "Cancel Waiting",
+        "取消候診": "Cancel arrival",
         "登入系統": "Login",
         "登出": "Logout",
         "登出系統": "Logout System",
