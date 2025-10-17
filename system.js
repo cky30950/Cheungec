@@ -18543,7 +18543,7 @@ window.addEventListener('load', async () => {
 // 初始化系統
 document.addEventListener('DOMContentLoaded', function() {
     
-    updateClinicSettingsDisplay();
+    // 系統管理相關初始化移至 systemmanagement.js，避免在此處過早調用
 
     // 保持所有中藥材及方劑欄位可見（包含性味、歸經、主治、用法）
     
@@ -19268,7 +19268,9 @@ function displayMedicalRecords(pageChange = false) {
                     dateStr = parsed.toLocaleDateString(locale, { year: 'numeric', month: '2-digit', day: '2-digit' });
                 }
             } catch (_err) {}
-            let complaint = rec.symptoms || rec.inquirySummary || rec.chiefComplaint || rec.currentHistory || '';
+            // 調整主訴欄位的來源順序：若記錄已有中醫診斷（diagnosis 或 tcmDiagnosis），
+            // 則優先顯示該診斷內容；若無則退回至主訴/問診摘要/現病史等其他欄位。
+            let complaint = rec.diagnosis || rec.tcmDiagnosis || rec.symptoms || rec.inquirySummary || rec.chiefComplaint || rec.currentHistory || '';
             let complaintDisplay = '';
             if (complaint) {
                 const firstLine = complaint.split('\n').find(l => l.trim() !== '');
