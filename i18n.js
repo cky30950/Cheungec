@@ -89,6 +89,13 @@ window.translations = {
         "不使用問診資料": "不使用問診資料",
         "中藥庫": "中藥庫",
         "中藥服用方法": "中藥服用方法",
+        // 批量入庫相關翻譯
+        "批量入庫": "批量入庫",
+        "新增藥材": "新增藥材",
+        "請選擇中藥": "請選擇中藥",
+        "數量": "數量",
+        "單位": "單位",
+        "批量入庫失敗！": "批量入庫失敗！",
         "中藥材": "中藥材",
         "中藥材名稱 *": "中藥材名稱 *",
         "中醫診斷 *": "中醫診斷 *",
@@ -608,6 +615,15 @@ window.translations = {
         "已匯出行事曆": "已匯出行事曆",
         "匯出行事曆失敗": "匯出行事曆失敗",
         "刪除此排班嗎？": "刪除此排班嗎？",
+        // 新增訂閱與付款管理相關翻譯條目
+        "訂閱與付款": "訂閱與付款",
+        "您可以查看並管理系統訂閱或付款狀態。": "您可以查看並管理系統訂閱或付款狀態。",
+        "管理訂閱/付款": "管理訂閱/付款",
+        "無法取得客戶門戶連結！": "無法取得客戶門戶連結！",
+        "開啟付款管理視窗失敗！": "開啟付款管理視窗失敗！",
+        // 庫存類型選擇
+        "顆粒沖劑": "顆粒沖劑",
+        "飲片": "飲片",
     },
     en: {
         // Updated inventory and alert labels without trailing space
@@ -628,6 +644,16 @@ window.translations = {
         "診症完成後無法調整套票數量": "Package quantity cannot be adjusted after the consultation is completed",
         "選擇的醫師無效，請重新選擇！": "Selected doctor is invalid, please choose again!",
         "未偵測到有效的中藥庫資料": "No valid Chinese medicine library data detected",
+        // Inventory type selector translations
+        "顆粒沖劑": "Granules",
+        "飲片": "Herbal slices",
+        // Batch restocking translations
+        "批量入庫": "Batch restock",
+        "新增藥材": "Add Herb",
+        "請選擇中藥": "Select Herb",
+        "數量": "Quantity",
+        "單位": "Unit",
+        "批量入庫失敗！": "Batch restock failed!",
         // Inventory management translations
         "編輯庫存": "Edit Inventory",
         "剩餘數量": "Remaining Quantity",
@@ -667,6 +693,12 @@ window.translations = {
         "已匯出行事曆": "Schedule exported",
         "匯出行事曆失敗": "Failed to export schedule",
         "刪除此排班嗎？": "Delete this schedule?",
+        // Subscription & billing management translations
+        "訂閱與付款": "Subscription & Billing",
+        "您可以查看並管理系統訂閱或付款狀態。": "You can view and manage your system subscription or billing status.",
+        "管理訂閱/付款": "Manage Subscription/Billing",
+        "無法取得客戶門戶連結！": "Unable to obtain customer portal link!",
+        "開啟付款管理視窗失敗！": "Failed to open the billing management window!",
         "折扣項目不允許修改數量": "The quantity of discount items cannot be modified",
         "請填寫必要資料（姓名、性別、電話、出生日期、身分證字號）！": "Please fill in the required fields (name, gender, phone, date of birth, ID number)!",
         "請至少添加一個藥材！": "Please add at least one herb!",

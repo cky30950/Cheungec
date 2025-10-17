@@ -824,6 +824,12 @@
                                                        oninput="searchHerbsForPrescription()">
                                                 <button onclick="clearPrescriptionSearch()" class="absolute right-2 top-1 text-gray-400 hover:text-gray-600 text-sm">×</button>
                                             </div>
+                                            <!-- 選擇顆粒沖劑或飲片 -->
+                                            <select id="prescriptionTypeSelect" class="ml-2 px-3 py-1 border border-yellow-300 rounded text-sm bg-white"
+                                                    onchange="onPrescriptionTypeChange(this.value)">
+                                                <option value="granule">顆粒沖劑</option>
+                                                <option value="slice">飲片</option>
+                                            </select>
                                         </div>
                                         
                                         <!-- 搜索結果 -->
@@ -843,6 +849,8 @@
                                                 請使用上方搜索功能添加中藥材或方劑
                                             </div>
                                         </div>
+                                        <!-- 禁忌配伍提示區域：當存在禁忌配伍時顯示錯誤訊息 -->
+                                        <div id="prescriptionError" class="mt-2 text-sm text-red-600 hidden"></div>
                                     </div>
                                     
                                     <!-- 服藥天數及次數設定（只在有處方內容時顯示） -->
@@ -1043,6 +1051,15 @@
                             <input type="text" id="searchHerb" placeholder="搜尋中藥材、方劑名稱或功能..." class="border border-gray-300 rounded-lg px-4 py-2 pr-10 focus:ring-2 focus:ring-green-500 focus:border-transparent w-full md:w-64">
                             <span class="absolute right-3 top-2.5 text-gray-400">🔍</span>
                         </div>
+                        <!-- 庫存類型選擇：顆粒沖劑/飲片 -->
+                        <select id="inventoryTypeSelect" onchange="onInventoryTypeChange(this.value)" class="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent w-full md:w-auto">
+                            <option value="granule">顆粒沖劑</option>
+                            <option value="slice">飲片</option>
+                        </select>
+                        <!-- 批量入庫按鈕：允許一次為多個中藥增加庫存 -->
+                        <button id="batchInventoryBtn" onclick="openBatchInventoryModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                            <span id="batchInventoryBtnText">批量入庫</span>
+                        </button>
                     </div>
                 </div>
                 <!-- 分類標籤 -->
@@ -1242,6 +1259,28 @@
                             <div class="mt-6 flex justify-end space-x-4">
                                 <button onclick="hideInventoryModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">取消</button>
                                 <button onclick="saveInventoryChanges()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">儲存</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 批量入庫彈窗 -->
+                <div id="batchInventoryModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+                    <div class="bg-white rounded-xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
+                        <div class="p-6">
+                            <!-- 批量入庫標題與類型選擇 -->
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 id="batchInventoryModalTitle" class="text-xl font-bold">批量入庫</h3>
+                                <!-- 顯示當前庫存類型：顆粒沖劑或飲片，僅供查看，不能在此切換 -->
+                                <span id="batchInventoryTypeDisplay" class="px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"></span>
+                            </div>
+                            <!-- 此區域將動態添加多個批量入庫行 -->
+                            <div id="batchRows" class="space-y-2"></div>
+                            <button type="button" onclick="addBatchRow()" class="mt-2 bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded">
+                                + 新增藥材
+                            </button>
+                            <div class="mt-6 flex justify-end space-x-4">
+                                <button type="button" onclick="hideBatchInventoryModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">取消</button>
+                                <button type="button" onclick="saveBatchInventory()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">儲存</button>
                             </div>
                         </div>
                     </div>
@@ -1812,6 +1851,19 @@
                                     診所資料修改
                                 </button>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- 新增訂閱與付款管理卡片 -->
+                    <div class="bg-gray-50 rounded-lg p-6">
+                        <h3 class="text-lg font-semibold mb-4">訂閱與付款</h3>
+                        <!-- 說明文字將由 i18n.js 進行多語翻譯 -->
+                        <p class="text-sm text-gray-600 mb-4">您可以查看並管理系統訂閱或付款狀態。</p>
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <!-- 修改：直接開啟訂閱與付款的 Stripe 登入頁面 -->
+                            <button id="manageBillingBtn" onclick="window.open('https://billing.stripe.com/p/login/00w00l9Sk5I98irfdLcjS00', '_blank')" class="bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg transition duration-200">
+                                管理訂閱/付款
+                            </button>
                         </div>
                     </div>
 
@@ -4381,6 +4433,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script src="schedule_management.js"></script><script src="system.js"></script>
+    <!-- 系統管理相關腳本拆分至獨立檔案 -->
+    <script src="systemmanagement.js"></script>
     <!-- 新增聊天模組腳本，需在 system.js 之後載入 -->
     <script src="chat_module.js"></script>
     <!-- 語言國際化腳本，必須在系統腳本之後載入 -->
@@ -4488,6 +4542,14 @@
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"b2074e7888b746fe9fbbc15492b4c3d4","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>

@@ -68,6 +68,118 @@ const UNIT_LABEL_MAP = {
     qian: '錢'
 };
 
+// 在庫存編輯彈窗中，當用戶切換數量單位時，根據所選單位自動換算庫存與補貨警戒量。
+// 透過 dataset.prevUnit 儲存前一次的單位，以便計算轉換比例。
+document.addEventListener('DOMContentLoaded', function () {
+    try {
+        const qtyUnitSelect = document.getElementById('inventoryQuantityUnit');
+        // 若元素存在才綁定事件，以避免其他頁面無此元素導致錯誤。
+        if (qtyUnitSelect) {
+            // 初始化 prevUnit 為當前選定的單位（預設為 g）
+            qtyUnitSelect.dataset.prevUnit = qtyUnitSelect.value || 'g';
+            // 若先前已綁定監聽器，先移除，避免重複綁定
+            if (qtyUnitSelect._unitChangeHandler) {
+                qtyUnitSelect.removeEventListener('change', qtyUnitSelect._unitChangeHandler);
+            }
+            // 定義新的變更處理函式
+            qtyUnitSelect._unitChangeHandler = function (e) {
+                const selectEl = e && e.target ? e.target : qtyUnitSelect;
+                const newUnitVal = selectEl.value || 'g';
+                const prevUnitVal = selectEl.dataset.prevUnit || 'g';
+                // 若單位未改變，則不需轉換
+                if (newUnitVal === prevUnitVal) {
+                    return;
+                }
+                // 讀取輸入欄位
+                const qtyInput = document.getElementById('inventoryQuantity');
+                const thrInput = document.getElementById('inventoryThreshold');
+                // 取得轉換因子
+                const prevFactor = UNIT_FACTOR_MAP[prevUnitVal] || 1;
+                const newFactorVal = UNIT_FACTOR_MAP[newUnitVal] || 1;
+                // 換算剩餘數量
+                if (qtyInput) {
+                    const qValRaw = parseFloat(qtyInput.value);
+                    if (!isNaN(qValRaw)) {
+                        const grams = qValRaw * prevFactor;
+                        const convertedQty = grams / newFactorVal;
+                        // 四捨五入到小數點后三位，避免精度過長
+                        qtyInput.value = (Math.round(convertedQty * 1000) / 1000).toString();
+                    }
+                }
+                // 換算補貨警戒量
+                if (thrInput) {
+                    const thrValRaw = parseFloat(thrInput.value);
+                    if (!isNaN(thrValRaw)) {
+                        const grams = thrValRaw * prevFactor;
+                        const convertedThr = grams / newFactorVal;
+                        thrInput.value = (Math.round(convertedThr * 1000) / 1000).toString();
+                    }
+                }
+                // 更新前一次的單位為新的選項
+                selectEl.dataset.prevUnit = newUnitVal;
+            };
+            // 綁定新的監聽器
+            qtyUnitSelect.addEventListener('change', qtyUnitSelect._unitChangeHandler);
+        }
+    } catch (_e) {
+        // 忽略任何異常以避免影響其他功能
+    }
+});
+
+// DOMContentLoaded 事件：初始化處方搜尋區域的庫存模式選單
+document.addEventListener('DOMContentLoaded', function () {
+    try {
+        const selectEl = document.getElementById('prescriptionTypeSelect');
+        if (selectEl) {
+            // 設定預設值為當前庫存模式，若不存在則使用 granule
+            let defaultMode = 'granule';
+            try {
+                if (typeof currentInventoryMode !== 'undefined' && (currentInventoryMode === 'granule' || currentInventoryMode === 'slice')) {
+                    defaultMode = currentInventoryMode;
+                } else {
+                    // 嘗試從 localStorage 讀取
+                    const storedMode = (typeof localStorage !== 'undefined') ? localStorage.getItem('inventoryMode') : null;
+                    if (storedMode === 'granule' || storedMode === 'slice') {
+                        defaultMode = storedMode;
+                    }
+                }
+            } catch (_e) {
+                /* 忽略 localStorage 讀取錯誤 */
+            }
+            selectEl.value = defaultMode;
+            // 翻譯選項文字（若可用）
+            const granOpt = selectEl.querySelector('option[value="granule"]');
+            const sliceOpt = selectEl.querySelector('option[value="slice"]');
+            if (granOpt) {
+                let label = '顆粒沖劑';
+                try {
+                    if (typeof window.t === 'function') {
+                        const translated = window.t('顆粒沖劑');
+                        if (translated) label = translated;
+                    }
+                } catch (_e) {
+                    /* 忽略翻譯錯誤 */
+                }
+                granOpt.textContent = label;
+            }
+            if (sliceOpt) {
+                let label = '飲片';
+                try {
+                    if (typeof window.t === 'function') {
+                        const translated = window.t('飲片');
+                        if (translated) label = translated;
+                    }
+                } catch (_e) {
+                    /* 忽略翻譯錯誤 */
+                }
+                sliceOpt.textContent = label;
+            }
+        }
+    } catch (_e) {
+        /* 忽略初始化錯誤 */
+    }
+});
+
 // 用於掛號搜尋結果的鍵盤導航索引
 // 當病人搜尋結果出現時，此索引用於記錄當前選中項目；-1 表示未選中
 let patientSearchSelectionIndex = -1;
@@ -104,6 +216,160 @@ function changeHerbSortOrder(order) {
 
 // 將排序函式暴露到全域，供 HTML select 元素調用
 window.changeHerbSortOrder = changeHerbSortOrder;
+
+/**
+ * 切換顆粒沖劑與飲片的顯示模式。
+ * 根據選擇更新 currentInventoryMode 並保存到 localStorage，
+ * 然後重新初始化庫存資料以切換資料來源。
+ * @param {string} type 'granule' 或 'slice'
+ */
+function changeInventoryType(type) {
+    if (type !== 'granule' && type !== 'slice') {
+        return;
+    }
+    currentInventoryMode = type;
+    // 保存選擇至 localStorage，以便下次載入
+    try {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('inventoryMode', type);
+        }
+    } catch (_e) {
+        // 忽略 localStorage 錯誤
+    }
+    // 強制刷新庫存資料，切換監聽路徑
+    if (typeof initHerbInventory === 'function') {
+        initHerbInventory(true).then(() => {
+            // 重新渲染中藥庫列表
+            if (typeof displayHerbLibrary === 'function') {
+                displayHerbLibrary();
+            }
+        }).catch((_err) => {
+            // 初始化失敗時至少嘗試刷新畫面
+            if (typeof displayHerbLibrary === 'function') {
+                displayHerbLibrary();
+            }
+        });
+    }
+}
+
+/**
+ * 在處方中選擇顆粒沖劑或飲片時切換庫存模式。
+ * 這個函式會呼叫原有的 changeInventoryType 更新全域庫存模式，
+ * 並在切換後觸發重新搜尋處方用藥，以便顯示新的庫存餘量。
+ * @param {string} type 'granule' 或 'slice'
+ */
+function onPrescriptionTypeChange(type) {
+    // 檢查輸入是否有效
+    if (type !== 'granule' && type !== 'slice') {
+        return;
+    }
+    // 切換全域庫存模式
+    try {
+        changeInventoryType(type);
+    } catch (_e) {
+        // 若切換失敗，仍然嘗試後續動作
+    }
+
+    // 同步中藥庫的下拉選單，使其反映新的庫存模式
+    try {
+        const invSel = document.getElementById('inventoryTypeSelect');
+        if (invSel && invSel.value !== type) {
+            invSel.value = type;
+        }
+    } catch (_e) {
+        /* 忽略同步錯誤 */
+    }
+    // 若使用者在處方搜尋欄中已輸入關鍵字，稍後重新搜尋以更新結果
+    try {
+        const searchEl = document.getElementById('prescriptionSearch');
+        const query = searchEl && searchEl.value ? String(searchEl.value).trim() : '';
+        if (query && query.length > 0) {
+            // 延遲執行以等待庫存資料刷新
+            setTimeout(function () {
+                try {
+                    searchHerbsForPrescription();
+                } catch (_e) {
+                    /* 忽略搜索錯誤 */
+                }
+            }, 300);
+        }
+    } catch (_e) {
+        /* 忽略搜尋相關錯誤 */
+    }
+}
+
+// 當使用者從中藥庫介面選擇顆粒沖劑或飲片時呼叫此函式。
+// 會同步調整診症系統的下拉選單並切換庫存模式，但若處方已有內容則不允許切換。
+function onInventoryTypeChange(type) {
+    // 檢查輸入類型有效
+    if (type !== 'granule' && type !== 'slice') {
+        return;
+    }
+    // 若處方中已有藥材且與當前庫存類別不同，不允許切換
+    try {
+        if (Array.isArray(selectedPrescriptionItems) && selectedPrescriptionItems.length > 0 && currentInventoryMode !== type) {
+            // 將庫存下拉選單的值還原為當前模式
+            const invSel = document.getElementById('inventoryTypeSelect');
+            if (invSel) {
+                invSel.value = currentInventoryMode;
+            }
+            // 顯示提醒：必須清空處方才能切換
+            try {
+                const langSel = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+                const zhMsg = '請先刪除所有處方內容才能切換藥材類別';
+                const enMsg = 'Please remove all prescription items before switching inventory type';
+                const msg = (langSel && langSel.toLowerCase().startsWith('en')) ? enMsg : zhMsg;
+                showToast(msg, 'warning');
+            } catch (_toastErr) {
+                /* 忽略提示錯誤 */
+            }
+            return;
+        }
+    } catch (_e) {
+        /* 若檢查處方內容失敗，不阻止切換 */
+    }
+    // 同步診症系統的下拉選單（若未禁用）
+    try {
+        const presSel = document.getElementById('prescriptionTypeSelect');
+        if (presSel) {
+            // 更新值；若禁用則只改值而不觸發 onchange
+            presSel.value = type;
+        }
+    } catch (_e) {
+        /* 忽略同步錯誤 */
+    }
+    // 執行庫存類型切換
+    try {
+        changeInventoryType(type);
+    } catch (_e) {
+        /* 忽略庫存類型切換錯誤 */
+    }
+    // 若處方搜尋欄有內容，更新搜索結果以反映新庫存餘量
+    try {
+        const searchEl = document.getElementById('prescriptionSearch');
+        const query = searchEl && searchEl.value ? String(searchEl.value).trim() : '';
+        if (query && query.length > 0) {
+            setTimeout(function () {
+                try {
+                    searchHerbsForPrescription();
+                } catch (_e) {
+                    /* 忽略搜索錯誤 */
+                }
+            }, 300);
+        }
+    } catch (_e) {
+        /* 忽略搜尋錯誤 */
+    }
+}
+
+// 將庫存類型改變函式暴露到全域，以便中藥庫選單使用
+window.onInventoryTypeChange = onInventoryTypeChange;
+
+// 將處方庫存模式切換函式公開到全域，供 HTML select 調用
+window.onPrescriptionTypeChange = onPrescriptionTypeChange;
+
+// 將庫存切換函式暴露到全域，供 HTML 事件調用
+window.changeInventoryType = changeInventoryType;
 
 /**
  * 確保在指定父元素之後存在分頁容器，若不存在則建立。
@@ -1790,6 +2056,20 @@ let herbLibrary = [];
 let herbInventory = {};
 let herbInventoryInitialized = false;
 let herbInventoryListenerAttached = false;
+// 目前庫存模式：'granule' 表示顆粒沖劑，'slice' 表示飲片。
+// 預設從 localStorage 讀取，若無則為 'granule'。
+let currentInventoryMode = 'granule';
+try {
+    const savedMode = (typeof localStorage !== 'undefined') ? localStorage.getItem('inventoryMode') : null;
+    if (savedMode === 'slice' || savedMode === 'granule') {
+        currentInventoryMode = savedMode;
+    }
+} catch (_e) {
+    // 忽略讀取 localStorage 的錯誤
+    currentInventoryMode = 'granule';
+}
+// 跟蹤當前庫存監聽的資料路徑，便於在切換模式時取消監聽
+let herbInventoryRefPath = null;
 
 //
 // ===============================
@@ -1881,30 +2161,33 @@ function detachPatientListListener() {
  * @param {boolean} forceRefresh
  */
 async function initHerbInventory(forceRefresh = false) {
-    // 如果不是強制刷新且已初始化過，且監聽器仍然存在，直接返回。
-    // 若已初始化但監聽器已被取消（herbInventoryListenerAttached 為 false），
-    // 仍需重新掛載監聽以恢復即時更新。因此不應過早返回。
-    if (herbInventoryInitialized && herbInventoryListenerAttached && !forceRefresh) {
+    // 根據當前庫存模式決定讀取資料的路徑。'granule' 對應原有顆粒沖劑資料，
+    // 'slice' 對應飲片資料。預設為 'herbInventory'。
+    const dbPath = (currentInventoryMode === 'slice') ? 'herbInventorySlice' : 'herbInventory';
+    // 如果不是強制刷新且已初始化過，且監聽器仍然存在且路徑未改變，直接返回。
+    // 若已初始化但監聽器已被取消（herbInventoryListenerAttached 為 false），或路徑改變時，仍需重新掛載監聽。
+    if (herbInventoryInitialized && herbInventoryListenerAttached && !forceRefresh && herbInventoryRefPath === dbPath) {
         return;
     }
     // 等待 Firebase 初始化完成
     await waitForFirebaseDb();
-    const inventoryRef = window.firebase.ref(window.firebase.rtdb, 'herbInventory');
-    // 存儲全域參考以便離開頁面時可取消監聽，減少不必要的 Realtime Database 流量
-    try {
-        window.herbInventoryRef = inventoryRef;
-    } catch (_e) {
-        // 若無法設置全域，忽略
-    }
-    // 若為強制刷新且監聽已經掛載，先取消舊的監聽以避免多重回呼
-    if (forceRefresh && herbInventoryListenerAttached) {
+    const inventoryRef = window.firebase.ref(window.firebase.rtdb, dbPath);
+    // 若為強制刷新或路徑改變且監聽已經掛載，先取消舊的監聽以避免多重回呼
+    if ((forceRefresh || herbInventoryRefPath !== dbPath) && herbInventoryListenerAttached && typeof window.herbInventoryRef !== 'undefined' && window.herbInventoryRef) {
         try {
-            window.firebase.off(inventoryRef, 'value');
+            window.firebase.off(window.herbInventoryRef, 'value');
             herbInventoryListenerAttached = false;
         } catch (err) {
             console.error('重置中藥庫存監聽時發生錯誤:', err);
         }
     }
+    // 更新全域參考及路徑，以便後續取消監聽
+    try {
+        window.herbInventoryRef = inventoryRef;
+    } catch (_e) {
+        // 若無法設置全域，忽略
+    }
+    herbInventoryRefPath = dbPath;
     // 讀取當前庫存快照
     try {
         const snapshot = await window.firebase.get(inventoryRef);
@@ -1983,7 +2266,9 @@ async function setHerbInventory(itemId, quantity, threshold, unit, disabled) {
         // 確保為布林值
         data.disabled = !!disabled;
     }
-    const refPath = window.firebase.ref(window.firebase.rtdb, 'herbInventory/' + String(itemId));
+    // 根據當前庫存模式選擇儲存路徑
+    const dbPath = (currentInventoryMode === 'slice') ? 'herbInventorySlice' : 'herbInventory';
+    const refPath = window.firebase.ref(window.firebase.rtdb, dbPath + '/' + String(itemId));
     await window.firebase.update(refPath, data);
 }
 
@@ -2251,7 +2536,63 @@ async function openInventoryModal(itemId) {
             // 設定單位選擇器的值
             try {
                 const qtyUnitSel = document.getElementById('inventoryQuantityUnit');
-                if (qtyUnitSel) qtyUnitSel.value = unit;
+                if (qtyUnitSel) {
+                    // 設定單位選擇器的值
+                    qtyUnitSel.value = unit;
+                    // 更新 prevUnit 屬性以便後續換算使用
+                    qtyUnitSel.dataset.prevUnit = unit;
+
+                    /**
+                     * 確保在庫存編輯彈窗開啟時綁定單位變更事件。原本的單位變更監聽器僅在 DOMContentLoaded
+                     * 觸發時註冊，由於 system.js 可能在 DOMContentLoaded 之後載入，導致該監聽器不會執行，
+                     * 造成切換單位時數量與警戒量未自動換算。為了解決此問題，我們在開啟彈窗時動態綁定
+                     * change 事件，並在重複開啟彈窗時移除舊的監聽器以避免重複綁定。
+                     */
+                    try {
+                        // 移除先前的監聽器（若存在），避免重複觸發
+                        if (qtyUnitSel._unitChangeHandler) {
+                            qtyUnitSel.removeEventListener('change', qtyUnitSel._unitChangeHandler);
+                        }
+                        // 定義新的變更處理函式
+                        qtyUnitSel._unitChangeHandler = function (e) {
+                            const selectEl = e && e.target ? e.target : qtyUnitSel;
+                            const newUnitVal = selectEl.value || 'g';
+                            const prevUnitVal = selectEl.dataset.prevUnit || 'g';
+                            // 若未改變則不處理
+                            if (newUnitVal === prevUnitVal) {
+                                return;
+                            }
+                            const prevFactor = UNIT_FACTOR_MAP[prevUnitVal] || 1;
+                            const newFactorVal = UNIT_FACTOR_MAP[newUnitVal] || 1;
+                            // 換算剩餘數量
+                            if (qtyInput) {
+                                const qValRaw = parseFloat(qtyInput.value);
+                                if (!isNaN(qValRaw)) {
+                                    const grams = qValRaw * prevFactor;
+                                    const convertedQty = grams / newFactorVal;
+                                    // 四捨五入到小數點后三位，避免精度過長
+                                    qtyInput.value = (Math.round(convertedQty * 1000) / 1000).toString();
+                                }
+                            }
+                            // 換算補貨警戒量
+                            if (thrInput) {
+                                const thrValRaw = parseFloat(thrInput.value);
+                                if (!isNaN(thrValRaw)) {
+                                    const grams = thrValRaw * prevFactor;
+                                    const convertedThr = grams / newFactorVal;
+                                    thrInput.value = (Math.round(convertedThr * 1000) / 1000).toString();
+                                }
+                            }
+                            // 更新上一次選擇的單位
+                            selectEl.dataset.prevUnit = newUnitVal;
+                        };
+                        // 綁定新的監聽器
+                        qtyUnitSel.addEventListener('change', qtyUnitSel._unitChangeHandler);
+                    } catch (_e) {
+                        // 監聽器綁定失敗則記錄錯誤但不阻斷流程
+                        console.error('綁定庫存單位變更監聽器失敗:', _e);
+                    }
+                }
             } catch (_e) {}
             // 設定啟用/停用下拉選擇的值
             try {
@@ -2354,6 +2695,410 @@ async function saveInventoryChanges() {
             clearButtonLoading(saveBtn);
         }
     }
+        // 批量入庫功能函式
+        function openBatchInventoryModal() {
+            try {
+                // 確保中藥庫資料已載入後再開啟彈窗
+                if (typeof initHerbLibrary === 'function' && !herbLibraryLoaded) {
+                    initHerbLibrary().then(() => {
+                        _openBatchModalInner();
+                    });
+                } else {
+                    _openBatchModalInner();
+                }
+            } catch (e) {
+                console.error('openBatchInventoryModal error:', e);
+            }
+        }
+
+        function _openBatchModalInner() {
+            const modal = document.getElementById('batchInventoryModal');
+            if (!modal) return;
+            // 清空既有的行
+            const rowsContainer = document.getElementById('batchRows');
+            if (rowsContainer) rowsContainer.innerHTML = '';
+            // 預設添加一行
+            addBatchRow();
+            // 根據語言更新彈窗文字與按鈕
+            try {
+                const title = document.getElementById('batchInventoryModalTitle');
+                if (title && typeof window.t === 'function') {
+                    title.textContent = window.t('批量入庫');
+                }
+                const addButton = modal.querySelector('button[onclick="addBatchRow()"]');
+                if (addButton && typeof window.t === 'function') {
+                    addButton.textContent = '+ ' + window.t('新增藥材');
+                }
+                const cancelBtn = modal.querySelector('button[onclick="hideBatchInventoryModal()"]');
+                if (cancelBtn && typeof window.t === 'function') {
+                    cancelBtn.textContent = window.t('取消');
+                }
+                const saveBtn = modal.querySelector('button[onclick="saveBatchInventory()"]');
+                if (saveBtn && typeof window.t === 'function') {
+                    saveBtn.textContent = window.t('儲存');
+                }
+                const btnLabel = document.getElementById('batchInventoryBtnText');
+                if (btnLabel && typeof window.t === 'function') {
+                    btnLabel.textContent = window.t('批量入庫');
+                }
+                // 顯示當前庫存類型於批量入庫彈窗標題右側
+                const typeDisplay = document.getElementById('batchInventoryTypeDisplay');
+                if (typeDisplay) {
+                    const mode = (currentInventoryMode === 'slice') ? 'slice' : 'granule';
+                    let label = mode === 'slice' ? '飲片' : '顆粒沖劑';
+                    // 使用翻譯函式轉換庫存類型文字
+                    if (typeof window.t === 'function') {
+                        label = window.t(label);
+                    }
+                    typeDisplay.textContent = label;
+                }
+            } catch (_e) {
+                /* 忽略翻譯錯誤 */
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function hideBatchInventoryModal() {
+            const modal = document.getElementById('batchInventoryModal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
+        function addBatchRow() {
+            const rowsContainer = document.getElementById('batchRows');
+            if (!rowsContainer) return;
+            // 行容器。新增自訂類別 'batch-row' 以利後續驗證選擇正確的行。
+            const row = document.createElement('div');
+            row.className = 'batch-row flex flex-wrap items-center gap-2';
+            // 搜尋中藥輸入框及建議清單
+            const searchContainer = document.createElement('div');
+            // flex-1 以便與其他欄位均分寬度
+            searchContainer.className = 'relative flex-1';
+            // 初始時建立輸入框讓使用者輸入搜尋
+            const herbInput = document.createElement('input');
+            herbInput.type = 'text';
+            herbInput.className = 'batch-herb-input border border-gray-300 rounded px-2 py-1 w-full';
+            herbInput.placeholder = (typeof window.t === 'function') ? (window.t('搜尋藥材或方劑') || '搜尋藥材或方劑') : '搜尋藥材或方劑';
+            // 建議列表容器，透過絕對定位顯示在輸入框下方
+            const suggestionList = document.createElement('div');
+            suggestionList.className = 'absolute z-10 mt-1 max-h-60 overflow-y-auto bg-white border border-gray-300 rounded w-full hidden';
+            // 行資料設定 herbId 默認為空
+            row.dataset.herbId = '';
+            // 更新建議列表的函式
+            function updateSuggestions() {
+                const query = herbInput.value.trim().toLowerCase();
+                suggestionList.innerHTML = '';
+                if (!query) {
+                    suggestionList.classList.add('hidden');
+                    row.dataset.herbId = '';
+                    return;
+                }
+                const matches = [];
+                if (Array.isArray(herbLibrary)) {
+                    for (const h of herbLibrary) {
+                        let name = h.name || '';
+                        let englishName = h.englishName || '';
+                        let searchTarget = name;
+                        try {
+                            const langSel = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+                            if (langSel && langSel.toLowerCase().startsWith('en') && englishName) {
+                                searchTarget = englishName;
+                            }
+                        } catch (_e) {}
+                        if (searchTarget.toLowerCase().includes(query) || englishName.toLowerCase().includes(query)) {
+                            matches.push(h);
+                            if (matches.length >= 10) break;
+                        }
+                    }
+                }
+                if (matches.length === 0) {
+                    suggestionList.classList.add('hidden');
+                    return;
+                }
+                matches.forEach(h => {
+                    const item = document.createElement('div');
+                    item.className = 'px-2 py-1 cursor-pointer hover:bg-gray-100';
+                    let displayName = h.name;
+                    try {
+                        const langSel = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+                        if (langSel && langSel.toLowerCase().startsWith('en') && h.englishName) {
+                            displayName = h.englishName;
+                        }
+                    } catch (_e) {}
+                    item.textContent = displayName;
+                    item.addEventListener('click', () => {
+                        // 選定建議後，記錄 id 並用文字標籤取代輸入框
+                        row.dataset.herbId = h.id;
+                        suggestionList.classList.add('hidden');
+                        // 建立 span 顯示藥名
+                        const nameSpan = document.createElement('span');
+                        nameSpan.className = 'batch-herb-name px-2 py-1 w-full';
+                        nameSpan.textContent = displayName;
+                        // 清除 searchContainer 內容，插入標籤
+                        searchContainer.innerHTML = '';
+                        searchContainer.appendChild(nameSpan);
+                        // 根據藥材庫存設定顯示單位，並將單位存於行的資料集
+                        try {
+                            // 取得藥材單位，預設為 g
+                            let herbUnit = 'g';
+                            if (typeof getHerbInventory === 'function') {
+                                const invInfo = getHerbInventory(h.id);
+                                if (invInfo && invInfo.unit) {
+                                    herbUnit = invInfo.unit;
+                                }
+                            }
+                            // 存放單位於 dataset，以便儲存時使用
+                            row.dataset.herbUnit = herbUnit;
+                            // 更新顯示單位文字
+                            const unitDisplay = row.querySelector('span.batch-herb-unit');
+                            if (unitDisplay) {
+                                let label = (typeof UNIT_LABEL_MAP !== 'undefined' && UNIT_LABEL_MAP && UNIT_LABEL_MAP[herbUnit]) ? UNIT_LABEL_MAP[herbUnit] : herbUnit;
+                                // 使用翻譯函式轉換單位文字
+                                label = (typeof window.t === 'function') ? window.t(label) : label;
+                                unitDisplay.textContent = label;
+                                // 更新樣式：移除預設淡色文字與透明邊框，改為正常色與實際邊框與背景
+                                try {
+                                    unitDisplay.classList.remove('text-gray-400');
+                                    unitDisplay.classList.add('text-gray-600');
+                                    // 變更邊框為實線顏色、加上圓角和淡背景
+                                    unitDisplay.classList.remove('border-transparent');
+                                    unitDisplay.classList.add('border-gray-300');
+                                    // 若之前沒有圓角，新增圓角樣式
+                                    unitDisplay.classList.add('rounded');
+                                    // 加入淡灰背景以利辨識
+                                    unitDisplay.classList.remove('bg-transparent');
+                                    unitDisplay.classList.add('bg-gray-50');
+                                } catch (_e) {
+                                    /* 忽略錯誤 */
+                                }
+                            }
+                        } catch (_err) {
+                            // 忽略錯誤
+                        }
+                    });
+                    suggestionList.appendChild(item);
+                });
+                suggestionList.classList.remove('hidden');
+            }
+            herbInput.addEventListener('input', updateSuggestions);
+            herbInput.addEventListener('focus', updateSuggestions);
+            document.addEventListener('click', function(ev) {
+                if (!searchContainer.contains(ev.target)) {
+                    suggestionList.classList.add('hidden');
+                }
+            });
+            searchContainer.appendChild(herbInput);
+            searchContainer.appendChild(suggestionList);
+            row.appendChild(searchContainer);
+            // 數量輸入框
+            const qtyInput = document.createElement('input');
+            qtyInput.type = 'number';
+            qtyInput.min = '0';
+            qtyInput.step = '0.5';
+            qtyInput.placeholder = (typeof window.t === 'function') ? window.t('數量') : '數量';
+            qtyInput.className = 'batch-herb-qty w-24 border border-gray-300 rounded px-2 py-1';
+            row.appendChild(qtyInput);
+            // 顯示單位：依藥材設定顯示單位標籤，不可修改
+            const unitDisplay = document.createElement('span');
+            /*
+             * 預設僅顯示淡色文字而不顯示邊框，避免在未選取藥材時出現明顯的長框。
+             * 使用固定寬度 w-20 以維持欄位對齊，但邊框設為 transparent 以去除框線，
+             * 背景透明、文字色偏淡，類似 placeholder 效果。當使用者選擇藥材後，再動態
+             * 加回實際邊框與背景顏色。
+             */
+            unitDisplay.className =
+                'batch-herb-unit w-20 border border-transparent px-2 py-1 text-sm text-gray-400 bg-transparent flex items-center justify-center';
+            // 預設顯示「單位」字樣（可透過翻譯函式翻譯）
+            try {
+                const placeholderLabel = (typeof window.t === 'function') ? window.t('單位') : '單位';
+                unitDisplay.textContent = placeholderLabel;
+            } catch (_e) {
+                unitDisplay.textContent = '單位';
+            }
+            row.appendChild(unitDisplay);
+            // 刪除按鈕
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'text-red-500 hover:text-red-700 px-2';
+            removeBtn.textContent = '×';
+            removeBtn.addEventListener('click', function() {
+                row.remove();
+            });
+            row.appendChild(removeBtn);
+            rowsContainer.appendChild(row);
+        }
+
+        async function saveBatchInventory() {
+            // 在按下儲存時立即顯示按鈕讀取圈，防止重複點擊
+            const saveBtn = getLoadingButtonFromEvent('#batchInventoryModal button[onclick="saveBatchInventory()"]');
+            setButtonLoading(saveBtn);
+            // 記錄原本的庫存模式，以便在儲存完成後恢復
+            const originalInventoryMode = currentInventoryMode;
+            try {
+                // 確保庫存初始化完成
+                if (typeof initHerbInventory === 'function' && !herbInventoryInitialized) {
+                    try {
+                        await initHerbInventory();
+                    } catch (_e) {
+                        /* 忽略初始化錯誤 */
+                    }
+                }
+                const rowsContainer = document.getElementById('batchRows');
+                if (!rowsContainer) {
+                    clearButtonLoading(saveBtn);
+                    return;
+                }
+                // 僅選取具有 batch-row 類別的行，避免選到單位顯示 span 內的 flex 元素
+                const rows = rowsContainer.querySelectorAll('.batch-row');
+                if (!rows || rows.length === 0) {
+                    hideBatchInventoryModal();
+                    clearButtonLoading(saveBtn);
+                    return;
+                }
+                // 從批量入庫彈窗的下拉選擇中取得要更新的庫存類型
+                let selectedInventoryMode = currentInventoryMode;
+                try {
+                    const typeSelect = document.getElementById('batchInventoryTypeSelect');
+                    if (typeSelect) {
+                        const val = typeSelect.value;
+                        if (val === 'granule' || val === 'slice') {
+                            selectedInventoryMode = val;
+                        }
+                    }
+                } catch (_e) {
+                    /* 忽略錯誤並使用當前模式 */
+                }
+                // 驗證每一行是否有選擇藥材並填寫有效數量
+                let allValid = true;
+                for (const row of rows) {
+                    const qtyInputTemp = row.querySelector('input.batch-herb-qty');
+                    let herbIdTemp = '';
+                    if (row.dataset && row.dataset.herbId) {
+                        herbIdTemp = row.dataset.herbId;
+                    }
+                    if (!herbIdTemp) {
+                        const selectElTemp = row.querySelector('select.batch-herb-select');
+                        if (selectElTemp) {
+                            herbIdTemp = selectElTemp.value;
+                        }
+                    }
+                    const qValTemp = qtyInputTemp ? parseFloat(qtyInputTemp.value) : NaN;
+                    if (!herbIdTemp || isNaN(qValTemp) || qValTemp <= 0) {
+                        allValid = false;
+                        break;
+                    }
+                }
+                if (!allValid) {
+                    // 顯示錯誤提示，不進行保存
+                    showToast((typeof window.t === 'function') ? (window.t('請選擇中藥') + ' / ' + window.t('數量')) : '請選擇中藥 / 數量', 'error');
+                    clearButtonLoading(saveBtn);
+                    return;
+                }
+                // 臨時設定全域庫存模式，讓後續更新庫存使用指定路徑
+                currentInventoryMode = selectedInventoryMode;
+                // 在切換庫存模式後，重新初始化庫存資料，以確保讀取正確的現有庫存。
+                // 若載入失敗，仍繼續執行，僅使用當前本地 herbInventory 資料。
+                try {
+                    if (typeof initHerbInventory === 'function') {
+                        await initHerbInventory(true);
+                    }
+                } catch (_initErr) {
+                    /* 忽略初始化錯誤 */
+                }
+                // 處理每一行新增的中藥／方劑
+                for (const row of rows) {
+                    const qtyInput = row.querySelector('input.batch-herb-qty');
+                    let herbId = '';
+                    // 先從行的資料集取得 herbId，這是搜尋介面選取後設定的
+                    if (row.dataset && row.dataset.herbId) {
+                        herbId = row.dataset.herbId;
+                    }
+                    // 兼容舊版下拉選單
+                    if (!herbId) {
+                        const selectEl = row.querySelector('select.batch-herb-select');
+                        if (selectEl) {
+                            herbId = selectEl.value;
+                        }
+                    }
+                    // 行內若沒有藥材或數量輸入框則跳過
+                    if (!qtyInput || !herbId) continue;
+                    const qVal = parseFloat(qtyInput.value);
+                    if (isNaN(qVal) || qVal <= 0) continue;
+                    // 取得該藥材的單位，優先使用資料集保存的 herbUnit；若無則從庫存資料取得；最終預設為 g
+                    let inv = { quantity: 0, threshold: 0, unit: 'g', disabled: false };
+                    try {
+                        if (typeof getHerbInventory === 'function') {
+                            inv = getHerbInventory(herbId);
+                        }
+                    } catch (_errInv) {
+                        /* 忽略錯誤 */
+                    }
+                    const unitVal = (row.dataset && row.dataset.herbUnit) ? row.dataset.herbUnit : (inv && inv.unit ? inv.unit : 'g');
+                    const factor = UNIT_FACTOR_MAP[unitVal] || 1;
+                    const addBase = qVal * factor;
+                    const existingBaseQty = typeof inv.quantity === 'number' ? inv.quantity : 0;
+                    const existingThreshold = typeof inv.threshold === 'number' ? inv.threshold : 0;
+                    const existingUnit = inv.unit || 'g';
+                    const existingDisabled = !!inv.disabled;
+                    const newBaseQty = existingBaseQty + addBase;
+                    // 寫入新的庫存數據
+                    if (typeof setHerbInventory === 'function') {
+                        await setHerbInventory(herbId, newBaseQty, existingThreshold, existingUnit, existingDisabled);
+                    }
+                    // 同步更新本地快取 herbInventory（此時 currentInventoryMode 為選擇的類型）。
+                    try {
+                        if (typeof herbInventory !== 'undefined') {
+                            herbInventory[String(herbId)] = {
+                                quantity: newBaseQty,
+                                threshold: existingThreshold,
+                                unit: existingUnit,
+                                disabled: existingDisabled
+                            };
+                        }
+                    } catch (_e) {
+                        /* 忽略本地更新錯誤 */
+                    }
+                }
+                // 顯示成功訊息
+                showToast((typeof window.t === 'function') ? window.t('庫存已更新！') : '庫存已更新！', 'success');
+                // 隱藏批量入庫對話框
+                hideBatchInventoryModal();
+                // 刷新中藥庫列表與處方顯示，以反映庫存變化
+                try {
+                    if (typeof displayHerbLibrary === 'function') {
+                        displayHerbLibrary();
+                    }
+                    if (typeof updatePrescriptionDisplay === 'function') {
+                        updatePrescriptionDisplay();
+                    }
+                } catch (_e) {
+                    /* 忽略刷新錯誤 */
+                }
+            } catch (err) {
+                console.error('批量入庫錯誤:', err);
+                showToast((typeof window.t === 'function') ? window.t('批量入庫失敗！') : '批量入庫失敗！', 'error');
+            } finally {
+                // 在批量入庫完成後，恢復原本的庫存模式
+                try {
+                    if (typeof originalInventoryMode !== 'undefined') {
+                        currentInventoryMode = originalInventoryMode;
+                    }
+                } catch (_e) {
+                    /* 忽略錯誤 */
+                }
+                // 重新初始化庫存資料，以載入原本庫存模式的資料，避免本地快取為選擇模式下的資料
+                try {
+                    if (typeof initHerbInventory === 'function') {
+                        await initHerbInventory(true);
+                    }
+                } catch (_initErr) {
+                    /* 忽略錯誤 */
+                }
+                clearButtonLoading(saveBtn);
+            }
+        }
+
         // 初始化穴位庫資料
         let acupointLibrary = [];
         // 穴位庫編輯狀態與篩選條件
@@ -11105,6 +11850,15 @@ async function initializeSystemAfterLogin() {
             if (typeof initHerbInventory === 'function') {
                 await initHerbInventory();
             }
+            // 設置庫存類型下拉選單的預設值
+            try {
+                const invSelect = document.getElementById('inventoryTypeSelect');
+                if (invSelect) {
+                    invSelect.value = currentInventoryMode || 'granule';
+                }
+            } catch (_e) {
+                // 忽略
+            }
             // 計算全院中藥及方劑使用次數，供排序與卡片顯示
             if (typeof computeGlobalUsageCounts === 'function') {
                 try {
@@ -12610,11 +13364,216 @@ async function initializeSystemAfterLogin() {
         
         // 存儲已選擇的收費項目
         let selectedBillingItems = [];
+
+        // ----------------------------------------------------------------------------------------
+        // 禁忌配伍設定
+        //
+        // 中醫處方中存在某些藥材彼此相反或相畏的情況，即所謂「十八反」與「十九畏」。
+        // 這裡定義一張禁忌配伍對照表，利用藥材名稱的包含關係來檢查是否出現禁忌組合。
+        // 為簡便起見，若名稱包含在以下任何鍵或值中，則視為同一類別。例如「附子」屬於烏頭類；
+        // 「川烏」「草烏」亦視為烏頭，同樣與貝母、半夏、瓜蔞等藥相斥。
+        // 此表採對稱設計，每個藥材鍵的值為一組與之禁忌的藥材名稱陣列。
+        const FORBIDDEN_MAP = {
+            // 甘草類禁忌：甘草不可與甘遂、大戟、芫花、海藻同用
+            '甘草': ['甘遂', '大戟', '芫花', '海藻'],
+            '甘遂': ['甘草'],
+            '大戟': ['甘草'],
+            '芫花': ['甘草'],
+            '海藻': ['甘草'],
+            // 烏頭類（包括附子、川烏、草烏）禁忌：不可與貝母、瓜蔞、半夏、白蘞、白芨、天花粉等同用
+            '烏頭': ['貝母', '川貝母', '浙貝母', '瓜蔞', '瓜蔞皮', '瓜蔞仁', '天花粉', '半夏', '白蘞', '白芨'],
+            '附子': ['貝母', '川貝母', '浙貝母', '瓜蔞', '瓜蔞皮', '瓜蔞仁', '天花粉', '半夏', '白蘞', '白芨'],
+            '川烏': ['犀角', '貝母', '川貝母', '浙貝母', '瓜蔞', '瓜蔞皮', '瓜蔞仁', '天花粉', '半夏', '白蘞', '白芨'],
+            '草烏': ['犀角', '貝母', '川貝母', '浙貝母', '瓜蔞', '瓜蔞皮', '瓜蔞仁', '天花粉', '半夏', '白蘞', '白芨'],
+            // 上述禁忌對應對稱關係
+            '貝母': ['烏頭', '附子'],
+            '川貝母': ['烏頭', '附子'],
+            '浙貝母': ['烏頭', '附子'],
+            '瓜蔞': ['烏頭', '附子'],
+            '瓜蔞皮': ['烏頭', '附子'],
+            '瓜蔞仁': ['烏頭', '附子'],
+            '天花粉': ['烏頭', '附子'],
+            '半夏': ['烏頭', '附子'],
+            '白蘞': ['烏頭', '附子'],
+            '白芨': ['烏頭', '附子'],
+            '犀角': ['川烏', '草烏'],
+            // 藜蘆禁忌：藜蘆不可與人參、沙參、丹參、玄參、苦參、細辛、芍藥同用
+            '藜蘆': ['人參', '沙參', '丹參', '玄參', '苦參', '細辛', '芍藥'],
+            '人參': ['藜蘆', '五靈脂'],
+            '沙參': ['藜蘆'],
+            '丹參': ['藜蘆'],
+            '玄參': ['藜蘆'],
+            '苦參': ['藜蘆'],
+            '細辛': ['藜蘆'],
+            '芍藥': ['藜蘆'],
+            // 硫黃與朴硝相畏
+            '硫黃': ['朴硝'],
+            '朴硝': ['硫黃'],
+            // 水銀與砒霜相畏
+            '水銀': ['砒霜'],
+            '砒霜': ['水銀'],
+            // 狼毒與密陀僧相畏
+            '狼毒': ['密陀僧'],
+            '密陀僧': ['狼毒'],
+            // 巴豆與牽牛子相畏
+            '巴豆': ['牽牛子'],
+            '牽牛子': ['巴豆'],
+            // 丁香與鬱金相畏
+            '丁香': ['鬱金'],
+            '鬱金': ['丁香'],
+            // 牙硝與三棱（又稱京三棱、三梭）相畏
+            '牙硝': ['三棱', '京三棱', '三梭'],
+            '三棱': ['牙硝'],
+            '京三棱': ['牙硝'],
+            '三梭': ['牙硝'],
+            // 官桂與石脂相畏
+            '官桂': ['石脂'],
+            '石脂': ['官桂'],
+            // 五靈脂與人參相畏
+            '五靈脂': ['人參']
+        };
+
+        /**
+         * 判斷兩個藥材名稱是否構成禁忌配伍。
+         * 以包含關係進行比對：若名稱包含指定關鍵字即視為匹配。
+         * @param {string} nameA
+         * @param {string} nameB
+         * @returns {boolean} true 表示構成禁忌
+         */
+        function isForbiddenCombination(nameA, nameB) {
+            if (!nameA || !nameB) return false;
+            // 迭代地圖中的每個鍵值對
+            for (const key in FORBIDDEN_MAP) {
+                if (!Object.prototype.hasOwnProperty.call(FORBIDDEN_MAP, key)) continue;
+                const forbiddenList = FORBIDDEN_MAP[key];
+                // 若第一個名稱包含鍵，且第二個名稱包含列表中的任何一個項目
+                if (nameA.includes(key)) {
+                    for (const forb of forbiddenList) {
+                        if (nameB.includes(forb)) {
+                            return true;
+                        }
+                    }
+                }
+                // 互換比對：若第二個名稱包含鍵，且第一個名稱包含列表中的任何一個項目
+                if (nameB.includes(key)) {
+                    for (const forb of forbiddenList) {
+                        if (nameA.includes(forb)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        /**
+         * 顯示或清除處方禁忌配伍錯誤訊息。
+         * 當 message 為空字串或 null 時，將隱藏錯誤區域。
+         * 透過此函式可在頁面固定位置呈現錯誤提醒，不使用彈窗。
+         * @param {string} message 錯誤訊息；空值時隱藏提示
+         */
+        function displayPrescriptionError(message) {
+            try {
+                const errorEl = document.getElementById('prescriptionError');
+                if (!errorEl) return;
+                if (message) {
+                    errorEl.textContent = message;
+                    errorEl.classList.remove('hidden');
+                } else {
+                    errorEl.textContent = '';
+                    errorEl.classList.add('hidden');
+                }
+            } catch (_e) {
+                // 若元素不存在，忽略錯誤
+            }
+        }
+
+        /**
+         * 檢查目前處方中的藥材是否存在禁忌配伍。
+         * 若存在相斥的藥材，會將第一組相斥藥對顯示於錯誤區域；
+         * 若無禁忌配伍，則清除錯誤提示。
+         */
+        function checkPrescriptionConflicts() {
+            try {
+                // 如沒有或僅有一個項目，無需檢查
+                if (!Array.isArray(selectedPrescriptionItems) || selectedPrescriptionItems.length < 2) {
+                    displayPrescriptionError('');
+                    return;
+                }
+                // 檢查所有兩兩藥材是否有禁忌，收集所有禁忌組合
+                const conflictMessages = [];
+                for (let i = 0; i < selectedPrescriptionItems.length; i++) {
+                    const nameA = selectedPrescriptionItems[i].name || '';
+                    for (let j = i + 1; j < selectedPrescriptionItems.length; j++) {
+                        const nameB = selectedPrescriptionItems[j].name || '';
+                        if (isForbiddenCombination(nameA, nameB)) {
+                            const langSel = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+                            const zhMsg = `藥材${nameA}與${nameB}存在禁忌配伍，請注意使用！`;
+                            const enMsg = `${nameA} is incompatible with ${nameB} in the prescription; please use with caution.`;
+                            const msg = (langSel && langSel.toLowerCase().startsWith('en')) ? enMsg : zhMsg;
+                            conflictMessages.push(msg);
+                        }
+                    }
+                }
+                if (conflictMessages.length > 0) {
+                    // 將所有禁忌訊息使用換行符號串接，避免重複顯示相同訊息
+                    const combined = Array.from(new Set(conflictMessages)).join('\n');
+                    displayPrescriptionError(combined);
+                } else {
+                    // 若沒有任何禁忌，清除提示
+                    displayPrescriptionError('');
+                }
+            } catch (_e) {
+                // 發生異常時，隱藏錯誤提示
+                displayPrescriptionError('');
+            }
+        }
+
+        /**
+         * 根據當前處方是否有內容決定庫存類型下拉選單是否可用。
+         * 若處方中已有藥材或方劑，則禁用選擇以防止切換不同類別；
+         * 當處方為空時，重新啟用選擇。
+         */
+        function updatePrescriptionTypeSelectStatus() {
+            try {
+                const sel = document.getElementById('prescriptionTypeSelect');
+                if (!sel) return;
+                // 設定提示訊息，根據語言切換
+                const langSel = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+                const zhTitle = '所有藥刪除後才可轉換';
+                const enTitle = 'Remove all medicines before switching';
+                const titleMsg = (langSel && langSel.toLowerCase().startsWith('en')) ? enTitle : zhTitle;
+
+                if (Array.isArray(selectedPrescriptionItems) && selectedPrescriptionItems.length > 0) {
+                    // 禁用選單並套用灰階樣式與禁用游標
+                    sel.disabled = true;
+                    sel.classList.add('opacity-50');
+                    sel.classList.add('cursor-not-allowed');
+                    // 若存在自訂背景色，保持不變；否則設定為灰色系
+                    // 將文字顏色調淡
+                    sel.style.color = '#9ca3af';
+                    // 設定懸浮提示
+                    sel.setAttribute('title', titleMsg);
+                } else {
+                    // 恢復可用狀態與原本樣式
+                    sel.disabled = false;
+                    sel.classList.remove('opacity-50');
+                    sel.classList.remove('cursor-not-allowed');
+                    sel.style.color = '';
+                    sel.removeAttribute('title');
+                }
+            } catch (_e) {
+                // ignore errors
+            }
+        }
         
         // 添加到處方內容
         function addToPrescription(type, itemId) {
+            // 取得目標藥材資料
             const item = herbLibrary.find(h => h.id === itemId);
             if (!item) return;
+
+            // 不阻止禁忌配伍的藥材加入處方，但稍後會在全局檢查中顯示錯誤提示
             
             // 檢查是否已經添加過
             const existingIndex = selectedPrescriptionItems.findIndex(p => p.id === itemId);
@@ -12644,9 +13603,15 @@ async function initializeSystemAfterLogin() {
             };
             
             selectedPrescriptionItems.push(prescriptionItem);
-            
+
+            // 檢查是否有禁忌配伍並更新錯誤提示
+            checkPrescriptionConflicts();
+
             // 更新顯示
             updatePrescriptionDisplay();
+
+            // 根據是否有處方內容決定是否允許切換庫存類型
+            updatePrescriptionTypeSelectStatus();
             
             // 如果是第一個處方項目，自動添加藥費
             if (selectedPrescriptionItems.length === 1) {
@@ -12780,7 +13745,22 @@ async function initializeSystemAfterLogin() {
                                                oninput="updatePrescriptionDosageLive(${index}, this.value)"
                                                onchange="updatePrescriptionDosage(${index}, this.value)"
                                                onclick="this.select()">
-                                        <span class="text-sm text-gray-600 font-medium">g</span>
+                                        ${(() => {
+                                            try {
+                                                // 取得該藥材或方劑的單位，若不存在則預設為克（g）。
+                                                const inv2 = (typeof getHerbInventory === 'function') ? getHerbInventory(item.id) : { unit: 'g' };
+                                                const unit2 = (inv2 && inv2.unit) ? inv2.unit : 'g';
+                                                // 從映射中取得原始單位標籤（中文），不存在則默認為『克』
+                                                const rawUnit2 = (typeof UNIT_LABEL_MAP !== 'undefined' && UNIT_LABEL_MAP && UNIT_LABEL_MAP[unit2]) ? UNIT_LABEL_MAP[unit2] : '克';
+                                                // 使用翻譯函式將單位標籤轉換為當前語言
+                                                const unitTranslated2 = (typeof window.t === 'function') ? window.t(rawUnit2) : rawUnit2;
+                                                return `<span class="text-sm text-gray-600 font-medium">${unitTranslated2}</span>`;
+                                            } catch (_err2) {
+                                                // 若發生錯誤，回傳預設單位『克』
+                                                const defaultUnit2 = (typeof window.t === 'function') ? window.t('克') : '克';
+                                                return `<span class="text-sm text-gray-600 font-medium">${defaultUnit2}</span>`;
+                                            }
+                                        })()}
                                     </div>
                                     <button onclick="removePrescriptionItem(${index})" class="text-red-500 hover:text-red-700 font-bold text-lg px-2">×</button>
                                 </div>
@@ -12800,13 +13780,29 @@ async function initializeSystemAfterLogin() {
             // 但這會在病歷或診症記錄中呈現為項目上下出現空行。
             // 因此統一將 herb 與 formula 項目都只添加一個換行符號，避免多餘空白。
             selectedPrescriptionItems.forEach(item => {
-                // Use the item's custom dosage if provided; otherwise fall back to the default
-                // of 1 g for herbs or 5 g for formulas. This ensures prescriptions reflect the
-                // new default dosing policy (herbs 1g, formulas 5g).
+                // 使用項目的 customDosage（如果有），否則根據類型給予預設值：中藥材 1、方劑 5。
                 const dosage = item.customDosage || (item.type === 'herb' ? '1' : '5');
-                prescriptionText += `${item.name} ${dosage}g\n`;
+                // 根據中藥庫中的單位設定來顯示正確的單位；若沒有對應單位則默認為『克』
+                let unitLabelForText = '';
+                try {
+                    if (typeof getHerbInventory === 'function') {
+                        const inv3 = getHerbInventory(item.id);
+                        const unit3 = (inv3 && inv3.unit) ? inv3.unit : 'g';
+                        const rawUnit3 = (typeof UNIT_LABEL_MAP !== 'undefined' && UNIT_LABEL_MAP && UNIT_LABEL_MAP[unit3]) ? UNIT_LABEL_MAP[unit3] : '克';
+                        const translatedUnit3 = (typeof window.t === 'function') ? window.t(rawUnit3) : rawUnit3;
+                        unitLabelForText = translatedUnit3;
+                    } else {
+                        // 若無法取得 getHerbInventory 函式，預設顯示為『克』
+                        unitLabelForText = (typeof window.t === 'function') ? window.t('克') : '克';
+                    }
+                } catch (_unitErr) {
+                    // 發生錯誤時仍使用預設單位『克』
+                    unitLabelForText = (typeof window.t === 'function') ? window.t('克') : '克';
+                }
+                // 若為方劑類型，通常以『克』為單位，除非庫存中另有定義；仍使用上方取得的 unitLabelForText
+                prescriptionText += `${item.name} ${dosage}${unitLabelForText}\n`;
             });
-            
+
             hiddenTextarea.value = prescriptionText.trim();
         }
         
@@ -12991,6 +13987,10 @@ async function initializeSystemAfterLogin() {
             if (index >= 0 && index < selectedPrescriptionItems.length) {
                 const removedItem = selectedPrescriptionItems.splice(index, 1)[0];
                 updatePrescriptionDisplay();
+                // 移除處方項目後，重新檢查是否仍有禁忌配伍
+                checkPrescriptionConflicts();
+                // 同時根據處方內容決定是否允許切換庫存類型
+                updatePrescriptionTypeSelectStatus();
                 // 移除處方項目時，若游標仍在原位置會導致 tooltip 殘留，故手動隱藏
                 if (typeof hideTooltip === 'function') {
                     hideTooltip();
@@ -19796,6 +20796,32 @@ async function deleteMedicalRecord(recordId) {
   window.openInventoryModal = openInventoryModal;
   window.hideInventoryModal = hideInventoryModal;
   window.saveInventoryChanges = saveInventoryChanges;
+
+  // 批量入庫功能掛載至全域
+  window.openBatchInventoryModal = openBatchInventoryModal;
+  window.hideBatchInventoryModal = hideBatchInventoryModal;
+  window.addBatchRow = addBatchRow;
+  window.saveBatchInventory = saveBatchInventory;
+
+  // 在腳本載入時為批量入庫彈窗註冊點擊事件，以便當使用者點擊彈窗遮罩（黑色背景）時即可關閉彈窗。
+  // 其他彈窗預設已支援點擊遮罩關閉，批量入庫彈窗在先前版本中未實作此行為，故於此補上。
+  (function attachBatchModalOutsideClick() {
+    try {
+      const modal = document.getElementById('batchInventoryModal');
+      if (modal && !modal.dataset.outsideClickBound) {
+        modal.addEventListener('click', function (evt) {
+          // 僅當點擊目標為覆蓋層本身（即黑色背景）時才關閉，避免在內部表單點擊時關閉彈窗
+          if (evt.target === modal) {
+            hideBatchInventoryModal();
+          }
+        });
+        // 使用資料屬性標記以避免重複綁定事件
+        modal.dataset.outsideClickBound = 'true';
+      }
+    } catch (e) {
+      console.error('批量入庫彈窗外部點擊事件綁定失敗:', e);
+    }
+  })();
 
   // 帳號安全相關函式掛載至全域，供帳號安全設定頁的按鈕呼叫
   window.loadAccountSecurity = loadAccountSecurity;
