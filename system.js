@@ -13624,11 +13624,19 @@ async function initializeSystemAfterLogin() {
             
             {
                 const lang = localStorage.getItem('lang') || 'zh';
+                // Determine the labels for herb/formula based on language.
                 const zhLabel = type === 'herb' ? '中藥材' : '方劑';
                 const enLabel = type === 'herb' ? 'herb' : 'formula';
-                const zhMsg = `已添加${zhLabel}：${item.name}`;
-                const enMsg = `Added ${enLabel}: ${item.name}`;
-                const msg = lang === 'en' ? enMsg : zhMsg;
+                // Choose the display name for the toast: in English mode use the englishName
+                // if provided; otherwise fall back to the Chinese name. In Chinese mode always
+                // use the Chinese name.  Do not attempt to translate the herb name via the
+                // generic t() function because herbs/formula names are proper nouns and
+                // should remain unchanged.
+                const displayNameEn = item && item.englishName ? item.englishName : item.name;
+                const displayNameZh = item.name;
+                const zhMsg = `已添加${zhLabel}：${displayNameZh}`;
+                const enMsg = `Added ${enLabel}: ${displayNameEn}`;
+                const msg = lang && lang.toLowerCase().startsWith('en') ? enMsg : zhMsg;
                 showToast(msg, 'success');
             }
         }
@@ -14191,9 +14199,14 @@ async function searchBillingForConsultation() {
 
             {
                 const lang = localStorage.getItem('lang') || 'zh';
-                const zhMsg = `已添加收費項目：${item.name}`;
-                const enMsg = `Added billing item: ${item.name}`;
-                const msg = lang === 'en' ? enMsg : zhMsg;
+                // Determine display names for the billing item. Use the englishName when
+                // available in English mode; otherwise default to the Chinese name. Proper
+                // nouns should not be passed through the translation function.
+                const displayNameEn = item && item.englishName ? item.englishName : item.name;
+                const displayNameZh = item.name;
+                const zhMsg = `已添加收費項目：${displayNameZh}`;
+                const enMsg = `Added billing item: ${displayNameEn}`;
+                const msg = lang && lang.toLowerCase().startsWith('en') ? enMsg : zhMsg;
                 showToast(msg, 'success');
             }
         }

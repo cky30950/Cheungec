@@ -14,6 +14,7 @@ window.translations = {
         // Chinese translations simply map original text to itself.  This
         // dictionary only needs entries for strings that have English
         // translations below – everything else will remain unchanged.
+        "無已購買的套票：": "無已購買的套票：",
         "庫存：": "庫存：",
         "警戒：": "警戒：",
         "您可以匯出診所資料備份（包含所有功能資料，不含模板庫、中藥庫及穴位庫），或匯入之前的備份檔案。實時掛號及問診資料不包含在備份中。": "您可以匯出診所資料備份（包含所有功能資料，不含模板庫、中藥庫及穴位庫），或匯入之前的備份檔案。實時掛號及問診資料不包含在備份中。",
@@ -82,6 +83,8 @@ window.translations = {
         "+ 新增病人": "+ 新增病人",
         "+ 新增穴位組合": "+ 新增穴位組合",
         "+ 新增藥方組合": "+ 新增藥方組合",
+        // Button label used in batch inventory restock for adding a new herb
+        "+ 新增藥材": "+ 新增藥材",
         "管理分類": "管理分類",
         "一般用戶": "一般用戶",
         "上月": "上月",
@@ -627,6 +630,7 @@ window.translations = {
     },
     en: {
         // Updated inventory and alert labels without trailing space
+        "無已購買的套票：": "No packages purchased：",
         "庫存：": "Inventory:",
         "警戒：": "Alert:",
         "您可以匯出診所資料備份（包含所有功能資料，不含模板庫、中藥庫及穴位庫），或匯入之前的備份檔案。實時掛號及問診資料不包含在備份中。": "You can export a backup of your clinic data (including all functional data, excluding the template library, Chinese medicine library, and acupoint library), or import a previous backup file. Real-time registration and consultation data are not included in the backup.",
@@ -1124,6 +1128,8 @@ window.translations = {
         "+ 新增病人": "+ Add Patient",
         "+ 新增穴位組合": "+ Add Acupoint Combo",
         "+ 新增藥方組合": "+ Add Formula Combo",
+        // Button label used in batch inventory restock for adding a new herb
+        "+ 新增藥材": "+ Add Herb",
         "管理分類": "Manage Categories",
         "一般用戶": "General User",
         "上月": "Last Month",
