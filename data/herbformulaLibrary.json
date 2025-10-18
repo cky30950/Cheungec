@@ -4367,6 +4367,34 @@
       "usage": "散劑，生薑湯調服；或水煎服，芒硝溶服",
       "updatedAt": "2025-08-19T10:00:00.001Z",
       "englishName": "FangFengTongShengSan"
+    },
+    {
+      "id": 1755800000001,
+      "type": "formula",
+      "name": "荊防敗毒散",
+      "composition": "荊芥\n防風\n羌活\n獨活\n柴胡\n前胡\n川芎\n枳殼\n茯苓\n桔梗\n甘草",
+      "createdAt": "2025-08-20T10:00:00.001Z",
+      "source": "攝生眾妙方",
+      "effects": "發汗解表，散風祛濕",
+      "cautions": "陰虛外感者慎用",
+      "indications": "外感風寒濕邪，惡寒發熱，頭痛身痛，咳嗽痰白，鼻塞聲重",
+      "usage": "水煎服",
+      "updatedAt": "2025-08-20T10:00:00.001Z",
+      "englishName": "JingFangBaiDuSan"
+    },
+    {
+      "id": 1755800000002,
+      "type": "formula",
+      "name": "清肺湯",
+      "composition": "黃芩\n梔子\n桑白皮\n知母\n貝母\n麥冬\n天冬\n陳皮\n茯苓\n桔梗\n甘草",
+      "createdAt": "2025-08-20T10:00:00.002Z",
+      "source": "萬病回春",
+      "effects": "清肺瀉火，化痰止咳",
+      "cautions": "風寒咳嗽者忌用",
+      "indications": "肺熱咳嗽，痰黃黏稠，咽喉乾痛，口乾渴",
+      "usage": "水煎服",
+      "updatedAt": "2025-08-20T10:00:00.002Z",
+      "englishName": "QingFeiTang"
     }
   ]
 }
