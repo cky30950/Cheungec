@@ -16,6 +16,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
     <!-- 引入 SweetAlert2 用於彈窗 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- 引入 Konva.js 用於動態繪製穴位圖 -->
+    <script src="https://cdn.jsdelivr.net/npm/konva@8.4.3/konva.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; }
@@ -198,6 +200,42 @@
             #shiftTypeFilter {
                 width: 100% !important;
             }
+        }
+
+        /*
+         * 放大鏡鏡片樣式
+         *
+         * 此樣式定義了放大鏡的外觀，包括邊框、圓形形狀、尺寸、以及遮罩等。
+         * 放大鏡會被絕對定位在圖片容器內，且使用 overflow: hidden 隱藏超出區域。
+         */
+        .img-magnifier-glass {
+            position: absolute;
+            border: 3px solid #000;
+            border-radius: 50%;
+            cursor: none;
+            width: 150px;
+            height: 150px;
+            overflow: hidden;
+            z-index: 1000;
+            box-shadow: 0 0 4px rgba(0,0,0,0.3);
+        }
+
+        /*
+         * 放大鏡內的指標點樣式
+         *
+         * 用於指示目前放大的精確位置。置於鏡片正中央，顯示為半透明的小圓點，不會攔截滑鼠事件。
+         */
+        .magnifier-pointer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            margin-top: -4px;
+            margin-left: -4px;
+            background-color: rgba(255, 0, 0, 0.7);
+            border-radius: 50%;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -507,7 +545,7 @@
                         <div class="flex-1 relative">
                             <input type="text" id="patientSearchInput" placeholder="搜尋病人姓名、編號或電話..." 
                                    class="w-full border border-gray-300 rounded-lg px-4 py-3 pr-10 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                   >
+                                   autocomplete="off" autocorrect="off" autocapitalize="off">
                             <span class="absolute right-3 top-3.5 text-gray-400">🔍</span>
                         </div>
                         <button onclick="clearPatientSearch()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-3 rounded-lg transition duration-200">
@@ -713,7 +751,8 @@
                                 <div>
                                     <!-- 在主訴欄位旁新增載入診斷模板按鈕 -->
                                     <div class="flex justify-between items-center mb-2">
-                                        <label class="block text-sm font-semibold text-gray-700">主訴 *</label>
+                                        <!-- 調整主訴欄位標題為「主訴及現病史」以合併兩者的輸入 -->
+                                        <label class="block text-sm font-semibold text-gray-700">主訴及現病史 *</label>
                                         <!-- 診斷模板按鈕：點擊後開啟診斷模板選擇彈窗 -->
                                         <!-- 診斷模板載入按鈕：使用新的 openDiagnosisTemplate 包裝函式以顯示載入圈效果 -->
                                         <button
@@ -724,15 +763,17 @@
                                             🔍 載入診斷模板
                                         </button>
                                     </div>
-                                    <textarea id="formSymptoms" placeholder="病人主要不適症狀、發病時間、症狀特點等..." rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                                    <!-- 主訴及現病史輸入區：維持原有的 textarea ID 以相容既有程式邏輯 -->
+                                    <textarea id="formSymptoms" placeholder="病人主要不適症狀、發病時間、症狀特點、治療經過等..." rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
                                 </div>
 
-                                <!-- 現病史欄位移至主訴下方，並調整高度為主訴的兩倍 -->
+                                <!-- 過往記錄欄位：顯示歷次診症的主訴及現病史，供醫師參考，禁止編輯 -->
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                        現病史
+                                        過往記錄
                                     </label>
-                                    <textarea id="formCurrentHistory" placeholder="發病經過、症狀變化、治療經過等..." rows="6" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                                    <!-- 使用原有的 formCurrentHistory ID 以便程式存取，但設為唯讀並以灰底顯示 -->
+                                    <textarea id="formCurrentHistory" readonly placeholder="過往主訴及現病史將自動載入" rows="6" class="w-full border border-gray-200 bg-gray-100 rounded-lg px-3 py-2 text-gray-600"></textarea>
                                 </div>
                                 
                                 <div>
@@ -1310,6 +1351,14 @@
                         <!-- 動態產生的經絡分類按鈕 -->
                     </div>
                 </div>
+    <!-- 穴位圖示展示區 -->
+    <div class="mb-6">
+        <!-- 使用 relative 容器以配合放大鏡絕對定位 -->
+        <div id="acupointImageContainer" class="relative mx-auto max-w-4xl">
+            <!-- 顯示完整穴位圖，供放大鏡取樣，保持高解析度 -->
+            <img id="acupointImage" src="images/combined_three.png" alt="穴位圖" class="w-full h-auto border border-gray-300 rounded-lg shadow-sm">
+        </div>
+    </div>
                 <!-- 穴位庫列表 -->
                 <div class="overflow-x-auto">
                     <div id="acupointLibraryList" class="space-y-4">
@@ -4432,7 +4481,7 @@
     <!-- 載入 Chart.js 用於繪製個人統計分析圖表 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <script src="schedule_management.js"></script><script src="system.js"></script>
+    <script src="schedule_management.js"></script><script src="system.js"></script><script src="acupoint_canvas.js"></script>
     <!-- 系統管理相關腳本拆分至獨立檔案 -->
     <script src="systemmanagement.js"></script>
     <!-- 新增聊天模組腳本，需在 system.js 之後載入 -->
@@ -4542,6 +4591,10 @@
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"b2074e7888b746fe9fbbc15492b4c3d4","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>

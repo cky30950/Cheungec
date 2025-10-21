@@ -50,6 +50,180 @@ const paginationSettings = {
     medicalRecordList: { currentPage: 1, itemsPerPage: 10 }
 };
 
+/**
+ * 初始化穴位圖放大鏡效果。
+ * 此函式會在 id="acupointImage" 的圖片上添加放大鏡視窗，使使用者可透過滑鼠或觸控放大查看細節。
+ * 若圖片不存在或已經初始化，則不執行任何操作。
+ */
+function initAcupointMagnifier() {
+    try {
+        const img = document.getElementById('acupointImage');
+        if (!img) {
+            return;
+        }
+        // 避免重複建立放大鏡
+        if (img.dataset && img.dataset.magnified) {
+            return;
+        }
+        // 標記為已初始化
+        if (img.dataset) {
+            img.dataset.magnified = 'true';
+        }
+        // 設定放大倍率，可根據需要調整
+        magnify(img, 2);
+    } catch (e) {
+        console.warn('初始化穴位放大鏡失敗:', e);
+    }
+}
+
+/**
+ * 初始化 Konva 覆蓋層，在穴位圖上繪製可點擊的穴位標記。
+ * 這個函式會根據 window.acupointCoordinates 提供的座標（原始圖像像素），
+ * 將每個標記縮放到圖片當前尺寸並繪製於圖像上方。若未定義資料，則使用預設範例座標。
+ */
+function initAcupointKonvaOverlay() {
+    try {
+        const img = document.getElementById('acupointImage');
+        const container = document.getElementById('acupointOverlayContainer');
+        if (!img || !container || typeof Konva === 'undefined') {
+            return;
+        }
+        // 清除舊的子元素
+        container.innerHTML = '';
+        // 準備舞台尺寸
+        const width = img.clientWidth;
+        const height = img.clientHeight;
+        const stage = new Konva.Stage({
+            container: container,
+            width: width,
+            height: height,
+        });
+        const layer = new Konva.Layer();
+        stage.add(layer);
+        // 座標資料
+        const coords = Array.isArray(window.acupointCoordinates) && window.acupointCoordinates.length ? window.acupointCoordinates : [
+            { id: '穴位1', x: 100, y: 100 },
+            { id: '穴位2', x: 300, y: 150 },
+            { id: '穴位3', x: 200, y: 300 },
+            { id: '穴位4', x: 400, y: 250 },
+            { id: '穴位5', x: 350, y: 400 }
+        ];
+        const naturalW = img.naturalWidth || width;
+        const naturalH = img.naturalHeight || height;
+        const sx = width / naturalW;
+        const sy = height / naturalH;
+        const circleNodes = [];
+        coords.forEach(pt => {
+            const circle = new Konva.Circle({
+                x: pt.x * sx,
+                y: pt.y * sy,
+                radius: 6,
+                fill: 'rgba(230, 30, 30, 0.8)',
+                stroke: '#fff',
+                strokeWidth: 1,
+                id: pt.id || ''
+            });
+            circle.on('mouseenter', () => { document.body.style.cursor = 'pointer'; });
+            circle.on('mouseleave', () => { document.body.style.cursor = ''; });
+            circle.on('click', () => {
+                if (typeof showAcupointDetail === 'function' && pt.id) {
+                    try { showAcupointDetail(pt.id); } catch (err) {
+                        console.warn('顯示穴位詳細資訊失敗:', err);
+                    }
+                } else {
+                    alert('點擊了穴位：' + (pt.id || '未知穴位'));
+                }
+            });
+            layer.add(circle);
+            circleNodes.push({ node: circle, data: pt });
+        });
+        layer.draw();
+        // 縮放處理
+        function resizeOverlay() {
+            const newW = img.clientWidth;
+            const newH = img.clientHeight;
+            stage.width(newW);
+            stage.height(newH);
+            const newSx = newW / naturalW;
+            const newSy = newH / naturalH;
+            circleNodes.forEach(item => {
+                item.node.position({ x: item.data.x * newSx, y: item.data.y * newSy });
+            });
+            layer.batchDraw();
+        }
+        window.addEventListener('resize', resizeOverlay);
+    } catch (err) {
+        console.warn('初始化 Konva 覆蓋層失敗:', err);
+    }
+}
+
+/**
+ * 建立放大鏡效果的核心函式。
+ * 在給定的圖片元素上產生一個圓形鏡片，隨著滑鼠移動顯示放大的圖片局部。
+ * @param {HTMLElement} img - 將套用放大鏡效果的圖片元素
+ * @param {number} zoom - 放大倍率，例如 2 表示放大兩倍
+ */
+function magnify(img, zoom) {
+    // 建立鏡片元素
+    const lens = document.createElement('div');
+    lens.setAttribute('class', 'img-magnifier-glass');
+    // 確保父容器為相對定位，若沒有設定則自動設為 relative
+    const container = img.parentElement;
+    if (container) {
+        const style = window.getComputedStyle(container);
+        if (style.position === 'static' || !style.position) {
+            container.style.position = 'relative';
+        }
+        container.insertBefore(lens, img);
+    } else {
+        document.body.insertBefore(lens, img);
+    }
+    // 設定鏡片背景為原圖
+    lens.style.backgroundImage = `url('${img.src}')`;
+    lens.style.backgroundRepeat = 'no-repeat';
+    // 取得鏡片尺寸一半，用於計算定位
+    const w = lens.offsetWidth / 2;
+    const h = lens.offsetHeight / 2;
+    // 依據放大倍率設定背景大小
+    lens.style.backgroundSize = (img.width * zoom) + 'px ' + (img.height * zoom) + 'px';
+    // 在鏡片中心加入指標點
+    const pointer = document.createElement('div');
+    pointer.className = 'magnifier-pointer';
+    lens.appendChild(pointer);
+
+    // 事件處理函式，根據滑鼠位置更新鏡片位置與背景偏移
+    function moveLens(e) {
+        e.preventDefault();
+        const pos = getCursorPos(e);
+        let x = pos.x;
+        let y = pos.y;
+        // 防止鏡片超出圖片邊界
+        if (x > img.width - (w / zoom)) { x = img.width - (w / zoom); }
+        if (x < w / zoom) { x = w / zoom; }
+        if (y > img.height - (h / zoom)) { y = img.height - (h / zoom); }
+        if (y < h / zoom) { y = h / zoom; }
+        // 更新鏡片的位置
+        lens.style.left = (x - w) + 'px';
+        lens.style.top = (y - h) + 'px';
+        // 更新背景位置使放大區域對準鏡片中心
+        // 考慮鏡片邊框寬度，以避免視覺偏差
+        const bw = parseInt(window.getComputedStyle(lens).borderTopWidth) || 0;
+        lens.style.backgroundPosition = '-' + ((x * zoom) - w + bw) + 'px -' + ((y * zoom) - h + bw) + 'px';
+    }
+    // 計算滑鼠在圖片內的座標
+    function getCursorPos(e) {
+        const rect = img.getBoundingClientRect();
+        let x = e.pageX - rect.left - window.pageXOffset;
+        let y = e.pageY - rect.top - window.pageYOffset;
+        return { x, y };
+    }
+    // 綁定滑鼠與觸控移動事件
+    lens.addEventListener('mousemove', moveLens);
+    img.addEventListener('mousemove', moveLens);
+    lens.addEventListener('touchmove', moveLens);
+    img.addEventListener('touchmove', moveLens);
+}
+
 // 為穴位庫新增分頁設定，每頁顯示 6 筆資料
 paginationSettings.acupointLibrary = { currentPage: 1, itemsPerPage: 6 };
 
@@ -183,6 +357,14 @@ document.addEventListener('DOMContentLoaded', function () {
 // 用於掛號搜尋結果的鍵盤導航索引
 // 當病人搜尋結果出現時，此索引用於記錄當前選中項目；-1 表示未選中
 let patientSearchSelectionIndex = -1;
+
+// 用於個人慣用中藥組合搜尋結果的鍵盤導航索引
+// herbIngredientSearchSelectionIndex 用於記錄中藥材組合搜尋目前選中的項目；-1 表示沒有選中
+let herbIngredientSearchSelectionIndex = -1;
+
+// 用於個人慣用穴位組合搜尋結果的鍵盤導航索引
+// acupointComboSearchSelectionIndex 用於記錄穴位組合搜尋目前選中的項目；-1 表示沒有選中
+let acupointComboSearchSelectionIndex = -1;
 
 // 為病人詳細資料中的套票情況新增分頁設定。
 // 若條件改變（例如重新查看另一位病人），應重置 currentPage 為 1。
@@ -735,6 +917,105 @@ function computePersonalStatistics(doctor) {
         }
     });
     return { herbCounts, formulaCounts, acupointCounts };
+}
+
+/**
+ * 載入指定病人過往的主訴及現病史紀錄，並依日期由新到舊填入過往記錄欄位。
+ * 此函式會嘗試載入全部診症資料（若尚未載入），再依病人 ID 及排除的診症 ID 進行篩選。
+ * 每一行格式為：YYYY-MM-DD 主訴 現病史，其中主訴在前，現病史在後；若缺其中一項則只顯示現有資訊。
+ *
+ * @param {string|number} patientId - 目標病人的 ID
+ * @param {string|number|null} excludeConsultationId - 若提供，將從紀錄中排除此診症 ID
+ */
+async function loadPastRecords(patientId, excludeConsultationId = null) {
+    try {
+        // 若 consultations 尚未載入，嘗試從 Firebase 取得全部診症記錄
+        if (!Array.isArray(consultations) || consultations.length === 0) {
+            try {
+                if (window.firebaseDataManager && typeof window.firebaseDataManager.getConsultations === 'function') {
+                    const consResult = await window.firebaseDataManager.getConsultations();
+                    if (consResult && consResult.success && Array.isArray(consResult.data)) {
+                        consultations = consResult.data;
+                    }
+                }
+            } catch (err) {
+                console.error('載入診症記錄時發生錯誤:', err);
+            }
+        }
+        if (!Array.isArray(consultations)) {
+            return;
+        }
+        // 篩選出同一病人的診症紀錄，排除正在編輯的紀錄（若有提供）
+        const records = consultations.filter(c => {
+            if (!c || (typeof c.patientId === 'undefined')) return false;
+            if (String(c.patientId) !== String(patientId)) return false;
+            if (excludeConsultationId && String(c.id) === String(excludeConsultationId)) return false;
+            return true;
+        }).sort((a, b) => {
+            // 依日期由新到舊排序
+            const getTime = (c) => {
+                let d = null;
+                if (c.date) {
+                    if (typeof c.date === 'object' && c.date.seconds) {
+                        d = new Date(c.date.seconds * 1000);
+                    } else {
+                        d = new Date(c.date);
+                    }
+                } else if (c.createdAt) {
+                    if (typeof c.createdAt === 'object' && c.createdAt.seconds) {
+                        d = new Date(c.createdAt.seconds * 1000);
+                    } else {
+                        d = new Date(c.createdAt);
+                    }
+                }
+                return d ? d.getTime() : 0;
+            };
+            return getTime(b) - getTime(a);
+        });
+        // 組合每一行紀錄：日期 + 主訴 + 現病史 + 舌象 + 脈象
+        const lines = records.map(c => {
+            let dateObj = null;
+            if (c.date) {
+                if (typeof c.date === 'object' && c.date.seconds) {
+                    dateObj = new Date(c.date.seconds * 1000);
+                } else {
+                    dateObj = new Date(c.date);
+                }
+            } else if (c.createdAt) {
+                if (typeof c.createdAt === 'object' && c.createdAt.seconds) {
+                    dateObj = new Date(c.createdAt.seconds * 1000);
+                } else {
+                    dateObj = new Date(c.createdAt);
+                }
+            }
+            const dateStr = dateObj ? `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}` : '';
+            const symptoms = c.symptoms ? String(c.symptoms).replace(/\n/g, ' ').trim() : '';
+            const history = c.currentHistory ? String(c.currentHistory).replace(/\n/g, ' ').trim() : '';
+            const tongue = c.tongue ? String(c.tongue).replace(/\n/g, ' ').trim() : '';
+            const pulse = c.pulse ? String(c.pulse).replace(/\n/g, ' ').trim() : '';
+            const parts = [];
+            // 主訴與現病史直接顯示
+            if (symptoms) parts.push(symptoms);
+            if (history) parts.push(history);
+            // 將舌象與脈象以逗號串接並用括號包覆，例如「(舌紅，脈弱)」
+            const special = [];
+            if (tongue) special.push(tongue);
+            if (pulse) special.push(pulse);
+            if (special.length) parts.push(`(${special.join('，')})`);
+            const content = parts.join(' ').trim();
+            return `${dateStr} ${content}`.trim();
+        });
+        // 將結果填入表單欄位
+        const historyField = document.getElementById('formCurrentHistory');
+        if (historyField) {
+            // 使用較短的橫線作為分隔符號，並盡量減少縱向間距
+            // 採用單行分隔線，不再於其上下額外加空行，避免分得太開
+            const separator = '\n──────────\n';
+            historyField.value = lines.join(separator);
+        }
+    } catch (e) {
+        console.error('載入過往記錄時發生錯誤:', e);
+    }
 }
 
 /**
@@ -2785,8 +3066,12 @@ async function saveInventoryChanges() {
             suggestionList.className = 'absolute z-10 mt-1 max-h-60 overflow-y-auto bg-white border border-gray-300 rounded w-full hidden';
             // 行資料設定 herbId 默認為空
             row.dataset.herbId = '';
+            // 用於此行搜尋結果的鍵盤選擇索引
+            let suggestionIndex = -1;
             // 更新建議列表的函式
             function updateSuggestions() {
+                // 重置選擇索引
+                suggestionIndex = -1;
                 const query = herbInput.value.trim().toLowerCase();
                 suggestionList.innerHTML = '';
                 if (!query) {
@@ -2800,15 +3085,35 @@ async function saveInventoryChanges() {
                         let name = h.name || '';
                         let englishName = h.englishName || '';
                         let searchTarget = name;
+                        // 根據語言選擇比較名稱或英文名稱
                         try {
                             const langSel = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
                             if (langSel && langSel.toLowerCase().startsWith('en') && englishName) {
                                 searchTarget = englishName;
                             }
                         } catch (_e) {}
-                        if (searchTarget.toLowerCase().includes(query) || englishName.toLowerCase().includes(query)) {
-                            matches.push(h);
-                            if (matches.length >= 10) break;
+                        // 比對輸入字串
+                        const lowerSearchTarget = searchTarget.toLowerCase();
+                        const lowerEnglishName = englishName.toLowerCase();
+                        if (lowerSearchTarget.includes(query) || lowerEnglishName.includes(query)) {
+                            // 過濾已停用的中藥庫存：僅顯示當前庫存類型中啟用的項目
+                            let disabled = false;
+                            try {
+                                if (typeof getHerbInventory === 'function') {
+                                    const invInfo = getHerbInventory(h.id);
+                                    if (invInfo && invInfo.disabled) {
+                                        disabled = true;
+                                    }
+                                }
+                            } catch (_e) {
+                                // 若無法取得庫存資訊，視為啟用
+                                disabled = false;
+                            }
+                            // 若未被停用，加入匹配陣列
+                            if (!disabled) {
+                                matches.push(h);
+                                if (matches.length >= 10) break;
+                            }
                         }
                     }
                 }
@@ -2883,6 +3188,58 @@ async function saveInventoryChanges() {
             }
             herbInput.addEventListener('input', updateSuggestions);
             herbInput.addEventListener('focus', updateSuggestions);
+            // 鍵盤事件處理：支援方向鍵選擇與 Enter 選取建議
+            herbInput.addEventListener('keydown', function(ev) {
+                const key = ev && ev.key;
+                if (!key || !(['ArrowUp', 'ArrowDown', 'Enter'].includes(key))) {
+                    return;
+                }
+                // 僅在建議列表顯示時處理
+                if (suggestionList.classList.contains('hidden')) {
+                    return;
+                }
+                const items = Array.from(suggestionList.children);
+                if (!items || items.length === 0) {
+                    return;
+                }
+                if (key === 'ArrowDown') {
+                    ev.preventDefault();
+                    suggestionIndex = (suggestionIndex + 1) % items.length;
+                    items.forEach((el, idx) => {
+                        if (idx === suggestionIndex) {
+                            el.classList.add('bg-gray-200');
+                        } else {
+                            el.classList.remove('bg-gray-200');
+                        }
+                    });
+                    const currentEl = items[suggestionIndex];
+                    if (currentEl && typeof currentEl.scrollIntoView === 'function') {
+                        currentEl.scrollIntoView({ block: 'nearest' });
+                    }
+                } else if (key === 'ArrowUp') {
+                    ev.preventDefault();
+                    suggestionIndex = (suggestionIndex - 1 + items.length) % items.length;
+                    items.forEach((el, idx) => {
+                        if (idx === suggestionIndex) {
+                            el.classList.add('bg-gray-200');
+                        } else {
+                            el.classList.remove('bg-gray-200');
+                        }
+                    });
+                    const currentEl = items[suggestionIndex];
+                    if (currentEl && typeof currentEl.scrollIntoView === 'function') {
+                        currentEl.scrollIntoView({ block: 'nearest' });
+                    }
+                } else if (key === 'Enter') {
+                    if (suggestionIndex >= 0 && suggestionIndex < items.length) {
+                        ev.preventDefault();
+                        const selectedEl = items[suggestionIndex];
+                        if (selectedEl && typeof selectedEl.click === 'function') {
+                            selectedEl.click();
+                        }
+                    }
+                }
+            });
             document.addEventListener('click', function(ev) {
                 if (!searchContainer.contains(ev.target)) {
                     suggestionList.classList.add('hidden');
@@ -5649,6 +6006,133 @@ function handlePatientSearchKeyDown(ev) {
         console.error('處理掛號搜尋鍵盤事件錯誤:', err);
     }
 }
+
+/**
+ * 處理個人慣用中藥組合搜尋欄的鍵盤事件。
+ * 允許使用者透過方向鍵在搜尋結果中移動選擇，並用 Enter 鍵選取。
+ * @param {KeyboardEvent} ev 鍵盤事件
+ */
+function handleHerbIngredientSearchKeyDown(ev) {
+    const key = ev && ev.key;
+    // 只處理上下方向鍵與 Enter 鍵
+    if (!key || !(['ArrowUp', 'ArrowDown', 'Enter'].includes(key))) {
+        return;
+    }
+    try {
+        const resultsContainer = document.getElementById('herbIngredientSearchResults');
+        const resultsList = document.getElementById('herbIngredientSearchList');
+        // 必須存在且為顯示狀態
+        if (!resultsContainer || resultsContainer.classList.contains('hidden')) {
+            return;
+        }
+        // 找出可選項目：僅挑選帶有 cursor-pointer 的 div
+        const items = Array.from(resultsList.querySelectorAll('div.cursor-pointer'));
+        if (!items || items.length === 0) {
+            return;
+        }
+        if (key === 'ArrowDown') {
+            ev.preventDefault();
+            herbIngredientSearchSelectionIndex = (herbIngredientSearchSelectionIndex + 1) % items.length;
+            items.forEach((el, idx) => {
+                if (idx === herbIngredientSearchSelectionIndex) {
+                    el.classList.add('bg-green-200');
+                } else {
+                    el.classList.remove('bg-green-200');
+                }
+            });
+            const currentEl = items[herbIngredientSearchSelectionIndex];
+            if (currentEl && typeof currentEl.scrollIntoView === 'function') {
+                currentEl.scrollIntoView({ block: 'nearest' });
+            }
+        } else if (key === 'ArrowUp') {
+            ev.preventDefault();
+            herbIngredientSearchSelectionIndex = (herbIngredientSearchSelectionIndex - 1 + items.length) % items.length;
+            items.forEach((el, idx) => {
+                if (idx === herbIngredientSearchSelectionIndex) {
+                    el.classList.add('bg-green-200');
+                } else {
+                    el.classList.remove('bg-green-200');
+                }
+            });
+            const currentEl = items[herbIngredientSearchSelectionIndex];
+            if (currentEl && typeof currentEl.scrollIntoView === 'function') {
+                currentEl.scrollIntoView({ block: 'nearest' });
+            }
+        } else if (key === 'Enter') {
+            if (herbIngredientSearchSelectionIndex >= 0 && herbIngredientSearchSelectionIndex < items.length) {
+                ev.preventDefault();
+                const selectedEl = items[herbIngredientSearchSelectionIndex];
+                if (selectedEl && typeof selectedEl.click === 'function') {
+                    selectedEl.click();
+                }
+            }
+        }
+    } catch (err) {
+        console.error('處理中藥組合搜尋鍵盤事件錯誤:', err);
+    }
+}
+
+/**
+ * 處理個人慣用穴位組合搜尋欄的鍵盤事件。
+ * 允許使用者透過方向鍵在搜尋結果中移動選擇，並用 Enter 鍵選取。
+ * @param {KeyboardEvent} ev 鍵盤事件
+ */
+function handleAcupointComboSearchKeyDown(ev) {
+    const key = ev && ev.key;
+    if (!key || !(['ArrowUp', 'ArrowDown', 'Enter'].includes(key))) {
+        return;
+    }
+    try {
+        const resultsContainer = document.getElementById('acupointPointSearchResults');
+        const resultsList = document.getElementById('acupointPointSearchList');
+        if (!resultsContainer || resultsContainer.classList.contains('hidden')) {
+            return;
+        }
+        const items = Array.from(resultsList.querySelectorAll('div.cursor-pointer'));
+        if (!items || items.length === 0) {
+            return;
+        }
+        if (key === 'ArrowDown') {
+            ev.preventDefault();
+            acupointComboSearchSelectionIndex = (acupointComboSearchSelectionIndex + 1) % items.length;
+            items.forEach((el, idx) => {
+                if (idx === acupointComboSearchSelectionIndex) {
+                    el.classList.add('bg-blue-200');
+                } else {
+                    el.classList.remove('bg-blue-200');
+                }
+            });
+            const currentEl = items[acupointComboSearchSelectionIndex];
+            if (currentEl && typeof currentEl.scrollIntoView === 'function') {
+                currentEl.scrollIntoView({ block: 'nearest' });
+            }
+        } else if (key === 'ArrowUp') {
+            ev.preventDefault();
+            acupointComboSearchSelectionIndex = (acupointComboSearchSelectionIndex - 1 + items.length) % items.length;
+            items.forEach((el, idx) => {
+                if (idx === acupointComboSearchSelectionIndex) {
+                    el.classList.add('bg-blue-200');
+                } else {
+                    el.classList.remove('bg-blue-200');
+                }
+            });
+            const currentEl = items[acupointComboSearchSelectionIndex];
+            if (currentEl && typeof currentEl.scrollIntoView === 'function') {
+                currentEl.scrollIntoView({ block: 'nearest' });
+            }
+        } else if (key === 'Enter') {
+            if (acupointComboSearchSelectionIndex >= 0 && acupointComboSearchSelectionIndex < items.length) {
+                ev.preventDefault();
+                const selectedEl = items[acupointComboSearchSelectionIndex];
+                if (selectedEl && typeof selectedEl.click === 'function') {
+                    selectedEl.click();
+                }
+            }
+        }
+    } catch (err) {
+        console.error('處理穴位組合搜尋鍵盤事件錯誤:', err);
+    }
+}
         
 // 2. 修改選擇病人進行掛號函數
 async function selectPatientForRegistration(patientId) {
@@ -6233,11 +6717,17 @@ function subscribeToAppointments() {
         try {
             // 判斷是否有病人狀態變更為候診中需要通知
             const toNotify = [];
+            // 判斷是否有病人狀態變更為完成診症需要通知診所助理
+            const completedNotify = [];
             for (const apt of newAppointments) {
                 const prevStatus = window.previousAppointmentStatuses[apt.id];
                 // 當前狀態為候診中且與先前狀態不同，視為新的候診事件
                 if (prevStatus !== undefined && prevStatus !== apt.status && apt.status === 'waiting') {
                     toNotify.push(apt);
+                }
+                // 若狀態由其它狀態變更為 completed，視為完成診症事件
+                if (prevStatus !== undefined && prevStatus !== apt.status && apt.status === 'completed') {
+                    completedNotify.push(apt);
                 }
                 // 更新狀態紀錄
                 window.previousAppointmentStatuses[apt.id] = apt.status;
@@ -6286,6 +6776,48 @@ function subscribeToAppointments() {
                                 playNotificationSound();
                             }
                         }
+                    }
+                }
+            }
+
+            // 如果有診症完成通知，且目前使用者為護理師、診所管理或診所助理，則提示並播放音效
+            if (completedNotify.length > 0 && currentUserData && currentUserData.position && ['護理師', '診所管理', '診所助理'].includes(currentUserData.position)) {
+                let patientsList2 = null;
+                for (const apt of completedNotify) {
+                    // 僅通知該完成事件
+                    // 優先使用掛號物件中的病人姓名
+                    let patientName = '';
+                    if (apt.patientName) {
+                        patientName = apt.patientName;
+                    } else {
+                        // 僅當缺少 patientName 時才讀取一次完整病人列表
+                        if (!patientsList2) {
+                            try {
+                                patientsList2 = await fetchPatients();
+                            } catch (fetchErr) {
+                                console.error('讀取病人資料以取得姓名時發生錯誤:', fetchErr);
+                            }
+                        }
+                        if (Array.isArray(patientsList2)) {
+                            let patient = patientsList2.find(p => p && p.id === apt.patientId);
+                            // 若未找到，嘗試跨裝置刷新取得病人資料
+                            if (!patient) {
+                                try {
+                                    patient = await getPatientByIdWithRefresh(apt.patientId);
+                                } catch (_e) {
+                                    patient = null;
+                                }
+                            }
+                            patientName = patient ? patient.name : '';
+                        }
+                    }
+                    if (patientName) {
+                        const lang = localStorage.getItem('lang') || 'zh';
+                        const zhMsg = `病人 ${patientName} 已完成診症，可進行後續處理。`;
+                        const enMsg = `Patient ${patientName}'s consultation has been completed. Please proceed with follow-up.`;
+                        const msg = lang === 'en' ? enMsg : zhMsg;
+                        showToast(msg, 'info');
+                        playNotificationSound();
                     }
                 }
             }
@@ -6466,7 +6998,25 @@ async function loadConsultationForEdit(consultationId) {
             
             // 載入處方內容
             selectedPrescriptionItems = [];
-            if (consultation.prescription) {
+            // 優先使用結構化處方資料（JSON 格式）進行重建，以避免因文字單位差異導致解析失敗
+            let loadedStructured = false;
+            if (consultation.prescriptionStructured) {
+                try {
+                    const parsedItems = JSON.parse(consultation.prescriptionStructured);
+                    if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+                        selectedPrescriptionItems = parsedItems;
+                        loadedStructured = true;
+                    }
+                } catch (_e) {
+                    // ignore parse errors and fallback to legacy text format
+                    loadedStructured = false;
+                }
+            }
+            if (loadedStructured) {
+                // 透過更新函式渲染處方顯示並同步隱藏文本域
+                updatePrescriptionDisplay();
+            } else if (consultation.prescription) {
+                // fallback: 使用舊版文字處方解析
                 // 先將完整處方內容存入隱藏文本域
                 document.getElementById('formPrescription').value = consultation.prescription;
                 // 嘗試解析處方內容並生成處方項目列表
@@ -6477,9 +7027,9 @@ async function loadConsultationForEdit(consultationId) {
                 if (selectedPrescriptionItems.length === 0) {
                     // 還原隱藏文本域為原始內容，因為 updatePrescriptionDisplay 會清空它
                     document.getElementById('formPrescription').value = consultation.prescription;
-                    const container = document.getElementById('selectedPrescriptionItems');
-                    if (container) {
-                        container.innerHTML = `<div class="text-sm text-gray-900 whitespace-pre-line">${consultation.prescription}</div>`;
+                    const containerEl = document.getElementById('selectedPrescriptionItems');
+                    if (containerEl) {
+                        containerEl.innerHTML = `<div class="text-sm text-gray-900 whitespace-pre-line">${consultation.prescription}</div>`;
                     }
                     // 隱藏服藥天數與次數設定
                     const medicationSettingsEl = document.getElementById('medicationSettings');
@@ -7523,6 +8073,16 @@ async function showConsultationForm(appointment) {
                 console.warn('consultationSaveButtonText element not found when starting consultation. Skipping text update.');
             }
         }
+
+        // 載入過往記錄：顯示患者既往的主訴及現病史，排除當前編輯的記錄
+        try {
+            await loadPastRecords(
+                appointment.patientId,
+                (appointment.status === 'completed' && appointment.consultationId) ? appointment.consultationId : null
+            );
+        } catch (err) {
+            console.error('載入過往記錄時發生錯誤:', err);
+        }
         
         document.getElementById('consultationForm').classList.remove('hidden');
         
@@ -7604,6 +8164,22 @@ async function showConsultationForm(appointment) {
             // 清空處方和收費項目選擇
             selectedPrescriptionItems = [];
             selectedBillingItems = [];
+
+            // 在關閉表單時，確保處方顯示與庫存類型選單狀態同步更新。
+            try {
+                if (typeof updatePrescriptionDisplay === 'function') {
+                    updatePrescriptionDisplay();
+                }
+            } catch (_e) {
+                /* 忽略更新顯示時的錯誤 */
+            }
+            try {
+                if (typeof updatePrescriptionTypeSelectStatus === 'function') {
+                    updatePrescriptionTypeSelectStatus();
+                }
+            } catch (_e) {
+                /* 忽略錯誤 */
+            }
             
             // 滾動回頂部
             document.getElementById('consultationSystem').scrollIntoView({ behavior: 'smooth' });
@@ -7806,7 +8382,8 @@ async function saveConsultation() {
             symptoms: symptoms,
             tongue: document.getElementById('formTongue').value.trim(),
             pulse: document.getElementById('formPulse').value.trim(),
-            currentHistory: document.getElementById('formCurrentHistory').value.trim(),
+            // 現病史欄位已整合至主訴輸入區，僅保存於主訴欄位，不再單獨儲存
+            currentHistory: '',
             diagnosis: diagnosis,
             syndrome: document.getElementById('formSyndrome').value.trim(),
             acupunctureNotes: (() => {
@@ -7815,6 +8392,15 @@ async function saveConsultation() {
                 return acnEl ? acnEl.innerHTML.trim() : '';
             })(),
             prescription: document.getElementById('formPrescription').value.trim(),
+            // 新增：將處方項目以結構化資料儲存，方便後續編輯，不再依賴解析文字。
+            prescriptionStructured: (() => {
+                try {
+                    // 若 selectedPrescriptionItems 已定義且為陣列，則序列化；否則回傳空陣列
+                    return JSON.stringify(Array.isArray(selectedPrescriptionItems) ? selectedPrescriptionItems : []);
+                } catch (_e) {
+                    return '[]';
+                }
+            })(),
             usage: document.getElementById('formUsage').value.trim(),
             treatmentCourse: document.getElementById('formTreatmentCourse').value.trim(),
             instructions: document.getElementById('formInstructions').value.trim(),
@@ -9381,8 +9967,24 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                     <div class="prescription-section">
                         <div class="prescription-title">📋 ${TR.prescription}</div>
                         <div class="prescription-content">${(() => {
-                            const lines = consultation.prescription.split('\n').filter(line => line.trim());
-                            const allItems = [];
+                                const lines = consultation.prescription.split('\n').filter(line => line.trim());
+                                // 解析結構化處方資料，建立名稱映射，用於查找方劑組成
+                                const structuredMap = {};
+                                if (consultation.prescriptionStructured) {
+                                    try {
+                                        const _arr = JSON.parse(consultation.prescriptionStructured);
+                                        if (Array.isArray(_arr)) {
+                                            _arr.forEach((itm) => {
+                                                if (itm && itm.name) {
+                                                    structuredMap[itm.name] = itm;
+                                                }
+                                            });
+                                        }
+                                    } catch (_e) {
+                                        /* 忽略解析錯誤 */
+                                    }
+                                }
+                                const allItems = [];
                             let i = 0;
                             while (i < lines.length) {
                                 const line = lines[i].trim();
@@ -9396,15 +9998,60 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                                     const dosage = itemMatch[2];
                                     const isFormula = ['湯','散','丸','膏','飲','丹','煎','方','劑'].some(suffix => itemName.includes(suffix));
                                     if (isFormula) {
-                                        let composition = '';
-                                        if (i + 1 < lines.length) {
-                                            const nextLine = lines[i + 1].trim();
-                                            if (nextLine && !nextLine.match(/^.+?\s+\d+(?:\.\d+)?g$/)) {
-                                                composition = nextLine.replace(/\n/g, '、').replace(/、/g, ',');
-                                                i++;
+                                        // 嘗試從結構化資料取得方劑組成
+                                        let compositionText = '';
+                                        try {
+                                            const structuredItem = structuredMap[itemName];
+                                            if (structuredItem && structuredItem.composition) {
+                                                compositionText = String(structuredItem.composition);
+                                            }
+                                        } catch (_e) {
+                                            /* 忽略錯誤 */
+                                        }
+                                        // 如果結構化資料無組成，再從 herbLibrary 取得
+                                        if (!compositionText) {
+                                            try {
+                                                if (Array.isArray(herbLibrary)) {
+                                                    const fullItem = herbLibrary.find(h => h && h.name === itemName && h.type === 'formula');
+                                                    if (fullItem && fullItem.composition) {
+                                                        compositionText = String(fullItem.composition);
+                                                    }
+                                                }
+                                            } catch (_e) {
+                                                /* 忽略錯誤 */
                                             }
                                         }
-                                        allItems.push(`${itemName} ${dosage}g`);
+                                        // 若仍未取得組成，檢查下一行是否為組成
+                                        if (!compositionText) {
+                                            if (i + 1 < lines.length) {
+                                                const nextLine = lines[i + 1].trim();
+                                                if (nextLine && !nextLine.match(/^.+?\s+\d+(?:\.\d+)?g$/)) {
+                                                    compositionText = nextLine;
+                                                    i++;
+                                                }
+                                            }
+                                        }
+                                        // 對組成做後處理：僅保留藥材名稱
+                                        let processedComposition = '';
+                                        if (compositionText) {
+                                            try {
+                                                const parts = String(compositionText)
+                                                    .replace(/\r/g, '')
+                                                    .split(/[、\n]/)
+                                                    .map(p => p
+                                                        .replace(/\d+(?:\.\d+)?\s*(?:g|克|錢|兩|丸|包)?/gi, '')
+                                                        .replace(/[()（）\[\]]/g, '')
+                                                        .trim()
+                                                    )
+                                                    .filter(p => p);
+                                                processedComposition = parts.join('、');
+                                            } catch (_err) {
+                                                processedComposition = String(compositionText).replace(/\n/g, '、');
+                                            }
+                                        }
+                                        // 將括號及其內容縮小至三分之一大小
+                                        const compWrap = processedComposition ? `<span style="font-size: 0.33em;">（${processedComposition}）</span>` : '';
+                                        allItems.push(`${itemName} ${dosage}g${compWrap}`);
                                     } else {
                                         allItems.push(`${itemName}${dosage}g`);
                                     }
@@ -9416,11 +10063,28 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                             const regularItems = allItems.filter(item => typeof item === 'string' && !item.includes('<div'));
                             const specialLines = allItems.filter(item => typeof item === 'string' && item.includes('<div'));
                             let result = '';
+                            // 先加入其他說明行
                             specialLines.forEach(line => {
                                 result += line;
                             });
                             if (regularItems.length > 0) {
-                                const joined = regularItems.join('、');
+                                // 調整順序：方劑在前、藥材其後
+                                const formulasArr = [];
+                                const herbsArr = [];
+                                regularItems.forEach(it => {
+                                    try {
+                                        const hasDose = /\d+(?:\.\d+)?g/.test(it);
+                                        const isFormulaItem = /[湯散丸膏飲丹煎方劑]/.test(it);
+                                        if (hasDose && isFormulaItem) {
+                                            formulasArr.push(it);
+                                        } else {
+                                            herbsArr.push(it);
+                                        }
+                                    } catch (_err) {
+                                        herbsArr.push(it);
+                                    }
+                                });
+                                const joined = formulasArr.concat(herbsArr).join('、');
                                 result += `<div style="margin: 2px 0;">${joined}</div>`;
                             }
                             return result || consultation.prescription.replace(/\n/g, '<br>');
@@ -10373,7 +11037,25 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
             try {
                 // 解析處方內容行並移除空行
                 const lines = consultation.prescription.split('\n').filter(line => line.trim());
+                // 解析結構化處方，建立名稱對應的結構化項目映射，用於查找方劑的組成資訊
+                const structuredMap = {};
+                if (consultation.prescriptionStructured) {
+                    try {
+                        const _arr = JSON.parse(consultation.prescriptionStructured);
+                        if (Array.isArray(_arr)) {
+                            _arr.forEach((itm) => {
+                                if (itm && itm.name) {
+                                    structuredMap[itm.name] = itm;
+                                }
+                            });
+                        }
+                    } catch (_e) {
+                        /* 忽略 JSON 解析錯誤 */
+                    }
+                }
                 const itemsList = [];
+                // 儲存所有方劑及其組成，以便在處方內容左下角列出
+                const formulaCompositions = [];
                 let i = 0;
                 // 將每個條目處理為單獨的 HTML 區塊
                 while (i < lines.length) {
@@ -10389,17 +11071,67 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                         const dosage = match[2];
                         const isFormula = ['湯','散','丸','膏','飲','丹','煎','方','劑'].some(suffix => itemName.includes(suffix));
                         if (isFormula) {
-                            // 如果是方劑，檢查下一行是否為組成說明，非藥材格式的行視為組成
-                            let composition = '';
-                            if (i + 1 < lines.length) {
-                                const nextLine = lines[i + 1].trim();
-                                if (nextLine && !nextLine.match(/^.+?\s+\d+(?:\.\d+)?g$/)) {
-                                    composition = nextLine;
-                                    i++;
+                            // 如果是方劑，嘗試先從結構化處方資料中取得組成資訊；若無則從 herbLibrary 或下一行獲取
+                            let compositionText = '';
+                            // 先從結構化資料取得
+                            try {
+                                const structuredItem = structuredMap[itemName];
+                                if (structuredItem && structuredItem.composition) {
+                                    compositionText = String(structuredItem.composition);
+                                }
+                            } catch (_e) {
+                                /* ignore */
+                            }
+                            // 若結構化資料中無組成，則查找 herbLibrary
+                            if (!compositionText) {
+                                try {
+                                    if (Array.isArray(herbLibrary)) {
+                                        const fullItem = herbLibrary.find(h => h && h.name === itemName && h.type === 'formula');
+                                        if (fullItem && fullItem.composition) {
+                                            compositionText = String(fullItem.composition);
+                                        }
+                                    }
+                                } catch (_e) {
+                                    /* 忽略錯誤 */
                                 }
                             }
-                            // 建立方劑區塊，只顯示名稱與劑量，不顯示組成
-                            // 若有組成行，前面已跳過
+                            // 若仍無組成資訊，則視下一行為組成（若非藥材格式）
+                            if (!compositionText) {
+                                if (i + 1 < lines.length) {
+                                    const nextLine = lines[i + 1].trim();
+                                    if (nextLine && !nextLine.match(/^.+?\s+\d+(?:\.\d+)?g$/)) {
+                                        compositionText = nextLine;
+                                        i++; // 跳過下一行作為組成
+                                    }
+                                }
+                            }
+                            // 處理組成文字：將換行與頓號分隔並移除劑量與單位，只保留藥材名稱
+                            let processedComposition = '';
+                            if (compositionText) {
+                                try {
+                                    const parts = String(compositionText)
+                                        .replace(/\r/g, '')
+                                        .split(/[、\n]/)
+                                        .map(p => p
+                                            .replace(/\d+(?:\.\d+)?\s*(?:g|克|錢|兩|丸|包)?/gi, '')
+                                            .replace(/[()（）\[\]]/g, '')
+                                            .trim()
+                                        )
+                                        .filter(p => p);
+                                    processedComposition = parts.join('、');
+                                } catch (_err) {
+                                    processedComposition = compositionText.replace(/\n/g, '、');
+                                }
+                            }
+                            // 若有組成資訊，收集起來，稍後在處方內容左下角列出，不再於主列表中顯示
+                            if (processedComposition) {
+                                try {
+                                    formulaCompositions.push({ name: itemName, composition: processedComposition });
+                                } catch (_err) {
+                                    // ignore
+                                }
+                            }
+                            // 方劑在主列表僅顯示名稱與劑量，不顯示組成
                             itemsList.push(`<div style="margin-bottom: 4px;">${itemName} ${dosage}g</div>`);
                         } else {
                             // 普通藥材區塊
@@ -10412,26 +11144,31 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                     i++;
                 }
                 if (itemsList.length > 0) {
-                    // 將條目平均分配到三欄（直行）以節省垂直空間
-                    const total = itemsList.length;
+                    // 按照原始次序排列處方項目，直接使用 itemsList 而不再將方劑移至最前
+                    const orderedItems = itemsList;
+                    // 將條目按行優先方式分配到三欄
                     const columnsCount = 3;
-                    const rows = Math.ceil(total / columnsCount);
-                    const columns = [[], [], []];
-                    for (let col = 0; col < columnsCount; col++) {
-                        for (let row = 0; row < rows; row++) {
-                            const idx = col * rows + row;
-                            if (idx < total) {
-                                columns[col].push(itemsList[idx]);
-                            }
-                        }
-                    }
+                    const columns = Array.from({ length: columnsCount }, () => []);
+                    orderedItems.forEach((item, idx) => {
+                        const colIdx = idx % columnsCount;
+                        columns[colIdx].push(item);
+                    });
                     // 組合三欄的 HTML 內容
                     let html = '<div style="display: flex;">';
                     columns.forEach((colItems) => {
                         html += `<div style="flex: 1; padding-right: 4px;">${colItems.join('')}</div>`;
                     });
                     html += '</div>';
-                    prescriptionHtml = html;
+                    // 將方劑的組成統一列在處方內容的左下角，字體稍微放大
+                    let compositionHtml = '';
+                    if (formulaCompositions.length > 0) {
+                        compositionHtml += '<div style="margin-top: 4px; font-size: 0.5em;">';
+                        formulaCompositions.forEach((fc) => {
+                            compositionHtml += `<div>${fc.name}：${fc.composition}</div>`;
+                        });
+                        compositionHtml += '</div>';
+                    }
+                    prescriptionHtml = html + compositionHtml;
                 } else {
                     // 若未能解析任何項目，直接以換行顯示原始內容
                     prescriptionHtml = consultation.prescription.replace(/\n/g, '<br>');
@@ -10648,7 +11385,7 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                         ${consultation.diagnosis ? `<div class="info-row"><span class="info-label">${PI.diagnosis}${colon}</span><span>${consultation.diagnosis}</span></div>` : ''}
                     </div>
                     <div class="section-title">${PI.prescriptionContent}</div>
-                    <div class="section-content">${prescriptionHtml}</div>
+                    <div class="section-content" style="font-size: 12px;">${prescriptionHtml}</div>
                     ${medInfoHtml ? `<div class="section-title">${PI.medicationInfo}</div><div class="section-content">${medInfoHtml}</div>` : ''}
                     ${instructionsHtml ? `<div class="section-title">${PI.instructions}</div><div class="section-content">${instructionsHtml}</div>` : ''}
                     ${followUpHtml ? `<div class="section-title">${PI.followUp}</div><div class="section-content">${followUpHtml}</div>` : ''}
@@ -12612,6 +13349,22 @@ async function initializeSystemAfterLogin() {
             }
             // 初次或重新載入時顯示列表
             displayAcupointLibrary();
+            // 在載入列表後初始化穴位圖放大鏡，確保圖像已存在於 DOM
+            if (typeof initAcupointMagnifier === 'function') {
+                try {
+                    initAcupointMagnifier();
+                } catch (_errMag) {
+                    console.warn('初始化穴位圖放大鏡失敗:', _errMag);
+                }
+            }
+            // 在載入列表後初始化 Konva 覆蓋層，繪製穴位標記
+            if (typeof initAcupointKonvaOverlay === 'function') {
+                try {
+                    initAcupointKonvaOverlay();
+                } catch (_errKonva) {
+                    console.warn('初始化 Konva 覆蓋層失敗:', _errKonva);
+                }
+            }
         }
 
         /**
@@ -12734,6 +13487,21 @@ async function initializeSystemAfterLogin() {
                 paginationSettings.acupointLibrary.currentPage = newPage;
                 displayAcupointLibrary();
             }, paginationEl);
+            // 在內容渲染後初始化放大鏡與 Konva 覆蓋層，確保圖像與標記同步
+            if (typeof initAcupointMagnifier === 'function') {
+                try {
+                    initAcupointMagnifier();
+                } catch (_errMag) {
+                    console.warn('初始化穴位圖放大鏡失敗:', _errMag);
+                }
+            }
+            if (typeof initAcupointKonvaOverlay === 'function') {
+                try {
+                    initAcupointKonvaOverlay();
+                } catch (_errKonva) {
+                    console.warn('初始化 Konva 覆蓋層失敗:', _errKonva);
+                }
+            }
         }
 
         /**
@@ -13658,6 +14426,14 @@ async function initializeSystemAfterLogin() {
                 hiddenTextarea.value = '';
                 // 隱藏服藥天數設定
                 medicationSettings.style.display = 'none';
+                // 當處方內容為空時，應重新啟用庫存類型選單
+                try {
+                    if (typeof updatePrescriptionTypeSelectStatus === 'function') {
+                        updatePrescriptionTypeSelectStatus();
+                    }
+                } catch (_e) {
+                    /* 忽略錯誤 */
+                }
                 return;
             }
             
@@ -13790,28 +14566,37 @@ async function initializeSystemAfterLogin() {
             selectedPrescriptionItems.forEach(item => {
                 // 使用項目的 customDosage（如果有），否則根據類型給予預設值：中藥材 1、方劑 5。
                 const dosage = item.customDosage || (item.type === 'herb' ? '1' : '5');
-                // 根據中藥庫中的單位設定來顯示正確的單位；若沒有對應單位則默認為『克』
+                // 根據中藥庫中的單位設定來顯示正確的基礎單位；若沒有對應單位則默認為 'g'
                 let unitLabelForText = '';
                 try {
                     if (typeof getHerbInventory === 'function') {
                         const inv3 = getHerbInventory(item.id);
-                        const unit3 = (inv3 && inv3.unit) ? inv3.unit : 'g';
-                        const rawUnit3 = (typeof UNIT_LABEL_MAP !== 'undefined' && UNIT_LABEL_MAP && UNIT_LABEL_MAP[unit3]) ? UNIT_LABEL_MAP[unit3] : '克';
-                        const translatedUnit3 = (typeof window.t === 'function') ? window.t(rawUnit3) : rawUnit3;
-                        unitLabelForText = translatedUnit3;
+                        // 直接使用庫存的基礎單位（如 g、jin、liang 等）作為儲存單位，不再翻譯為中文，
+                        // 以便後續解析保持一致
+                        unitLabelForText = (inv3 && inv3.unit) ? inv3.unit : 'g';
                     } else {
-                        // 若無法取得 getHerbInventory 函式，預設顯示為『克』
-                        unitLabelForText = (typeof window.t === 'function') ? window.t('克') : '克';
+                        // 若無法取得 getHerbInventory 函式，預設顯示為 'g'
+                        unitLabelForText = 'g';
                     }
                 } catch (_unitErr) {
-                    // 發生錯誤時仍使用預設單位『克』
-                    unitLabelForText = (typeof window.t === 'function') ? window.t('克') : '克';
+                    // 發生錯誤時仍使用預設單位 'g'
+                    unitLabelForText = 'g';
                 }
-                // 若為方劑類型，通常以『克』為單位，除非庫存中另有定義；仍使用上方取得的 unitLabelForText
+                // 組合為單行文字，以基礎單位結尾（例如 3g）
                 prescriptionText += `${item.name} ${dosage}${unitLabelForText}\n`;
             });
 
             hiddenTextarea.value = prescriptionText.trim();
+
+            // 更新庫存類型選單狀態（啟用或禁用）。
+            // 呼叫此函式以確保在處方內容變化後，顆粒/飲片切換選單能正確更新。
+            try {
+                if (typeof updatePrescriptionTypeSelectStatus === 'function') {
+                    updatePrescriptionTypeSelectStatus();
+                }
+            } catch (_e) {
+                /* 忽略任何錯誤以避免影響其他功能 */
+            }
         }
         
         // 更新服藥天數
@@ -14707,8 +15492,9 @@ async function searchBillingForConsultation() {
                     continue;
                 }
                 
-                // 檢查是否為藥材/方劑格式（名稱 劑量g）
-                const itemMatch = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)g$/);
+                // 檢查是否為藥材/方劑格式（名稱 + 空格 + 劑量 + 單位）。
+                // 單位可為中文或英文，或直接省略。舊版僅接受 g 結尾，現改為接受任意單位並忽略單位部份。
+                const itemMatch = line.match(/^(.+?)\s+(\d+(?:\.\d+)?)(?:[a-zA-Z\u4e00-\u9fa5]*)$/);
                 if (itemMatch) {
                     const itemName = itemMatch[1].trim();
                     const dosage = itemMatch[2];
@@ -15086,22 +15872,35 @@ const consultationDate = (() => {
             
             // 載入處方內容
             selectedPrescriptionItems = [];
-            if (consultation.prescription) {
-                // 先將完整處方內容存入隱藏文本域
+            // 先嘗試從結構化處方資料重建
+            let prescriptionLoaded = false;
+            if (consultation.prescriptionStructured) {
+                try {
+                    const parsedItems = JSON.parse(consultation.prescriptionStructured);
+                    if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+                        selectedPrescriptionItems = parsedItems;
+                        prescriptionLoaded = true;
+                    }
+                } catch (_e) {
+                    prescriptionLoaded = false;
+                }
+            }
+            if (prescriptionLoaded) {
+                // 使用更新函式渲染處方並同步隱藏文本域
+                updatePrescriptionDisplay();
+            } else if (consultation.prescription) {
+                // fallback：仍然使用舊版文字處方進行解析
                 document.getElementById('formPrescription').value = consultation.prescription;
-                
-                // 嘗試解析處方內容並重建處方項目列表
+                // 嘗試解析處方內容並生成處方項目列表
                 parsePrescriptionToItems(consultation.prescription);
                 updatePrescriptionDisplay();
-                
-                // 若解析後沒有任何處方項目（可能中藥庫未包含相關藥材），
-                // 則直接顯示原始處方內容，避免呈現空白
+                // 若解析後沒有任何項目，則直接顯示原始文字
                 if (selectedPrescriptionItems.length === 0) {
-                    // 還原隱藏文本域為原始內容
                     document.getElementById('formPrescription').value = consultation.prescription;
-                    const container = document.getElementById('selectedPrescriptionItems');
-                    if (container) {
-                        container.innerHTML = `<div class="text-sm text-gray-900 whitespace-pre-line">${consultation.prescription}</div>`;
+                    const containerEl = document.getElementById('selectedPrescriptionItems');
+                    if (containerEl) {
+                        // 使用 whitespace-pre-line 使原始處方換行保持
+                        containerEl.innerHTML = '<div class="text-sm text-gray-900 whitespace-pre-line">' + consultation.prescription + '</div>';
                     }
                     const medicationSettingsEl = document.getElementById('medicationSettings');
                     if (medicationSettingsEl) {
@@ -15109,7 +15908,7 @@ const consultationDate = (() => {
                     }
                 }
             } else {
-                // 清空處方
+                // 無處方資料時清空
                 document.getElementById('formPrescription').value = '';
                 updatePrescriptionDisplay();
             }
@@ -21028,19 +21827,21 @@ async function deleteMedicalRecord(recordId) {
         }
       }
 
-      // 現病史：若已有內容，附加模板的現病史
-      if (formCurrentHistory) {
+      // 現病史：載入後追加至「主訴及現病史」欄位（formSymptoms）後方。
+      // 不再寫入 formCurrentHistory，以免混淆。
+      {
         let value = '';
         if (template.currentHistory) {
           value = template.currentHistory;
         } else {
           value = parseSection('現病史');
         }
-        if (value) {
-          if (formCurrentHistory.value && formCurrentHistory.value.trim()) {
-            formCurrentHistory.value = formCurrentHistory.value.trim() + '\n' + value;
+        if (value && formSymptoms) {
+          // 將現病史內容加在主訴內容之後
+          if (formSymptoms.value && formSymptoms.value.trim()) {
+            formSymptoms.value = formSymptoms.value.trim() + '\n' + value;
           } else {
-            formCurrentHistory.value = value;
+            formSymptoms.value = value;
           }
         }
       }
@@ -24025,11 +24826,24 @@ ${item.points.map(pt => {
           function searchHerbForCombo() {
             const input = document.getElementById('herbIngredientSearch');
             if (!input) return;
+            // 綁定鍵盤事件以支援方向鍵選擇與 Enter 選取，避免重複綁定
+            try {
+              if (!input.dataset.bindKeyDown) {
+                input.addEventListener('keydown', handleHerbIngredientSearchKeyDown);
+                input.dataset.bindKeyDown = 'true';
+              }
+            } catch (_e) {
+              /* 忽略綁定錯誤 */
+            }
+            // 每次搜尋前重置選中索引
+            herbIngredientSearchSelectionIndex = -1;
             const searchTerm = input.value.trim().toLowerCase();
             const resultsContainer = document.getElementById('herbIngredientSearchResults');
             const resultsList = document.getElementById('herbIngredientSearchList');
             if (!resultsContainer || !resultsList) return;
             if (searchTerm.length < 1) {
+              // 搜尋字串為空時，重置索引
+              herbIngredientSearchSelectionIndex = -1;
               resultsContainer.classList.add('hidden');
               // 當搜尋字串為空時，同步隱藏任何提示框
               if (typeof hideTooltip === 'function') {
@@ -24186,6 +25000,17 @@ ${item.points.map(pt => {
           async function searchAcupointForCombo() {
             const input = document.getElementById('acupointPointSearch');
             if (!input) return;
+            // 綁定鍵盤事件以支援方向鍵選擇與 Enter 選取，避免重複綁定
+            try {
+              if (!input.dataset.bindKeyDown) {
+                input.addEventListener('keydown', handleAcupointComboSearchKeyDown);
+                input.dataset.bindKeyDown = 'true';
+              }
+            } catch (_e) {
+              /* 忽略綁定錯誤 */
+            }
+            // 每次搜尋前重置選中索引
+            acupointComboSearchSelectionIndex = -1;
             const searchTerm = input.value.trim().toLowerCase();
             const resultsContainer = document.getElementById('acupointPointSearchResults');
             const resultsList = document.getElementById('acupointPointSearchList');
