@@ -14,10 +14,13 @@
     <!-- 引入 Toastr 用於提示訊息 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <!-- 引入 Leaflet 用於穴位圖互動地圖 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- 自訂穴位地圖整合模組：包含座標資料與地圖初始化邏輯 -->
+    <script src="acupointIntegration.js"></script>
     <!-- 引入 SweetAlert2 用於彈窗 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- 引入 Konva.js 用於動態繪製穴位圖 -->
-    <script src="https://cdn.jsdelivr.net/npm/konva@8.4.3/konva.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; }
@@ -43,6 +46,31 @@
         #formAcupunctureNotes span[data-acupoint-name] {
             /* 使用與 Tailwind text-sm 相當的字體大小 (0.875rem) 以提升可讀性 */
             font-size: 0.875rem;
+        }
+
+        /*
+         * 調整穴位圖地圖容器比例
+         * 原本在 HTML 中以固定高度 40rem 呈現穴位圖，當容器寬度較小時
+         * 圖片高度會溢出導致無法完整顯示。改為使用 CSS aspect-ratio
+         * 使容器自動按照圖片原始寬高比縮放，確保完整顯示。
+         * 1116 / 768 ≈ 1.453；此屬性取寬除以高。
+         */
+        #acupointMap {
+            /* 原本的寬高比為 1116:768。為將容器高度降低三分之一，可視為將
+               高度乘以 2/3，等同於將分母乘上 2/3，即 768 * (2/3) = 512。故
+               將 aspect-ratio 調整為 1116 / 512，使得在保持寬度不變的情況
+               下，高度約為原本的 2/3。 */
+            aspect-ratio: 1116 / 512;
+            height: auto;
+            /* 為穴位圖容器建立新的堆疊上下文。
+               在開啟診所側邊功能列表時，會顯示一個遮罩層 (#sidebarOverlay)。
+               由於 Leaflet 將標記、彈窗等元素渲染於高 z-index 的 pane 中，
+               如果容器沒有 z-index，這些內部元素會蓋住遮罩層，導致穴位圖
+               未隨畫面變暗，且遮住了側邊功能列表。透過將容器設為相對定位
+               並指定 z-index，會讓其子元素的 z-index 限制在此堆疊上下文內，
+               使遮罩層能正確覆蓋穴位圖。 */
+            position: relative;
+            z-index: 0;
         }
 
         /*
@@ -1354,9 +1382,13 @@
     <!-- 穴位圖示展示區 -->
     <div class="mb-6">
         <!-- 使用 relative 容器以配合放大鏡絕對定位 -->
-        <div id="acupointImageContainer" class="relative mx-auto max-w-4xl">
-            <!-- 顯示完整穴位圖，供放大鏡取樣，保持高解析度 -->
-            <img id="acupointImage" src="images/combined_three.png" alt="穴位圖" class="w-full h-auto border border-gray-300 rounded-lg shadow-sm">
+        <!-- 調整容器寬度使穴位圖的邊框能填滿整個卡片 -->
+        <div id="acupointImageContainer" class="relative w-full">
+            <!-- 取代傳統圖片為 Leaflet 地圖容器，後續由 JS 載入圖片並繪製標記 -->
+            <!-- 將邊框加粗，使穴位圖的框線與卡片邊界一致 -->
+            <!-- 調整高度為 40rem，以便完整呈現穴位圖比例 -->
+            <!-- 移除固定高度 h-[40rem]，改由 CSS aspect-ratio 控制尺寸 -->
+            <div id="acupointMap" class="w-full border-2 border-gray-300 rounded-lg shadow-sm"></div>
         </div>
     </div>
                 <!-- 穴位庫列表 -->
@@ -4481,7 +4513,7 @@
     <!-- 載入 Chart.js 用於繪製個人統計分析圖表 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <script src="schedule_management.js"></script><script src="system.js"></script><script src="acupoint_canvas.js"></script>
+    <script src="schedule_management.js"></script><script src="system.js"></script>
     <!-- 系統管理相關腳本拆分至獨立檔案 -->
     <script src="systemmanagement.js"></script>
     <!-- 新增聊天模組腳本，需在 system.js 之後載入 -->
@@ -4591,6 +4623,9 @@
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"b2074e7888b746fe9fbbc15492b4c3d4","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>

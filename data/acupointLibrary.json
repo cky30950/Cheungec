@@ -888,7 +888,7 @@
   },
   {
     "id": 42,
-    "name": "氣捨",
+    "name": "氣舍",
     "meridian": "足陽明胃經",
     "location": "頸部，鎖骨上窩中央，胸鎖乳突肌胸骨頭與鎖骨頭之間",
     "functions": [
@@ -7131,5 +7131,53 @@
     "category": "任脈穴",
     "englishName": "Chengjiang (Fluid Receptacle)",
     "internationalCode": "REN-24"
+  },
+  {
+    "id": 331,
+    "name": "璇璣",
+    "meridian": "任脈",
+    "location": "胸部，前正中線上，天突下1寸",
+    "functions": ["寬胸利膈", "清肺止咳"],
+    "indications": ["咳嗽", "氣喘", "胸痛", "咽喉腫痛"],
+    "method": "平刺0.3-0.5寸",
+    "category": "任脈穴",
+    "englishName": "Xuanji (Jade Pivot)",
+    "internationalCode": "REN-21"
+  },
+  {
+    "id": 332,
+    "name": "華蓋",
+    "meridian": "任脈",
+    "location": "胸部，前正中線上，平第1肋間",
+    "functions": ["寬胸理氣", "止咳平喘"],
+    "indications": ["咳嗽", "氣喘", "胸脅脹痛"],
+    "method": "平刺0.3-0.5寸",
+    "category": "任脈穴",
+    "englishName": "Huagai (Ornamental Canopy)",
+    "internationalCode": "REN-20"
+  },
+  {
+    "id": 333,
+    "name": "兌端",
+    "meridian": "督脈",
+    "location": "面部，上唇尖端，人中溝下端皮膚與唇紅交界處",
+    "functions": ["開竅醒神", "清熱解毒"],
+    "indications": ["昏迷", "癲狂", "口歪", "齒痛"],
+    "method": "向上斜刺0.2-0.3寸",
+    "category": "督脈穴",
+    "englishName": "Duiduan (Tip of the Mouth)",
+    "internationalCode": "DU-27"
+  },
+  {
+    "id": 334,
+    "name": "素髎",
+    "meridian": "督脈",
+    "location": "面部，鼻尖正中央",
+    "functions": ["開竅醒神", "清熱消腫"],
+    "indications": ["昏迷", "驚厥", "鼻塞", "鼻衄", "酒糟鼻"],
+    "method": "向上斜刺0.3-0.5寸，或點刺出血",
+    "category": "督脈穴",
+    "englishName": "Suliao (Plain Bone-Hole)",
+    "internationalCode": "DU-25"
   }
 ]

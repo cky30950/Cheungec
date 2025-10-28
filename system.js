@@ -76,86 +76,7 @@ function initAcupointMagnifier() {
     }
 }
 
-/**
- * 初始化 Konva 覆蓋層，在穴位圖上繪製可點擊的穴位標記。
- * 這個函式會根據 window.acupointCoordinates 提供的座標（原始圖像像素），
- * 將每個標記縮放到圖片當前尺寸並繪製於圖像上方。若未定義資料，則使用預設範例座標。
- */
-function initAcupointKonvaOverlay() {
-    try {
-        const img = document.getElementById('acupointImage');
-        const container = document.getElementById('acupointOverlayContainer');
-        if (!img || !container || typeof Konva === 'undefined') {
-            return;
-        }
-        // 清除舊的子元素
-        container.innerHTML = '';
-        // 準備舞台尺寸
-        const width = img.clientWidth;
-        const height = img.clientHeight;
-        const stage = new Konva.Stage({
-            container: container,
-            width: width,
-            height: height,
-        });
-        const layer = new Konva.Layer();
-        stage.add(layer);
-        // 座標資料
-        const coords = Array.isArray(window.acupointCoordinates) && window.acupointCoordinates.length ? window.acupointCoordinates : [
-            { id: '穴位1', x: 100, y: 100 },
-            { id: '穴位2', x: 300, y: 150 },
-            { id: '穴位3', x: 200, y: 300 },
-            { id: '穴位4', x: 400, y: 250 },
-            { id: '穴位5', x: 350, y: 400 }
-        ];
-        const naturalW = img.naturalWidth || width;
-        const naturalH = img.naturalHeight || height;
-        const sx = width / naturalW;
-        const sy = height / naturalH;
-        const circleNodes = [];
-        coords.forEach(pt => {
-            const circle = new Konva.Circle({
-                x: pt.x * sx,
-                y: pt.y * sy,
-                radius: 6,
-                fill: 'rgba(230, 30, 30, 0.8)',
-                stroke: '#fff',
-                strokeWidth: 1,
-                id: pt.id || ''
-            });
-            circle.on('mouseenter', () => { document.body.style.cursor = 'pointer'; });
-            circle.on('mouseleave', () => { document.body.style.cursor = ''; });
-            circle.on('click', () => {
-                if (typeof showAcupointDetail === 'function' && pt.id) {
-                    try { showAcupointDetail(pt.id); } catch (err) {
-                        console.warn('顯示穴位詳細資訊失敗:', err);
-                    }
-                } else {
-                    alert('點擊了穴位：' + (pt.id || '未知穴位'));
-                }
-            });
-            layer.add(circle);
-            circleNodes.push({ node: circle, data: pt });
-        });
-        layer.draw();
-        // 縮放處理
-        function resizeOverlay() {
-            const newW = img.clientWidth;
-            const newH = img.clientHeight;
-            stage.width(newW);
-            stage.height(newH);
-            const newSx = newW / naturalW;
-            const newSy = newH / naturalH;
-            circleNodes.forEach(item => {
-                item.node.position({ x: item.data.x * newSx, y: item.data.y * newSy });
-            });
-            layer.batchDraw();
-        }
-        window.addEventListener('resize', resizeOverlay);
-    } catch (err) {
-        console.warn('初始化 Konva 覆蓋層失敗:', err);
-    }
-}
+// initAcupointMap 函式已搬至 acupointIntegration.js
 
 /**
  * 建立放大鏡效果的核心函式。
@@ -6916,7 +6837,7 @@ async function loadConsultationForEdit(consultationId) {
             document.getElementById('formSymptoms').value = consultation.symptoms || '';
             document.getElementById('formTongue').value = consultation.tongue || '';
             document.getElementById('formPulse').value = consultation.pulse || '';
-            document.getElementById('formCurrentHistory').value = consultation.currentHistory || '';
+            // formCurrentHistory 用於顯示過往診症摘要，不應在編輯模式中被覆蓋。舊資料的現病史已與主訴合併，故不載入至此欄位。
             document.getElementById('formDiagnosis').value = consultation.diagnosis || '';
             document.getElementById('formSyndrome').value = consultation.syndrome || '';
             {
@@ -8045,17 +7966,20 @@ async function showConsultationForm(appointment) {
                     }
                 }
             }
-            // 根據問診資料填充現病史欄位
+            // 根據問診資料填充現病史內容
+            // 診症系統已將「主訴」與「現病史」合併至 formSymptoms 欄位，
+            // 因此將現病史摘要直接追加至主訴欄位，而不再寫入過往記錄欄位（formCurrentHistory）。
             if (inquiryDataForPrefill) {
-                const historyField = document.getElementById('formCurrentHistory');
-                if (historyField) {
-                    const historySummary = generateHistorySummaryFromInquiry(inquiryDataForPrefill);
-                    if (historySummary) {
-                        const currentHistory = historyField.value ? historyField.value.trim() : '';
-                        if (!currentHistory) {
-                            historyField.value = historySummary;
+                const historySummary = generateHistorySummaryFromInquiry(inquiryDataForPrefill);
+                if (historySummary) {
+                    // 將現病史內容與主訴內容合併
+                    const symptomsEl = document.getElementById('formSymptoms');
+                    if (symptomsEl) {
+                        const currentVal = symptomsEl.value ? symptomsEl.value.trim() : '';
+                        if (!currentVal) {
+                            symptomsEl.value = historySummary;
                         } else {
-                            historyField.value = currentHistory + '\n' + historySummary;
+                            symptomsEl.value = currentVal + '\n' + historySummary;
                         }
                     }
                 }
@@ -13315,6 +13239,7 @@ async function initializeSystemAfterLogin() {
                         indications: ['咳嗽', '氣喘', '胸痛', '肩背痛', '皮膚病'],
                         method: '斜刺或平刺0.5-0.8寸',
                         category: '肺之募穴',
+                        // createdAt 與 updatedAt 留在這裡，座標請在外部模組 acupointIntegration.js 中定義
                         createdAt: new Date().toISOString(),
                         updatedAt: new Date().toISOString()
                     }
@@ -13349,20 +13274,12 @@ async function initializeSystemAfterLogin() {
             }
             // 初次或重新載入時顯示列表
             displayAcupointLibrary();
-            // 在載入列表後初始化穴位圖放大鏡，確保圖像已存在於 DOM
-            if (typeof initAcupointMagnifier === 'function') {
+            // 在載入列表後初始化穴位 Leaflet 地圖，確保容器已存在於 DOM
+            if (typeof initAcupointMap === 'function') {
                 try {
-                    initAcupointMagnifier();
-                } catch (_errMag) {
-                    console.warn('初始化穴位圖放大鏡失敗:', _errMag);
-                }
-            }
-            // 在載入列表後初始化 Konva 覆蓋層，繪製穴位標記
-            if (typeof initAcupointKonvaOverlay === 'function') {
-                try {
-                    initAcupointKonvaOverlay();
-                } catch (_errKonva) {
-                    console.warn('初始化 Konva 覆蓋層失敗:', _errKonva);
+                    initAcupointMap();
+                } catch (_err) {
+                    console.warn('初始化穴位地圖失敗:', _err);
                 }
             }
         }
@@ -13487,21 +13404,6 @@ async function initializeSystemAfterLogin() {
                 paginationSettings.acupointLibrary.currentPage = newPage;
                 displayAcupointLibrary();
             }, paginationEl);
-            // 在內容渲染後初始化放大鏡與 Konva 覆蓋層，確保圖像與標記同步
-            if (typeof initAcupointMagnifier === 'function') {
-                try {
-                    initAcupointMagnifier();
-                } catch (_errMag) {
-                    console.warn('初始化穴位圖放大鏡失敗:', _errMag);
-                }
-            }
-            if (typeof initAcupointKonvaOverlay === 'function') {
-                try {
-                    initAcupointKonvaOverlay();
-                } catch (_errKonva) {
-                    console.warn('初始化 Konva 覆蓋層失敗:', _errKonva);
-                }
-            }
         }
 
         /**
@@ -15825,10 +15727,25 @@ const consultationDate = (() => {
             // 若需要再次顯示確認提示，可重新加入 confirm 相關程式碼。
             
             // 載入診症資料
-            document.getElementById('formSymptoms').value = consultation.symptoms || '';
+            // 載入診症資料
+            // 主訴及現病史統一寫入 formSymptoms；若舊紀錄仍使用 currentHistory 儲存現病史，則合併
+            const symptomsEl2 = document.getElementById('formSymptoms');
+            if (symptomsEl2) {
+                const symptomsVal = consultation.symptoms || '';
+                const histVal = consultation.currentHistory || '';
+                if (symptomsVal && histVal) {
+                    symptomsEl2.value = symptomsVal + '\n' + histVal;
+                } else if (symptomsVal) {
+                    symptomsEl2.value = symptomsVal;
+                } else if (histVal) {
+                    symptomsEl2.value = histVal;
+                } else {
+                    symptomsEl2.value = '';
+                }
+            }
             document.getElementById('formTongue').value = consultation.tongue || '';
             document.getElementById('formPulse').value = consultation.pulse || '';
-            document.getElementById('formCurrentHistory').value = consultation.currentHistory || '';
+            // 過往記錄欄位僅顯示既往病歷，不應被覆蓋
             document.getElementById('formDiagnosis').value = consultation.diagnosis || '';
             document.getElementById('formSyndrome').value = consultation.syndrome || '';
                 {
