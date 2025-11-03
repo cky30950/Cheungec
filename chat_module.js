@@ -69,6 +69,22 @@
       // updateNewMessageIndicators().
       this.chatNotificationIndicator = null;
 
+      // Preview element to show the latest unread message on the chat button. When
+      // a new message arrives while the chat popup is hidden, this small
+      // preview will display the sender’s name and a snippet of the message
+      // content. It is created in createUI() and toggled via
+      // updateChatPreview().
+      this.chatPreview = null;
+
+      // Maintain a mapping of each channel’s latest message details. In
+      // addition to timestamp (tracked in lastMessageTime), this map stores
+      // the sender ID, sender name and text of the most recent message per
+      // channel. Keys correspond to channel IDs ("public" for the group chat
+      // and UID pair for private chats). Values are objects with
+      // properties { senderId, senderName, text, timestamp }. This data
+      // enables the notification preview on the chat toggle button.
+      this.lastMessageInfo = {};
+
       // Track the timestamp of the latest unread message that has already
       // triggered a notification sound. This prevents multiple sounds
       // playing for the same unread messages. When a newer message arrives
@@ -82,6 +98,27 @@
       // difference between the current time and this value exceeds the
       // defined interval, a new sound can be played.
       this.lastSoundTime = 0;
+
+      // Timer ID for automatically hiding the chat preview. When a new
+      // unread message preview is shown, this timer will hide the preview
+      // after a delay so that the UI doesn’t become cluttered. It will be
+      // cleared whenever a new preview is displayed to restart the timer.
+      this.previewTimer = null;
+
+      // Track the timestamp of the last message preview that has been
+      // displayed to the user. This prevents the preview bubble from
+      // repeatedly showing the same unread messages when the chat is
+      // closed or when the user logs in with existing unread messages.
+      // Only messages with a timestamp greater than this value will
+      // trigger the preview. The value is persisted to localStorage
+      // (see loadLastPreviewedTimestamp/persistLastPreviewedTimestamp)
+      // so that old messages don’t generate a preview across sessions.
+      this.lastPreviewedTimestamp = 0;
+
+      // Bind helper methods for persisting and loading the last previewed
+      // timestamp. These helpers are used in init() and updateChatPreview().
+      this.loadLastPreviewedTimestamp = this.loadLastPreviewedTimestamp.bind(this);
+      this.persistLastPreviewedTimestamp = this.persistLastPreviewedTimestamp.bind(this);
     }
 
     /**
@@ -119,6 +156,22 @@
         this.loadLastSeenTimes();
       } catch (_e) {
         // Ignore errors loading last seen times
+      }
+      // Load the timestamp of the last previewed message so that messages
+      // received before this session do not trigger a preview. If no
+      // timestamp is stored, initialize it to the current time to
+      // suppress previews for existing unread messages. Persist the
+      // initial value so future sessions respect it.
+      try {
+        this.loadLastPreviewedTimestamp();
+        if (!this.lastPreviewedTimestamp || typeof this.lastPreviewedTimestamp !== 'number') {
+          this.lastPreviewedTimestamp = Date.now();
+          if (typeof this.persistLastPreviewedTimestamp === 'function') {
+            this.persistLastPreviewedTimestamp();
+          }
+        }
+      } catch (_e) {
+        // Ignore errors loading preview timestamp
       }
       // Also fetch last seen times from the Realtime Database. This call is
       // asynchronous and will merge any remote data with the locally loaded
@@ -201,8 +254,23 @@
       } catch (err) {
         console.error('ChatModule: error detaching channel listeners', err);
       }
+
+      // Hide and reset preview bubble and clear any pending timer
+      try {
+        if (this.chatPreview) {
+          this.chatPreview.classList.add('hidden');
+        }
+        if (this.previewTimer) {
+          clearTimeout(this.previewTimer);
+          this.previewTimer = null;
+        }
+      } catch (_e) {
+        // ignore preview cleanup errors
+      }
       this.channelListeners = {};
       this.lastMessageTime = {};
+      // Reset last message info map so stale data isn’t displayed on next init
+      this.lastMessageInfo = {};
       // Remove beforeunload handler
       if (this.beforeUnloadHandler) {
         window.removeEventListener('beforeunload', this.beforeUnloadHandler);
@@ -269,6 +337,28 @@
       // Offset the dot so it sits slightly outside the button's boundary.
       notifDot.style.transform = 'translate(50%,-50%)';
       button.appendChild(notifDot);
+
+      // Create a preview element for showing a snippet of the most recent
+      // unread message. This small tooltip-like element will appear above
+      // the chat button when there is an unread message and the chat popup
+      // is closed. It will be updated with the sender’s name and message
+      // content via updateChatPreview(). The element starts hidden.
+      const preview = document.createElement('div');
+      this.chatPreview = preview;
+      // Use absolute positioning relative to the chat button. Position it
+      // above the button (bottom: 100%) with a small margin. Because the
+      // button itself is relative, the preview will stay anchored.
+      preview.className = 'absolute hidden max-w-xs bg-white text-gray-800 text-sm p-2 rounded-lg shadow-lg border border-gray-200';
+      preview.style.right = '0';
+      // Position the bottom of the preview just above the button with a
+      // small gap (0.5rem). The translateY offset shifts the preview up
+      // slightly so that the border touches the button edge.
+      preview.style.bottom = '100%';
+      preview.style.marginBottom = '0.5rem';
+      // Prevent pointer events on the preview so clicks fall through to
+      // the button, keeping the toggle behaviour consistent.
+      preview.style.pointerEvents = 'none';
+      button.appendChild(preview);
       // Handler bound to this for removal later
       this.togglePopupHandler = () => this.togglePopup();
       button.addEventListener('click', this.togglePopupHandler);
@@ -745,11 +835,24 @@
         this.renderMessages(messages);
         // Track latest timestamp for this channel to update ordering of user list
         let latestTs = 0;
+        let latestMsg = null;
         messages.forEach((msg) => {
           const ts = msg.timestamp || 0;
-          if (ts > latestTs) latestTs = ts;
+          if (ts > latestTs) {
+            latestTs = ts;
+            latestMsg = msg;
+          }
         });
         this.lastMessageTime[channelId] = latestTs;
+        // Also record the latest message details for preview if available
+        if (latestMsg) {
+          this.lastMessageInfo[channelId] = {
+            senderId: latestMsg.senderId || null,
+            senderName: latestMsg.senderName || '',
+            text: latestMsg.text || '',
+            timestamp: latestTs
+          };
+        }
         // If the user is currently viewing this channel and the chat popup is visible,
         // update lastSeenTime so that unread indicators reset. When the chat
         // popup is hidden, do not mark messages as read in the selected channel
@@ -959,14 +1062,28 @@
         // 使用 limitToLast(1) 查詢只監聽最後一則訊息，減少讀取量
         const publicQuery = window.firebase.query(publicRef, window.firebase.orderByChild('timestamp'), window.firebase.limitToLast(1));
         const publicCallback = (snapshot) => {
-          // 由於查詢只回傳最後一筆資料，直接取其中的 timestamp 即可
+          // Only one message (the latest) is returned due to limitToLast(1).
           let latest = 0;
+          let latestMsg = null;
           snapshot.forEach((child) => {
             const msg = child.val() || {};
             const ts = msg.timestamp || 0;
-            if (ts > latest) latest = ts;
+            if (ts > latest) {
+              latest = ts;
+              latestMsg = msg;
+            }
           });
+          // Record timestamp for ordering
           this.lastMessageTime['public'] = latest;
+          // Store full message details for preview, if available
+          if (latestMsg) {
+            this.lastMessageInfo['public'] = {
+              senderId: latestMsg.senderId || null,
+              senderName: latestMsg.senderName || '',
+              text: latestMsg.text || '',
+              timestamp: latest
+            };
+          }
           if (typeof this.updateUserListOrder === 'function') {
             this.updateUserListOrder();
           }
@@ -992,12 +1109,26 @@
           const q = window.firebase.query(baseRef, window.firebase.orderByChild('timestamp'), window.firebase.limitToLast(1));
           const cb = (snapshot) => {
             let latest = 0;
+            let latestMsg = null;
             snapshot.forEach((child) => {
               const msg = child.val() || {};
               const ts = msg.timestamp || 0;
-              if (ts > latest) latest = ts;
+              if (ts > latest) {
+                latest = ts;
+                latestMsg = msg;
+              }
             });
+            // Record timestamp for ordering
             this.lastMessageTime[chatId] = latest;
+            // Store full message details for preview, if available
+            if (latestMsg) {
+              this.lastMessageInfo[chatId] = {
+                senderId: latestMsg.senderId || null,
+                senderName: latestMsg.senderName || '',
+                text: latestMsg.text || '',
+                timestamp: latest
+              };
+            }
             if (typeof this.updateUserListOrder === 'function') {
               this.updateUserListOrder();
             }
@@ -1191,6 +1322,154 @@
           }
         }
       }
+
+      // Update the small preview bubble after processing unread counts. The
+      // preview provides a snippet of the latest unread message and will
+      // automatically hide if there are no qualifying messages or if the
+      // chat popup is open. We call this unconditionally here so that
+      // preview visibility stays in sync with unread status.
+      if (typeof this.updateChatPreview === 'function') {
+        this.updateChatPreview();
+      }
+    }
+
+    /**
+     * Update the small chat preview bubble on the chat toggle button. When
+     * there are unread messages and the chat popup is hidden, this bubble
+     * displays the sender’s name and a snippet of the latest unread
+     * message. It automatically hides after a short delay or whenever the
+     * chat popup becomes visible. Only messages sent by other users are
+     * shown; messages sent by the current user are ignored for preview.
+     */
+    updateChatPreview() {
+      // Do nothing if preview element isn’t present
+      if (!this.chatPreview) return;
+      // Always hide the preview if the chat popup is open. When hiding, apply fade-out.
+      const popupHidden = (this.chatPopup && this.chatPopup.classList.contains('hidden'));
+      if (!popupHidden) {
+        // Clear any existing auto-hide timer
+        if (this.previewTimer) {
+          clearTimeout(this.previewTimer);
+          this.previewTimer = null;
+        }
+        // If preview is currently visible, fade it out then hide
+        if (!this.chatPreview.classList.contains('hidden')) {
+          this.chatPreview.classList.remove('fade-in');
+          this.chatPreview.classList.add('fade-out');
+          // After fade-out completes, hide the preview and remove animation class
+          setTimeout(() => {
+            this.chatPreview.classList.add('hidden');
+            this.chatPreview.classList.remove('fade-out');
+          }, 300);
+        } else {
+          // Ensure hidden state if not visible
+          this.chatPreview.classList.add('hidden');
+        }
+        return;
+      }
+      // Determine the most recent unread message from any channel. Skip
+      // messages that were sent by the current user.
+      let latestInfo = null;
+      let latestTs = 0;
+      try {
+        const channels = Object.keys(this.lastMessageTime || {});
+        channels.forEach((ch) => {
+          const lastMsgTs = this.lastMessageTime[ch] || 0;
+          const lastSeenTs = this.lastSeenTime[ch] || 0;
+          // Only consider channels with an unread message
+          if (lastMsgTs > lastSeenTs && lastMsgTs > latestTs) {
+            const info = this.lastMessageInfo && this.lastMessageInfo[ch];
+            if (!info) return;
+            // Ignore messages sent by the current user
+            if (String(info.senderId) === String(this.currentUserUid)) return;
+            latestInfo = info;
+            latestTs = lastMsgTs;
+          }
+        });
+      } catch (_err) {
+        // Ignore errors during preview determination
+      }
+      // Only show the preview for messages that have not already been alerted.
+      // If the timestamp of the latest unread message is not greater than
+      // lastPreviewedTimestamp, treat as no qualifying message so that
+      // the preview does not repeatedly appear for the same messages.
+      if (latestInfo) {
+        const latestTsValue = latestInfo.timestamp || 0;
+        if (!(latestTsValue > (this.lastPreviewedTimestamp || 0))) {
+          // Mark as no latestInfo to trigger hide logic below
+          latestInfo = null;
+        }
+      }
+      if (latestInfo) {
+        // Build safe HTML for the preview. Escape special characters to
+        // prevent injection. Limit message length to a reasonable length.
+        const escapeHtml = (str) => {
+          return String(str || '').replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+        };
+        const maxLen = 60;
+        let text = latestInfo.text || '';
+        if (text.length > maxLen) {
+          text = text.slice(0, maxLen) + '…';
+        }
+        const safeName = escapeHtml(latestInfo.senderName || '');
+        const safeText = escapeHtml(text);
+        // Format preview with sender name on top and message below. Use Tailwind classes for styling.
+        // The name is bold and slightly larger; the message is normal weight.
+        this.chatPreview.innerHTML = `
+          <div class="font-medium text-sm text-gray-800 mb-0.5">${safeName}</div>
+          <div class="text-gray-700 text-sm leading-tight break-words">${safeText}</div>
+        `;
+        // Remove any hiding and fade-out classes before showing
+        this.chatPreview.classList.remove('hidden', 'fade-out');
+        // Trigger fade-in animation
+        this.chatPreview.classList.add('fade-in');
+        // Remove fade-in class after animation completes so that future animations can retrigger
+        setTimeout(() => {
+          this.chatPreview.classList.remove('fade-in');
+        }, 300);
+        // Clear any existing timer before starting a new one
+        if (this.previewTimer) {
+          clearTimeout(this.previewTimer);
+        }
+        // Start timer to auto-hide preview after 6 seconds
+        this.previewTimer = setTimeout(() => {
+          // Initiate fade-out
+          this.chatPreview.classList.remove('fade-in');
+          this.chatPreview.classList.add('fade-out');
+          // After fade-out completes, hide and clean up
+          setTimeout(() => {
+            this.chatPreview.classList.add('hidden');
+            this.chatPreview.classList.remove('fade-out');
+          }, 300);
+        }, 6000);
+        // Update the lastPreviewedTimestamp so this message will not
+        // trigger another preview. Persist to localStorage.
+        this.lastPreviewedTimestamp = latestInfo.timestamp || 0;
+        if (typeof this.persistLastPreviewedTimestamp === 'function') {
+          this.persistLastPreviewedTimestamp();
+        }
+      } else {
+        // No unread messages or none that qualify; hide preview and clear timer
+        if (this.previewTimer) {
+          clearTimeout(this.previewTimer);
+          this.previewTimer = null;
+        }
+        // If preview is visible, fade it out then hide
+        if (!this.chatPreview.classList.contains('hidden')) {
+          this.chatPreview.classList.remove('fade-in');
+          this.chatPreview.classList.add('fade-out');
+          setTimeout(() => {
+            this.chatPreview.classList.add('hidden');
+            this.chatPreview.classList.remove('fade-out');
+          }, 300);
+        } else {
+          this.chatPreview.classList.add('hidden');
+        }
+      }
     }
 
     /**
@@ -1254,6 +1533,46 @@
         }
       } catch (_e) {
         // Ignore errors reading/parsing localStorage
+      }
+    }
+
+    /**
+     * Persist the lastPreviewedTimestamp to localStorage. This ensures that
+     * the chat preview does not repeatedly show messages that were already
+     * alerted to the user in previous sessions. The timestamp is stored
+     * under a key unique to the current user's UID. Errors accessing
+     * localStorage are silently ignored.
+     */
+    persistLastPreviewedTimestamp() {
+      try {
+        if (!this.currentUserUid) return;
+        const key = `chat_lastPreview_${this.currentUserUid}`;
+        const ts = (typeof this.lastPreviewedTimestamp === 'number') ? this.lastPreviewedTimestamp : 0;
+        localStorage.setItem(key, String(ts));
+      } catch (_e) {
+        // Ignore localStorage errors (e.g. quota exceeded)
+      }
+    }
+
+    /**
+     * Load the lastPreviewedTimestamp from localStorage. If no value is
+     * found or the value is invalid, the timestamp remains zero. This
+     * method should be called after determining the currentUserUid in
+     * init() and before any previews may be displayed. Errors
+     * accessing or parsing localStorage are silently ignored.
+     */
+    loadLastPreviewedTimestamp() {
+      try {
+        if (!this.currentUserUid) return;
+        const key = `chat_lastPreview_${this.currentUserUid}`;
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const val = parseInt(raw, 10);
+        if (!isNaN(val)) {
+          this.lastPreviewedTimestamp = val;
+        }
+      } catch (_e) {
+        // Ignore localStorage errors
       }
     }
 

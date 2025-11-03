@@ -7045,7 +7045,7 @@
   },
   {
     "id": 327,
-    "name": "羶中",
+    "name": "膻中",
     "meridian": "任脈",
     "location": "胸部，前正中線上，平第4肋間，兩乳頭連線的中點",
     "functions": [
@@ -7179,5 +7179,1128 @@
     "category": "督脈穴",
     "englishName": "Suliao (Plain Bone-Hole)",
     "internationalCode": "DU-25"
-  }
-]
+  },
+    {
+      "id": 335,
+      "name": "懸樞",
+      "meridian": "督脈",
+      "location": "腰部，後正中線上，第1腰椎棘突下凹陷中",
+      "functions": [
+        "強腰健膝",
+        "溫陽健脾"
+      ],
+      "indications": [
+        "腹脹",
+        "腹痛",
+        "完穀不化",
+        "洩瀉",
+        "腰脊強痛"
+      ],
+      "method": "直刺0.5-1寸",
+      "category": "督脈穴",
+      "englishName": "Xuanshu (Suspended Pivot)",
+      "internationalCode": "DU-5"
+    },
+    {
+      "id": 336,
+      "name": "脊中",
+      "meridian": "督脈",
+      "location": "背部，後正中線上，第11胸椎棘突下凹陷中",
+      "functions": [
+        "寧神鎮痙",
+        "健脾利濕"
+      ],
+      "indications": [
+        "癲癇",
+        "黃疸",
+        "腹瀉",
+        "小兒疳積",
+        "痔疾",
+        "脫肛"
+      ],
+      "method": "斜刺0.5-1寸",
+      "category": "督脈穴",
+      "englishName": "Jizhong (Spinal Center)",
+      "internationalCode": "DU-6"
+    },
+    {
+      "id": 337,
+      "name": "中樞",
+      "meridian": "督脈",
+      "location": "背部，後正中線上，第10胸椎棘突下凹陷中",
+      "functions": [
+        "強腰健腎",
+        "和胃止痛"
+      ],
+      "indications": [
+        "黃疸",
+        "嘔吐",
+        "腹痛",
+        "腰背痛"
+      ],
+      "method": "斜刺0.5-1寸",
+      "category": "督脈穴",
+      "englishName": "Zhongshu (Central Pivot)",
+      "internationalCode": "DU-7"
+    },
+    {
+      "id": 338,
+      "name": "筋縮",
+      "meridian": "督脈",
+      "location": "背部，後正中線上，第9胸椎棘突下凹陷中",
+      "functions": [
+        "熄風止痙",
+        "通絡止痛"
+      ],
+      "indications": [
+        "癲癇",
+        "抽搐",
+        "脊強",
+        "胃痛"
+      ],
+      "method": "斜刺0.5-1寸",
+      "category": "督脈穴",
+      "englishName": "Jinsuo (Sinew Contraction)",
+      "internationalCode": "DU-8"
+    },
+    {
+      "id": 339,
+      "name": "靈臺",
+      "meridian": "督脈",
+      "location": "背部，後正中線上，第6胸椎棘突下凹陷中",
+      "functions": [
+        "清熱解毒",
+        "宣肺止咳"
+      ],
+      "indications": [
+        "咳嗽",
+        "氣喘",
+        "疔瘡",
+        "脊背強痛"
+      ],
+      "method": "斜刺0.5-1寸",
+      "category": "督脈穴",
+      "englishName": "Lingtai (Spirit Tower)",
+      "internationalCode": "DU-10"
+    },
+    {
+      "id": 340,
+      "name": "神道",
+      "meridian": "督脈",
+      "location": "背部，後正中線上，第5胸椎棘突下凹陷中",
+      "functions": [
+        "寧心安神",
+        "清熱平喘"
+      ],
+      "indications": [
+        "心悸",
+        "怔忡",
+        "失眠",
+        "健忘",
+        "咳嗽",
+        "氣喘",
+        "脊背強痛"
+      ],
+      "method": "斜刺0.5-1寸",
+      "category": "督脈穴",
+      "englishName": "Shendao (Spirit Path)",
+      "internationalCode": "DU-11"
+    },
+    {
+      "id": 341,
+      "name": "身柱",
+      "meridian": "督脈",
+      "location": "背部，後正中線上，第3胸椎棘突下凹陷中",
+      "functions": [
+        "宣肺清熱",
+        "寧神鎮痙"
+      ],
+      "indications": [
+        "咳嗽",
+        "氣喘",
+        "癲癇",
+        "脊背強痛",
+        "小兒風癇"
+      ],
+      "method": "斜刺0.5-1寸",
+      "category": "督脈穴",
+      "englishName": "Shenzhu (Body Pillar)",
+      "internationalCode": "DU-12"
+    },
+    {
+      "id": 342,
+      "name": "陶道",
+      "meridian": "督脈",
+      "location": "背部，後正中線上，第1胸椎棘突下凹陷中",
+      "functions": [
+        "解表清熱",
+        "鎮驚安神"
+      ],
+      "indications": [
+        "熱病",
+        "瘧疾",
+        "頭痛",
+        "脊強",
+        "癲癇"
+      ],
+      "method": "斜刺0.5-1寸",
+      "category": "督脈穴",
+      "englishName": "Taodao (Kiln Path)",
+      "internationalCode": "DU-13"
+    },
+    {
+      "id": 343,
+      "name": "啞門",
+      "meridian": "督脈",
+      "location": "項部，後髮際正中直上0.5寸，第1頸椎下",
+      "functions": [
+        "開竅醒神",
+        "散風熄風"
+      ],
+      "indications": [
+        "暴喑",
+        "舌強不語",
+        "癲狂癇",
+        "頭痛",
+        "項強"
+      ],
+      "method": "伏案正坐位，頭微前傾，項部放鬆，向下頜方向緩慢刺入0.5-1寸；不可向上深刺，以免損傷延髓。",
+      "category": "督脈穴",
+      "englishName": "Yamen (Mute's Gate)",
+      "internationalCode": "DU-15"
+    },
+    {
+      "id": 344,
+      "name": "風府",
+      "meridian": "督脈",
+      "location": "項部，後髮際正中直上1寸，枕外隆凸直下，兩側斜方肌之間凹陷中",
+      "functions": [
+        "散風熄風",
+        "通關開竅"
+      ],
+      "indications": [
+        "頭痛",
+        "項強",
+        "眩暈",
+        "失音",
+        "癲狂",
+        "中風"
+      ],
+      "method": "伏案正坐，頭微前傾，項部放鬆，向下頜方向緩慢刺入0.5-1寸；不可深刺，以免傷及延髓。",
+      "category": "督脈穴",
+      "englishName": "Fengfu (Windy Mansion)",
+      "internationalCode": "DU-16"
+    },
+    {
+      "id": 345,
+      "name": "腦戶",
+      "meridian": "督脈",
+      "location": "頭部，後髮際正中直上2.5寸，風府上1.5寸，枕外隆凸的上緣凹陷處",
+      "functions": [
+        "醒神開竅",
+        "平肝熄風"
+      ],
+      "indications": [
+        "頭暈",
+        "項強",
+        "失音",
+        "癲癇"
+      ],
+      "method": "平刺0.5-0.8寸",
+      "category": "督脈穴",
+      "englishName": "Naohu (Brain's Door)",
+      "internationalCode": "DU-17"
+    },
+    {
+      "id": 346,
+      "name": "強間",
+      "meridian": "督脈",
+      "location": "頭部，後髮際正中直上4寸（腦戶上1.5寸）",
+      "functions": [
+        "醒神寧心",
+        "平肝熄風"
+      ],
+      "indications": [
+        "頭痛",
+        "目眩",
+        "項強",
+        "癲狂"
+      ],
+      "method": "平刺0.5-0.8寸",
+      "category": "督脈穴",
+      "englishName": "Qiangjian (Strong Space)",
+      "internationalCode": "DU-18"
+    },
+    {
+      "id": 347,
+      "name": "後頂",
+      "meridian": "督脈",
+      "location": "頭部，後髮際正中直上5.5寸（腦戶上3寸）",
+      "functions": [
+        "醒神安神",
+        "熄風止痙"
+      ],
+      "indications": [
+        "頭痛",
+        "眩暈",
+        "癲狂癇"
+      ],
+      "method": "平刺0.5-0.8寸",
+      "category": "督脈穴",
+      "englishName": "Houding (Back of the Top)",
+      "internationalCode": "DU-19"
+    },
+    {
+      "id": 348,
+      "name": "前頂",
+      "meridian": "督脈",
+      "location": "頭部，前髮際正中直上3.5寸（百會前1.5寸）",
+      "functions": [
+        "熄風醒腦",
+        "寧神鎮驚"
+      ],
+      "indications": [
+        "頭痛",
+        "眩暈",
+        "鼻淵",
+        "癲癇"
+      ],
+      "method": "平刺0.5-0.8寸",
+      "category": "督脈穴",
+      "englishName": "Qianding (Front of the Top)",
+      "internationalCode": "DU-21"
+    },
+    {
+      "id": 349,
+      "name": "囟會",
+      "meridian": "督脈",
+      "location": "頭部，前髮際正中直上2寸（百會前3寸）",
+      "functions": [
+        "安神醒腦",
+        "清熱消腫"
+      ],
+      "indications": [
+        "頭痛",
+        "眩暈",
+        "鼻淵",
+        "癲癇"
+      ],
+      "method": "平刺0.5-0.8寸，小兒前囟未閉者禁針。",
+      "category": "督脈穴",
+      "englishName": "Xinhui (Fontanel Meeting)",
+      "internationalCode": "DU-22"
+    },
+    {
+      "id": 350,
+      "name": "石門",
+      "meridian": "任脈",
+      "location": "下腹部，前正中線上，臍中下2寸",
+      "functions": [
+        "補腎培元",
+        "調經止帶"
+      ],
+      "indications": [
+        "腹脹",
+        "洩瀉",
+        "繞臍疼痛",
+        "水腫",
+        "小便不利",
+        "遺精",
+        "陽痿",
+        "帶下",
+        "崩漏",
+        "產後惡露不絕"
+      ],
+      "method": "直刺0.5-1寸；孕婦慎用。",
+      "category": "三焦募穴",
+      "englishName": "Shimen (Stone Gate)",
+      "internationalCode": "REN-5"
+    },
+    {
+      "id": 351,
+      "name": "陰交",
+      "meridian": "任脈",
+      "location": "下腹部，前正中線上，臍中下1寸",
+      "functions": [
+        "調經固帶",
+        "利水消腫"
+      ],
+      "indications": [
+        "繞臍冷痛",
+        "腹滿水腫",
+        "洩瀉",
+        "月經不調",
+        "帶下",
+        "產後惡露不絕"
+      ],
+      "method": "直刺0.5-1寸；孕婦慎用。",
+      "category": "任脈穴",
+      "englishName": "Yinjiao (Yin Intersection)",
+      "internationalCode": "REN-7"
+    },
+    {
+      "id": 352,
+      "name": "水分",
+      "meridian": "任脈",
+      "location": "上腹部，前正中線上，臍中上1寸",
+      "functions": [
+        "通調水道",
+        "理氣止痛"
+      ],
+      "indications": [
+        "水腫",
+        "小便不通",
+        "腹瀉",
+        "腹痛",
+        "反胃",
+        "吐食"
+      ],
+      "method": "直刺0.5-1寸；水病多用灸法。",
+      "category": "任脈穴",
+      "englishName": "Shuifen (Water Separation)",
+      "internationalCode": "REN-9"
+    },
+    {
+      "id": 353,
+      "name": "下脘",
+      "meridian": "任脈",
+      "location": "上腹部，前正中線上，臍中上2寸",
+      "functions": [
+        "健脾和胃",
+        "降逆止嘔"
+      ],
+      "indications": [
+        "腹痛",
+        "腹脹",
+        "洩瀉",
+        "嘔吐",
+        "食穀不化",
+        "小兒疳積"
+      ],
+      "method": "直刺0.5-1寸",
+      "category": "任脈穴",
+      "englishName": "Xiawan (Lower Stomach Duct)",
+      "internationalCode": "REN-10"
+    },
+    {
+      "id": 354,
+      "name": "建里",
+      "meridian": "任脈",
+      "location": "上腹部，前正中線上，臍中上3寸",
+      "functions": [
+        "和胃健脾",
+        "降逆利水"
+      ],
+      "indications": [
+        "胃痛",
+        "嘔吐",
+        "食慾不振",
+        "腹脹",
+        "水腫"
+      ],
+      "method": "直刺0.5-1寸",
+      "category": "任脈穴",
+      "englishName": "Jianli (Establishing the Interior)",
+      "internationalCode": "REN-11"
+    },
+    {
+      "id": 355,
+      "name": "上脘",
+      "meridian": "任脈",
+      "location": "上腹部，前正中線上，臍中上5寸",
+      "functions": [
+        "和胃降逆",
+        "化痰寧神"
+      ],
+      "indications": [
+        "胃痛",
+        "嘔吐",
+        "呃逆",
+        "腹脹",
+        "癲癇"
+      ],
+      "method": "直刺0.5-1寸",
+      "category": "任脈穴",
+      "englishName": "Shangwan (Upper Stomach Duct)",
+      "internationalCode": "REN-13"
+    },
+    {
+      "id": 356,
+      "name": "巨闕",
+      "meridian": "任脈",
+      "location": "上腹部，前正中線上，臍中上6寸",
+      "functions": [
+        "安神寧心",
+        "寬胸止痛"
+      ],
+      "indications": [
+        "胸痛",
+        "心痛",
+        "心悸",
+        "嘔吐",
+        "吞酸",
+        "癲狂癇"
+      ],
+      "method": "向下斜刺0.5-1寸；不可深刺，以免損傷肝臟。",
+      "category": "心募穴",
+      "englishName": "Jugue (Great Palace Gate)",
+      "internationalCode": "REN-14"
+    },
+    {
+      "id": 357,
+      "name": "鳩尾",
+      "meridian": "任脈",
+      "location": "上腹部，前正中線上，胸劍結合部下1寸",
+      "functions": [
+        "安心寧神",
+        "寬胸定喘"
+      ],
+      "indications": [
+        "胸痛",
+        "呃逆",
+        "腹脹",
+        "癲狂癇"
+      ],
+      "method": "向下斜刺0.5-1寸",
+      "category": "絡穴",
+      "englishName": "Jiuwei (Dove Tail)",
+      "internationalCode": "REN-15"
+    },
+    {
+      "id": 358,
+      "name": "中庭",
+      "meridian": "任脈",
+      "location": "胸部，前正中線上，平第5肋間，胸劍結合部中點",
+      "functions": [
+        "寬胸消脹",
+        "降逆止嘔"
+      ],
+      "indications": [
+        "胸腹脹滿",
+        "噎嗝",
+        "嘔吐",
+        "心痛"
+      ],
+      "method": "平刺0.3-0.5寸",
+      "category": "任脈穴",
+      "englishName": "Zhongting (Central Courtyard)",
+      "internationalCode": "REN-16"
+    },
+    {
+      "id": 359,
+      "name": "玉堂",
+      "meridian": "任脈",
+      "location": "胸部，前正中線上，平第3肋間",
+      "functions": [
+        "寬胸止痛",
+        "止咳平喘"
+      ],
+      "indications": [
+        "胸痛",
+        "咳嗽",
+        "氣喘",
+        "嘔吐"
+      ],
+      "method": "平刺0.3-0.5寸",
+      "category": "任脈穴",
+      "englishName": "Yutang (Jade Hall)",
+      "internationalCode": "REN-18"
+    },
+    {
+      "id": 360,
+      "name": "紫宮",
+      "meridian": "任脈",
+      "location": "胸部，前正中線上，平第2肋間",
+      "functions": [
+        "寬胸理氣",
+        "止咳平喘"
+      ],
+      "indications": [
+        "咳嗽",
+        "氣喘",
+        "胸脅脹滿",
+        "胸痛"
+      ],
+      "method": "平刺0.3-0.5寸",
+      "category": "任脈穴",
+      "englishName": "Zigong (Purple Palace)",
+      "internationalCode": "REN-19"
+    },
+      {
+        "id": 361,
+        "name": "四神聰",
+        "meridian": "經外奇穴",
+        "location": "頭頂部，百會前後左右各旁開1寸，共4穴",
+        "functions": [
+          "鎮靜安神",
+          "清頭明目",
+          "醒腦開竅"
+        ],
+        "indications": [
+          "頭痛",
+          "眩暈",
+          "失眠",
+          "健忘",
+          "癲癇",
+          "中風偏癱",
+          "大腦發育不全"
+        ],
+        "method": "平刺0.5-0.8寸",
+        "category": "經外奇穴頭頸部",
+        "englishName": "Sishencong (Four Alert Spirits)",
+        "internationalCode": "EX-HN1"
+      },
+      {
+        "id": 362,
+        "name": "印堂",
+        "meridian": "經外奇穴",
+        "location": "額部，兩眉頭連線中點",
+        "functions": [
+          "清頭明目",
+          "通鼻開竅",
+          "寧心安神"
+        ],
+        "indications": [
+          "頭痛",
+          "眩暈",
+          "鼻淵",
+          "鼻衄",
+          "目赤腫痛",
+          "小兒驚風",
+          "失眠"
+        ],
+        "method": "提捏局部皮膚，向下平刺0.3-0.5寸，或用三棱針點刺出血",
+        "category": "經外奇穴頭頸部",
+        "englishName": "Yintang (Seal Hall)",
+        "internationalCode": "EX-HN3"
+      },
+      {
+        "id": 363,
+        "name": "太陽",
+        "meridian": "經外奇穴",
+        "location": "顳部，眉梢與目外眥之間，向後約一橫指的凹陷處",
+        "functions": [
+          "清肝明目",
+          "通絡止痛"
+        ],
+        "indications": [
+          "頭痛",
+          "目疾",
+          "面癱",
+          "牙痛"
+        ],
+        "method": "直刺或斜刺0.3-0.5寸，或點刺出血",
+        "category": "經外奇穴頭頸部",
+        "englishName": "Taiyang (Sun)",
+        "internationalCode": "EX-HN5"
+      },
+      {
+        "id": 364,
+        "name": "耳尖",
+        "meridian": "經外奇穴",
+        "location": "耳廓上方，折耳向前時耳廓上方的尖端處",
+        "functions": [
+          "清熱解毒",
+          "明目退翳",
+          "消腫止痛"
+        ],
+        "indications": [
+          "目赤腫痛",
+          "麥粒腫",
+          "頭痛",
+          "咽喉腫痛",
+          "高熱"
+        ],
+        "method": "直刺0.1-0.2寸，或用三棱針點刺出血",
+        "category": "經外奇穴頭頸部",
+        "englishName": "Erijan (Ear Apex)",
+        "internationalCode": "EX-HN6"
+      },
+      {
+        "id": 365,
+        "name": "球後",
+        "meridian": "經外奇穴",
+        "location": "面部，眶下緣外1/4與內3/4交界處",
+        "functions": [
+          "明目退翳"
+        ],
+        "indications": [
+          "目疾，如視神經炎，視神經萎縮，近視，青光眼，白內障等"
+        ],
+        "method": "輕壓眼球向上，向眶緣緩慢直刺0.5-1寸，不提插",
+        "category": "經外奇穴頭頸部",
+        "englishName": "Qiuhou (Behind the Eyeball)",
+        "internationalCode": "EX-HN7"
+      },
+      {
+        "id": 366,
+        "name": "金津",
+        "meridian": "經外奇穴",
+        "location": "口腔內，舌下繫帶左側的靜脈上",
+        "functions": [
+          "清熱消腫",
+          "清心開竅"
+        ],
+        "indications": [
+          "口瘡",
+          "舌強不語",
+          "嘔吐",
+          "消渴"
+        ],
+        "method": "點刺出血",
+        "category": "經外奇穴頭頸部",
+        "englishName": "Jinjin (Golden Liquid)",
+        "internationalCode": "EX-HN12"
+      },
+      {
+        "id": 367,
+        "name": "玉液",
+        "meridian": "經外奇穴",
+        "location": "口腔內，舌下繫帶右側的靜脈上",
+        "functions": [
+          "清熱消腫",
+          "清心開竅"
+        ],
+        "indications": [
+          "口瘡",
+          "舌強不語",
+          "嘔吐",
+          "消渴"
+        ],
+        "method": "點刺出血",
+        "category": "經外奇穴頭頸部",
+        "englishName": "Yuye (Jade Liquid)",
+        "internationalCode": "EX-HN13"
+      },
+      {
+        "id": 368,
+        "name": "翳明",
+        "meridian": "經外奇穴",
+        "location": "項部，翳風後1寸",
+        "functions": [
+          "明目聰耳",
+          "寧心安神"
+        ],
+        "indications": [
+          "近視",
+          "遠視",
+          "雀盲",
+          "白內障",
+          "失眠"
+        ],
+        "method": "直刺0.5-1寸",
+        "category": "經外奇穴頭頸部",
+        "englishName": "Yiming (Brightening the Obscure)",
+        "internationalCode": "EX-HN14"
+      },
+      {
+        "id": 369,
+        "name": "頸百勞",
+        "meridian": "經外奇穴",
+        "location": "項部，大椎直上2寸，後正中線旁開1寸",
+        "functions": [
+          "止咳平喘",
+          "清虛熱",
+          "舒筋活絡"
+        ],
+        "indications": [
+          "咳嗽",
+          "氣喘",
+          "骨蒸潮熱",
+          "盜汗",
+          "頸項強痛"
+        ],
+        "method": "直刺0.5-1寸",
+        "category": "經外奇穴頭頸部",
+        "englishName": "Jingbailao (Neck Hundred Taxations)",
+        "internationalCode": "EX-HN15"
+      },
+      {
+        "id": 370,
+        "name": "子宮",
+        "meridian": "經外奇穴",
+        "location": "下腹部，臍中下4寸，中極旁開3寸",
+        "functions": [
+          "調經理氣",
+          "升提下陷"
+        ],
+        "indications": [
+          "陰挺",
+          "月經不調",
+          "痛經",
+          "崩漏",
+          "不孕"
+        ],
+        "method": "直刺0.8-1.2寸",
+        "category": "經外奇穴胸腹部",
+        "englishName": "Zigong (Uterus)",
+        "internationalCode": "EX-CA1"
+      },
+      {
+        "id": 371,
+        "name": "定喘",
+        "meridian": "經外奇穴",
+        "location": "背部，第7頸椎棘突下，旁開0.5寸",
+        "functions": [
+          "止咳平喘",
+          "通宣理肺"
+        ],
+        "indications": [
+          "哮喘",
+          "咳嗽",
+          "肩背痛",
+          "落枕"
+        ],
+        "method": "直刺0.5-0.8寸",
+        "category": "經外奇穴背部",
+        "englishName": "Dingchuan (Calm Asthma)",
+        "internationalCode": "EX-B1"
+      },
+      {
+        "id": 372,
+        "name": "夾脊",
+        "meridian": "經外奇穴",
+        "location": "背腰部，第1胸椎至第5腰椎棘突下兩側，後正中線旁開0.5寸，一側17穴，左右共34穴",
+        "functions": [
+          "調節臟腑",
+          "通利關節"
+        ],
+        "indications": [
+          "上胸段穴位主治心肺、上肢疾病；下胸段穴位主治脾胃、腸道疾病；腰段穴位主治腰腹及下肢疾病"
+        ],
+        "method": "直刺0.3-0.5寸，或用梅花針叩刺",
+        "category": "經外奇穴背部",
+        "englishName": "Jiaji (Paravertebral)",
+        "internationalCode": "EX-B2"
+      },
+      {
+        "id": 373,
+        "name": "胃脘下俞",
+        "meridian": "經外奇穴",
+        "location": "背部，第8胸椎棘突下，旁開1.5寸",
+        "functions": [
+          "養陰生津",
+          "和胃止痛"
+        ],
+        "indications": [
+          "消渴",
+          "咽乾",
+          "胰腺炎",
+          "胃痛"
+        ],
+        "method": "斜刺0.3-0.5寸",
+        "category": "經外奇穴背部",
+        "englishName": "Weiwanxiayu (Below the Stomach Duct Increase)",
+        "internationalCode": "EX-B3"
+      },
+      {
+        "id": 374,
+        "name": "腰眼",
+        "meridian": "經外奇穴",
+        "location": "腰部，第4腰椎棘突下，旁開約3.5寸凹陷中",
+        "functions": [
+          "強腰健腎"
+        ],
+        "indications": [
+          "腰痛",
+          "月經不調",
+          "帶下"
+        ],
+        "method": "直刺1-1.5寸",
+        "category": "經外奇穴背部",
+        "englishName": "Yaoyan (Lumbar Eyes)",
+        "internationalCode": "EX-B7"
+      },
+      {
+        "id": 375,
+        "name": "十七椎",
+        "meridian": "經外奇穴",
+        "location": "腰部，後正中線上，第5腰椎棘突下",
+        "functions": [
+          "調經止痛",
+          "強腰健膝"
+        ],
+        "indications": [
+          "腰腿痛",
+          "下肢癱瘓",
+          "崩漏",
+          "月經不調"
+        ],
+        "method": "直刺0.5-1寸",
+        "category": "經外奇穴背部",
+        "englishName": "Shiqizhui (Seventeenth Vertebra)",
+        "internationalCode": "EX-B8"
+      },
+      {
+        "id": 376,
+        "name": "腰奇",
+        "meridian": "經外奇穴",
+        "location": "骶部，尾骨端直上2寸，骶角之間凹陷中",
+        "functions": [
+          "寧神鎮痙"
+        ],
+        "indications": [
+          "癲癇",
+          "頭痛",
+          "失眠",
+          "便秘"
+        ],
+        "method": "向上平刺1-1.5寸",
+        "category": "經外奇穴背部",
+        "englishName": "Yaoqi (Lumbar Extraordinary)",
+        "internationalCode": "EX-B9"
+      },
+      {
+        "id": 377,
+        "name": "十宣",
+        "meridian": "經外奇穴",
+        "location": "手十指尖端，距指甲游離緣0.1寸，左右共10穴",
+        "functions": [
+          "開竅醒腦",
+          "瀉熱鎮痙"
+        ],
+        "indications": [
+          "昏迷",
+          "癲癇",
+          "高熱",
+          "咽喉腫痛",
+          "手指麻木"
+        ],
+        "method": "淺刺0.1-0.2寸，或點刺出血",
+        "category": "經外奇穴上肢部",
+        "englishName": "Shixuan (Ten Diffusions)",
+        "internationalCode": "EX-UE11"
+      },
+      {
+        "id": 378,
+        "name": "四縫",
+        "meridian": "經外奇穴",
+        "location": "第2至第5指掌側，近端指關節的中央，一側4穴，左右共8穴",
+        "functions": [
+          "消食導滯",
+          "祛痰化積"
+        ],
+        "indications": [
+          "小兒疳積",
+          "腹瀉",
+          "咳嗽",
+          "百日咳"
+        ],
+        "method": "點刺出血或擠出少許黃白色透明黏液",
+        "category": "經外奇穴上肢部",
+        "englishName": "Sifeng (Four Crevices)",
+        "internationalCode": "EX-UE10"
+      },
+      {
+        "id": 379,
+        "name": "八邪",
+        "meridian": "經外奇穴",
+        "location": "手背側，第1至第5指間，指蹼緣後方赤白肉際處，左右共8穴",
+        "functions": [
+          "清熱解毒",
+          "通絡止痛"
+        ],
+        "indications": [
+          "手背腫痛",
+          "手指麻木",
+          "煩熱",
+          "目痛",
+          "毒蛇咬傷"
+        ],
+        "method": "斜刺0.5-0.8寸，或點刺出血",
+        "category": "經外奇穴上肢部",
+        "englishName": "Baxie (Eight Pathogens)",
+        "internationalCode": "EX-UE9"
+      },
+      {
+        "id": 380,
+        "name": "外勞宮",
+        "meridian": "經外奇穴",
+        "location": "手背側，第2、3掌骨之間，掌指關節後0.5寸",
+        "functions": [
+          "通絡止痛",
+          "和胃降逆"
+        ],
+        "indications": [
+          "落枕",
+          "手指麻木",
+          "手指屈伸不利",
+          "臍風"
+        ],
+        "method": "直刺0.5-0.8寸",
+        "category": "經外奇穴上肢部",
+        "englishName": "Wailaogong (Outer Labor Palace)",
+        "internationalCode": "EX-UE8"
+      },
+      {
+        "id": 381,
+        "name": "腰痛点",
+        "meridian": "經外奇穴",
+        "location": "手背側，第2、3掌骨及第4、5掌骨之間，腕橫紋與掌指關節中點處，一側2穴，左右共4穴",
+        "functions": [
+          "舒筋通絡",
+          "化瘀止痛"
+        ],
+        "indications": [
+          "急性腰扭傷"
+        ],
+        "method": "由兩側向掌中斜刺0.5-0.8寸",
+        "category": "經外奇穴上肢部",
+        "englishName": "Yaotongdian (Lumbar Pain Points)",
+        "internationalCode": "EX-UE7"
+      },
+      {
+        "id": 382,
+        "name": "二白",
+        "meridian": "經外奇穴",
+        "location": "前臂掌側，腕橫紋上4寸，橈側腕屈肌腱兩側，一側2穴",
+        "functions": [
+          "清利肛腸",
+          "固脫消痔"
+        ],
+        "indications": [
+          "痔疾",
+          "脫肛"
+        ],
+        "method": "直刺0.5-0.8寸",
+        "category": "經外奇穴上肢部",
+        "englishName": "Erbai (Two Whites)",
+        "internationalCode": "EX-UE2"
+      },
+      {
+        "id": 383,
+        "name": "肩前",
+        "meridian": "經外奇穴",
+        "location": "肩部，正坐垂臂，腋前皺襞頂端與肩髃連線的中點",
+        "functions": [
+          "通經活絡"
+        ],
+        "indications": [
+          "肩臂痛",
+          "臂不能舉"
+        ],
+        "method": "直刺1-1.5寸",
+        "category": "經外奇穴上肢部",
+        "englishName": "Jianqian (Anterior Shoulder)",
+        "internationalCode": "EX-UE"
+      },
+      {
+        "id": 384,
+        "name": "百蟲窩",
+        "meridian": "經外奇穴",
+        "location": "大腿內側，髕底內側端上3寸",
+        "functions": [
+          "祛風活血",
+          "驅蟲止癢"
+        ],
+        "indications": [
+          "皮膚瘙癢",
+          "風疹",
+          "濕疹",
+          "下部生瘡",
+          "蛔蟲病"
+        ],
+        "method": "直刺1.5-2寸",
+        "category": "經外奇穴下肢部",
+        "englishName": "Baichongwo (Hundred Insects Nest)",
+        "internationalCode": "EX-LE3"
+      },
+      {
+        "id": 385,
+        "name": "鶴頂",
+        "meridian": "經外奇穴",
+        "location": "膝部，髕底中點上方凹陷處",
+        "functions": [
+          "通利關節"
+        ],
+        "indications": [
+          "膝痛",
+          "足脛無力",
+          "癱瘓"
+        ],
+        "method": "直刺0.5-0.8寸",
+        "category": "經外奇穴下肢部",
+        "englishName": "Heding (Crane's Summit)",
+        "internationalCode": "EX-LE2"
+      },
+      {
+        "id": 386,
+        "name": "膝眼",
+        "meridian": "經外奇穴",
+        "location": "髕韌帶兩側凹陷處，在內側的稱內膝眼，在外側的稱外膝眼（即犢鼻）",
+        "functions": [
+          "活血通絡",
+          "疏利關節"
+        ],
+        "indications": [
+          "膝痛",
+          "腿腳重痛",
+          "腳氣"
+        ],
+        "method": "向膝中斜刺0.5-1寸，或透刺對側膝眼",
+        "category": "經外奇穴下肢部",
+        "englishName": "Xiyan (Knee Eyes)",
+        "internationalCode": "EX-LE5"
+      },
+      {
+        "id": 387,
+        "name": "膽囊",
+        "meridian": "經外奇穴",
+        "location": "小腿外側，腓骨小頭直下2寸",
+        "functions": [
+          "疏肝利膽",
+          "通絡止痛"
+        ],
+        "indications": [
+          "急慢性膽囊炎",
+          "膽石症",
+          "膽道蛔蟲症",
+          "下肢痿痹"
+        ],
+        "method": "直刺1-1.5寸",
+        "category": "經外奇穴下肢部",
+        "englishName": "Dannang (Gallbladder)",
+        "internationalCode": "EX-LE6"
+      },
+      {
+        "id": 388,
+        "name": "闌尾",
+        "meridian": "經外奇穴",
+        "location": "小腿前側，足三里下約2寸，脛骨前緣旁開一橫指",
+        "functions": [
+          "清熱化瘀",
+          "通調腸腑"
+        ],
+        "indications": [
+          "急慢性闌尾炎",
+          "消化不良",
+          "下肢痿痹"
+        ],
+        "method": "直刺1-1.5寸",
+        "category": "經外奇穴下肢部",
+        "englishName": "Lanwei (Appendix)",
+        "internationalCode": "EX-LE7"
+      },
+      {
+        "id": 389,
+        "name": "八風",
+        "meridian": "經外奇穴",
+        "location": "足背側，第1至第5趾間，趾蹼緣後方赤白肉際處，一側4穴，左右共8穴",
+        "functions": [
+          "清熱解毒",
+          "通絡止痛"
+        ],
+        "indications": [
+          "足跗腫痛",
+          "腳弱無力",
+          "頭痛",
+          "牙痛",
+          "瘧疾",
+          "毒蛇咬傷"
+        ],
+        "method": "斜刺0.5-0.8寸，或點刺出血",
+        "category": "經外奇穴下肢部",
+        "englishName": "Bafeng (Eight Winds)",
+        "internationalCode": "EX-LE10"
+      }
+    ]
