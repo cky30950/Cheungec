@@ -25682,6 +25682,97 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('初始化搜尋與分類監聽器時發生錯誤:', e);
             }
 
+            (function() {
+                function setup(id, list) {
+                    const el = document.getElementById(id);
+                    if (!el || !Array.isArray(list)) return;
+                    const parent = el.parentElement;
+                    if (parent) {
+                        const style = window.getComputedStyle(parent);
+                        if (style.position === 'static' || !style.position) {
+                            parent.style.position = 'relative';
+                        }
+                    }
+                    const box = document.createElement('div');
+                    box.id = 'autocomplete-' + id;
+                    box.className = 'hidden absolute left-0 right-0 bg-white border border-gray-300 rounded shadow max-h-40 overflow-y-auto z-50 text-sm';
+                    el.insertAdjacentElement('afterend', box);
+                    let sel = -1;
+                    const render = function(items) {
+                        box.innerHTML = '';
+                        items.forEach(function(text, idx) {
+                            const item = document.createElement('div');
+                            item.className = 'px-3 py-2 hover:bg-blue-50 cursor-pointer';
+                            item.textContent = text;
+                            item.addEventListener('mousedown', function(e) {
+                                e.preventDefault();
+                                el.value = text;
+                                box.classList.add('hidden');
+                            });
+                            box.appendChild(item);
+                        });
+                        if (items.length > 0) {
+                            box.classList.remove('hidden');
+                            sel = -1;
+                        } else {
+                            box.classList.add('hidden');
+                        }
+                    };
+                    const filter = function() {
+                        const q = (el.value || '').trim();
+                        if (!q) {
+                            box.classList.add('hidden');
+                            return;
+                        }
+                        const lower = q.toLowerCase();
+                        const items = list.filter(function(s) { return String(s).toLowerCase().includes(lower); }).slice(0, 8);
+                        render(items);
+                    };
+                    el.addEventListener('input', debounce(filter, 150));
+                    el.addEventListener('keydown', function(e) {
+                        if (box.classList.contains('hidden')) return;
+                        const items = Array.from(box.children);
+                        if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            sel = Math.min(sel + 1, items.length - 1);
+                            items.forEach(function(n, i) { n.classList.toggle('bg-blue-100', i === sel); });
+                            if (sel >= 0 && items[sel]) { items[sel].scrollIntoView({ block: 'nearest' }); }
+                        } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            sel = Math.max(sel - 1, 0);
+                            items.forEach(function(n, i) { n.classList.toggle('bg-blue-100', i === sel); });
+                            if (sel >= 0 && items[sel]) { items[sel].scrollIntoView({ block: 'nearest' }); }
+                        } else if (e.key === 'Enter') {
+                            if (sel >= 0 && items[sel]) {
+                                e.preventDefault();
+                                el.value = items[sel].textContent || '';
+                                box.classList.add('hidden');
+                            }
+                        } else if (e.key === 'Escape') {
+                            box.classList.add('hidden');
+                        }
+                    });
+                    document.addEventListener('click', function(e) {
+                        if (e.target !== el && !box.contains(e.target)) {
+                            box.classList.add('hidden');
+                        }
+                    });
+                }
+                (async function() {
+                    try {
+                        const data = await fetchJsonWithFallback('diagnosisSuggestions.json');
+                        const tongue = Array.isArray(data.tongue) ? data.tongue : [];
+                        const pulse = Array.isArray(data.pulse) ? data.pulse : [];
+                        const tcm = Array.isArray(data.tcmDiagnosis) ? data.tcmDiagnosis : [];
+                        const synd = Array.isArray(data.syndrome) ? data.syndrome : [];
+                        setup('formTongue', tongue);
+                        setup('formPulse', pulse);
+                        setup('formDiagnosis', tcm);
+                        setup('formSyndrome', synd);
+                    } catch (_e) {}
+                })();
+            })();
+
             
           });
 
