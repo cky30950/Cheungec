@@ -286,6 +286,8 @@ let herbIngredientSearchSelectionIndex = -1;
 // 用於個人慣用穴位組合搜尋結果的鍵盤導航索引
 // acupointComboSearchSelectionIndex 用於記錄穴位組合搜尋目前選中的項目；-1 表示沒有選中
 let acupointComboSearchSelectionIndex = -1;
+let prescriptionSearchSelectionIndex = -1;
+let acupointNotesSearchSelectionIndex = -1;
 
 // 為病人詳細資料中的套票情況新增分頁設定。
 // 若條件改變（例如重新查看另一位病人），應重置 currentPage 為 1。
@@ -24882,7 +24884,8 @@ ${item.points.map(pt => {
               return `<div class="p-2 bg-green-50 hover:bg-green-100 border border-green-200 rounded cursor-pointer text-center text-sm" data-tooltip="${encoded}" onmouseenter="showTooltip(event, this.getAttribute('data-tooltip'))" onmousemove="moveTooltip(event)" onmouseleave="hideTooltip()" onclick="addHerbToCombo('${safeName}', '')">${window.escapeHtml(item.name)}</div>`;
             }).join('');
             resultsContainer.classList.remove('hidden');
-          }
+            prescriptionSearchSelectionIndex = -1;
+        }
 
           /**
            * 將指定藥材名稱與劑量加入目前編輯的藥材列表。
@@ -25396,6 +25399,7 @@ if (typeof window !== 'undefined' && !window.removeParentElement) {
         return `<div class="p-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded cursor-pointer text-center text-sm" data-tooltip="${encoded}" onmouseenter="showTooltip(event, this.getAttribute('data-tooltip'))" onmousemove="moveTooltip(event)" onmouseleave="hideTooltip()" onclick="addAcupointToNotes('${safeName}')">${window.escapeHtml(displayName)}</div>`;
       }).join('');
       resultsContainer.classList.remove('hidden');
+      acupointNotesSearchSelectionIndex = -1;
     } catch (e) {
       console.error('搜尋穴位時發生錯誤：', e);
     }
@@ -25786,6 +25790,80 @@ document.addEventListener('DOMContentLoaded', function() {
                     } catch (_e) {}
                 })();
             })();
+
+            try {
+                const pInput = document.getElementById('prescriptionSearch');
+                if (pInput) {
+                    pInput.addEventListener('keydown', function(e) {
+                        const list = document.getElementById('prescriptionSearchList');
+                        const container = document.getElementById('prescriptionSearchResults');
+                        if (!list || !container || container.classList.contains('hidden')) return;
+                        const items = Array.from(list.children);
+                        if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            prescriptionSearchSelectionIndex = Math.min(prescriptionSearchSelectionIndex + 1, items.length - 1);
+                            items.forEach(function(n, i) { n.classList.toggle('bg-yellow-200', i === prescriptionSearchSelectionIndex); });
+                            if (prescriptionSearchSelectionIndex >= 0 && items[prescriptionSearchSelectionIndex]) { items[prescriptionSearchSelectionIndex].scrollIntoView({ block: 'nearest' }); }
+                        } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            prescriptionSearchSelectionIndex = Math.max(prescriptionSearchSelectionIndex - 1, 0);
+                            items.forEach(function(n, i) { n.classList.toggle('bg-yellow-200', i === prescriptionSearchSelectionIndex); });
+                            if (prescriptionSearchSelectionIndex >= 0 && items[prescriptionSearchSelectionIndex]) { items[prescriptionSearchSelectionIndex].scrollIntoView({ block: 'nearest' }); }
+                        } else if (e.key === 'Enter') {
+                            if (prescriptionSearchSelectionIndex >= 0 && items[prescriptionSearchSelectionIndex]) {
+                                e.preventDefault();
+                                items[prescriptionSearchSelectionIndex].click();
+                                container.classList.add('hidden');
+                                prescriptionSearchSelectionIndex = -1;
+                            }
+                        } else if (e.key === 'Escape') {
+                            container.classList.add('hidden');
+                            prescriptionSearchSelectionIndex = -1;
+                        }
+                    });
+                }
+            } catch (_e) {}
+
+            try {
+                const aInput = document.getElementById('acupointNotesSearch');
+                if (aInput) {
+                    aInput.addEventListener('keydown', function(e) {
+                        const list = document.getElementById('acupointNotesSearchList');
+                        const container = document.getElementById('acupointNotesSearchResults');
+                        if (!list || !container || container.classList.contains('hidden')) return;
+                        const items = Array.from(list.children);
+                        const applyHighlight = function() {
+                            items.forEach(function(n, i) {
+                                const isSel = i === acupointNotesSearchSelectionIndex;
+                                n.classList.toggle('bg-blue-100', isSel);
+                                n.classList.toggle('ring-2', isSel);
+                                n.classList.toggle('ring-blue-400', isSel);
+                                n.classList.toggle('bg-blue-50', !isSel);
+                                if (isSel) { n.scrollIntoView({ block: 'nearest' }); }
+                            });
+                        };
+                        if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            acupointNotesSearchSelectionIndex = Math.min(acupointNotesSearchSelectionIndex + 1, items.length - 1);
+                            applyHighlight();
+                        } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            acupointNotesSearchSelectionIndex = Math.max(acupointNotesSearchSelectionIndex - 1, 0);
+                            applyHighlight();
+                        } else if (e.key === 'Enter') {
+                            if (acupointNotesSearchSelectionIndex >= 0 && items[acupointNotesSearchSelectionIndex]) {
+                                e.preventDefault();
+                                items[acupointNotesSearchSelectionIndex].click();
+                                container.classList.add('hidden');
+                                acupointNotesSearchSelectionIndex = -1;
+                            }
+                        } else if (e.key === 'Escape') {
+                            container.classList.add('hidden');
+                            acupointNotesSearchSelectionIndex = -1;
+                        }
+                    });
+                }
+            } catch (_e) {}
 
             
           });
