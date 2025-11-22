@@ -3757,6 +3757,18 @@ async function getLatestAppointmentById(appointmentId) {
  * @param {string} fileName - 要讀取的檔名，例如 'herbLibrary.json'
  * @returns {Promise<any>} 回傳解析後的 JSON 內容
  */
+function parseJsonWithComments(text) {
+    try {
+        return JSON.parse(text);
+    } catch (_e) {
+        let t = text;
+        t = t.replace(/^\uFEFF/, '');
+        t = t.replace(/\/\*[\s\S]*?\*\//g, '');
+        t = t.replace(/^\s*\/\/.*$/gm, '');
+        t = t.replace(/,\s*([}\]])/g, '$1');
+        return JSON.parse(t);
+    }
+}
 async function fetchJsonWithFallback(fileName) {
     const host = window.location.hostname;
     const isGithubPages = host && host.endsWith('github.io');
@@ -3765,7 +3777,8 @@ async function fetchJsonWithFallback(fileName) {
         try {
             const relativeResponse = await fetch(`data/${fileName}`, { cache: 'reload' });
             if (relativeResponse.ok) {
-                return await relativeResponse.json();
+                const txt = await relativeResponse.text();
+                return parseJsonWithComments(txt);
             }
             // 若非 2xx，拋出以便進入回退邏輯
             throw new Error(`Relative path HTTP error ${relativeResponse.status}`);
@@ -3788,7 +3801,8 @@ async function fetchJsonWithFallback(fileName) {
                     try {
                         const rawResponse = await fetch(rawUrl, { cache: 'reload' });
                         if (rawResponse.ok) {
-                            return await rawResponse.json();
+                            const txt = await rawResponse.text();
+                            return parseJsonWithComments(txt);
                         }
                     } catch (fetchErr) {
                         // 忽略單一分支的 fetch 錯誤並嘗試下一個分支
@@ -25725,7 +25739,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             return;
                         }
                         const lower = q.toLowerCase();
-                        const items = list.filter(function(s) { return String(s).toLowerCase().includes(lower); }).slice(0, 8);
+                        const items = list.filter(function(s) { return String(s).toLowerCase().includes(lower); }).slice(0, 16);
                         render(items);
                     };
                     el.addEventListener('input', debounce(filter, 150));
