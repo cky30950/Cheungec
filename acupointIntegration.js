@@ -231,6 +231,12 @@
                             coords = undefined;
                         }
                     }
+                    if (typeof ac.x === 'string' && !Number.isNaN(parseFloat(ac.x))) {
+                        ac.x = parseFloat(ac.x);
+                    }
+                    if (typeof ac.y === 'string' && !Number.isNaN(parseFloat(ac.y))) {
+                        ac.y = parseFloat(ac.y);
+                    }
                     if (coords) {
                         // 如果尚未定義 x 或 y，則套用座標；避免覆蓋已有資料
                         if (typeof ac.x !== 'number') {

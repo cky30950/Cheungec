@@ -13389,9 +13389,20 @@ async function initializeSystemAfterLogin() {
                     if (newItem.indications && !Array.isArray(newItem.indications)) {
                         newItem.indications = String(newItem.indications).split(/\n+/).map(s => s.trim()).filter(Boolean);
                     }
+                    if (!newItem.location && newItem['定位']) {
+                        newItem.location = String(newItem['定位']);
+                    }
+                    if (typeof newItem.x === 'string' && !Number.isNaN(parseFloat(newItem.x))) {
+                        newItem.x = parseFloat(newItem.x);
+                    }
+                    if (typeof newItem.y === 'string' && !Number.isNaN(parseFloat(newItem.y))) {
+                        newItem.y = parseFloat(newItem.y);
+                    }
                     return newItem;
                 });
                 acupointLibraryLoaded = true;
+                try { if (typeof window !== 'undefined') { window.acupointLibrary = acupointLibrary; } } catch (_e) {}
+                try { if (typeof window.applyAcupointCoordinates === 'function') { window.applyAcupointCoordinates(); } } catch (_e) {}
             } catch (err) {
                 console.error('無法讀取穴位庫資料：', err);
                 // fallback：使用預設範例資料
@@ -13411,6 +13422,8 @@ async function initializeSystemAfterLogin() {
                     }
                 ];
                 acupointLibraryLoaded = true;
+                try { if (typeof window !== 'undefined') { window.acupointLibrary = acupointLibrary; } } catch (_e) {}
+                try { if (typeof window.applyAcupointCoordinates === 'function') { window.applyAcupointCoordinates(); } } catch (_e) {}
             }
         }
 
