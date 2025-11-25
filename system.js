@@ -8660,7 +8660,7 @@ if (!patientResult.success) {
     return;
 }
 
-const patient = patientResult.data.find(p => String(p.id) === String(patientId));
+const patient = patientResult.data.find(p => p.id === patientId);
 if (!patient) {
     showToast('找不到病人資料！', 'error');
     return;
@@ -9030,7 +9030,7 @@ async function viewPatientMedicalHistory(patientId) {
             return;
         }
         
-        const patient = patientResult.data.find(p => String(p.id) === String(patientId));
+        const patient = patientResult.data.find(p => p.id === patientId);
         if (!patient) {
             showToast('找不到病人資料', 'error');
             return;
@@ -15803,7 +15803,7 @@ function parseBillingItemsFromText(billingText) {
             }
             
             // 確認是否為相同病人
-            if (String(currentAppointment.patientId) !== String(consultation.patientId)) {
+            if (currentAppointment.patientId !== consultation.patientId) {
                 showToast('只能載入相同病人的病歷記錄！', 'error');
                 return;
             }
