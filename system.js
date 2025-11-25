@@ -15778,17 +15778,23 @@ function parseBillingItemsFromText(billingText) {
             const idToFind = String(consultationId);
             // 先在本地資料中查找診症記錄（兼容數字與字串）
             let consultation = consultations.find(c => String(c.id) === idToFind);
-            // 如果本地找不到，嘗試從 Firebase 取得
+            // 若本地找不到，優先以 ID 直接從 Firebase 讀取單筆
             if (!consultation) {
                 try {
-                    const consultationResult = await window.firebaseDataManager.getConsultations();
-                    if (consultationResult.success) {
-                        consultation = consultationResult.data.find(c => String(c.id) === idToFind);
+                    const singleRes = await window.firebaseDataManager.getConsultationById(idToFind);
+                    if (singleRes && singleRes.success && singleRes.data) {
+                        consultation = singleRes.data;
                     }
-                } catch (error) {
-                    console.error('讀取診症記錄錯誤:', error);
-                    // 留空，後續將提示錯誤
-                }
+                } catch (_e) {}
+            }
+            // 若仍找不到，再回退讀取列表並搜尋
+            if (!consultation) {
+                try {
+                    const listRes = await window.firebaseDataManager.getConsultations();
+                    if (listRes && listRes.success && Array.isArray(listRes.data)) {
+                        consultation = listRes.data.find(c => String(c.id) === idToFind);
+                    }
+                } catch (_e) {}
             }
             if (!consultation) {
                 showToast('找不到指定的診症記錄！', 'error');
@@ -15815,7 +15821,7 @@ if (!patientResult.success) {
     return;
 }
 
-const patient = patientResult.data.find(p => p.id === consultation.patientId);
+const patient = patientResult.data.find(p => String(p.id) === String(consultation.patientId));
 if (!patient) {
     showToast('找不到病人資料！', 'error');
     return;
