@@ -1663,23 +1663,40 @@ async function getPatientByIdWithRefresh(id) {
             const found2 = all.find(p => p && String(p.id) === idStr);
             if (found2) return found2;
         }
-        // 仍未找到時，嘗試直接向 FirebaseDataManager 取得資料
         try {
-            // 確保 DataManager 就緒後使用 safeGetPatients 取得完整病人列表
-            if (typeof waitForFirebaseDataManager === 'function') {
-                await waitForFirebaseDataManager();
+            await waitForFirebaseDb();
+            const docRef = window.firebase.doc(window.firebase.db, 'patients', idStr);
+            const docSnap = await window.firebase.getDoc(docRef);
+            if (docSnap && docSnap.exists()) {
+                const patient = { id: docSnap.id, ...docSnap.data() };
+                try {
+                    if (window.firebaseDataManager) {
+                        const cacheArr = Array.isArray(window.firebaseDataManager.patientsCache) ? window.firebaseDataManager.patientsCache : [];
+                        const idx = cacheArr.findIndex(p => p && String(p.id) === idStr);
+                        if (idx >= 0) {
+                            cacheArr[idx] = patient;
+                        } else {
+                            cacheArr.push(patient);
+                        }
+                        window.firebaseDataManager.patientsCache = cacheArr;
+                    }
+                } catch (_e) {}
+                try {
+                    const stored = localStorage.getItem('patients');
+                    const arr = stored ? JSON.parse(stored) : [];
+                    if (Array.isArray(arr)) {
+                        const idx2 = arr.findIndex(p => p && String(p.id) === idStr);
+                        if (idx2 >= 0) {
+                            arr[idx2] = patient;
+                        } else {
+                            arr.push(patient);
+                        }
+                        localStorage.setItem('patients', JSON.stringify(arr));
+                    }
+                } catch (_lsErr) {}
+                return patient;
             }
-            // 在跨裝置情況下強制從後端重新讀取病人資料，以獲取最新資訊
-            const result = await safeGetPatients(true);
-            if (result && result.success && Array.isArray(result.data)) {
-                const found3 = result.data.find(p => p && String(p.id) === idStr);
-                if (found3) {
-                    return found3;
-                }
-            }
-        } catch (innerErr) {
-            console.error('直接從 Firebase 取得病人資料時發生錯誤:', innerErr);
-        }
+        } catch (_err) {}
     } catch (err) {
         console.error('取得病人資料時發生錯誤:', err);
     }
@@ -3874,10 +3891,9 @@ async function getLatestAppointmentById(appointmentId) {
     // 若還是沒有找到，從後端讀取單筆資料
     if (!found) {
         try {
-            const result = await window.firebaseDataManager.getAppointment(appointmentId);
+            const result = await window.firebaseDataManager.getAppointment(String(appointmentId));
             if (result && result.success && result.data) {
                 found = result.data;
-                // 更新全域陣列及本地快取
                 if (!Array.isArray(appointments)) appointments = [];
                 const index = appointments.findIndex(apt => apt && String(apt.id) === idStr);
                 if (index >= 0) {
@@ -3885,15 +3901,24 @@ async function getLatestAppointmentById(appointmentId) {
                 } else {
                     appointments.push({ ...found });
                 }
-                try {
-                    localStorage.setItem('appointments', JSON.stringify(appointments));
-                } catch (_storageErr) {
-                    // 若無法寫入 localStorage，忽略
+                try { localStorage.setItem('appointments', JSON.stringify(appointments)); } catch (_storageErr) {}
+            }
+        } catch (_err) {}
+    }
+
+    // 最後回退：重新讀取掛號列表後尋找
+    if (!found) {
+        try {
+            const listRes = await window.firebaseDataManager.getAppointments();
+            if (listRes && listRes.success && Array.isArray(listRes.data)) {
+                const fromList = listRes.data.find(item => item && String(item.id) === idStr) || null;
+                if (fromList) {
+                    found = fromList;
+                    appointments = listRes.data.map(item => ({ ...item }));
+                    try { localStorage.setItem('appointments', JSON.stringify(appointments)); } catch (_e) {}
                 }
             }
-        } catch (err) {
-            console.error('getLatestAppointmentById: 讀取單筆掛號時發生錯誤:', err);
-        }
+        } catch (_e) {}
     }
 
     return found || null;
@@ -7504,14 +7529,7 @@ async function confirmPatientArrival(appointmentId) {
         setButtonLoading(loadingButton, '處理中...');
     }
     try {
-        // 從 Firebase 獲取病人資料
-        // 使用 forceRefresh=true 以確保跨裝置同步取得最新病人資料
-        const result = await safeGetPatients(true);
-        if (!result.success) {
-            showToast('無法讀取病人資料！', 'error');
-            return;
-        }
-        const patient = result.data.find(p => p.id === appointment.patientId);
+        const patient = await getPatientByIdWithRefresh(appointment.patientId);
         if (!patient) {
             showToast('找不到病人資料！', 'error');
             return;
@@ -7821,14 +7839,7 @@ async function startConsultation(appointmentId) {
         setButtonLoading(loadingButton, '處理中...');
     }
     try {
-        // 從 Firebase 獲取病人資料
-        // 使用 forceRefresh=true 以確保跨裝置同步取得最新病人資料
-        const result = await safeGetPatients(true);
-        if (!result.success) {
-            showToast('無法讀取病人資料！', 'error');
-            return;
-        }
-        const patient = result.data.find(p => p.id === appointment.patientId);
+        const patient = await getPatientByIdWithRefresh(appointment.patientId);
         if (!patient) {
             showToast('找不到病人資料！', 'error');
             return;
