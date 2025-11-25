@@ -15803,7 +15803,7 @@ function parseBillingItemsFromText(billingText) {
             }
             
             // 確認是否為相同病人
-            if (currentAppointment.patientId !== consultation.patientId) {
+            if (String(currentAppointment.patientId) !== String(consultation.patientId)) {
                 showToast('只能載入相同病人的病歷記錄！', 'error');
                 return;
             }
