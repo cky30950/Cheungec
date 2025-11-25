@@ -27551,6 +27551,7 @@ function hideGlobalCopyright() {
           });
           const bounds = [[0, 0], [h, w]];
           L.imageOverlay(img.src, bounds).addTo(map);
+          try { map.invalidateSize(); } catch (_e) {}
           const baseZoom = map.getBoundsZoom(bounds);
           const initialZoom = baseZoom - 1;
           if (typeof map.setMinZoom === 'function') {
@@ -27563,6 +27564,14 @@ function hideGlobalCopyright() {
           }
           map.options.maxBoundsViscosity = 1.0;
           map.setView([h / 2, w / 2], initialZoom);
+          try {
+            setTimeout(function(){ try { map.invalidateSize(); } catch(_e) {} }, 50);
+            window.addEventListener('resize', function(){ try { map.invalidateSize(); } catch(_e) {} });
+            if (typeof ResizeObserver !== 'undefined') {
+              const ro = new ResizeObserver(function(){ try { map.invalidateSize(); } catch(_e) {} });
+              ro.observe(container);
+            }
+          } catch (_e) {}
           const defaultStyle = { color: '#2563eb', fillColor: '#2563eb', weight: 0, fillOpacity: 0.85, radius: 4 };
           const selectedStyle = { color: '#dc2626', fillColor: '#dc2626', weight: 0, fillOpacity: 0.85, radius: 5 };
           const library = Array.isArray(window.acupointLibrary) ? window.acupointLibrary : [];

@@ -288,26 +288,29 @@
                 });
                 const bounds = [[0,0],[h,w]];
                 L.imageOverlay(img.src, bounds).addTo(map);
-                // 計算當前容器下讓圖片恰好塞滿視窗的基礎縮放值
+                try { map.invalidateSize(); } catch (_e) {}
                 const baseZoom = map.getBoundsZoom(bounds);
-                // 為確保能完整看到圖片，將初始縮放再降低一級；這樣在較窄容器時也能完整顯示整張圖
                 const initialZoom = baseZoom - 1;
-                // 設定最小縮放等於計算後的初始縮放值，禁止再往下縮
                 if (typeof map.setMinZoom === 'function') {
                     map.setMinZoom(initialZoom);
                 } else {
                     map.options.minZoom = initialZoom;
                 }
-                // 設定地圖最大邊界，限制圖片邊界以外的拖動
                 if (typeof map.setMaxBounds === 'function') {
                     map.setMaxBounds(bounds);
                 }
-                // 增加邊界黏滯度，使地圖邊緣更難被拖離
                 map.options.maxBoundsViscosity = 1.0;
-                // 將地圖視圖移到圖片中心並套用初始縮放，讓頁面載入時就能看到整張圖
                 const centerLat = h / 2;
                 const centerLon = w / 2;
                 map.setView([centerLat, centerLon], initialZoom);
+                try {
+                    setTimeout(function(){ try { map.invalidateSize(); } catch(_e) {} }, 50);
+                    window.addEventListener('resize', function(){ try { map.invalidateSize(); } catch(_e) {} });
+                    if (typeof ResizeObserver !== 'undefined') {
+                        const ro = new ResizeObserver(function(){ try { map.invalidateSize(); } catch(_e) {} });
+                        ro.observe(mapContainer);
+                    }
+                } catch (_e) {}
 
                 // 調整滑鼠指標樣式
                 //
