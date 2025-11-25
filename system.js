@@ -3724,7 +3724,7 @@ async function waitForFirebaseDataManager() {
  * @param {boolean} forceRefresh 是否強制重新從資料庫載入
  * @returns {Promise<{ success: boolean, data: Array }>} 病人列表資料
  */
-async function safeGetPatients(forceRefresh = false) {
+async function safeGetPatients(_forceRefresh = false) {
   try {
     // 若數據管理器尚未建立，嘗試等待其建立，但不超過指定時間，避免在登入頁卡住
     if (!window.firebaseDataManager || typeof window.firebaseDataManager.getPatients !== 'function') {
@@ -3752,7 +3752,7 @@ async function safeGetPatients(forceRefresh = false) {
       return { success: false, data: [] };
     }
     // 呼叫原始 getPatients 取得資料
-    const result = await window.firebaseDataManager.getPatients(forceRefresh);
+    const result = await window.firebaseDataManager.getPatients();
     // 若結果為空或格式不正確仍回傳失敗狀態
     if (result && typeof result.success === 'boolean' && Array.isArray(result.data)) {
       return result;
@@ -20085,12 +20085,12 @@ class FirebaseDataManager {
         }
     }
 
-    async getPatientConsultations(patientId, forceRefresh = false) {
+    async getPatientConsultations(patientId, _forceRefresh = false) {
         if (!this.isReady) return { success: false, data: [] };
 
         try {
-            // 若快取存在且不需要強制刷新，直接回傳快取資料
-            if (!forceRefresh && patientConsultationsCache && Array.isArray(patientConsultationsCache[patientId])) {
+            // 若快取存在，直接回傳快取資料
+            if (patientConsultationsCache && Array.isArray(patientConsultationsCache[patientId])) {
                 return { success: true, data: patientConsultationsCache[patientId] };
             }
             /**
