@@ -5058,6 +5058,45 @@
   "updatedAt": "2025-08-12T10:24:05.999Z"
 },
 {
+  "id": 1756000000002,
+  "name": "蟬蛻",
+  "alias": "蟬衣、蟬退",
+  "nature": "甘，寒",
+  "meridian": "肺、肝經",
+  "effects": "疏散風熱，利咽開音，透疹，明目退翳，解痙",
+  "indications": "風熱感冒，咽痛音啞，麻疹不透，風疹瘙癢，目赤翳障，驚風抽搐，破傷風",
+  "dosage": "3-6g",
+  "cautions": "孕婦慎用",
+  "type": "herb",
+  "englishName": "ChanTui"
+},
+{
+  "id": 1756000000003,
+  "name": "山楂",
+  "alias": "山裡紅、紅果",
+  "nature": "酸、甘，微溫",
+  "meridian": "脾、胃、肝經",
+  "effects": "消食健胃，行氣散瘀，化濁降脂",
+  "indications": "肉食積滯，胃脘脹滿，瀉痢腹痛，瘀血經閉，產後瘀阻，心腹刺痛，高脂血症",
+  "dosage": "9-12g",
+  "cautions": "胃酸過多者慎服",
+  "type": "herb",
+  "englishName": "ShanZha"
+},
+{
+  "id": 1756000000004,
+  "name": "鹽黃柏",
+  "alias": "鹽製黃柏",
+  "nature": "苦，寒",
+  "meridian": "腎、膀胱經",
+  "effects": "清熱燥濕，瀉火除蒸，解毒療瘡，引藥下行",
+  "indications": "濕熱下注，帶下陰癢，熱淋澀痛，骨蒸勞熱，盜汗遺精，瘡瘍腫毒",
+  "dosage": "3-9g",
+  "cautions": "脾胃虛寒者忌用",
+  "type": "herb",
+  "englishName": "YanHuangBai"
+},
+{
   "id": 1756000000001,
   "name": "滑石",
   "alias": "畫石、液石",
