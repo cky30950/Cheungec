@@ -12007,38 +12007,22 @@ async function loadPatientConsultationSummary(patientId) {
     }
 
     try {
-        let lastConsultation = null;
-        try {
-            const storedLatest = localStorage.getItem('latestConsultation:' + String(patientId));
-            if (storedLatest) {
-                const obj = JSON.parse(storedLatest);
-                if (obj && obj.id) lastConsultation = obj;
-            }
-        } catch (_e) {}
-        if (!lastConsultation) {
-            const latestRes = await window.firebaseDataManager.getLatestConsultationByPatientId(patientId);
-            if (latestRes && latestRes.success) {
-                lastConsultation = latestRes.data;
-            }
-        }
-        let totalConsultations = 0;
-        try {
-            const storedList = localStorage.getItem('patientConsultations:' + String(patientId));
-            if (storedList) {
-                const arr = JSON.parse(storedList);
-                if (Array.isArray(arr)) totalConsultations = arr.length;
-            }
-        } catch (_e) {}
-        if (!totalConsultations && lastConsultation) totalConsultations = 1;
-        if (!lastConsultation) {
+        // 始終強制從資料庫取得最新的診症記錄，避免跨裝置快取不一致
+        const result = await window.firebaseDataManager.getPatientConsultations(patientId, true);
+        
+        if (!result.success) {
             summaryContainer.innerHTML = `
                 <div class="text-center py-8 text-gray-500">
-                    <div class="text-4xl mb-2">📋</div>
-                    <div>尚無診療記錄</div>
+                    <div class="text-4xl mb-2">❌</div>
+                    <div>無法載入診療記錄</div>
                 </div>
             `;
             return;
         }
+
+        const consultations = result.data;
+        const totalConsultations = consultations.length;
+        const lastConsultation = consultations[0]; // 最新的診療記錄
 
         // 取得並計算套票狀態
         let packageStatusHtml = '';
@@ -12374,8 +12358,8 @@ async function loadPatientConsultationSummary(patientId) {
 
         // 格式化最後診療日期
         const lastConsultationDate = lastConsultation.date ? 
-            (lastConsultation.date.seconds ? new Date(lastConsultation.date.seconds * 1000).toLocaleDateString('zh-TW') : new Date(lastConsultation.date).toLocaleDateString('zh-TW')) : 
-            (lastConsultation.createdAt && lastConsultation.createdAt.seconds ? new Date(lastConsultation.createdAt.seconds * 1000).toLocaleDateString('zh-TW') : new Date(lastConsultation.createdAt).toLocaleDateString('zh-TW'));
+            new Date(lastConsultation.date.seconds * 1000).toLocaleDateString('zh-TW') : 
+            new Date(lastConsultation.createdAt.seconds * 1000).toLocaleDateString('zh-TW');
 
         // 格式化下次複診日期
         const nextFollowUp = lastConsultation.followUpDate ? 
@@ -19664,7 +19648,6 @@ class FirebaseDataManager {
                 if (consultationData && consultationData.patientId) {
                     delete patientConsultationsCache[consultationData.patientId];
                     try { localStorage.removeItem('patientConsultations:' + String(consultationData.patientId)); } catch (_e) {}
-                    try { localStorage.removeItem('latestConsultation:' + String(consultationData.patientId)); } catch (_e) {}
                 } else {
                     // 如果缺少病人 ID，清除所有病人診症快取
                     patientConsultationsCache = {};
@@ -20168,7 +20151,6 @@ class FirebaseDataManager {
                 if (consultationData && consultationData.patientId) {
                     delete patientConsultationsCache[consultationData.patientId];
                     try { localStorage.removeItem('patientConsultations:' + String(consultationData.patientId)); } catch (_e) {}
-                    try { localStorage.removeItem('latestConsultation:' + String(consultationData.patientId)); } catch (_e) {}
                 } else {
                     // 如果無法確定病人 ID，則清除所有病人診症快取
                     patientConsultationsCache = {};
@@ -20232,69 +20214,6 @@ class FirebaseDataManager {
         } catch (error) {
             console.error('讀取病人診症記錄失敗:', error);
             return { success: false, data: [] };
-        }
-    }
-
-    async getLatestConsultationByPatientId(patientId) {
-        if (!this.isReady) return { success: false, data: null };
-        try {
-            const pid = String(patientId);
-            try {
-                const stored = localStorage.getItem('latestConsultation:' + pid);
-                if (stored) {
-                    const obj = JSON.parse(stored);
-                    if (obj && obj.id) {
-                        return { success: true, data: obj };
-                    }
-                }
-            } catch (_e) {}
-            const colRef = window.firebase.collection(window.firebase.db, 'consultations');
-            let latest = null;
-            try {
-                let q = window.firebase.firestoreQuery(
-                    colRef,
-                    window.firebase.where('patientId', '==', pid),
-                    window.firebase.orderBy('date', 'desc'),
-                    window.firebase.limit(1)
-                );
-                let snap = await window.firebase.getDocs(q);
-                snap.forEach(d => { latest = { id: d.id, ...d.data() }; });
-                if (!latest) {
-                    q = window.firebase.firestoreQuery(
-                        colRef,
-                        window.firebase.where('patientId', '==', pid),
-                        window.firebase.orderBy('createdAt', 'desc'),
-                        window.firebase.limit(1)
-                    );
-                    snap = await window.firebase.getDocs(q);
-                    snap.forEach(d => { latest = { id: d.id, ...d.data() }; });
-                }
-            } catch (_queryErr) {}
-            if (!latest) {
-                try {
-                    const q2 = window.firebase.firestoreQuery(
-                        colRef,
-                        window.firebase.where('patientId', '==', pid),
-                        window.firebase.limit(20)
-                    );
-                    const snap2 = await window.firebase.getDocs(q2);
-                    const arr = [];
-                    snap2.forEach(d => arr.push({ id: d.id, ...d.data() }));
-                    arr.sort((a, b) => {
-                        const da = a.date ? (a.date.seconds ? new Date(a.date.seconds * 1000) : new Date(a.date)) : (a.createdAt && a.createdAt.seconds ? new Date(a.createdAt.seconds * 1000) : new Date(a.createdAt));
-                        const db = b.date ? (b.date.seconds ? new Date(b.date.seconds * 1000) : new Date(b.date)) : (b.createdAt && b.createdAt.seconds ? new Date(b.createdAt.seconds * 1000) : new Date(b.createdAt));
-                        return db - da;
-                    });
-                    latest = arr[0] || null;
-                } catch (_fallbackErr) {}
-            }
-            if (latest) {
-                try { localStorage.setItem('latestConsultation:' + pid, JSON.stringify(latest)); } catch (_e) {}
-                return { success: true, data: latest };
-            }
-            return { success: false, data: null };
-        } catch (_err) {
-            return { success: false, data: null };
         }
     }
     // 用戶數據管理
@@ -22529,9 +22448,6 @@ async function deleteMedicalRecord(recordId) {
                     const keys = Object.keys(localStorage);
                     for (const k of keys) {
                         if (k && k.indexOf('patientConsultations:') === 0) {
-                            try { localStorage.removeItem(k); } catch (_e) {}
-                        }
-                        if (k && k.indexOf('latestConsultation:') === 0) {
                             try { localStorage.removeItem(k); } catch (_e) {}
                         }
                     }
