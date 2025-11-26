@@ -963,31 +963,33 @@ async function loadPersonalStatistics() {
     window.personalStatsCache = window.personalStatsCache || {};
     const existing = window.personalStatsCache[cacheKey] || readCache('personalStatsCache', cacheKey);
     if (!existing) {
-        try {
-            if (window.firebaseDataManager && window.firebaseDataManager.isReady) {
-                const res = await window.firebaseDataManager.getConsultationsByDoctor(currentUser);
-                if (res && res.success) {
-                    consultations = res.data.map(item => {
-                        let dateStr = null;
-                        if (item.date) {
-                            if (typeof item.date === 'object' && item.date.seconds) {
-                                dateStr = new Date(item.date.seconds * 1000).toISOString();
-                            } else {
-                                dateStr = item.date;
+        if (!Array.isArray(consultations) || consultations.length === 0) {
+            try {
+                if (window.firebaseDataManager && window.firebaseDataManager.isReady) {
+                    const res = await window.firebaseDataManager.getConsultationsByDoctor(currentUser);
+                    if (res && res.success) {
+                        consultations = res.data.map(item => {
+                            let dateStr = null;
+                            if (item.date) {
+                                if (typeof item.date === 'object' && item.date.seconds) {
+                                    dateStr = new Date(item.date.seconds * 1000).toISOString();
+                                } else {
+                                    dateStr = item.date;
+                                }
+                            } else if (item.createdAt) {
+                                if (typeof item.createdAt === 'object' && item.createdAt.seconds) {
+                                    dateStr = new Date(item.createdAt.seconds * 1000).toISOString();
+                                } else {
+                                    dateStr = item.createdAt;
+                                }
                             }
-                        } else if (item.createdAt) {
-                            if (typeof item.createdAt === 'object' && item.createdAt.seconds) {
-                                dateStr = new Date(item.createdAt.seconds * 1000).toISOString();
-                            } else {
-                                dateStr = item.createdAt;
-                            }
-                        }
-                        return { id: item.id, date: dateStr, doctor: item.doctor, prescription: item.prescription, acupunctureNotes: item.acupunctureNotes, createdAt: item.createdAt, updatedAt: item.updatedAt };
-                    });
+                            return { id: item.id, date: dateStr, doctor: item.doctor, prescription: item.prescription, acupunctureNotes: item.acupunctureNotes, createdAt: item.createdAt, updatedAt: item.updatedAt };
+                        });
+                    }
                 }
+            } catch (_e) {
+                console.error('載入診症資料失敗：', _e);
             }
-        } catch (_e) {
-            console.error('載入診症資料失敗：', _e);
         }
     } else {
         try {
