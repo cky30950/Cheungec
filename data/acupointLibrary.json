@@ -8302,5 +8302,48 @@
         "category": "經外奇穴下肢部",
         "englishName": "Bafeng (Eight Winds)",
         "internationalCode": "EX-LE10"
+      },
+      {
+        "id": 390,
+        "name": "齦交",
+        "meridian": "督脈",
+        "location": "上唇內，上唇繫帶與齒齦相接處",
+        "functions": [
+          "清熱開竅",
+          "寧神鎮痙",
+          "消腫止痛"
+        ],
+        "indications": [
+          "牙齦腫痛",
+          "鼻淵",
+          "癲狂",
+          "腰痛",
+          "痔疾"
+        ],
+        "method": "向上斜刺0.2-0.3寸，或點刺出血",
+        "category": "督脈穴",
+        "englishName": "Yinjiao (Gum Intersection)",
+        "internationalCode": "DU-28"
+      },
+      {
+        "id": 391,
+        "name": "聚泉",
+        "meridian": "經外奇穴",
+        "location": "口腔內，舌背正中線上，舌中1/3與後1/3交界處",
+        "functions": [
+          "清心開竅",
+          "利咽消腫",
+          "止嘔"
+        ],
+        "indications": [
+          "舌強不語",
+          "味覺減退",
+          "嘔吐",
+          "消渴"
+        ],
+        "method": "直刺0.1-0.2寸，或點刺出血",
+        "category": "經外奇穴頭頸部",
+        "englishName": "Juquan (Gathering Spring)",
+        "internationalCode": "EX-HN10"
       }
     ]

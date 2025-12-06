@@ -27546,7 +27546,7 @@ function hideGlobalCopyright() {
         try {
           const w = img.width;
           const h = img.height;
-          // 套用座標資料，以確保所有穴位都具備 x/y
+          // 套用座標資料，以確保所有穴位都具備 x/y 或 multiCoords
           try {
             if (typeof window.applyAcupointCoordinates === 'function') {
               window.applyAcupointCoordinates();
@@ -27582,53 +27582,85 @@ function hideGlobalCopyright() {
               ro.observe(container);
             }
           } catch (_e) {}
+          
           const defaultStyle = { color: '#2563eb', fillColor: '#2563eb', weight: 0, fillOpacity: 0.85, radius: 4 };
           const selectedStyle = { color: '#dc2626', fillColor: '#dc2626', weight: 0, fillOpacity: 0.85, radius: 5 };
           const library = Array.isArray(window.acupointLibrary) ? window.acupointLibrary : [];
+          
+          // --- 修改開始：支援多座標顯示 ---
           library.forEach(ac => {
-            if (ac && typeof ac.x === 'number' && typeof ac.y === 'number') {
-              const lat = h * ac.y;
-              const lon = w * ac.x;
-              const marker = L.circleMarker([lat, lon], Object.assign({}, defaultStyle));
-              marker.acName = ac.name || '';
-              marker.selected = false;
-              // 若穴位已在備註中或預設選取，標記為已選
-              if (existingSet.has(marker.acName) || selectedNames.includes(marker.acName)) {
-                marker.selected = true;
-                marker.setStyle(selectedStyle);
-              }
-              marker.addTo(map);
-              // 切換選取狀態
-              marker.on('click', function() {
-                marker.selected = !marker.selected;
-                if (marker.selected) {
-                  marker.setStyle(selectedStyle);
-                  if (!selectedNames.includes(marker.acName)) {
-                    selectedNames.push(marker.acName);
-                  }
-                } else {
-                  marker.setStyle(defaultStyle);
-                  const idx = selectedNames.indexOf(marker.acName);
-                  if (idx >= 0) {
-                    selectedNames.splice(idx, 1);
-                  }
-                }
-              });
-              // 綁定簡易提示或詳細內容
-              try {
-                let tooltipContent = '';
-                if (typeof getAcupointTooltipContent === 'function') {
-                  tooltipContent = getAcupointTooltipContent(marker.acName) || '';
-                } else {
-                  tooltipContent = marker.acName;
-                }
-                const html = String(tooltipContent).replace(/\n/g, '<br>');
-                marker.bindTooltip(html, { direction: 'top', offset: [0, -10], opacity: 0.9 });
-              } catch (_tipErr) {
-                // 如果無法取得提示則忽略
-              }
+            if (!ac) return;
+
+            // 決定要繪製的座標列表
+            let pointsToDraw = [];
+            // 優先檢查是否有 multiCoords (由 acupointIntegration.js 產生)
+            if (ac.multiCoords && Array.isArray(ac.multiCoords)) {
+                pointsToDraw = ac.multiCoords;
+            } else if (typeof ac.x === 'number' && typeof ac.y === 'number') {
+                // 回退支援單一座標
+                pointsToDraw = [{x: ac.x, y: ac.y}];
             }
+
+            // 遍歷所有座標進行繪製
+            pointsToDraw.forEach(pt => {
+                if (typeof pt.x !== 'number' || typeof pt.y !== 'number') return;
+
+                const lat = h * pt.y;
+                const lon = w * pt.x;
+                const marker = L.circleMarker([lat, lon], Object.assign({}, defaultStyle));
+                
+                marker.acName = ac.name || '';
+                marker.selected = false;
+                
+                // 若穴位已在備註中或預設選取，標記為已選
+                if (existingSet.has(marker.acName) || selectedNames.includes(marker.acName)) {
+                  marker.selected = true;
+                  marker.setStyle(selectedStyle);
+                }
+                marker.addTo(map);
+                
+                // 切換選取狀態
+                marker.on('click', function() {
+                  marker.selected = !marker.selected;
+                  if (marker.selected) {
+                    marker.setStyle(selectedStyle);
+                    if (!selectedNames.includes(marker.acName)) {
+                      selectedNames.push(marker.acName);
+                    }
+                  } else {
+                    marker.setStyle(defaultStyle);
+                    const idx = selectedNames.indexOf(marker.acName);
+                    if (idx >= 0) {
+                      selectedNames.splice(idx, 1);
+                    }
+                  }
+                  
+                  // 同步更新地圖上所有同名穴位的視覺狀態（可選功能，提升體驗）
+                  map.eachLayer(function(layer) {
+                      if (layer instanceof L.CircleMarker && layer.acName === marker.acName) {
+                          layer.selected = marker.selected;
+                          layer.setStyle(marker.selected ? selectedStyle : defaultStyle);
+                      }
+                  });
+                });
+                
+                // 綁定簡易提示或詳細內容
+                try {
+                  let tooltipContent = '';
+                  if (typeof getAcupointTooltipContent === 'function') {
+                    tooltipContent = getAcupointTooltipContent(marker.acName) || '';
+                  } else {
+                    tooltipContent = marker.acName;
+                  }
+                  const html = String(tooltipContent).replace(/\n/g, '<br>');
+                  marker.bindTooltip(html, { direction: 'top', offset: [0, -10], opacity: 0.9 });
+                } catch (_tipErr) {
+                  // 如果無法取得提示則忽略
+                }
+            });
           });
+          // --- 修改結束 ---
+
         } catch (innerErr) {
           console.error('初始化穴位選擇地圖時發生錯誤：', innerErr);
         }
