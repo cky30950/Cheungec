@@ -4395,6 +4395,20 @@
       "usage": "水煎服",
       "updatedAt": "2025-08-20T10:00:00.002Z",
       "englishName": "QingFeiTang"
+    },
+    {
+      "id": 1755900000001,
+      "type": "formula",
+      "name": "逍遙散",
+      "composition": "柴胡\n當歸\n白芍\n白朮\n茯苓\n甘草\n薄荷\n生薑",
+      "createdAt": "2025-08-21T10:00:00.001Z",
+      "source": "太平惠民和劑局方",
+      "effects": "疏肝解鬱，養血健脾",
+      "cautions": "陰虛陽亢者慎用",
+      "indications": "肝鬱血虛脾弱，兩脅作痛，頭痛目眩，口燥咽乾，神疲食少，或月經不調，乳房脹痛",
+      "usage": "散劑，溫開水送服；或水煎服",
+      "updatedAt": "2025-08-21T10:00:00.001Z",
+      "englishName": "XiaoYaoSan"
     }
   ]
 }
