@@ -14888,80 +14888,103 @@ async function initializeSystemAfterLogin() {
             }
         }
         
-        // 收費項目搜索功能
+// 收費項目搜索功能
 async function searchBillingForConsultation() {
-            const searchTerm = document.getElementById('billingSearch').value.trim().toLowerCase();
-            const resultsContainer = document.getElementById('billingSearchResults');
-            const resultsList = document.getElementById('billingSearchList');
+    const searchTerm = document.getElementById('billingSearch').value.trim().toLowerCase();
+    const resultsContainer = document.getElementById('billingSearchResults');
+    const resultsList = document.getElementById('billingSearchList');
 
-            if (searchTerm.length < 1) {
-                resultsContainer.classList.add('hidden');
-                return;
-            }
+    if (searchTerm.length < 1) {
+        resultsContainer.classList.add('hidden');
+        return;
+    }
 
-            // 確保收費項目資料已載入。若尚未載入，呼叫初始化函式載入本地或遠端資料。
-            try {
-                if (typeof initBillingItems === 'function' && !billingItemsLoaded) {
-                    await initBillingItems();
-                }
-            } catch (err) {
-                console.error('載入收費項目資料時發生錯誤:', err);
-            }
-
-            // 檢查是否仍無資料，避免搜尋出現空白
-            const itemsForSearch = Array.isArray(billingItems) ? billingItems : [];
-
-            // 搜索匹配的收費項目（只顯示啟用的項目）
-            const matchedItems = itemsForSearch.filter(item => 
-                item && item.active && (
-                    (item.name && item.name.toLowerCase().includes(searchTerm)) ||
-                    (item.description && item.description.toLowerCase().includes(searchTerm))
-                )
-            ).slice(0, 10); // 限制顯示前10個結果
-
-            if (!matchedItems || matchedItems.length === 0) {
-                resultsList.innerHTML = `
-                    <div class="p-3 text-center text-gray-500 text-sm">
-                        找不到符合條件的收費項目
-                    </div>
-                `;
-                resultsContainer.classList.remove('hidden');
-                return;
-            }
-
-            // 顯示搜索結果
-            resultsList.innerHTML = matchedItems.map(item => {
-                const categoryNames = {
-                    consultation: '診療費',
-                    medicine: '藥費',
-                    treatment: '治療費',
-                    other: '其他',
-                    discount: '折扣項目',
-                    package: '套票項目',
-                    packageUse: '套票使用'
-                };
-                const categoryName = categoryNames[item.category] || '未分類';
-                const bgColor = getCategoryBgColor(item.category);
-
-                return `
-                    <div class="p-3 ${bgColor} border rounded-lg cursor-pointer transition duration-200" onclick="addToBilling('${item.id}')">
-                        <div class="text-center">
-                            <div class="font-semibold text-gray-900 text-sm mb-1">${item.name}</div>
-                            <div class="text-xs bg-white text-gray-600 px-2 py-1 rounded mb-2">${categoryName}</div>
-                            ${item.category !== 'discount' ? `
-                                <div class="text-sm font-bold text-green-600">
-                                    $${item.price}
-                                </div>
-                            ` : ''}
-                            ${item.unit ? `<div class="text-xs text-gray-600">/ ${item.unit}</div>` : ''}
-                            ${item.description ? `<div class="text-xs text-gray-600 mt-1">${item.description.substring(0, 30)}${item.description.length > 30 ? '...' : ''}</div>` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            resultsContainer.classList.remove('hidden');
+    // 確保收費項目資料已載入。若尚未載入，呼叫初始化函式載入本地或遠端資料。
+    try {
+        if (typeof initBillingItems === 'function' && !billingItemsLoaded) {
+            await initBillingItems();
         }
+    } catch (err) {
+        console.error('載入收費項目資料時發生錯誤:', err);
+    }
+
+    // 檢查是否仍無資料，避免搜尋出現空白
+    const itemsForSearch = Array.isArray(billingItems) ? billingItems : [];
+
+    // 搜索匹配的收費項目，並根據匹配程度排序
+    // 邏輯：名稱優先於描述，越接近開頭的匹配結果排序越前
+    let matchedItems = itemsForSearch
+        .map(item => {
+            // 只處理啟用的項目
+            if (!item || !item.active) return null;
+
+            const name = (item.name || '').toLowerCase();
+            const desc = (item.description || '').toLowerCase();
+            let score = -1;
+
+            if (name === searchTerm) {
+                score = 0; // 名稱完全匹配優先級最高
+            } else if (name.startsWith(searchTerm)) {
+                score = 10; // 名稱以關鍵字開頭次之
+            } else if (name.includes(searchTerm)) {
+                score = 100 + name.indexOf(searchTerm); // 名稱包含關鍵字，越靠前分數越低
+            } else if (desc.includes(searchTerm)) {
+                score = 1000 + desc.indexOf(searchTerm); // 描述包含關鍵字，優先級最低
+            }
+
+            // 若無匹配則返回 null
+            if (score === -1) return null;
+
+            return { item, score };
+        })
+        .filter(entry => entry !== null) // 過濾掉無匹配項目
+        .sort((a, b) => a.score - b.score) // 依分數由小到大排序
+        .map(entry => entry.item) // 取回原始項目物件
+        .slice(0, 10); // 限制顯示前10個結果
+
+    if (!matchedItems || matchedItems.length === 0) {
+        resultsList.innerHTML = `
+            <div class="p-3 text-center text-gray-500 text-sm">
+                找不到符合條件的收費項目
+            </div>
+        `;
+        resultsContainer.classList.remove('hidden');
+        return;
+    }
+
+    // 顯示搜索結果
+    resultsList.innerHTML = matchedItems.map(item => {
+        const categoryNames = {
+            consultation: '診療費',
+            medicine: '藥費',
+            treatment: '治療費',
+            other: '其他',
+            discount: '折扣項目',
+            package: '套票項目',
+            packageUse: '套票使用'
+        };
+        const categoryName = categoryNames[item.category] || '未分類';
+        const bgColor = getCategoryBgColor(item.category);
+
+        return `
+            <div class="p-3 ${bgColor} border rounded-lg cursor-pointer transition duration-200" onclick="addToBilling('${item.id}')">
+                <div class="text-center">
+                    <div class="font-semibold text-gray-900 text-sm mb-1">${item.name}</div>
+                    <div class="text-xs bg-white text-gray-600 px-2 py-1 rounded mb-2">${categoryName}</div>
+                    ${item.category !== 'discount' ? `
+                        <div class="text-sm font-bold text-green-600">
+                            $${item.price}
+                        </div>
+                    ` : ''}
+                    ${item.unit ? `<div class="text-xs text-gray-600">/ ${item.unit}</div>` : ''}
+                    ${item.description ? `<div class="text-xs text-gray-600 mt-1">${item.description.substring(0, 30)}${item.description.length > 30 ? '...' : ''}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    resultsContainer.classList.remove('hidden');
+}
         
         // 獲取類別背景顏色
         function getCategoryBgColor(category) {
