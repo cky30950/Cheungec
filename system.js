@@ -2741,6 +2741,7 @@ async function updateInventoryAfterConsultation(consultationId, items, days, fre
         }
     }
     const log = {};
+    const historyEntries = [];
     for (const item of items) {
         if (!item || !item.id) continue;
         const dosageStr = item.customDosage || item.dosage || '';
@@ -2763,9 +2764,11 @@ async function updateInventoryAfterConsultation(consultationId, items, days, fre
             /* 忽略本地更新錯誤 */
         }
         log[String(item.id)] = consumption;
+        historyEntries.push({ itemId: String(item.id), quantity: consumption, unit: inv.unit || 'g' });
     }
     // 將新的消耗量記錄到 inventoryLogs
     await window.firebase.set(window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId)), log);
+    try { await recordInventoryHistory('out', historyEntries, { consultationId: String(consultationId) }); } catch (_e) {}
     // 保存後立即更新處方顯示，以便呈現最新庫存
     try {
         if (typeof updatePrescriptionDisplay === 'function') {
@@ -3452,6 +3455,7 @@ async function saveInventoryChanges() {
                     /* 忽略初始化錯誤 */
                 }
                 // 處理每一行新增的中藥／方劑
+                const historyEntries = [];
                 for (const row of rows) {
                     const qtyInput = row.querySelector('input.batch-herb-qty');
                     let herbId = '';
@@ -3504,7 +3508,9 @@ async function saveInventoryChanges() {
                     } catch (_e) {
                         /* 忽略本地更新錯誤 */
                     }
+                    historyEntries.push({ itemId: String(herbId), quantity: qVal, unit: unitVal });
                 }
+                try { await recordInventoryHistory('in', historyEntries, { mode: selectedInventoryMode }); } catch (_e) {}
                 // 顯示成功訊息
                 showToast((typeof window.t === 'function') ? window.t('庫存已更新！') : '庫存已更新！', 'success');
                 // 隱藏批量入庫對話框
@@ -3544,6 +3550,180 @@ async function saveInventoryChanges() {
             }
         }
 
+        async function recordInventoryHistory(type, entries, extra = {}) {
+            await waitForFirebaseDb();
+            const ts = Date.now();
+            const ref = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/' + String(type) + '/' + String(ts));
+            const data = { timestamp: ts, entries: Array.isArray(entries) ? entries : [] };
+            for (const k in extra) { data[k] = extra[k]; }
+            await window.firebase.set(ref, data);
+        }
+
+        function openInventoryHistoryModal() {
+            const modal = document.getElementById('inventoryHistoryModal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            switchInventoryHistoryTab('in');
+            loadInventoryHistory('in');
+            loadInventoryHistory('out');
+        }
+
+        function hideInventoryHistoryModal() {
+            const modal = document.getElementById('inventoryHistoryModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+        }
+
+        function switchInventoryHistoryTab(tab) {
+            const inEl = document.getElementById('inventoryHistoryIn');
+            const outEl = document.getElementById('inventoryHistoryOut');
+            const tabIn = document.getElementById('historyTabIn');
+            const tabOut = document.getElementById('historyTabOut');
+            if (!inEl || !outEl || !tabIn || !tabOut) return;
+            if (tab === 'in') {
+                inEl.classList.remove('hidden');
+                outEl.classList.add('hidden');
+                tabIn.classList.remove('bg-gray-100', 'text-gray-700');
+                tabIn.classList.add('bg-blue-100', 'text-blue-800');
+                tabOut.classList.remove('bg-blue-100', 'text-blue-800');
+                tabOut.classList.add('bg-gray-100', 'text-gray-700');
+            } else {
+                outEl.classList.remove('hidden');
+                inEl.classList.add('hidden');
+                tabOut.classList.remove('bg-gray-100', 'text-gray-700');
+                tabOut.classList.add('bg-blue-100', 'text-blue-800');
+                tabIn.classList.remove('bg-blue-100', 'text-blue-800');
+                tabIn.classList.add('bg-gray-100', 'text-gray-700');
+            }
+        }
+
+        function getHerbNameById(id) {
+            try {
+                if (Array.isArray(herbLibrary)) {
+                    const found = herbLibrary.find(h => String(h.id) === String(id));
+                    if (found && found.name) return found.name;
+                }
+            } catch (_e) {}
+            return String(id);
+        }
+
+        async function getMedicalRecordNumberByConsultationId(id) {
+            try {
+                if (window.firebaseDataManager && typeof window.firebaseDataManager.getConsultationById === 'function') {
+                    const res = await window.firebaseDataManager.getConsultationById(String(id));
+                    if (res && res.success && res.data) {
+                        return res.data.medicalRecordNumber || res.data.id;
+                    }
+                }
+            } catch (_e) {}
+            return String(id);
+        }
+
+        async function isConsultationMissing(id) {
+            try {
+                if (window.firebaseDataManager && typeof window.firebaseDataManager.getConsultationById === 'function') {
+                    const res = await window.firebaseDataManager.getConsultationById(String(id));
+                    return !(res && res.success && res.data);
+                }
+            } catch (_e) {}
+            return true;
+        }
+
+        async function loadInventoryHistory(type) {
+            await waitForFirebaseDb();
+            try {
+                if (typeof initHerbLibrary === 'function' && !herbLibraryLoaded) {
+                    await initHerbLibrary();
+                }
+            } catch (_e) {}
+            const containerId = type === 'in' ? 'inventoryHistoryIn' : 'inventoryHistoryOut';
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+            try {
+                const baseRef = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/' + String(type));
+                const q = window.firebase.query(baseRef, window.firebase.orderByChild('timestamp'), window.firebase.limitToLast(20));
+                let snap = null;
+                try { snap = await window.firebase.get(q); } catch (_qe) { snap = null; }
+                let obj = snap && snap.exists() ? snap.val() || {} : {};
+                if (!obj || Object.keys(obj).length === 0) {
+                    try {
+                        const snap2 = await window.firebase.get(baseRef);
+                        obj = snap2 && snap2.exists() ? snap2.val() || {} : {};
+                    } catch (_fe) {}
+                }
+                const keys = Object.keys(obj).sort((a, b) => Number(b) - Number(a)).slice(0, 20);
+                for (const k of keys) {
+                    const rec = obj[k] || {};
+                    const ts = Number(rec.timestamp || k);
+                    const timeText = new Date(ts).toLocaleString();
+                    const div = document.createElement('div');
+                    div.className = 'border rounded px-3 py-2';
+                    const items = Array.isArray(rec.entries) ? rec.entries : [];
+                    const lines = items.map(e => {
+                        const name = getHerbNameById(e.itemId);
+                        const qty = typeof e.quantity === 'number' ? e.quantity : 0;
+                        const unit = e.unit || 'g';
+                        return name + '：' + qty + unit;
+                    });
+                    const extra = [];
+                    if (type === 'in' && rec.mode) { extra.push('類型：' + rec.mode); }
+                    if (type === 'out' && rec.consultationId) {
+                        const mrn = await getMedicalRecordNumberByConsultationId(rec.consultationId);
+                        extra.push('病歷編號：' + mrn);
+                        const missing = await isConsultationMissing(rec.consultationId);
+                        if (missing) { extra.push('<span class="text-red-600">已退回</span>'); }
+                    }
+                    div.innerHTML = '<div class="text-sm text-gray-600">' + timeText + (extra.length ? '（' + extra.join('，') + '）' : '') + '</div>' +
+                        '<div class="mt-1 text-gray-800">' + (lines.length ? lines.join('；') : '無項目') + '</div>';
+                    container.appendChild(div);
+                }
+                if (!container.children.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'text-gray-500 px-3 py-2';
+                    empty.textContent = '暫無記錄';
+                    container.appendChild(empty);
+                }
+            } catch (_e) {}
+            if (type === 'out') {
+                try {
+                    const logsRef = window.firebase.ref(window.firebase.rtdb, 'inventoryLogs');
+                    const q2 = window.firebase.query(logsRef, window.firebase.orderByKey(), window.firebase.limitToLast(20));
+                    let logSnap = null;
+                    try { logSnap = await window.firebase.get(q2); } catch (_qe2) { logSnap = null; }
+                    let logObj = logSnap && logSnap.exists() ? logSnap.val() || {} : {};
+                    if (!logObj || Object.keys(logObj).length === 0) {
+                        try {
+                            const snapAll = await window.firebase.get(logsRef);
+                            logObj = snapAll && snapAll.exists() ? snapAll.val() || {} : {};
+                        } catch (_fe2) {}
+                    }
+                    const ids = Object.keys(logObj).slice(-20).reverse();
+                    for (const cid of ids) {
+                        const itemsObj = logObj[cid] || {};
+                        const div = document.createElement('div');
+                        div.className = 'border rounded px-3 py-2';
+                        const lines = Object.keys(itemsObj).map(itemId => {
+                            const name = getHerbNameById(itemId);
+                            const qty = typeof itemsObj[itemId] === 'number' ? itemsObj[itemId] : 0;
+                            return name + '：' + qty + 'g';
+                        });
+                        const mrn = await getMedicalRecordNumberByConsultationId(cid);
+                        const missing = await isConsultationMissing(cid);
+                        const extraTag = missing ? '，<span class="text-red-600">已退回</span>' : '';
+                        div.innerHTML = '<div class="text-sm text-gray-600">舊出庫記錄（病歷編號：' + mrn + extraTag + '）</div>' +
+                            '<div class="mt-1 text-gray-800">' + (lines.length ? lines.join('；') : '無項目') + '</div>';
+                        container.appendChild(div);
+                    }
+                    if (!container.children.length) {
+                        const empty2 = document.createElement('div');
+                        empty2.className = 'text-gray-500 px-3 py-2';
+                        empty2.textContent = '暫無記錄';
+                        container.appendChild(empty2);
+                    }
+                } catch (_e2) {}
+            }
+        }
         // 初始化穴位庫資料
         let acupointLibrary = [];
         // 穴位庫編輯狀態與篩選條件

@@ -1133,6 +1133,9 @@
                         <button id="batchInventoryBtn" onclick="openBatchInventoryModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
                             <span id="batchInventoryBtnText">批量入庫</span>
                         </button>
+                        <button id="inventoryHistoryBtn" onclick="openInventoryHistoryModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg">
+                            進出貨記錄
+                        </button>
                     </div>
                 </div>
                 <!-- 分類標籤 -->
@@ -1362,6 +1365,27 @@
                 <div class="overflow-x-auto">
                     <div id="herbLibraryList" class="space-y-4">
                         <!-- 中藥庫內容會動態載入 -->
+                    </div>
+                </div>
+                <!-- 進出貨記錄彈窗 -->
+                <div id="inventoryHistoryModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+                    <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div class="p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-xl font-bold">進出貨記錄</h3>
+                            </div>
+                            <div class="mb-4">
+                                <div class="flex space-x-2">
+                                    <button id="historyTabIn" onclick="switchInventoryHistoryTab('in')" class="px-4 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-800">入庫</button>
+                                    <button id="historyTabOut" onclick="switchInventoryHistoryTab('out')" class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200">出庫</button>
+                                </div>
+                            </div>
+                            <div id="inventoryHistoryIn" class="space-y-2"></div>
+                            <div id="inventoryHistoryOut" class="space-y-2 hidden"></div>
+                            <div class="mt-6 flex justify-end space-x-4">
+                                <button type="button" onclick="hideInventoryHistoryModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg">關閉</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2905,8 +2929,8 @@
         }
 
         @keyframes pulse {
-#scheduleManagement 0%, #scheduleManagement 100% { opacity: 1; }
-#scheduleManagement 50% { opacity: 0.7; }
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
 
 #scheduleManagement .drop-zone {
