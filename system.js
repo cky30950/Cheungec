@@ -15074,6 +15074,45 @@ async function initializeSystemAfterLogin() {
                         sel.removeAttribute('title');
                     }
                 });
+                if (prescriptions.length === 1) {
+                    const c = document.getElementById('singlePrescriptionModeContainer');
+                    const sel2 = c ? c.querySelector('#singlePrescriptionModeSelect') : null;
+                    const hasItems2 = Array.isArray(prescriptions[0].items) && prescriptions[0].items.length > 0;
+                    if (sel2) {
+                        if (hasItems2) {
+                            sel2.disabled = true;
+                            sel2.classList.add('opacity-50');
+                            sel2.classList.add('cursor-not-allowed');
+                            sel2.style.color = '#9ca3af';
+                            sel2.setAttribute('title', titleMsg);
+                        } else {
+                            sel2.disabled = false;
+                            sel2.classList.remove('opacity-50');
+                            sel2.classList.remove('cursor-not-allowed');
+                            sel2.style.color = '';
+                            sel2.removeAttribute('title');
+                        }
+                    }
+                }
+            } catch (_e) {}
+        }
+        
+        function updateSinglePrescriptionModePlacement() {
+            try {
+                const container = document.getElementById('singlePrescriptionModeContainer');
+                if (!container) return;
+                if (prescriptions.length === 1) {
+                    const mode = (prescriptions[0] && prescriptions[0].mode === 'slice') ? 'slice' : 'granule';
+                    container.innerHTML = `
+                        <select id="singlePrescriptionModeSelect" class="px-3 py-1 border border-yellow-300 rounded text-sm bg-white"
+                                onchange="updatePrescriptionModeAt(0, this.value)">
+                            <option value="granule" ${mode === 'granule' ? 'selected' : ''}>${typeof window.t === 'function' ? window.t('顆粒沖劑') : '顆粒沖劑'}</option>
+                            <option value="slice" ${mode === 'slice' ? 'selected' : ''}>${typeof window.t === 'function' ? window.t('飲片') : '飲片'}</option>
+                        </select>
+                    `;
+                } else {
+                    container.innerHTML = '';
+                }
             } catch (_e) {}
         }
         
@@ -15170,11 +15209,11 @@ async function initializeSystemAfterLogin() {
                                         class="${sIdx === activePrescriptionIndex ? 'bg-blue-600' : 'bg-gray-300'} text-white text-xs px-2 py-1 rounded">
                                     ${sIdx === activePrescriptionIndex ? '編輯中' : '設為編輯'}
                                 </button>` : ``}
-                                <select id="prescriptionModeSelect-${sIdx}" onchange="updatePrescriptionModeAt(${sIdx}, this.value)"
+                                ${!isSingle ? `<select id="prescriptionModeSelect-${sIdx}" onchange="updatePrescriptionModeAt(${sIdx}, this.value)"
                                         class="px-2 py-1 border border-yellow-300 rounded text-xs bg-white prescription-mode-select">
                                     <option value="granule" ${section.mode === 'slice' ? '' : 'selected'}>${typeof window.t === 'function' ? window.t('顆粒沖劑') : '顆粒沖劑'}</option>
                                     <option value="slice" ${section.mode === 'slice' ? 'selected' : ''}>${typeof window.t === 'function' ? window.t('飲片') : '飲片'}</option>
-                                </select>
+                                </select>` : ``}
                 `;
                 const rightControls = isSingle ? `` : `<button onclick="removePrescriptionSectionAt(${sIdx})" class="w-7 h-7 rounded-full bg-red-500 hover:bg-red-600 text-white text-sm flex items-center justify-center">✕</button>`;
                 const headerHtml = `
@@ -15332,6 +15371,7 @@ async function initializeSystemAfterLogin() {
                 return sectionContainer;
             }).join('');
             containerAll.innerHTML = allSectionsHtml;
+            try { updateSinglePrescriptionModePlacement(); } catch (_e) {}
             // 更新隱藏文本域（合併所有處方）
             let prescriptionText = '';
             prescriptions.forEach(section => {
