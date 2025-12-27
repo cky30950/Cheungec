@@ -406,65 +406,13 @@ function onPrescriptionTypeChange(type) {
 // 當使用者從中藥庫介面選擇顆粒沖劑或飲片時呼叫此函式。
 // 會同步調整診症系統的下拉選單並切換庫存模式，但若處方已有內容則不允許切換。
 function onInventoryTypeChange(type) {
-    // 檢查輸入類型有效
-    if (type !== 'granule' && type !== 'slice') {
-        return;
-    }
-    // 若處方中已有藥材且與當前庫存類別不同，不允許切換
-    try {
-        if (Array.isArray(selectedPrescriptionItems) && selectedPrescriptionItems.length > 0 && currentInventoryMode !== type) {
-            // 將庫存下拉選單的值還原為當前模式
-            const invSel = document.getElementById('inventoryTypeSelect');
-            if (invSel) {
-                invSel.value = currentInventoryMode;
-            }
-            // 顯示提醒：必須清空處方才能切換
-            try {
-                const langSel = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
-                const zhMsg = '請先刪除所有處方內容才能切換藥材類別';
-                const enMsg = 'Please remove all prescription items before switching inventory type';
-                const msg = (langSel && langSel.toLowerCase().startsWith('en')) ? enMsg : zhMsg;
-                showToast(msg, 'warning');
-            } catch (_toastErr) {
-                /* 忽略提示錯誤 */
-            }
-            return;
-        }
-    } catch (_e) {
-        /* 若檢查處方內容失敗，不阻止切換 */
-    }
-    // 同步診症系統的下拉選單（若未禁用）
-    try {
-        const presSel = document.getElementById('prescriptionTypeSelect');
-        if (presSel) {
-            // 更新值；若禁用則只改值而不觸發 onchange
-            presSel.value = type;
-        }
-    } catch (_e) {
-        /* 忽略同步錯誤 */
-    }
-    // 執行庫存類型切換
-    try {
-        changeInventoryType(type);
-    } catch (_e) {
-        /* 忽略庫存類型切換錯誤 */
-    }
-    // 若處方搜尋欄有內容，更新搜索結果以反映新庫存餘量
-    try {
-        const searchEl = document.getElementById('prescriptionSearch');
-        const query = searchEl && searchEl.value ? String(searchEl.value).trim() : '';
-        if (query && query.length > 0) {
-            setTimeout(function () {
-                try {
-                    searchHerbsForPrescription();
-                } catch (_e) {
-                    /* 忽略搜索錯誤 */
-                }
-            }, 300);
-        }
-    } catch (_e) {
-        /* 忽略搜尋錯誤 */
-    }
+    if (type !== 'granule' && type !== 'slice') return;
+    currentHerbLibraryViewMode = type;
+    ensureInventoryCacheForMode(type).then(() => {
+        try { displayHerbLibrary(); } catch (_e) {}
+    }).catch(() => {
+        try { displayHerbLibrary(); } catch (_e) {}
+    });
 }
 
 // 將庫存類型改變函式暴露到全域，以便中藥庫選單使用
@@ -475,6 +423,43 @@ window.onPrescriptionTypeChange = onPrescriptionTypeChange;
 
 // 將庫存切換函式暴露到全域，供 HTML 事件調用
 window.changeInventoryType = changeInventoryType;
+
+// 兩類庫存的本地快取，用於在多處方同時顯示不同模式的餘量
+let herbInventoryGranule = {};
+let herbInventorySlice = {};
+let herbInventoryGranuleInitialized = false;
+let herbInventorySliceInitialized = false;
+let currentHerbLibraryViewMode = 'granule';
+async function ensureInventoryCacheForMode(mode) {
+    await waitForFirebaseDb();
+    const path = mode === 'slice' ? 'herbInventorySlice' : 'herbInventory';
+    const ref = window.firebase.ref(window.firebase.rtdb, path);
+    try {
+        const snap = await window.firebase.get(ref);
+        const data = snap && snap.exists() ? snap.val() || {} : {};
+        if (mode === 'slice') {
+            herbInventorySlice = data;
+            herbInventorySliceInitialized = true;
+        } else {
+            herbInventoryGranule = data;
+            herbInventoryGranuleInitialized = true;
+        }
+    } catch (_e) {}
+}
+function getHerbInventoryFromView(itemId) {
+    const mode = currentHerbLibraryViewMode === 'slice' ? 'slice' : 'granule';
+    const obj = mode === 'slice' ? herbInventorySlice : herbInventoryGranule;
+    const inv = obj && obj[String(itemId)];
+    if (inv && typeof inv === 'object') {
+        return {
+            quantity: inv.quantity ?? 0,
+            threshold: inv.threshold ?? 0,
+            unit: inv.unit || 'g',
+            disabled: !!inv.disabled
+        };
+    }
+    return { quantity: 0, threshold: 0, unit: 'g', disabled: false };
+}
 
 /**
  * 確保在指定父元素之後存在分頁容器，若不存在則建立。
@@ -2562,6 +2547,15 @@ async function initHerbInventory(forceRefresh = false) {
         const snapshot = await window.firebase.get(inventoryRef);
         herbInventory = snapshot && snapshot.exists() ? snapshot.val() || {} : {};
         herbInventoryInitialized = true;
+        try {
+            if (currentInventoryMode === 'slice') {
+                herbInventorySlice = herbInventory;
+                herbInventorySliceInitialized = true;
+            } else {
+                herbInventoryGranule = herbInventory;
+                herbInventoryGranuleInitialized = true;
+            }
+        } catch (_e) {}
     } catch (error) {
         console.error('讀取中藥庫存資料失敗:', error);
         herbInventory = {};
@@ -2571,6 +2565,15 @@ async function initHerbInventory(forceRefresh = false) {
     if (!herbInventoryListenerAttached) {
         window.firebase.onValue(inventoryRef, (snap) => {
             herbInventory = snap && snap.exists() ? snap.val() || {} : {};
+            try {
+                if (currentInventoryMode === 'slice') {
+                    herbInventorySlice = herbInventory;
+                    herbInventorySliceInitialized = true;
+                } else {
+                    herbInventoryGranule = herbInventory;
+                    herbInventoryGranuleInitialized = true;
+                }
+            } catch (_e) {}
             // 若有顯示中藥庫，更新畫面
             try {
                 if (document.getElementById('herbLibraryList')) {
@@ -2642,6 +2645,52 @@ async function setHerbInventory(itemId, quantity, threshold, unit, disabled) {
 }
 
 /**
+ * 以指定模式讀取單一中藥或方劑的庫存資料（不受 currentInventoryMode 影響）。
+ * @param {string|number} itemId
+ * @param {'granule'|'slice'} mode
+ * @returns {Promise<{quantity:number,threshold:number,unit:string,disabled:boolean}>}
+ */
+async function getHerbInventoryForMode(itemId, mode) {
+    await waitForFirebaseDb();
+    const path = (mode === 'slice') ? 'herbInventorySlice' : 'herbInventory';
+    const ref = window.firebase.ref(window.firebase.rtdb, path + '/' + String(itemId));
+    try {
+        const snap = await window.firebase.get(ref);
+        if (snap && snap.exists()) {
+            const inv = snap.val() || {};
+            return {
+                quantity: inv.quantity ?? 0,
+                threshold: inv.threshold ?? 0,
+                unit: inv.unit || 'g',
+                disabled: !!inv.disabled
+            };
+        }
+    } catch (_e) {}
+    return { quantity: 0, threshold: 0, unit: 'g', disabled: false };
+}
+
+/**
+ * 以指定模式寫入單一中藥或方劑的庫存資料（不受 currentInventoryMode 影響）。
+ * @param {string|number} itemId
+ * @param {number} quantity
+ * @param {number} threshold
+ * @param {string} unit
+ * @param {boolean} disabled
+ * @param {'granule'|'slice'} mode
+ */
+async function setHerbInventoryForMode(itemId, quantity, threshold, unit, disabled, mode) {
+    await waitForFirebaseDb();
+    const data = {};
+    if (quantity !== undefined && quantity !== null) data.quantity = Number(quantity);
+    if (threshold !== undefined && threshold !== null) data.threshold = Number(threshold);
+    if (unit !== undefined && unit !== null) data.unit = unit;
+    if (disabled !== undefined && disabled !== null) data.disabled = !!disabled;
+    const path = (mode === 'slice') ? 'herbInventorySlice' : 'herbInventory';
+    const ref = window.firebase.ref(window.firebase.rtdb, path + '/' + String(itemId));
+    await window.firebase.update(ref, data);
+}
+
+/**
  * 在撤回或修改診症時，還原庫存。
  * 讀取 inventoryLogs/{consultationId} 中記錄的消耗量，依序加回庫存並刪除該紀錄。
  * @param {string|number} consultationId
@@ -2664,28 +2713,32 @@ async function revertInventoryForConsultation(consultationId) {
         const logSnap = await window.firebase.get(logRef);
         if (logSnap && logSnap.exists()) {
             const log = logSnap.val() || {};
-            for (const key in log) {
-                const consumption = Number(log[key]) || 0;
-                // 讀取當前庫存資料。若尚未存在該項目，提供預設值。
-                const inv = getHerbInventory(key);
-                // 將消耗量加回庫存
+            for (const rawKey in log) {
+                const consumption = Number(log[rawKey]) || 0;
+                const parts = String(rawKey).split(':');
+                let mode = 'granule';
+                let itemId = String(rawKey);
+                if (parts.length === 2) { mode = parts[0] === 'slice' ? 'slice' : 'granule'; itemId = parts[1]; }
+                const inv = await getHerbInventoryForMode(itemId, mode);
                 const newQty = (inv.quantity || 0) + consumption;
-                // 使用原單位更新庫存。當 inv.unit 不存在時，預設為 'g'
                 const unitToUse = inv.unit || 'g';
                 const thresholdToUse = typeof inv.threshold === 'number' ? inv.threshold : 0;
-                await setHerbInventory(key, newQty, thresholdToUse, unitToUse);
-                // 同步更新本地快取，避免 UI 延遲或未初始化時跳過更新
+                await setHerbInventoryForMode(itemId, newQty, thresholdToUse, unitToUse, inv.disabled, mode);
                 try {
-                    if (typeof herbInventory !== 'undefined') {
-                        herbInventory[String(key)] = {
+                    if (mode === 'slice') {
+                        herbInventorySlice[String(itemId)] = {
+                            quantity: newQty,
+                            threshold: thresholdToUse,
+                            unit: unitToUse
+                        };
+                    } else {
+                        herbInventoryGranule[String(itemId)] = {
                             quantity: newQty,
                             threshold: thresholdToUse,
                             unit: unitToUse
                         };
                     }
-                } catch (_e) {
-                    /* 忽略本地更新錯誤 */
-                }
+                } catch (_e) {}
             }
             // 移除消耗記錄
             await window.firebase.remove(logRef);
@@ -2800,15 +2853,27 @@ async function updateInventoryAfterConsultationMulti(consultationId, prescriptio
         const f = parseInt(section && section.freq) || 0;
         if (d <= 0 || f <= 0) continue;
         const items = Array.isArray(section && section.items) ? section.items : [];
+        const mode = (section && (section.mode === 'slice' || section.mode === 'granule')) ? section.mode : 'granule';
         for (const it of items) {
             if (!it || !it.id) continue;
             const dosageStr = it.customDosage || it.dosage || '';
             const dosage = parseFloat(dosageStr);
             if (isNaN(dosage) || dosage <= 0) continue;
             const consumption = dosage * d * f;
-            const key = String(it.id);
+            const key = mode + ':' + String(it.id);
             newLog[key] = (newLog[key] || 0) + consumption;
         }
+    }
+    if (isEditing && previousLog === null) {
+        await window.firebase.set(window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId)), newLog);
+        try {
+            const ls = localStorage.getItem('inventoryLogs');
+            const obj = ls ? JSON.parse(ls) : {};
+            obj[String(consultationId)] = newLog;
+            localStorage.setItem('inventoryLogs', JSON.stringify(obj));
+        } catch (_e) {}
+        try { if (typeof updatePrescriptionDisplay === 'function') updatePrescriptionDisplay(); } catch (_e) {}
+        return;
     }
     const historyOut = [];
     const historyIn = [];
@@ -2821,14 +2886,24 @@ async function updateInventoryAfterConsultationMulti(consultationId, prescriptio
         const next = Number(newLog[key]) || 0;
         const delta = next - prev;
         if (delta === 0) continue;
-        const inv = getHerbInventory(key);
+        const parts = String(key).split(':');
+        let mode = 'granule';
+        let itemId = String(key);
+        if (parts.length === 2) { mode = parts[0] === 'slice' ? 'slice' : 'granule'; itemId = parts[1]; }
+        const inv = await getHerbInventoryForMode(itemId, mode);
         const unit = inv.unit || 'g';
         const currQty = inv.quantity || 0;
         const newQty = currQty - delta;
-        await setHerbInventory(key, newQty, inv.threshold, unit);
+        await setHerbInventoryForMode(itemId, newQty, inv.threshold, unit, inv.disabled, mode);
         try {
-            if (typeof herbInventory !== 'undefined') {
-                herbInventory[String(key)] = {
+            if (mode === 'slice') {
+                herbInventorySlice[String(itemId)] = {
+                    quantity: newQty,
+                    threshold: inv.threshold,
+                    unit
+                };
+            } else {
+                herbInventoryGranule[String(itemId)] = {
                     quantity: newQty,
                     threshold: inv.threshold,
                     unit
@@ -2836,12 +2911,18 @@ async function updateInventoryAfterConsultationMulti(consultationId, prescriptio
             }
         } catch (_e) {}
         if (delta > 0) {
-            historyOut.push({ itemId: String(key), quantity: delta, unit });
+            historyOut.push({ itemId: String(itemId), quantity: delta, unit });
         } else {
-            historyIn.push({ itemId: String(key), quantity: Math.abs(delta), unit });
+            historyIn.push({ itemId: String(itemId), quantity: Math.abs(delta), unit });
         }
     }
     await window.firebase.set(window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId)), newLog);
+    try {
+        const ls = localStorage.getItem('inventoryLogs');
+        const obj = ls ? JSON.parse(ls) : {};
+        obj[String(consultationId)] = newLog;
+        localStorage.setItem('inventoryLogs', JSON.stringify(obj));
+    } catch (_e) {}
     try { if (historyIn.length) await recordInventoryHistory('in', historyIn, { consultationId: String(consultationId) }); } catch (_e) {}
     try { if (historyOut.length) await recordInventoryHistory('out', historyOut, { consultationId: String(consultationId) }); } catch (_e) {}
     try { if (typeof updatePrescriptionDisplay === 'function') updatePrescriptionDisplay(); } catch (_e) {}
@@ -2859,9 +2940,7 @@ async function openInventoryModal(itemId) {
     try {
         currentInventoryItemId = itemId;
         // 初始化庫存資料（若尚未初始化）
-        if (typeof initHerbInventory === 'function' && !herbInventoryInitialized) {
-            try { await initHerbInventory(); } catch (_e) {}
-        }
+        try { await ensureInventoryCacheForMode(currentHerbLibraryViewMode); } catch (_e) {}
         const modal = document.getElementById('inventoryModal');
         const qtyInput = document.getElementById('inventoryQuantity');
         const thrInput = document.getElementById('inventoryThreshold');
@@ -2955,14 +3034,7 @@ async function openInventoryModal(itemId) {
             titleEl.textContent = nameStr ? `${baseTitle} - ${nameStr}` : baseTitle;
         }
         // 取得現有庫存資料
-        let inv = { quantity: 0, threshold: 0 };
-        try {
-            if (typeof getHerbInventory === 'function') {
-                inv = getHerbInventory(itemId);
-            }
-        } catch (_e) {
-            inv = { quantity: 0, threshold: 0 };
-        }
+        let inv = await getHerbInventoryForMode(itemId, currentHerbLibraryViewMode);
         if (qtyInput || thrInput) {
             // 根據儲存的單位將庫存與警戒量換算成相同單位顯示
             const unit = inv.unit || 'g';
@@ -3097,9 +3169,16 @@ async function saveInventoryChanges() {
             disabledVal = false;
         }
         // 更新 Realtime Database，包含所選單位與停用狀態
-        if (typeof setHerbInventory === 'function') {
-            await setHerbInventory(id, quantityBase, thresholdBase, qtyUnit, disabledVal);
-        }
+        await setHerbInventoryForMode(id, quantityBase, thresholdBase, qtyUnit, disabledVal, currentHerbLibraryViewMode);
+        try {
+            if (currentHerbLibraryViewMode === 'slice') {
+                herbInventorySlice[String(id)] = { quantity: quantityBase, threshold: thresholdBase, unit: qtyUnit, disabled: !!disabledVal };
+                herbInventorySliceInitialized = true;
+            } else {
+                herbInventoryGranule[String(id)] = { quantity: quantityBase, threshold: thresholdBase, unit: qtyUnit, disabled: !!disabledVal };
+                herbInventoryGranuleInitialized = true;
+            }
+        } catch (_e) {}
         // 更新本地 herbLibrary 的預設庫存與單位（若存在）
         try {
             if (Array.isArray(herbLibrary)) {
@@ -3258,11 +3337,9 @@ async function saveInventoryChanges() {
                             // 過濾已停用的中藥庫存：僅顯示當前庫存類型中啟用的項目
                             let disabled = false;
                             try {
-                                if (typeof getHerbInventory === 'function') {
-                                    const invInfo = getHerbInventory(h.id);
-                                    if (invInfo && invInfo.disabled) {
-                                        disabled = true;
-                                    }
+                                const invInfo = getHerbInventoryFromView(h.id);
+                                if (invInfo && invInfo.disabled) {
+                                    disabled = true;
                                 }
                             } catch (_e) {
                                 // 若無法取得庫存資訊，視為啟用
@@ -3618,13 +3695,67 @@ async function saveInventoryChanges() {
             }
         }
 
-        async function recordInventoryHistory(type, entries, extra = {}) {
+async function recordInventoryHistory(type, entries, extra = {}) {
             await waitForFirebaseDb();
+            const arr = Array.isArray(entries) ? entries : [];
+            if (type === 'out' && extra && extra.consultationId && arr.length) {
+                try {
+                    const baseRef = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/out');
+                    const q = window.firebase.query(baseRef, window.firebase.orderByChild('timestamp'), window.firebase.limitToLast(50));
+                    let snap = null;
+                    try { snap = await window.firebase.get(q); } catch (_e) { snap = null; }
+                    const obj = snap && snap.exists() ? snap.val() || {} : {};
+                    const norm = (list) => list.slice().map(e => ({ itemId: String(e.itemId), quantity: Number(e.quantity) || 0, unit: e.unit || 'g' }))
+                        .sort((a,b) => a.itemId.localeCompare(b.itemId))
+                        .map(e => e.itemId + ':' + e.quantity + ':' + e.unit).join('|');
+                    const target = norm(arr);
+                    const keys = Object.keys(obj);
+                    let duplicated = false;
+                    for (const k of keys) {
+                        const rec = obj[k] || {};
+                        if (String(rec.consultationId || '') !== String(extra.consultationId)) continue;
+                        const recEntries = Array.isArray(rec.entries) ? rec.entries : [];
+                        if (norm(recEntries) === target) { duplicated = true; break; }
+                    }
+                    if (duplicated) return;
+                } catch (_e) {}
+            }
             const ts = Date.now();
             const ref = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/' + String(type) + '/' + String(ts));
-            const data = { timestamp: ts, entries: Array.isArray(entries) ? entries : [] };
+            const data = { timestamp: ts, entries: arr };
             for (const k in extra) { data[k] = extra[k]; }
             await window.firebase.set(ref, data);
+        }
+
+        async function getPreviousInventoryLogFromHistory(consultationId) {
+            if (!consultationId) return null;
+            await waitForFirebaseDb();
+            try {
+                const baseRef = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/out');
+                const q = window.firebase.query(baseRef, window.firebase.orderByChild('consultationId'), window.firebase.equalTo(String(consultationId)));
+                const snap = await window.firebase.get(q);
+                if (!snap || !snap.exists()) return null;
+                const obj = snap.val() || {};
+                let latest = null;
+                for (const k in obj) {
+                    const rec = obj[k] || {};
+                    if (!Array.isArray(rec.entries)) continue;
+                    if (!latest || Number(rec.timestamp || 0) > Number(latest.timestamp || 0)) {
+                        latest = rec;
+                    }
+                }
+                if (!latest) return null;
+                const log = {};
+                const list = Array.isArray(latest.entries) ? latest.entries : [];
+                for (const e of list) {
+                    const id = String(e.itemId);
+                    const qty = Number(e.quantity) || 0;
+                    log[id] = (log[id] || 0) + qty;
+                }
+                return log;
+            } catch (_e) {
+                return null;
+            }
         }
 
         function openInventoryHistoryModal() {
@@ -7364,19 +7495,37 @@ async function loadConsultationForEdit(consultationId) {
                         name: (p && p.name) ? p.name : (idx === 0 ? '處方' : `處方${idx + 1}`),
                         items: Array.isArray(p && p.items) ? p.items : [],
                         days: parseInt(p && p.days) || 5,
-                        freq: parseInt(p && p.freq) || (parseInt(consultation.medicationFrequency) || 2)
+                        freq: parseInt(p && p.freq) || (parseInt(consultation.medicationFrequency) || 2),
+                        mode: (p && (p.mode === 'slice' || p.mode === 'granule')) ? p.mode : 'granule'
                     }));
                         activePrescriptionIndex = 0;
                         selectedPrescriptionItems = prescriptions[0].items;
+                        try {
+                            const initMode = (prescriptions[0] && prescriptions[0].mode === 'slice') ? 'slice' : 'granule';
+                            changeInventoryType(initMode);
+                        } catch (_e) {}
+                        try {
+                            const searchEl = document.getElementById('prescriptionSearch');
+                            const query = searchEl && searchEl.value ? String(searchEl.value).trim() : '';
+                            if (query && query.length > 0) {
+                                setTimeout(function () {
+                                    try { searchHerbsForPrescription(); } catch (_e2) {}
+                                }, 300);
+                            }
+                        } catch (_e) {}
                         updatePrescriptionDisplay();
                     } else {
                         throw new Error('multiPrescriptions not array');
                     }
                 } else {
                     // fallback: 單處方資料
-                    prescriptions = [{ name: '處方', items: [], days: (consultation.medicationDays || 5), freq: (parseInt(consultation.medicationFrequency) || 2) }];
+                    prescriptions = [{ name: '處方', items: [], days: (consultation.medicationDays || 5), freq: (parseInt(consultation.medicationFrequency) || 2), mode: (currentInventoryMode === 'slice' ? 'slice' : 'granule') }];
                     activePrescriptionIndex = 0;
                     selectedPrescriptionItems = prescriptions[0].items;
+                    try {
+                        const initModeX = (prescriptions[0] && prescriptions[0].mode === 'slice') ? 'slice' : 'granule';
+                        changeInventoryType(initModeX);
+                    } catch (_e) {}
                     let loadedStructured = false;
                     if (consultation.prescriptionStructured) {
                         try {
@@ -7397,6 +7546,10 @@ async function loadConsultationForEdit(consultationId) {
                         parsePrescriptionToItems(consultation.prescription);
                         // 將解析結果設回第一處方
                         prescriptions[0].items = selectedPrescriptionItems;
+                        try {
+                            const initMode2 = (prescriptions[0] && prescriptions[0].mode === 'slice') ? 'slice' : 'granule';
+                            changeInventoryType(initMode2);
+                        } catch (_e) {}
                         updatePrescriptionDisplay();
                         const hasItems = Array.isArray(selectedPrescriptionItems) && selectedPrescriptionItems.length > 0;
                         if (!hasItems) {
@@ -7412,9 +7565,13 @@ async function loadConsultationForEdit(consultationId) {
                 }
             } catch (_err) {
                 // 無法解析時，維持單處方空白狀態
-                prescriptions = [{ name: '處方', items: [], days: 5, freq: 2 }];
+                prescriptions = [{ name: '處方', items: [], days: 5, freq: 2, mode: (currentInventoryMode === 'slice' ? 'slice' : 'granule') }];
                 activePrescriptionIndex = 0;
                 selectedPrescriptionItems = prescriptions[0].items;
+                try {
+                    const initMode3 = (prescriptions[0] && prescriptions[0].mode === 'slice') ? 'slice' : 'granule';
+                    changeInventoryType(initMode3);
+                } catch (_e) {}
                 updatePrescriptionDisplay();
             }
             
@@ -8488,7 +8645,7 @@ async function showConsultationForm(appointment) {
             });
             
             // 重置多處方狀態與每日次數為預設值
-            prescriptions = [{ name: '處方', items: [], days: 5, freq: 2 }];
+            prescriptions = [{ name: '處方', items: [], days: 5, freq: 2, mode: (currentInventoryMode === 'slice' ? 'slice' : 'granule') }];
             activePrescriptionIndex = 0;
             selectedPrescriptionItems = prescriptions[0].items;
             const freqEl = document.getElementById('medicationFrequency');
@@ -8975,6 +9132,18 @@ async function saveConsultation() {
                         }
                     } catch (_err) {
                         prevLog = null;
+                    }
+                    if (!prevLog) {
+                        try {
+                            const ls = localStorage.getItem('inventoryLogs');
+                            if (ls) {
+                                const obj = JSON.parse(ls);
+                                prevLog = obj[String(consultationIdForInv)] || null;
+                            }
+                        } catch (_e) {}
+                    }
+                    if (!prevLog && typeof getPreviousInventoryLogFromHistory === 'function') {
+                        try { prevLog = await getPreviousInventoryLogFromHistory(consultationIdForInv); } catch (_e) {}
                     }
                 }
                 if (consultationIdForInv && typeof updateInventoryAfterConsultationMulti === 'function') {
@@ -13187,14 +13356,7 @@ async function initializeSystemAfterLogin() {
                 // 遍歷搜尋後的列表並累計非停用項目
                 searchFiltered.forEach(item => {
                     let isDisabled = false;
-                    try {
-                        if (typeof getHerbInventory === 'function') {
-                            const inv = getHerbInventory(item.id);
-                            isDisabled = inv && inv.disabled;
-                        }
-                    } catch (_e) {
-                        isDisabled = false;
-                    }
+                    try { const inv = getHerbInventoryFromView(item.id); isDisabled = inv && inv.disabled; } catch (_e) { isDisabled = false; }
                     // 只有在未被停用時才納入統計
                     if (!isDisabled) {
                         totalAll++;
@@ -13203,17 +13365,7 @@ async function initializeSystemAfterLogin() {
                     }
                 });
                 // 新增計算已停用資料數量：根據庫存資訊中的 disabled 屬性
-                const totalDisabledAll = searchFiltered.filter(item => {
-                    try {
-                        if (typeof getHerbInventory === 'function') {
-                            const inv = getHerbInventory(item.id);
-                            return inv && inv.disabled;
-                        }
-                    } catch (_e) {
-                        // 忽略錯誤
-                    }
-                    return false;
-                }).length;
+                const totalDisabledAll = searchFiltered.filter(item => { try { const inv = getHerbInventoryFromView(item.id); return inv && inv.disabled; } catch (_e) {} return false; }).length;
                 // 更新各分類按鈕的顯示文字
                 const allBtn = document.getElementById('filter-all');
                 if (allBtn) {
@@ -13263,14 +13415,7 @@ async function initializeSystemAfterLogin() {
                     matchesFilter = item.type === 'formula';
                 } else if (currentHerbFilter === 'disabled') {
                     // 已停用：需要檢查庫存資訊的 disabled 屬性
-                    try {
-                        if (typeof getHerbInventory === 'function') {
-                            const inv = getHerbInventory(item.id);
-                            matchesFilter = inv && inv.disabled;
-                        }
-                    } catch (_e) {
-                        matchesFilter = false;
-                    }
+                    try { const inv = getHerbInventoryFromView(item.id); matchesFilter = inv && inv.disabled; } catch (_e) { matchesFilter = false; }
                 }
                 return matchesSearch && matchesFilter;
             }) : [];
@@ -13281,10 +13426,8 @@ async function initializeSystemAfterLogin() {
                     let invA = { disabled: false };
                     let invB = { disabled: false };
                     try {
-                        if (typeof getHerbInventory === 'function') {
-                            invA = getHerbInventory(a.id) || { disabled: false };
-                            invB = getHerbInventory(b.id) || { disabled: false };
-                        }
+                        invA = getHerbInventoryFromView(a.id) || { disabled: false };
+                        invB = getHerbInventoryFromView(b.id) || { disabled: false };
                     } catch (_e) {
                         invA = { disabled: false };
                         invB = { disabled: false };
@@ -13453,7 +13596,7 @@ async function initializeSystemAfterLogin() {
             const safeCautions = herb.cautions ? window.escapeHtml(herb.cautions) : null;
             // 中藥卡片：僅顯示資訊，不提供編輯/刪除操作
             // 取得庫存資料（含停用狀態）
-            const inv = typeof getHerbInventory === 'function' ? getHerbInventory(herb.id) : { quantity: 0, threshold: 0 };
+            const inv = getHerbInventoryFromView(herb.id);
             // 判斷是否停用以決定狀態標籤
             const isDisabled = inv && inv.disabled ? true : false;
             const statusLabel = isDisabled ? '停用' : '啟用';
@@ -13461,7 +13604,7 @@ async function initializeSystemAfterLogin() {
             const statusClass = isDisabled ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
             const qty = inv && typeof inv.quantity === 'number' ? inv.quantity : 0;
             const thr = inv && typeof inv.threshold === 'number' ? inv.threshold : 0;
-            const unit = (inv && inv.unit) ? inv.unit : 'g';
+            const unit = inv && inv.unit ? inv.unit : 'g';
             const factor = UNIT_FACTOR_MAP[unit] || 1;
             const qtyDisplay = (() => {
                 const val = qty / factor;
@@ -13548,14 +13691,14 @@ async function initializeSystemAfterLogin() {
             const safeCautions = formula.cautions ? window.escapeHtml(formula.cautions) : null;
             // 方劑卡片：僅顯示資訊，不提供編輯/刪除操作
             // 取得庫存資料（含停用狀態）
-            const inv = typeof getHerbInventory === 'function' ? getHerbInventory(formula.id) : { quantity: 0, threshold: 0 };
+            const inv = getHerbInventoryFromView(formula.id);
             // 判斷是否停用以決定狀態標籤
             const isDisabled = inv && inv.disabled ? true : false;
             const statusLabel = isDisabled ? '停用' : '啟用';
             const statusClass = isDisabled ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
             const qty = inv && typeof inv.quantity === 'number' ? inv.quantity : 0;
             const thr = inv && typeof inv.threshold === 'number' ? inv.threshold : 0;
-            const unit = (inv && inv.unit) ? inv.unit : 'g';
+            const unit = inv && inv.unit ? inv.unit : 'g';
             const factor = UNIT_FACTOR_MAP[unit] || 1;
             const qtyDisplay = (() => {
                 const val = qty / factor;
@@ -14634,13 +14777,28 @@ async function initializeSystemAfterLogin() {
         }
         
         // 多處方支援
-        let prescriptions = [{ name: '處方', items: [], days: 5, freq: 2 }];
+        let prescriptions = [{ name: '處方', items: [], days: 5, freq: 2, mode: (currentInventoryMode === 'slice' ? 'slice' : 'granule') }];
         let activePrescriptionIndex = 0;
         let selectedPrescriptionItems = prescriptions[activePrescriptionIndex].items;
         function setActivePrescription(index) {
             if (index < 0 || index >= prescriptions.length) return;
             activePrescriptionIndex = index;
             selectedPrescriptionItems = prescriptions[activePrescriptionIndex].items;
+            try {
+                const m = prescriptions[activePrescriptionIndex] && prescriptions[activePrescriptionIndex].mode ? prescriptions[activePrescriptionIndex].mode : 'granule';
+                if (m === 'granule' || m === 'slice') {
+                    changeInventoryType(m);
+                }
+            } catch (_e) {}
+            try {
+                const searchEl = document.getElementById('prescriptionSearch');
+                const query = searchEl && searchEl.value ? String(searchEl.value).trim() : '';
+                if (query && query.length > 0) {
+                    setTimeout(function () {
+                        try { searchHerbsForPrescription(); } catch (_e2) {}
+                    }, 300);
+                }
+            } catch (_e) {}
             updatePrescriptionDisplay();
             checkPrescriptionConflicts();
         }
@@ -14653,7 +14811,8 @@ async function initializeSystemAfterLogin() {
                 const fEl = document.getElementById('medicationFrequency');
                 defaultFreq = fEl ? (parseInt(fEl.value) || 2) : 2;
             } catch (_e) {}
-            prescriptions.push({ name: defaultName, items: [], days: 5, freq: defaultFreq });
+            const defaultMode = (typeof currentInventoryMode !== 'undefined' && (currentInventoryMode === 'slice' || currentInventoryMode === 'granule')) ? currentInventoryMode : 'granule';
+            prescriptions.push({ name: defaultName, items: [], days: 5, freq: defaultFreq, mode: defaultMode });
             setActivePrescription(prescriptions.length - 1);
         }
         function removePrescriptionSection() {
@@ -14689,6 +14848,21 @@ async function initializeSystemAfterLogin() {
         function renamePrescription(index, newName) {
             if (index < 0 || index >= prescriptions.length) return;
             prescriptions[index].name = (newName || '').trim() || `處方${index + 1}`;
+            updatePrescriptionDisplay();
+        }
+        function updatePrescriptionModeAt(sectionIdx, newMode) {
+            if (sectionIdx < 0 || sectionIdx >= prescriptions.length) return;
+            if (newMode !== 'granule' && newMode !== 'slice') return;
+            prescriptions[sectionIdx].mode = newMode;
+            if (sectionIdx === activePrescriptionIndex) {
+                try { changeInventoryType(newMode); } catch (_e) {}
+                try {
+                    const q = document.getElementById('prescriptionSearch');
+                    if (q && q.value && q.value.trim().length > 0) {
+                        setTimeout(() => { try { searchHerbsForPrescription(); } catch (_e) {} }, 300);
+                    }
+                } catch (_e) {}
+            }
             updatePrescriptionDisplay();
         }
         function clearActivePrescriptionItems() {
@@ -14888,36 +15062,29 @@ async function initializeSystemAfterLogin() {
          */
         function updatePrescriptionTypeSelectStatus() {
             try {
-                const sel = document.getElementById('prescriptionTypeSelect');
-                if (!sel) return;
-                // 設定提示訊息，根據語言切換
                 const langSel = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
-                const zhTitle = '所有藥刪除後才可轉換';
-                const enTitle = 'Remove all medicines before switching';
+                const zhTitle = '清空藥品才能選擇';
+                const enTitle = 'Clear all medicines to switch';
                 const titleMsg = (langSel && langSel.toLowerCase().startsWith('en')) ? enTitle : zhTitle;
-
-                const hasAnyItems = prescriptions.some(p => Array.isArray(p.items) && p.items.length > 0);
-                if (hasAnyItems) {
-                    // 禁用選單並套用灰階樣式與禁用游標
-                    sel.disabled = true;
-                    sel.classList.add('opacity-50');
-                    sel.classList.add('cursor-not-allowed');
-                    // 若存在自訂背景色，保持不變；否則設定為灰色系
-                    // 將文字顏色調淡
-                    sel.style.color = '#9ca3af';
-                    // 設定懸浮提示
-                    sel.setAttribute('title', titleMsg);
-                } else {
-                    // 恢復可用狀態與原本樣式
-                    sel.disabled = false;
-                    sel.classList.remove('opacity-50');
-                    sel.classList.remove('cursor-not-allowed');
-                    sel.style.color = '';
-                    sel.removeAttribute('title');
-                }
-            } catch (_e) {
-                // ignore errors
-            }
+                prescriptions.forEach((p, idx) => {
+                    const sel = document.getElementById('prescriptionModeSelect-' + idx);
+                    if (!sel) return;
+                    const hasItems = Array.isArray(p.items) && p.items.length > 0;
+                    if (hasItems) {
+                        sel.disabled = true;
+                        sel.classList.add('opacity-50');
+                        sel.classList.add('cursor-not-allowed');
+                        sel.style.color = '#9ca3af';
+                        sel.setAttribute('title', titleMsg);
+                    } else {
+                        sel.disabled = false;
+                        sel.classList.remove('opacity-50');
+                        sel.classList.remove('cursor-not-allowed');
+                        sel.style.color = '';
+                        sel.removeAttribute('title');
+                    }
+                });
+            } catch (_e) {}
         }
         
         // 添加到處方內容
@@ -15015,6 +15182,11 @@ async function initializeSystemAfterLogin() {
                                         class="${sIdx === activePrescriptionIndex ? 'bg-blue-600' : 'bg-gray-300'} text-white text-xs px-2 py-1 rounded">
                                     ${sIdx === activePrescriptionIndex ? '編輯中' : '設為編輯'}
                                 </button>
+                                <select id="prescriptionModeSelect-${sIdx}" onchange="updatePrescriptionModeAt(${sIdx}, this.value)"
+                                        class="px-2 py-1 border border-yellow-300 rounded text-xs bg-white prescription-mode-select">
+                                    <option value="granule" ${section.mode === 'slice' ? '' : 'selected'}>${typeof window.t === 'function' ? window.t('顆粒沖劑') : '顆粒沖劑'}</option>
+                                    <option value="slice" ${section.mode === 'slice' ? 'selected' : ''}>${typeof window.t === 'function' ? window.t('飲片') : '飲片'}</option>
+                                </select>
                             </div>
                             <div class="flex items-center">
                                 <button onclick="removePrescriptionSectionAt(${sIdx})" class="w-7 h-7 rounded-full bg-red-500 hover:bg-red-600 text-white text-sm flex items-center justify-center">✕</button>
@@ -15039,12 +15211,12 @@ async function initializeSystemAfterLogin() {
                     </div>
                 `;
                 const itemsArray = Array.isArray(section.items) ? section.items : [];
-                const itemsHtml = itemsArray.length === 0
-                    ? `<div class="text-sm text-gray-500 text-center py-4">此處方尚未添加項目，請使用上方搜索功能</div>`
-                    : itemsArray.map((item, index) => {
-                        const bgColor = 'bg-yellow-50 border-yellow-200';
-                        // 從 herbLibrary 中找到完整的藥材或方劑資料
-                        const fullItem = (Array.isArray(herbLibrary) ? herbLibrary : []).find(h => h && h.id === item.id);
+        const itemsHtml = itemsArray.length === 0
+            ? `<div class="text-sm text-gray-500 text-center py-4">此處方尚未添加項目，請使用上方搜索功能</div>`
+            : itemsArray.map((item, index) => {
+                const bgColor = 'bg-yellow-50 border-yellow-200';
+                // 從 herbLibrary 中找到完整的藥材或方劑資料
+                const fullItem = (Array.isArray(herbLibrary) ? herbLibrary : []).find(h => h && h.id === item.id);
                         // 構建詳細資訊內容
                         const details = [];
                         if (fullItem) {
@@ -15100,7 +15272,11 @@ async function initializeSystemAfterLogin() {
                                     <div class="flex items-center space-x-2">
                                         ${(() => {
                                             try {
-                                                const inv = typeof getHerbInventory === 'function' ? getHerbInventory(item.id) : { quantity: 0, unit: 'g' };
+                                                // 依處方模式選擇對應庫存快取
+                                                const isSlice = section && section.mode === 'slice';
+                                                const invObj = isSlice ? herbInventorySlice : herbInventoryGranule;
+                                                const invRaw = invObj && invObj[String(item.id)];
+                                                const inv = invRaw ? invRaw : { quantity: 0, unit: 'g' };
                                                 const qty = inv && typeof inv.quantity === 'number' ? inv.quantity : 0;
                                                 const unit = inv && inv.unit ? inv.unit : 'g';
                                                 const factor = UNIT_FACTOR_MAP[unit] || 1;
@@ -15129,9 +15305,10 @@ async function initializeSystemAfterLogin() {
                                                onclick="this.select()">
                                         ${(() => {
                                             try {
-                                                // 取得該藥材或方劑的單位，若不存在則預設為克（g）。
-                                                const inv2 = (typeof getHerbInventory === 'function') ? getHerbInventory(item.id) : { unit: 'g' };
-                                                const unit2 = (inv2 && inv2.unit) ? inv2.unit : 'g';
+                                                const isSlice2 = section && section.mode === 'slice';
+                                                const invObj2 = isSlice2 ? herbInventorySlice : herbInventoryGranule;
+                                                const invRaw2 = invObj2 && invObj2[String(item.id)];
+                                                const unit2 = invRaw2 && invRaw2.unit ? invRaw2.unit : 'g';
                                                 // 從映射中取得原始單位標籤（中文），不存在則默認為『克』
                                                 const rawUnit2 = (typeof UNIT_LABEL_MAP !== 'undefined' && UNIT_LABEL_MAP && UNIT_LABEL_MAP[unit2]) ? UNIT_LABEL_MAP[unit2] : '克';
                                                 // 使用翻譯函式將單位標籤轉換為當前語言
