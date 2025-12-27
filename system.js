@@ -374,16 +374,6 @@ function onPrescriptionTypeChange(type) {
     } catch (_e) {
         // 若切換失敗，仍然嘗試後續動作
     }
-
-    // 同步中藥庫的下拉選單，使其反映新的庫存模式
-    try {
-        const invSel = document.getElementById('inventoryTypeSelect');
-        if (invSel && invSel.value !== type) {
-            invSel.value = type;
-        }
-    } catch (_e) {
-        /* 忽略同步錯誤 */
-    }
     // 若使用者在處方搜尋欄中已輸入關鍵字，稍後重新搜尋以更新結果
     try {
         const searchEl = document.getElementById('prescriptionSearch');
@@ -3263,7 +3253,7 @@ async function saveInventoryChanges() {
                 // 顯示當前庫存類型於批量入庫彈窗標題右側
                 const typeDisplay = document.getElementById('batchInventoryTypeDisplay');
                 if (typeDisplay) {
-                    const mode = (currentInventoryMode === 'slice') ? 'slice' : 'granule';
+                    const mode = (currentHerbLibraryViewMode === 'slice') ? 'slice' : 'granule';
                     let label = mode === 'slice' ? '飲片' : '顆粒沖劑';
                     // 使用翻譯函式轉換庫存類型文字
                     if (typeof window.t === 'function') {
@@ -15171,25 +15161,30 @@ async function initializeSystemAfterLogin() {
             const hiddenTextarea = document.getElementById('formPrescription');
             if (!containerAll) return;
             const allSectionsHtml = prescriptions.map((section, sIdx) => {
-                const headerHtml = `
-                    <div class="space-y-2">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <input type="text" value="${window.escapeHtml(section.name)}"
+                const isSingle = prescriptions.length === 1;
+                const leftControls = `
+                                ${!isSingle ? `<input type="text" value="${window.escapeHtml(section.name)}"
                                        onchange="renamePrescription(${sIdx}, this.value)"
-                                       class="border border-gray-300 rounded px-2 py-1 text-sm w-40">
-                                <button type="button" onclick="setActivePrescription(${sIdx})"
+                                       class="border border-gray-300 rounded px-2 py-1 text-sm w-40">` : ``}
+                                ${!isSingle ? `<button type="button" onclick="setActivePrescription(${sIdx})"
                                         class="${sIdx === activePrescriptionIndex ? 'bg-blue-600' : 'bg-gray-300'} text-white text-xs px-2 py-1 rounded">
                                     ${sIdx === activePrescriptionIndex ? '編輯中' : '設為編輯'}
-                                </button>
+                                </button>` : ``}
                                 <select id="prescriptionModeSelect-${sIdx}" onchange="updatePrescriptionModeAt(${sIdx}, this.value)"
                                         class="px-2 py-1 border border-yellow-300 rounded text-xs bg-white prescription-mode-select">
                                     <option value="granule" ${section.mode === 'slice' ? '' : 'selected'}>${typeof window.t === 'function' ? window.t('顆粒沖劑') : '顆粒沖劑'}</option>
                                     <option value="slice" ${section.mode === 'slice' ? 'selected' : ''}>${typeof window.t === 'function' ? window.t('飲片') : '飲片'}</option>
                                 </select>
+                `;
+                const rightControls = isSingle ? `` : `<button onclick="removePrescriptionSectionAt(${sIdx})" class="w-7 h-7 rounded-full bg-red-500 hover:bg-red-600 text-white text-sm flex items-center justify-center">✕</button>`;
+                const headerHtml = `
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                ${leftControls}
                             </div>
                             <div class="flex items-center">
-                                <button onclick="removePrescriptionSectionAt(${sIdx})" class="w-7 h-7 rounded-full bg-red-500 hover:bg-red-600 text-white text-sm flex items-center justify-center">✕</button>
+                                ${rightControls}
                             </div>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
