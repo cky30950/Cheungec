@@ -11717,14 +11717,16 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                         const modeLabel = (section && section.mode === 'granule') ? '顆粒沖劑' : ((section && section.mode === 'slice') ? '飲片' : '');
                         const nameWithMode = showNames ? `<div style="font-weight:bold;margin-bottom:2px;">${window.escapeHtml(secName)}${modeLabel ? `<span style="font-size:0.5em;">（${window.escapeHtml(modeLabel)}）</span>` : ''}</div>` : '';
                         let rows = '';
-                        for (let i2 = 0; i2 < entries.length; i2 += 3) {
+                        for (let i2 = 0; i2 < entries.length; i2 += 4) {
                             const a = entries[i2] || '&nbsp;';
                             const b = entries[i2 + 1] || '&nbsp;';
                             const c = entries[i2 + 2] || '&nbsp;';
+                            const d = entries[i2 + 3] || '&nbsp;';
                             rows += `<div style="display:flex;align-items:center;margin-bottom:4px;">
                                         <div style="flex:1;text-align:left;">${a}</div>
                                         <div style="flex:1;text-align:center;">${b}</div>
-                                        <div style="flex:1;text-align:right;">${c}</div>
+                                        <div style="flex:1;text-align:center;">${c}</div>
+                                        <div style="flex:1;text-align:right;">${d}</div>
                                     </div>`;
                         }
                         html += `<div style="margin-bottom:6px;">${nameWithMode}${rows}</div>`;
@@ -11857,14 +11859,16 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                 if (itemsList.length > 0) {
                     const orderedItems = itemsList;
                     let html = '';
-                    for (let j = 0; j < orderedItems.length; j += 3) {
+                    for (let j = 0; j < orderedItems.length; j += 4) {
                         const a = orderedItems[j] || '<div style="visibility:hidden;">&nbsp;</div>';
                         const b = orderedItems[j + 1] || '<div style="visibility:hidden;">&nbsp;</div>';
                         const c = orderedItems[j + 2] || '<div style="visibility:hidden;">&nbsp;</div>';
+                        const d = orderedItems[j + 3] || '<div style="visibility:hidden;">&nbsp;</div>';
                         html += `<div style="display:flex;align-items:center;margin-bottom:0;">
                                     <div style="flex:1;text-align:left;">${a}</div>
                                     <div style="flex:1;text-align:center;">${b}</div>
-                                    <div style="flex:1;text-align:right;">${c}</div>
+                                    <div style="flex:1;text-align:center;">${c}</div>
+                                    <div style="flex:1;text-align:right;">${d}</div>
                                  </div>`;
                     }
                     // 將方劑的組成統一列在處方內容的左下角，字體稍微放大
@@ -11929,7 +11933,18 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
         let medInfoHtml = '';
         if (hasMulti) {
             if (medLines.length > 0) {
-                medInfoHtml += medLines.map(l => `<div>${l}</div>`).join('');
+                const rows = [];
+                for (let i = 0; i < medLines.length; i += 2) {
+                    const left = medLines[i] || '';
+                    const right = medLines[i + 1] || '';
+                    rows.push(
+                        `<div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:2px;">
+                            <div style="flex:1;">${left}</div>
+                            ${right ? `<div style="flex:1;text-align:right;">${right}</div>` : `<div style="flex:1;"></div>`}
+                        </div>`
+                    );
+                }
+                medInfoHtml += rows.join('');
             }
             if (consultation.usage) {
                 medInfoHtml += `<div><strong>${isEnglish ? 'Usage' : '服用方法'}${colon}</strong>${consultation.usage}</div>`;
