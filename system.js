@@ -398,6 +398,13 @@ function onPrescriptionTypeChange(type) {
 function onInventoryTypeChange(type) {
     if (type !== 'granule' && type !== 'slice') return;
     currentHerbLibraryViewMode = type;
+    try {
+        changeInventoryType(type);
+        const prescriptionSelect = document.getElementById('prescriptionTypeSelect');
+        if (prescriptionSelect) {
+            prescriptionSelect.value = type;
+        }
+    } catch (_e) {}
     ensureInventoryCacheForMode(type).then(() => {
         try { displayHerbLibrary(); } catch (_e) {}
     }).catch(() => {
@@ -9447,12 +9454,14 @@ if (!patient) {
                                                     mp.forEach((section, sIdx) => {
                                                         const secName = section && section.name ? section.name : `處方${sIdx + 1}`;
                                                         const items = Array.isArray(section && section.items) ? section.items : [];
-                                                        const lines = items.map(it => {
-                                                            const dose = it.customDosage || (it.type === 'herb' ? '1' : '5');
-                                                            const unit = (it && it.dosage && typeof it.dosage === 'string' && it.dosage.endsWith('g')) ? 'g' : 'g';
-                                                            return `<div style="margin-bottom: 4px;">${window.escapeHtml(it.name)} ${window.escapeHtml(String(dose))}${unit}</div>`;
-                                                        });
-                                                        block += `<div style="margin-bottom:6px;">${showNames ? `<div style="font-weight:bold;margin-bottom:2px;">${window.escapeHtml(secName)}</div>` : ''}${lines.join('')}</div>`;
+                                                    const lines = items.map(it => {
+                                                        const dose = it.customDosage || (it.type === 'herb' ? '1' : '5');
+                                                        const unit = (it && it.dosage && typeof it.dosage === 'string' && it.dosage.endsWith('g')) ? 'g' : 'g';
+                                                        return `<div style="margin-bottom: 4px;">${window.escapeHtml(it.name)} ${window.escapeHtml(String(dose))}${unit}</div>`;
+                                                    });
+                                                    const modeLabel = (section && section.mode === 'granule') ? '顆粒沖劑' : ((section && section.mode === 'slice') ? '飲片' : '');
+                                                    const nameWithMode = showNames ? `<div style="font-weight:bold;margin-bottom:2px;">${window.escapeHtml(secName)}${modeLabel ? `<span style="font-size:0.5em;">（${window.escapeHtml(modeLabel)}）</span>` : ''}</div>` : '';
+                                                    block += `<div style="margin-bottom:6px;">${nameWithMode}${lines.join('')}</div>`;
                                                     });
                                                     html = block;
                                                 }
@@ -9875,7 +9884,9 @@ function displayConsultationMedicalHistoryPage() {
                                                             const unit = (it && it.dosage && typeof it.dosage === 'string' && it.dosage.endsWith('g')) ? 'g' : 'g';
                                                             return `<div style="margin-bottom: 4px;">${window.escapeHtml(it.name)} ${window.escapeHtml(String(dose))}${unit}</div>`;
                                                         });
-                                                        block += `<div style="margin-bottom:6px;">${showNames ? `<div style="font-weight:bold;margin-bottom:2px;">${window.escapeHtml(secName)}</div>` : ''}${lines.join('')}</div>`;
+                                                        const modeLabel = (section && section.mode === 'granule') ? '顆粒沖劑' : ((section && section.mode === 'slice') ? '飲片' : '');
+                                                        const nameWithMode = showNames ? `<div style="font-weight:bold;margin-bottom:2px;">${window.escapeHtml(secName)}${modeLabel ? `<span style="font-size:0.5em;">（${window.escapeHtml(modeLabel)}）</span>` : ''}</div>` : '';
+                                                        block += `<div style="margin-bottom:6px;">${nameWithMode}${lines.join('')}</div>`;
                                                     });
                                                     html = block;
                                                 }
@@ -11661,17 +11672,72 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                 if (Array.isArray(mp) && mp.length > 0) {
                     let html = '';
                     const showNames = mp.length > 1;
+                    const formulaCompositions = [];
                     mp.forEach((section, sIdx) => {
                         const secName = section && section.name ? section.name : `處方${sIdx + 1}`;
                         const items = Array.isArray(section && section.items) ? section.items : [];
-                        const lines = items.map(it => {
+                        const entries = items.map(it => {
                             const dose = it.customDosage || (it.type === 'herb' ? '1' : '5');
-                            const unit = (it && it.dosage && typeof it.dosage === 'string' && it.dosage.endsWith('g')) ? 'g' : 'g';
-                            return `<div style="margin-bottom: 4px;">${it.name} ${dose}${unit}</div>`;
+                            const unit = 'g';
+                            return `${window.escapeHtml(it.name)} ${window.escapeHtml(String(dose) + unit)}`;
                         });
-                        html += `<div style="margin-bottom:6px;">${showNames ? `<div style="font-weight:bold;margin-bottom:2px;">${secName}</div>` : ''}${lines.join('')}</div>`;
+                        try {
+                            items.filter(it => it && it.type === 'formula').forEach(it => {
+                                let compositionText = it && it.composition ? String(it.composition) : '';
+                                if (!compositionText) {
+                                    try {
+                                        if (Array.isArray(herbLibrary)) {
+                                            const fullItem = herbLibrary.find(h => h && String(h.id) === String(it.id) && h.type === 'formula');
+                                            if (fullItem && fullItem.composition) compositionText = String(fullItem.composition);
+                                        }
+                                    } catch (_e) {}
+                                }
+                                let processed = '';
+                                if (compositionText) {
+                                    try {
+                                        const parts = String(compositionText)
+                                            .replace(/\r/g, '')
+                                            .split(/[、\n]/)
+                                            .map(p => p
+                                                .replace(/\d+(?:\.\d+)?\s*(?:g|克|錢|兩|丸|包)?/gi, '')
+                                                .replace(/[()（）\[\]]/g, '')
+                                                .trim()
+                                            )
+                                            .filter(p => p);
+                                        processed = parts.join('、');
+                                    } catch (_err) {
+                                        processed = compositionText.replace(/\n/g, '、');
+                                    }
+                                }
+                                if (processed) {
+                                    formulaCompositions.push({ name: it.name, composition: processed });
+                                }
+                            });
+                        } catch (_e) {}
+                        const modeLabel = (section && section.mode === 'granule') ? '顆粒沖劑' : ((section && section.mode === 'slice') ? '飲片' : '');
+                        const nameWithMode = showNames ? `<div style="font-weight:bold;margin-bottom:2px;">${window.escapeHtml(secName)}${modeLabel ? `<span style="font-size:0.5em;">（${window.escapeHtml(modeLabel)}）</span>` : ''}</div>` : '';
+                        let rows = '';
+                        for (let i2 = 0; i2 < entries.length; i2 += 3) {
+                            const a = entries[i2] || '&nbsp;';
+                            const b = entries[i2 + 1] || '&nbsp;';
+                            const c = entries[i2 + 2] || '&nbsp;';
+                            rows += `<div style="display:flex;align-items:center;margin-bottom:4px;">
+                                        <div style="flex:1;text-align:left;">${a}</div>
+                                        <div style="flex:1;text-align:center;">${b}</div>
+                                        <div style="flex:1;text-align:right;">${c}</div>
+                                    </div>`;
+                        }
+                        html += `<div style="margin-bottom:6px;">${nameWithMode}${rows}</div>`;
                     });
-                    prescriptionHtml = html;
+                    let compositionHtml = '';
+                    if (formulaCompositions.length > 0) {
+                        compositionHtml += '<div style="margin-top: 4px; font-size: 0.5em;">';
+                        formulaCompositions.forEach((fc) => {
+                            compositionHtml += `<div>${fc.name}：${fc.composition}</div>`;
+                        });
+                        compositionHtml += '</div>';
+                    }
+                    prescriptionHtml = html + compositionHtml;
                 } else {
                     prescriptionHtml = '無記錄';
                 }
@@ -11789,21 +11855,18 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                     i++;
                 }
                 if (itemsList.length > 0) {
-                    // 按照原始次序排列處方項目，直接使用 itemsList 而不再將方劑移至最前
                     const orderedItems = itemsList;
-                    // 將條目按行優先方式分配到三欄
-                    const columnsCount = 3;
-                    const columns = Array.from({ length: columnsCount }, () => []);
-                    orderedItems.forEach((item, idx) => {
-                        const colIdx = idx % columnsCount;
-                        columns[colIdx].push(item);
-                    });
-                    // 組合三欄的 HTML 內容
-                    let html = '<div style="display: flex;">';
-                    columns.forEach((colItems) => {
-                        html += `<div style="flex: 1; padding-right: 4px;">${colItems.join('')}</div>`;
-                    });
-                    html += '</div>';
+                    let html = '';
+                    for (let j = 0; j < orderedItems.length; j += 3) {
+                        const a = orderedItems[j] || '<div style="visibility:hidden;">&nbsp;</div>';
+                        const b = orderedItems[j + 1] || '<div style="visibility:hidden;">&nbsp;</div>';
+                        const c = orderedItems[j + 2] || '<div style="visibility:hidden;">&nbsp;</div>';
+                        html += `<div style="display:flex;align-items:center;margin-bottom:0;">
+                                    <div style="flex:1;text-align:left;">${a}</div>
+                                    <div style="flex:1;text-align:center;">${b}</div>
+                                    <div style="flex:1;text-align:right;">${c}</div>
+                                 </div>`;
+                    }
                     // 將方劑的組成統一列在處方內容的左下角，字體稍微放大
                     let compositionHtml = '';
                     if (formulaCompositions.length > 0) {
@@ -13266,6 +13329,7 @@ async function initializeSystemAfterLogin() {
                 const invSelect = document.getElementById('inventoryTypeSelect');
                 if (invSelect) {
                     invSelect.value = currentInventoryMode || 'granule';
+                    currentHerbLibraryViewMode = invSelect.value;
                 }
             } catch (_e) {
                 // 忽略
@@ -15366,6 +15430,41 @@ async function initializeSystemAfterLogin() {
                         <div class="space-y-3">
                             ${itemsHtml}
                         </div>
+                        ${(() => {
+                            try {
+                                const formulas = (Array.isArray(itemsArray) ? itemsArray : []).filter(it => it && it.type === 'formula');
+                                if (!formulas.length) return '';
+                                const lines = formulas.map(it => {
+                                    let comp = it && it.composition ? String(it.composition) : '';
+                                    if (!comp) {
+                                        try {
+                                            const fullItem = (Array.isArray(herbLibrary) ? herbLibrary : []).find(h => h && h.id === it.id && h.type === 'formula');
+                                            if (fullItem && fullItem.composition) comp = String(fullItem.composition);
+                                        } catch (_e) {}
+                                    }
+                                    let processed = '';
+                                    if (comp) {
+                                        try {
+                                            processed = String(comp)
+                                                .replace(/\r/g, '')
+                                                .split(/[、\n]/)
+                                                .map(p => p
+                                                    .replace(/\d+(?:\.\d+)?\s*(?:g|克|錢|兩|丸|包)?/gi, '')
+                                                    .replace(/[()（）\[\]]/g, '')
+                                                    .trim()
+                                                )
+                                                .filter(p => p)
+                                                .join('、');
+                                        } catch (_err) {
+                                            processed = comp.replace(/\n/g, '、');
+                                        }
+                                    }
+                                    const nm = it && it.name ? it.name : '';
+                                    return `<div>${window.escapeHtml(nm)}：${window.escapeHtml(processed)}</div>`;
+                                }).join('');
+                                return `<div class="mt-1 text-xs text-gray-700">${lines}</div>`;
+                            } catch (_e) { return ''; }
+                        })()}
                     </div>
                 `;
                 return sectionContainer;
@@ -23143,7 +23242,9 @@ function viewMedicalRecord(recordId, patientId) {
                                 const unit = (it && it.dosage && typeof it.dosage === 'string' && it.dosage.endsWith('g')) ? 'g' : 'g';
                                 return `<div style="margin-bottom: 4px;">${window.escapeHtml(it.name)} ${window.escapeHtml(String(dose))}${unit}</div>`;
                             });
-                            html += `<div style="margin-bottom:6px;">${showNames ? `<div style="font-weight:bold;margin-bottom:2px;">${window.escapeHtml(secName)}</div>` : ''}${lines.join('')}</div>`;
+                            const modeLabel = (section && section.mode === 'granule') ? '顆粒沖劑' : ((section && section.mode === 'slice') ? '飲片' : '');
+                            const nameWithMode = showNames ? `<div style="font-weight:bold;margin-bottom:2px;">${window.escapeHtml(secName)}${modeLabel ? `<span style="font-size:0.5em;">（${window.escapeHtml(modeLabel)}）</span>` : ''}</div>` : '';
+                            html += `<div style="margin-bottom:6px;">${nameWithMode}${lines.join('')}</div>`;
                         });
                         prescriptionHtml = html;
                     }
