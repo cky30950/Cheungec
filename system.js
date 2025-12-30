@@ -11800,18 +11800,9 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                     let compositionHtml = '';
                     if (formulaCompositions.length > 0) {
                         compositionHtml += '<div style="margin-top: 4px; font-size: 0.5em;">';
-                        for (let k = 0; k < formulaCompositions.length; k += 4) {
-                            const a = formulaCompositions[k] || null;
-                            const b = formulaCompositions[k + 1] || null;
-                            const c = formulaCompositions[k + 2] || null;
-                            const d = formulaCompositions[k + 3] || null;
-                            compositionHtml += `<div style="display:flex;align-items:center;margin-bottom:2px;">
-                                <div style="flex:1;text-align:left;">${a ? `${window.escapeHtml(a.name)}：${window.escapeHtml(a.composition)}` : ''}</div>
-                                <div style="flex:1;text-align:center;">${b ? `${window.escapeHtml(b.name)}：${window.escapeHtml(b.composition)}` : ''}</div>
-                                <div style="flex:1;text-align:center;">${c ? `${window.escapeHtml(c.name)}：${window.escapeHtml(c.composition)}` : ''}</div>
-                                <div style="flex:1;text-align:right;">${d ? `${window.escapeHtml(d.name)}：${window.escapeHtml(d.composition)}` : ''}</div>
-                            </div>`;
-                        }
+                        compositionHtml += formulaCompositions.map(fc => 
+                            `<span style="display:inline-block;margin-right:12px;">${window.escapeHtml(fc.name)}：${window.escapeHtml(fc.composition)}</span>`
+                        ).join('');
                         compositionHtml += '</div>';
                     }
                     prescriptionHtml = html + compositionHtml;
@@ -11950,18 +11941,9 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                     let compositionHtml = '';
                     if (formulaCompositions.length > 0) {
                         compositionHtml += '<div style="margin-top: 4px; font-size: 0.5em;">';
-                        for (let k = 0; k < formulaCompositions.length; k += 4) {
-                            const a = formulaCompositions[k] || null;
-                            const b = formulaCompositions[k + 1] || null;
-                            const c = formulaCompositions[k + 2] || null;
-                            const d = formulaCompositions[k + 3] || null;
-                            compositionHtml += `<div style="display:flex;align-items:center;margin-bottom:2px;">
-                                <div style="flex:1;text-align:left;">${a ? `${window.escapeHtml(a.name)}：${window.escapeHtml(a.composition)}` : ''}</div>
-                                <div style="flex:1;text-align:center;">${b ? `${window.escapeHtml(b.name)}：${window.escapeHtml(b.composition)}` : ''}</div>
-                                <div style="flex:1;text-align:center;">${c ? `${window.escapeHtml(c.name)}：${window.escapeHtml(c.composition)}` : ''}</div>
-                                <div style="flex:1;text-align:right;">${d ? `${window.escapeHtml(d.name)}：${window.escapeHtml(d.composition)}` : ''}</div>
-                            </div>`;
-                        }
+                        compositionHtml += formulaCompositions.map(fc => 
+                            `<span style="display:inline-block;margin-right:12px;">${window.escapeHtml(fc.name)}：${window.escapeHtml(fc.composition)}</span>`
+                        ).join('');
                         compositionHtml += '</div>';
                     }
                     prescriptionHtml = html + compositionHtml;
