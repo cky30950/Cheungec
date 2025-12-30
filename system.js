@@ -2816,9 +2816,18 @@ async function updateInventoryAfterConsultation(consultationId, items, days, fre
         log[String(item.id)] = consumption;
         historyEntries.push({ itemId: String(item.id), quantity: consumption, unit: inv.unit || 'g' });
     }
-    // 將新的消耗量記錄到 inventoryLogs
-    await window.firebase.set(window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId)), log);
-    try { await recordInventoryHistory('out', historyEntries, { consultationId: String(consultationId) }); } catch (_e) {}
+    if (!isEditing) {
+        await window.firebase.set(window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId)), log);
+        try { await recordInventoryHistory('out', historyEntries, { consultationId: String(consultationId) }); } catch (_e) {}
+    } else {
+        try {
+            await window.firebase.set(window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId)), log);
+            const ls = localStorage.getItem('inventoryLogs');
+            const obj = ls ? JSON.parse(ls) : {};
+            obj[String(consultationId)] = log;
+            localStorage.setItem('inventoryLogs', JSON.stringify(obj));
+        } catch (_e) {}
+    }
     // 保存後立即更新處方顯示，以便呈現最新庫存
     try {
         if (typeof updatePrescriptionDisplay === 'function') {
@@ -2862,15 +2871,21 @@ async function updateInventoryAfterConsultationMulti(consultationId, prescriptio
         }
     }
     if (isEditing && previousLog === null) {
-        await window.firebase.set(window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId)), newLog);
+        try { if (typeof updatePrescriptionDisplay === 'function') updatePrescriptionDisplay(); } catch (_e) {}
+        const totalsForEdit = {};
+        for (const k of Object.keys(newLog)) {
+            const parts = String(k).split(':');
+            const itemId = parts.length === 2 ? parts[1] : String(k);
+            const qty = Number(newLog[k]) || 0;
+            totalsForEdit[itemId] = (totalsForEdit[itemId] || 0) + qty;
+        }
         try {
+            await window.firebase.set(window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId)), totalsForEdit);
             const ls = localStorage.getItem('inventoryLogs');
             const obj = ls ? JSON.parse(ls) : {};
-            obj[String(consultationId)] = newLog;
+            obj[String(consultationId)] = totalsForEdit;
             localStorage.setItem('inventoryLogs', JSON.stringify(obj));
         } catch (_e) {}
-        try { if (typeof updatePrescriptionDisplay === 'function') updatePrescriptionDisplay(); } catch (_e) {}
-        return;
     }
     const historyOut = [];
     const historyIn = [];
@@ -2908,20 +2923,52 @@ async function updateInventoryAfterConsultationMulti(consultationId, prescriptio
             }
         } catch (_e) {}
         if (delta > 0) {
-            historyOut.push({ itemId: String(itemId), quantity: delta, unit });
+            historyOut.push({ itemId: String(itemId), quantity: delta, unit, mode });
         } else {
-            historyIn.push({ itemId: String(itemId), quantity: Math.abs(delta), unit });
+            historyIn.push({ itemId: String(itemId), quantity: Math.abs(delta), unit, mode });
         }
     }
-    await window.firebase.set(window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId)), newLog);
-    try {
-        const ls = localStorage.getItem('inventoryLogs');
-        const obj = ls ? JSON.parse(ls) : {};
-        obj[String(consultationId)] = newLog;
-        localStorage.setItem('inventoryLogs', JSON.stringify(obj));
-    } catch (_e) {}
-    try { if (historyIn.length) await recordInventoryHistory('in', historyIn, { consultationId: String(consultationId) }); } catch (_e) {}
-    try { if (historyOut.length) await recordInventoryHistory('out', historyOut, { consultationId: String(consultationId) }); } catch (_e) {}
+    if (!isEditing) {
+        await window.firebase.set(window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId)), newLog);
+        try {
+            const ls = localStorage.getItem('inventoryLogs');
+            const obj = ls ? JSON.parse(ls) : {};
+            obj[String(consultationId)] = newLog;
+            localStorage.setItem('inventoryLogs', JSON.stringify(obj));
+        } catch (_e) {}
+        try { if (historyIn.length) await recordInventoryHistory('in', historyIn, { consultationId: String(consultationId) }); } catch (_e) {}
+        try { if (historyOut.length) await recordInventoryHistory('out', historyOut, { consultationId: String(consultationId) }); } catch (_e) {}
+    } else {
+        const totals = {};
+        const totalsByMode = { granule: {}, slice: {} };
+        for (const k of Object.keys(newLog)) {
+            const parts = String(k).split(':');
+            const m = parts.length === 2 ? (parts[0] === 'slice' ? 'slice' : 'granule') : 'granule';
+            const itemId = parts.length === 2 ? parts[1] : String(k);
+            const qty = Number(newLog[k]) || 0;
+            totals[itemId] = (totals[itemId] || 0) + qty;
+            totalsByMode[m][itemId] = (totalsByMode[m][itemId] || 0) + qty;
+        }
+        const finalEntries = [];
+        for (const m of ['granule', 'slice']) {
+            for (const itemId of Object.keys(totalsByMode[m])) {
+                let unit = 'g';
+                try {
+                    const inv = await getHerbInventoryForMode(itemId, m);
+                    if (inv && inv.unit) unit = inv.unit;
+                } catch (_e) {}
+                finalEntries.push({ itemId: String(itemId), quantity: totalsByMode[m][itemId], unit, mode: m });
+            }
+        }
+        try { await recordInventoryHistory('out', finalEntries, { consultationId: String(consultationId), replaceExistingForConsultation: true }); } catch (_e) {}
+        try {
+            await window.firebase.set(window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId)), totals);
+            const ls = localStorage.getItem('inventoryLogs');
+            const obj = ls ? JSON.parse(ls) : {};
+            obj[String(consultationId)] = totals;
+            localStorage.setItem('inventoryLogs', JSON.stringify(obj));
+        } catch (_e) {}
+    }
     try { if (typeof updatePrescriptionDisplay === 'function') updatePrescriptionDisplay(); } catch (_e) {}
 }
 
@@ -3695,27 +3742,43 @@ async function saveInventoryChanges() {
 async function recordInventoryHistory(type, entries, extra = {}) {
             await waitForFirebaseDb();
             const arr = Array.isArray(entries) ? entries : [];
-            if (type === 'out' && extra && extra.consultationId && arr.length) {
-                try {
-                    const baseRef = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/out');
-                    const q = window.firebase.query(baseRef, window.firebase.orderByChild('timestamp'), window.firebase.limitToLast(50));
-                    let snap = null;
-                    try { snap = await window.firebase.get(q); } catch (_e) { snap = null; }
-                    const obj = snap && snap.exists() ? snap.val() || {} : {};
-                    const norm = (list) => list.slice().map(e => ({ itemId: String(e.itemId), quantity: Number(e.quantity) || 0, unit: e.unit || 'g' }))
-                        .sort((a,b) => a.itemId.localeCompare(b.itemId))
-                        .map(e => e.itemId + ':' + e.quantity + ':' + e.unit).join('|');
-                    const target = norm(arr);
-                    const keys = Object.keys(obj);
-                    let duplicated = false;
-                    for (const k of keys) {
-                        const rec = obj[k] || {};
-                        if (String(rec.consultationId || '') !== String(extra.consultationId)) continue;
-                        const recEntries = Array.isArray(rec.entries) ? rec.entries : [];
-                        if (norm(recEntries) === target) { duplicated = true; break; }
-                    }
-                    if (duplicated) return;
-                } catch (_e) {}
+            if (type === 'out' && extra && extra.consultationId) {
+                if (extra.replaceExistingForConsultation) {
+                    try {
+                        const baseRef = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/out');
+                        let snap = null;
+                        try { snap = await window.firebase.get(baseRef); } catch (_e) { snap = null; }
+                        const obj = snap && snap.exists() ? snap.val() || {} : {};
+                        for (const k in obj) {
+                            const rec = obj[k] || {};
+                            if (String(rec.consultationId || '') === String(extra.consultationId)) {
+                                const child = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/out/' + String(k));
+                                await window.firebase.set(child, null);
+                            }
+                        }
+                    } catch (_e) {}
+                } else if (arr.length) {
+                    try {
+                        const baseRef = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/out');
+                        const q = window.firebase.query(baseRef, window.firebase.orderByChild('timestamp'), window.firebase.limitToLast(50));
+                        let snap = null;
+                        try { snap = await window.firebase.get(q); } catch (_e) { snap = null; }
+                        const obj = snap && snap.exists() ? snap.val() || {} : {};
+                        const norm = (list) => list.slice().map(e => ({ itemId: String(e.itemId), quantity: Number(e.quantity) || 0, unit: e.unit || 'g' }))
+                            .sort((a,b) => a.itemId.localeCompare(b.itemId))
+                            .map(e => e.itemId + ':' + e.quantity + ':' + e.unit).join('|');
+                        const target = norm(arr);
+                        const keys = Object.keys(obj);
+                        let duplicated = false;
+                        for (const k of keys) {
+                            const rec = obj[k] || {};
+                            if (String(rec.consultationId || '') !== String(extra.consultationId)) continue;
+                            const recEntries = Array.isArray(rec.entries) ? rec.entries : [];
+                            if (norm(recEntries) === target) { duplicated = true; break; }
+                        }
+                        if (duplicated) return;
+                    } catch (_e) {}
+                }
             }
             const ts = Date.now();
             const ref = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/' + String(type) + '/' + String(ts));
@@ -3860,7 +3923,10 @@ async function recordInventoryHistory(type, entries, extra = {}) {
                         const name = getHerbNameById(e.itemId);
                         const qty = typeof e.quantity === 'number' ? e.quantity : 0;
                         const unit = e.unit || 'g';
-                        return name + '：' + qty + unit;
+                        let modeTag = '';
+                        if (e.mode === 'slice') modeTag = '（飲片）';
+                        else if (e.mode === 'granule') modeTag = '（顆粒）';
+                        return name + '：' + qty + unit + (modeTag ? modeTag : '');
                     });
                     const extra = [];
                     if (type === 'in' && rec.mode) { extra.push('類型：' + rec.mode); }
@@ -11734,9 +11800,18 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                     let compositionHtml = '';
                     if (formulaCompositions.length > 0) {
                         compositionHtml += '<div style="margin-top: 4px; font-size: 0.5em;">';
-                        formulaCompositions.forEach((fc) => {
-                            compositionHtml += `<div>${fc.name}：${fc.composition}</div>`;
-                        });
+                        for (let k = 0; k < formulaCompositions.length; k += 4) {
+                            const a = formulaCompositions[k] || null;
+                            const b = formulaCompositions[k + 1] || null;
+                            const c = formulaCompositions[k + 2] || null;
+                            const d = formulaCompositions[k + 3] || null;
+                            compositionHtml += `<div style="display:flex;align-items:center;margin-bottom:2px;">
+                                <div style="flex:1;text-align:left;">${a ? `${window.escapeHtml(a.name)}：${window.escapeHtml(a.composition)}` : ''}</div>
+                                <div style="flex:1;text-align:center;">${b ? `${window.escapeHtml(b.name)}：${window.escapeHtml(b.composition)}` : ''}</div>
+                                <div style="flex:1;text-align:center;">${c ? `${window.escapeHtml(c.name)}：${window.escapeHtml(c.composition)}` : ''}</div>
+                                <div style="flex:1;text-align:right;">${d ? `${window.escapeHtml(d.name)}：${window.escapeHtml(d.composition)}` : ''}</div>
+                            </div>`;
+                        }
                         compositionHtml += '</div>';
                     }
                     prescriptionHtml = html + compositionHtml;
@@ -11871,13 +11946,22 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                                     <div style="flex:1;text-align:right;">${d}</div>
                                  </div>`;
                     }
-                    // 將方劑的組成統一列在處方內容的左下角，字體稍微放大
+                    // 方劑組成橫向排列（每行四個）
                     let compositionHtml = '';
                     if (formulaCompositions.length > 0) {
                         compositionHtml += '<div style="margin-top: 4px; font-size: 0.5em;">';
-                        formulaCompositions.forEach((fc) => {
-                            compositionHtml += `<div>${fc.name}：${fc.composition}</div>`;
-                        });
+                        for (let k = 0; k < formulaCompositions.length; k += 4) {
+                            const a = formulaCompositions[k] || null;
+                            const b = formulaCompositions[k + 1] || null;
+                            const c = formulaCompositions[k + 2] || null;
+                            const d = formulaCompositions[k + 3] || null;
+                            compositionHtml += `<div style="display:flex;align-items:center;margin-bottom:2px;">
+                                <div style="flex:1;text-align:left;">${a ? `${window.escapeHtml(a.name)}：${window.escapeHtml(a.composition)}` : ''}</div>
+                                <div style="flex:1;text-align:center;">${b ? `${window.escapeHtml(b.name)}：${window.escapeHtml(b.composition)}` : ''}</div>
+                                <div style="flex:1;text-align:center;">${c ? `${window.escapeHtml(c.name)}：${window.escapeHtml(c.composition)}` : ''}</div>
+                                <div style="flex:1;text-align:right;">${d ? `${window.escapeHtml(d.name)}：${window.escapeHtml(d.composition)}` : ''}</div>
+                            </div>`;
+                        }
                         compositionHtml += '</div>';
                     }
                     prescriptionHtml = html + compositionHtml;
@@ -12137,11 +12221,10 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                         ${consultation.diagnosis ? `<div class="info-row"><span class="info-label">${PI.diagnosis}${colon}</span><span>${consultation.diagnosis}</span></div>` : ''}
                     </div>
                     <div class="section-title">${PI.prescriptionContent}</div>
-                    <div class="section-content" style="font-size: 12px;">${prescriptionHtml}</div>
+                    <div class="section-content">${prescriptionHtml}</div>
                     ${medInfoHtml ? `<div class="section-title">${PI.medicationInfo}</div><div class="section-content">${medInfoHtml}</div>` : ''}
                     ${instructionsHtml ? `<div class="section-title">${PI.instructions}</div><div class="section-content">${instructionsHtml}</div>` : ''}
                     ${followUpHtml ? `<div class="section-title">${PI.followUp}</div><div class="section-content">${followUpHtml}</div>` : ''}
-                    <div class="thank-you">${PI.thankYou}</div>
                     <div class="footer-info">
                         <div class="footer-row"><span>${PI.printTime}${colon}</span><span>${new Date().toLocaleString(dateLocale)}</span></div>
                         <div class="footer-row"><span>${PI.businessHours}${colon}</span><span>${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</span></div>
