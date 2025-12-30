@@ -3933,6 +3933,13 @@ async function recordInventoryHistory(type, entries, extra = {}) {
                     if (type === 'out' && rec.consultationId) {
                         const mrn = await getMedicalRecordNumberByConsultationId(rec.consultationId);
                         extra.push('病歷編號：' + mrn);
+                        const modes = new Set(items.map(e => e && e.mode).filter(m => m === 'slice' || m === 'granule'));
+                        if (modes.size === 1) {
+                            const m = Array.from(modes)[0];
+                            extra.push('入庫位置：' + (m === 'slice' ? '飲片' : '顆粒沖劑'));
+                        } else if (modes.size > 1) {
+                            extra.push('入庫位置：混合');
+                        }
                         const missing = await isConsultationMissing(rec.consultationId);
                         if (missing) { extra.push('<span class="text-red-600">已退回</span>'); }
                     }
@@ -3973,7 +3980,32 @@ async function recordInventoryHistory(type, entries, extra = {}) {
                         const mrn = await getMedicalRecordNumberByConsultationId(cid);
                         const missing = await isConsultationMissing(cid);
                         const extraTag = missing ? '，<span class="text-red-600">已退回</span>' : '';
-                        div.innerHTML = '<div class="text-sm text-gray-600">舊出庫記錄（病歷編號：' + mrn + extraTag + '）</div>' +
+                        let locText = '';
+                        try {
+                            const baseRef3 = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/out');
+                            const q3 = window.firebase.query(baseRef3, window.firebase.orderByChild('consultationId'), window.firebase.equalTo(String(cid)));
+                            let snap3 = null;
+                            try { snap3 = await window.firebase.get(q3); } catch (_e3) { snap3 = null; }
+                            if (snap3 && snap3.exists()) {
+                                const obj3 = snap3.val() || {};
+                                let latestRec = null;
+                                for (const kk in obj3) {
+                                    const rr = obj3[kk] || {};
+                                    if (!Array.isArray(rr.entries)) continue;
+                                    if (!latestRec || Number(rr.timestamp || 0) > Number(latestRec.timestamp || 0)) latestRec = rr;
+                                }
+                                if (latestRec && Array.isArray(latestRec.entries)) {
+                                    const modes = new Set(latestRec.entries.map(e => e && e.mode).filter(m => m === 'slice' || m === 'granule'));
+                                    if (modes.size === 1) {
+                                        const m = Array.from(modes)[0];
+                                        locText = '，入庫位置：' + (m === 'slice' ? '飲片' : '顆粒沖劑');
+                                    } else if (modes.size > 1) {
+                                        locText = '，入庫位置：混合';
+                                    }
+                                }
+                            }
+                        } catch (_eLoc) {}
+                        div.innerHTML = '<div class="text-sm text-gray-600">舊出庫記錄（病歷編號：' + mrn + locText + extraTag + '）</div>' +
                             '<div class="mt-1 text-gray-800">' + (lines.length ? lines.join('；') : '無項目') + '</div>';
                         container.appendChild(div);
                     }
@@ -18278,6 +18310,10 @@ async function deleteUser(id) {
                             }
                             const merged = Array.from(index.values());
                             const stats = calculateFinancialStatistics(merged);
+                            const mlist = monthsInDateRange(startDate, endDate);
+                            const exp = await getClinicExpensesByMonths(mlist);
+                            stats.totalCost = exp.totalCost;
+                            stats.netRevenue = stats.totalRevenue - exp.totalCost;
                             updateFinancialKeyMetrics(stats);
                             updateFinancialTables(merged, stats);
                             const lastSyncAt = (() => {
@@ -18313,6 +18349,10 @@ async function deleteUser(id) {
             
             // 計算統計資料
             const stats = calculateFinancialStatistics(filteredConsultations);
+            const mlist = monthsInDateRange(startDate, endDate);
+            const exp = await getClinicExpensesByMonths(mlist);
+            stats.totalCost = exp.totalCost;
+            stats.netRevenue = stats.totalRevenue - exp.totalCost;
             
             // 更新關鍵指標
             updateFinancialKeyMetrics(stats);
@@ -18433,10 +18473,13 @@ async function deleteUser(id) {
 
         // 更新關鍵指標
         function updateFinancialKeyMetrics(stats) {
-            document.getElementById('totalRevenue').textContent = `$${stats.totalRevenue.toLocaleString()}`;
+            const net = (typeof stats.netRevenue === 'number') ? stats.netRevenue : stats.totalRevenue;
+            document.getElementById('totalRevenue').textContent = `$${net.toLocaleString()}`;
             document.getElementById('totalConsultations').textContent = stats.totalConsultations.toLocaleString();
             document.getElementById('averageRevenue').textContent = `$${Math.round(stats.averageRevenue).toLocaleString()}`;
             document.getElementById('activeDoctors').textContent = stats.activeDoctors;
+            const rc = document.getElementById('revenueChange');
+            if (rc) rc.textContent = '扣除成本後淨收入';
         }
 
         // 更新財務表格
@@ -18469,7 +18512,14 @@ async function deleteUser(id) {
 
             const totalRevenue = stats.totalRevenue;
 
-            tbody.innerHTML = summaryData.map(item => {
+            const totalCost = typeof stats.totalCost === 'number' ? stats.totalCost : 0;
+            const netRevenue = typeof stats.netRevenue === 'number' ? stats.netRevenue : (totalRevenue - totalCost);
+            const extendedRows = [
+                { item: '總成本', amount: totalCost, category: 'expense' },
+                { item: '淨收入', amount: netRevenue, category: 'net' }
+            ];
+
+            tbody.innerHTML = summaryData.concat(extendedRows).map(item => {
                 const percentage = totalRevenue > 0 ? ((item.amount / totalRevenue) * 100).toFixed(1) : '0';
                 return `
                     <tr class="hover:bg-gray-50">
@@ -18607,7 +18657,7 @@ async function deleteUser(id) {
         }
 
         // 匯出財務報表
-function exportFinancialReport() {
+async function exportFinancialReport() {
     const startDate = document.getElementById('startDate').value;
     const endDate = document.getElementById('endDate').value;
     // 嘗試取得報表類型：舊的 reportType 元素可能不存在，改用 quickDate 文字或值
@@ -18636,6 +18686,17 @@ function exportFinancialReport() {
     // 過濾診症資料並計算統計以生成更詳細的報表
     const filteredConsultations = filterFinancialConsultations(startDate, endDate, doctorFilter);
     const stats = calculateFinancialStatistics(filteredConsultations);
+    const months = monthsInDateRange(startDate, endDate);
+    let totalCost = 0;
+    let byType = {};
+    try {
+        const exp = await getClinicExpensesByMonths(months);
+        totalCost = exp && typeof exp.totalCost === 'number' ? exp.totalCost : 0;
+        byType = exp && exp.byType ? exp.byType : {};
+    } catch (_e) {
+        totalCost = 0;
+        byType = {};
+    }
     // 準備各區塊文字
     const doctorLines = Object.keys(stats.doctorStats).map(key => {
         const data = stats.doctorStats[key];
@@ -18657,13 +18718,18 @@ function exportFinancialReport() {
     textReport += `報表標題: 財務報表 - ${reportType}\n`;
     textReport += `期間: ${startDate} 至 ${endDate}\n`;
     textReport += `生成時間: ${new Date().toLocaleString('zh-TW')}\n`;
-    textReport += `總收入: $${stats.totalRevenue.toLocaleString()}\n`;
+    textReport += `總收入(未扣成本): $${stats.totalRevenue.toLocaleString()}\n`;
+    textReport += `總成本: $${totalCost.toLocaleString()}\n`;
+    const netRevenue = stats.totalRevenue - totalCost;
+    textReport += `淨收入: $${netRevenue.toLocaleString()}\n`;
     textReport += `總診症數: ${stats.totalConsultations.toLocaleString()}\n`;
     textReport += `平均收入: $${Math.round(stats.averageRevenue).toLocaleString()}\n`;
     textReport += `有效醫師數: ${stats.activeDoctors.toLocaleString()}\n\n`;
     textReport += `醫師統計:\n${doctorLines || '無資料'}\n\n`;
     textReport += `服務分類統計:\n${serviceLines || '無資料'}\n\n`;
     textReport += `每日統計:\n${dailyLines || '無資料'}\n`;
+    const costLines = Object.keys(byType).map(t => `${t}: $${Number(byType[t]||0).toLocaleString()}`).join('\n');
+    textReport += `\n成本統計:\n${costLines || '無資料'}\n`;
     // 創建下載為純文字檔案
     const blob = new Blob([textReport], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -18677,6 +18743,233 @@ function exportFinancialReport() {
     showToast('財務報表已匯出！', 'success');
 }
 
+function monthsInDateRange(startDateStr, endDateStr) {
+    const s = new Date(startDateStr);
+    const e = new Date(endDateStr);
+    const cur = new Date(s.getFullYear(), s.getMonth(), 1);
+    const end = new Date(e.getFullYear(), e.getMonth(), 1);
+    const list = [];
+    while (cur <= end) {
+        const y = cur.getFullYear();
+        const m = String(cur.getMonth() + 1).padStart(2, '0');
+        list.push(`${y}-${m}`);
+        cur.setMonth(cur.getMonth() + 1);
+    }
+    return list;
+}
+
+async function getClinicExpensesByMonths(months) {
+    await waitForFirebaseDb();
+    const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'clinicExpenses'));
+    let total = 0;
+    const byType = {};
+    snapshot.forEach(docSnap => {
+        const d = docSnap.data() || {};
+        const m = d.month;
+        if (m && months.includes(m)) {
+            const amt = Number(d.amount) || 0;
+            total += amt;
+            const t = d.type || '其他費用';
+            byType[t] = (byType[t] || 0) + amt;
+        }
+    });
+    return { totalCost: total, byType };
+}
+
+function showExpenseImportModal() {
+    const el = document.getElementById('expenseImportModal');
+    const monthEl = document.getElementById('expenseMonth');
+    const now = new Date();
+    const m = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    if (monthEl && !monthEl.value) monthEl.value = m;
+    if (el) el.classList.remove('hidden');
+}
+
+function closeExpenseImportModal() {
+    const el = document.getElementById('expenseImportModal');
+    if (el) el.classList.add('hidden');
+}
+
+async function saveClinicExpense() {
+    const month = document.getElementById('expenseMonth').value;
+    const type = document.getElementById('expenseType').value;
+    const amount = document.getElementById('expenseAmount').value;
+    const note = document.getElementById('expenseNote').value;
+    if (!month || !type || !amount) {
+        showToast('請填寫月份、類型與金額', 'error');
+        return;
+    }
+    await waitForFirebaseDb();
+    const createdBy = currentUserData ? currentUserData.username : (currentUser || 'system');
+    await window.firebase.addDoc(
+        window.firebase.collection(window.firebase.db, 'clinicExpenses'),
+        { month, type, amount: Number(amount), note: note || '', createdAt: new Date(), updatedAt: new Date(), createdBy }
+    );
+    showToast('成本已儲存', 'success');
+    closeExpenseImportModal();
+    try { await generateFinancialReport(); } catch (_e) {}
+    try { await loadClinicExpensesForSelectedMonth(); } catch (_e) {}
+    try { await loadClinicExpensesForListMonth(); } catch (_e) {}
+}
+
+async function listClinicExpensesForMonth(month) {
+    await waitForFirebaseDb();
+    const colRef = window.firebase.collection(window.firebase.db, 'clinicExpenses');
+    const q = window.firebase.firestoreQuery(colRef, window.firebase.where('month', '==', month));
+    const snapshot = await window.firebase.getDocs(q);
+    const list = [];
+    snapshot.forEach(docSnap => {
+        const d = docSnap.data() || {};
+        list.push({ id: docSnap.id, ...d });
+    });
+    list.sort((a, b) => {
+        const ta = a.updatedAt && a.updatedAt.seconds ? new Date(a.updatedAt.seconds * 1000) : (a.updatedAt ? new Date(a.updatedAt) : new Date(0));
+        const tb = b.updatedAt && b.updatedAt.seconds ? new Date(b.updatedAt.seconds * 1000) : (b.updatedAt ? new Date(b.updatedAt) : new Date(0));
+        return tb - ta;
+    });
+    return list;
+}
+
+async function loadClinicExpensesForSelectedMonth() {
+    const month = document.getElementById('expenseMonth').value;
+    if (!month) return;
+    const list = await listClinicExpensesForMonth(month);
+    const tbody = document.getElementById('expenseListBody');
+    if (!tbody) return;
+    if (list.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="px-4 py-6 text-center text-gray-500">此月份尚無成本資料</td>
+            </tr>
+        `;
+        return;
+    }
+    tbody.innerHTML = list.map(item => {
+        const amt = Number(item.amount) || 0;
+        const note = item.note || '';
+        const type = item.type || '其他費用';
+        return `
+            <tr data-id="${item.id}" class="hover:bg-gray-50">
+                <td class="px-4 py-3 text-sm text-gray-900">${type}</td>
+                <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">$${amt.toLocaleString()}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${note}</td>
+                <td class="px-4 py-3 text-sm text-right">
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded mr-2" onclick="startEditExpense('${item.id}')">編輯</button>
+                    <button class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded" onclick="deleteExpense('${item.id}')">刪除</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function loadClinicExpensesForListMonth() {
+    const month = document.getElementById('expenseListMonth').value;
+    if (!month) return;
+    const list = await listClinicExpensesForMonth(month);
+    const tbody = document.getElementById('expenseListBody');
+    if (!tbody) return;
+    if (list.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4" class="px-4 py-6 text-center text-gray-500">此月份尚無成本資料</td>
+            </tr>
+        `;
+        return;
+    }
+    tbody.innerHTML = list.map(item => {
+        const amt = Number(item.amount) || 0;
+        const note = item.note || '';
+        const type = item.type || '其他費用';
+        return `
+            <tr data-id="${item.id}" class="hover:bg-gray-50">
+                <td class="px-4 py-3 text-sm text-gray-900">${type}</td>
+                <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">$${amt.toLocaleString()}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${note}</td>
+                <td class="px-4 py-3 text-sm text-right">
+                    <button class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded mr-2" onclick="startEditExpense('${item.id}')">編輯</button>
+                    <button class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded" onclick="deleteExpense('${item.id}')">刪除</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function showExpenseListModal() {
+    const el = document.getElementById('expenseListModal');
+    const monthEl = document.getElementById('expenseListMonth');
+    const now = new Date();
+    const m = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    if (monthEl && !monthEl.value) monthEl.value = m;
+    if (el) el.classList.remove('hidden');
+    try { loadClinicExpensesForListMonth(); } catch (_e) {}
+}
+
+function closeExpenseListModal() {
+    const el = document.getElementById('expenseListModal');
+    if (el) el.classList.add('hidden');
+}
+function startEditExpense(id) {
+    const row = Array.from(document.querySelectorAll('#expenseListBody tr')).find(tr => tr.getAttribute('data-id') === id);
+    if (!row) return;
+    const tds = row.querySelectorAll('td');
+    const curType = tds[0].textContent.trim();
+    const curAmountText = tds[1].textContent.replace(/\$|,/g, '').trim();
+    const curAmount = Number(curAmountText) || 0;
+    const curNote = tds[2].textContent.trim();
+    row.innerHTML = `
+        <td class="px-4 py-3">
+            <select id="exp_type_${id}" class="w-full border border-gray-300 rounded-lg px-2 py-1">
+                <option value="針灸用具"${curType==='針灸用具'?' selected':''}>針灸用具</option>
+                <option value="飲片"${curType==='飲片'?' selected':''}>飲片</option>
+                <option value="顆粒沖劑"${curType==='顆粒沖劑'?' selected':''}>顆粒沖劑</option>
+                <option value="場地租金"${curType==='場地租金'?' selected':''}>場地租金</option>
+                <option value="水電費用"${curType==='水電費用'?' selected':''}>水電費用</option>
+                <option value="工資費用"${curType==='工資費用'?' selected':''}>工資費用</option>
+                <option value="其他費用"${curType==='其他費用'?' selected':''}>其他費用</option>
+            </select>
+        </td>
+        <td class="px-4 py-3">
+            <input id="exp_amount_${id}" type="number" min="0" step="1" value="${curAmount}" class="w-full border border-gray-300 rounded-lg px-2 py-1 text-right">
+        </td>
+        <td class="px-4 py-3">
+            <input id="exp_note_${id}" type="text" value="${curNote}" class="w-full border border-gray-300 rounded-lg px-2 py-1">
+        </td>
+        <td class="px-4 py-3 text-right">
+            <button class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded mr-2" onclick="saveEditExpense('${id}')">儲存</button>
+            <button class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded" onclick="cancelEditExpense()">取消</button>
+        </td>
+    `;
+}
+
+async function saveEditExpense(id) {
+    const typeEl = document.getElementById(`exp_type_${id}`);
+    const amountEl = document.getElementById(`exp_amount_${id}`);
+    const noteEl = document.getElementById(`exp_note_${id}`);
+    if (!typeEl || !amountEl) return;
+    const type = typeEl.value;
+    const amount = Number(amountEl.value) || 0;
+    const note = noteEl ? noteEl.value : '';
+    await waitForFirebaseDb();
+    await window.firebase.updateDoc(
+        window.firebase.doc(window.firebase.db, 'clinicExpenses', id),
+        { type, amount, note, updatedAt: new Date(), updatedBy: currentUser || 'system' }
+    );
+    showToast('成本已更新', 'success');
+    await loadClinicExpensesForSelectedMonth();
+}
+
+function cancelEditExpense() {
+    loadClinicExpensesForSelectedMonth();
+}
+
+async function deleteExpense(id) {
+    await waitForFirebaseDb();
+    await window.firebase.deleteDoc(
+        window.firebase.doc(window.firebase.db, 'clinicExpenses', id)
+    );
+    showToast('成本已刪除', 'success');
+    await loadClinicExpensesForSelectedMonth();
+}
 // ================== 資料備份與還原相關函式 ==================
 /**
  * 等待 Firebase DataManager 準備就緒的輔助函式。

@@ -352,6 +352,71 @@
                 </div>
             </div>
         </div>
+        <div id="expenseImportModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-xl w-full">
+                <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-xl">
+                    <h3 class="text-xl font-bold text-gray-800">成本導入</h3>
+                    <button onclick="closeExpenseImportModal()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">月份</label>
+                        <input type="month" id="expenseMonth" onchange="loadClinicExpensesForSelectedMonth()" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">成本類型</label>
+                        <select id="expenseType" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            <option value="針灸用具">針灸用具</option>
+                            <option value="飲片">飲片</option>
+                            <option value="顆粒沖劑">顆粒沖劑</option>
+                            <option value="場地租金">場地租金</option>
+                            <option value="水電費用">水電費用</option>
+                            <option value="工資費用">工資費用</option>
+                            <option value="其他費用">其他費用</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">金額</label>
+                        <input type="number" id="expenseAmount" min="0" step="1" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="輸入金額">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">備註</label>
+                        <textarea id="expenseNote" rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="可選填"></textarea>
+                    </div>
+                    <div class="flex justify-end space-x-3 pt-2">
+                        <button onclick="closeExpenseImportModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition duration-200">取消</button>
+                        <button onclick="saveClinicExpense()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition duration-200">儲存</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="expenseListModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-xl w-full">
+                <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-xl">
+                    <h3 class="text-xl font-bold text-gray-800">已輸入成本</h3>
+                    <button onclick="closeExpenseListModal()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">月份</label>
+                        <input type="month" id="expenseListMonth" onchange="loadClinicExpensesForListMonth()" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">類型</th>
+                                    <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">金額</th>
+                                    <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">備註</th>
+                                    <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="expenseListBody" class="divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
         <!-- 遮罩層 -->
         <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden"></div>
         <!-- 頂部導航 -->
@@ -1645,7 +1710,15 @@
                     <p class="text-gray-600">診所收入分析與財務統計</p>
                 </div>
                 <!-- 篩選控制區 -->
-                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                <div class="bg-gray-50 rounded-lg p-4 mb-6 relative">
+                    <div class="absolute top-4 right-4 space-y-2 flex flex-col items-end">
+                        <button onclick="showExpenseImportModal()" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition duration-200 flex items-center">
+                            <span class="mr-2">📦</span><span>成本導入</span>
+                        </button>
+                        <button onclick="showExpenseListModal()" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg transition duration-200 flex items-center">
+                            <span class="mr-2">📄</span><span>已輸入成本</span>
+                        </button>
+                    </div>
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                         
                         <div>
