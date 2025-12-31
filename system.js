@@ -7619,8 +7619,26 @@ function createAppointmentRow(appointment, patient, index) {
     } catch (e) {
         // ignore language detection errors
     }
-    // 根據是否存在性別資訊構造姓名字串
-    const nameWithGender = genderDisplay ? `${patient.name} (${genderDisplay})` : patient.name;
+    // 計算年齡數字（若有生日），僅顯示整數歲數
+    let ageNum = '';
+    try {
+        if (patient && patient.birthDate) {
+            const birth = new Date(patient.birthDate);
+            const today = new Date();
+            let years = today.getFullYear() - birth.getFullYear();
+            const monthDiff = today.getMonth() - birth.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                years--;
+            }
+            ageNum = String(Math.max(0, years));
+        }
+    } catch (_e) {
+        ageNum = '';
+    }
+    // 根據是否存在性別資訊構造姓名字串，形如「姓名 (男26)」
+    const nameWithGender = genderDisplay
+        ? `${patient.name} (${genderDisplay}${ageNum})`
+        : patient.name;
     // 為避免 XSS，使用 escapeHtml 轉義姓名及括號內容（若可用）
     const safeNameWithGender = (typeof window !== 'undefined' && window.escapeHtml) ? window.escapeHtml(nameWithGender) : nameWithGender;
 
