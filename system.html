@@ -2176,10 +2176,17 @@
         <div id="personalStatistics" class="hidden max-w-7xl mx-auto px-4 py-6">
           <div class="bg-white rounded-xl shadow-lg p-6">
             <div>
-            <h2 class="text-2xl font-bold text-amber-800 mb-6 flex items-center">
-              <span class="text-3xl mr-3">📈</span>
-              個人統計分析
-            </h2>
+            <div class="mb-6 flex items-center justify-between">
+              <h2 class="text-2xl font-bold text-amber-800 flex items-center">
+                <span class="text-3xl mr-3">📈</span>
+                個人統計分析
+              </h2>
+              <div>
+                <select id="personalStatsMonthSelect" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                  <option value="ALL">全部月份</option>
+                </select>
+              </div>
+            </div>
             <!-- 說明文字：指引使用者此功能用途 -->
             <p class="text-gray-600 mb-6">統計醫師個人用藥與穴位使用情況，提供用藥和穴位偏好分析。</p>
             <!-- 依序排列：方劑在上，中藥在下，穴位置底。每個卡片內部使用二欄佈局：圖表與列表並列 -->
@@ -4578,6 +4585,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script src="schedule_management.js"></script><script src="system.js"></script>
+    <script src="personalStatistics.js"></script>
     <!-- 系統管理相關腳本拆分至獨立檔案 -->
     <script src="systemmanagement.js"></script>
     <!-- 新增聊天模組腳本，需在 system.js 之後載入 -->
