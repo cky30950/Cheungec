@@ -7827,8 +7827,24 @@ function createAppointmentRow(appointment, patient, index) {
     } catch (e) {
         // ignore language detection errors
     }
-    // 根據是否存在性別資訊構造姓名字串
-    const nameWithGender = genderDisplay ? `${patient.name} (${genderDisplay})` : patient.name;
+    // 計算年齡以便顯示在性別旁
+    let ageDisplay = '';
+    if (patient && patient.birthDate) {
+        const birth = new Date(patient.birthDate);
+        const today = new Date();
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+            age--;
+        }
+        ageDisplay = age;
+    }
+
+    // 組合性別與年齡資訊（例如：男24）
+    const infoInParens = genderDisplay ? `${genderDisplay}${ageDisplay}` : ageDisplay;
+
+    // 根據是否存在性別或年齡資訊構造姓名字串
+    const nameWithGender = infoInParens ? `${patient.name} (${infoInParens})` : patient.name;
     // 為避免 XSS，使用 escapeHtml 轉義姓名及括號內容（若可用）
     const safeNameWithGender = (typeof window !== 'undefined' && window.escapeHtml) ? window.escapeHtml(nameWithGender) : nameWithGender;
 
@@ -18955,11 +18971,11 @@ async function saveEditExpense(id) {
         { type, amount, note, updatedAt: new Date(), updatedBy: currentUser || 'system' }
     );
     showToast('成本已更新', 'success');
-    await loadClinicExpensesForSelectedMonth();
+    await loadClinicExpensesForListMonth();
 }
 
 function cancelEditExpense() {
-    loadClinicExpensesForSelectedMonth();
+    loadClinicExpensesForListMonth();
 }
 
 async function deleteExpense(id) {
@@ -18968,7 +18984,7 @@ async function deleteExpense(id) {
         window.firebase.doc(window.firebase.db, 'clinicExpenses', id)
     );
     showToast('成本已刪除', 'success');
-    await loadClinicExpensesForSelectedMonth();
+    await loadClinicExpensesForListMonth();
 }
 // ================== 資料備份與還原相關函式 ==================
 /**
