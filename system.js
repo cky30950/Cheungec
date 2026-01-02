@@ -9282,6 +9282,10 @@ if (!patient) {
                                         class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
                                     到診證明
                                 </button>
+                                <button onclick="printSickLeave('${consultation.id}')"
+                                        class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
+                                    病假證明
+                                </button>
                                 ${(() => {
                                     // 檢查是否正在診症且為相同病人
                                     if (currentConsultingAppointmentId) {
@@ -23351,6 +23355,7 @@ function viewMedicalRecord(recordId, patientId) {
         detailHtml += `<button onclick="printConsultationRecord('${rec.id}')" class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">列印收據</button>`;
         detailHtml += `<button onclick="printPrescriptionInstructions('${rec.id}')" class="text-yellow-600 hover:text-yellow-800 text-sm font-medium bg-yellow-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">藥單醫囑</button>`;
         detailHtml += `<button onclick="printAttendanceCertificate('${rec.id}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">到診證明</button>`;
+        detailHtml += `<button onclick="printSickLeave('${rec.id}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">病假證明</button>`;
         detailHtml += loadButtonHtml;
         detailHtml += '</div>'; // 按鈕區塊結束
         detailHtml += '</div>'; // flex 容器結束
