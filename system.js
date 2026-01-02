@@ -15356,41 +15356,7 @@ async function initializeSystemAfterLogin() {
                         <div class="space-y-3">
                             ${itemsHtml}
                         </div>
-                        ${(() => {
-                            try {
-                                const formulas = (Array.isArray(itemsArray) ? itemsArray : []).filter(it => it && it.type === 'formula');
-                                if (!formulas.length) return '';
-                                const lines = formulas.map(it => {
-                                    let comp = it && it.composition ? String(it.composition) : '';
-                                    if (!comp) {
-                                        try {
-                                            const fullItem = (Array.isArray(herbLibrary) ? herbLibrary : []).find(h => h && h.id === it.id && h.type === 'formula');
-                                            if (fullItem && fullItem.composition) comp = String(fullItem.composition);
-                                        } catch (_e) {}
-                                    }
-                                    let processed = '';
-                                    if (comp) {
-                                        try {
-                                            processed = String(comp)
-                                                .replace(/\r/g, '')
-                                                .split(/[、\n]/)
-                                                .map(p => p
-                                                    .replace(/\d+(?:\.\d+)?\s*(?:g|克|錢|兩|丸|包)?/gi, '')
-                                                    .replace(/[()（）\[\]]/g, '')
-                                                    .trim()
-                                                )
-                                                .filter(p => p)
-                                                .join('、');
-                                        } catch (_err) {
-                                            processed = comp.replace(/\n/g, '、');
-                                        }
-                                    }
-                                    const nm = it && it.name ? it.name : '';
-                                    return `<div>${window.escapeHtml(nm)}：${window.escapeHtml(processed)}</div>`;
-                                }).join('');
-                                return `<div class="mt-1 text-xs text-gray-700">${lines}</div>`;
-                            } catch (_e) { return ''; }
-                        })()}
+                        ${''}
                     </div>
                 `;
                 return sectionContainer;
