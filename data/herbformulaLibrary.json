@@ -4409,6 +4409,20 @@
       "usage": "散劑，溫開水送服；或水煎服",
       "updatedAt": "2025-08-21T10:00:00.001Z",
       "englishName": "XiaoYaoSan"
+    },
+    {
+      "id": 1756000000001,
+      "type": "formula",
+      "name": "當歸芍藥散",
+      "composition": "當歸\n芍藥\n茯苓\n白朮\n澤瀉\n川芎",
+      "createdAt": "2025-08-21T10:00:00.001Z",
+      "source": "金匱要略",
+      "effects": "養血調肝，健脾利濕",
+      "cautions": "陰虛血燥者慎用",
+      "indications": "肝脾不和，血虛濕滯，腹中拘急疼痛，婦人妊娠腹痛，月經不調，小便不利，足跗浮腫",
+      "usage": "散劑，酒或溫開水送服",
+      "updatedAt": "2025-08-21T10:00:00.001Z",
+      "englishName": "DangGuiShaoYaoSan"
     }
   ]
 }
