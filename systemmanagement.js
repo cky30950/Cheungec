@@ -10,6 +10,7 @@ function showClinicSettingsModal() {
     document.getElementById('clinicPhone').value = clinicSettings.phone || '';
     document.getElementById('clinicAddress').value = clinicSettings.address || '';
     
+    try { populateClinicSelectors(); } catch (_e) {}
     document.getElementById('clinicSettingsModal').classList.remove('hidden');
 }
 
@@ -17,7 +18,7 @@ function hideClinicSettingsModal() {
     document.getElementById('clinicSettingsModal').classList.add('hidden');
 }
 
-function saveClinicSettings() {
+async function saveClinicSettings() {
     const chineseName = document.getElementById('clinicChineseName').value.trim();
     const englishName = document.getElementById('clinicEnglishName').value.trim();
     const businessHours = document.getElementById('clinicBusinessHours').value.trim();
@@ -29,22 +30,33 @@ function saveClinicSettings() {
         return;
     }
     
-    // 更新診所設定
     clinicSettings.chineseName = chineseName;
     clinicSettings.englishName = englishName;
     clinicSettings.businessHours = businessHours;
     clinicSettings.phone = phone;
     clinicSettings.address = address;
     clinicSettings.updatedAt = new Date().toISOString();
-    
-    // 保存到本地儲存
-    localStorage.setItem('clinicSettings', JSON.stringify(clinicSettings));
-    
-    // 更新系統管理頁面的顯示
-    updateClinicSettingsDisplay();
-    
-    hideClinicSettingsModal();
-    showToast('診所資料已成功更新！', 'success');
+    try {
+        if (typeof currentClinicId !== 'undefined' && currentClinicId) {
+            await window.firebaseDataManager.updateClinic(currentClinicId, clinicSettings);
+            try {
+                const listRes = await window.firebaseDataManager.getClinics();
+                if (listRes && listRes.success && Array.isArray(listRes.data)) {
+                    clinicsList = listRes.data;
+                }
+                try { localStorage.setItem('clinics', JSON.stringify(clinicsList)); } catch (_eLs) {}
+            } catch (_eList) {}
+            updateClinicSettingsDisplay();
+            try { populateClinicSelectors(); } catch (_ePop) {}
+            try { updateCurrentClinicDisplay(); } catch (_eDisp) {}
+            hideClinicSettingsModal();
+            showToast('診所資料已成功更新！', 'success');
+        } else {
+            showToast('未選擇診所', 'error');
+        }
+    } catch (_e) {
+        showToast('更新診所資料失敗！', 'error');
+    }
 }
 
 function updateClinicSettingsDisplay() {
@@ -231,6 +243,9 @@ async function exportClinicBackup() {
     setButtonLoading(button);
     try {
         await ensureFirebaseReady();
+        let totalStepsForBackupExport = 5;
+        let stepCount = 0;
+        showBackupProgressBar(totalStepsForBackupExport);
         // 讀取病人、診症記錄與用戶資料
         // 讀取病人與診症資料，並透過 fetchUsers() 取得用戶列表
         const [patientsRes, consultationsRes] = await Promise.all([
@@ -247,6 +262,7 @@ async function exportClinicBackup() {
             })()
         ]);
         const patientsData = patientsRes && patientsRes.success && Array.isArray(patientsRes.data) ? patientsRes.data : [];
+        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
         // 若診症記錄有多頁，必須依序載入所有頁面。先取得第一頁資料。
         let consultationsData = consultationsRes && consultationsRes.success && Array.isArray(consultationsRes.data) ? consultationsRes.data.slice() : [];
         try {
@@ -265,6 +281,7 @@ async function exportClinicBackup() {
             // 若載入下一頁時發生錯誤，保留已獲得的資料並停止
             console.warn('讀取診症記錄全部頁面失敗，僅匯出部分資料:', _pageErr);
         }
+        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
         // 取得用戶列表；為確保包含個人設置（personalSettings），直接從 Firestore 讀取
         // 不使用快取中的 trimmed 資料，以便包含所有欄位
         let usersData = [];
@@ -279,11 +296,13 @@ async function exportClinicBackup() {
         } catch (_fetchErr) {
             console.warn('匯出備份時取得用戶列表失敗，將不包含用戶資料');
         }
+        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
         // 讀取收費項目時強制刷新，避免使用快取中的舊資料。
         if (typeof initBillingItems === 'function') {
             // 強制從 Firestore 重新讀取收費項目，以確保備份內容為最新
             await initBillingItems(true);
         }
+        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
         // 讀取所有套票資料
         let packageData = [];
         try {
@@ -296,6 +315,7 @@ async function exportClinicBackup() {
             console.error('讀取套票資料失敗:', e);
         }
         const billingData = Array.isArray(billingItems) ? billingItems : [];
+        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
         // 讀取 Realtime Database 資料，排除即時掛號及診症資料
         let rtdbData = null;
         try {
@@ -308,6 +328,10 @@ async function exportClinicBackup() {
                         rtdbData[key] = allRtdb[key];
                     }
                 }
+            }
+            if (rtdbData) {
+                totalStepsForBackupExport++;
+                stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
             }
         } catch (e) {
             console.warn('讀取 Realtime Database 資料失敗:', e);
@@ -324,6 +348,7 @@ async function exportClinicBackup() {
         if (rtdbData) {
             backup.rtdb = rtdbData;
         }
+        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
         const json = JSON.stringify(backup, null, 2);
         const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
         const url = URL.createObjectURL(blob);
@@ -336,9 +361,11 @@ async function exportClinicBackup() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         showToast('備份資料已匯出！', 'success');
+        finishBackupProgressBar(true);
     } catch (error) {
         console.error('匯出備份失敗:', error);
         showToast('匯出備份失敗，請稍後再試', 'error');
+        finishBackupProgressBar(false);
     } finally {
         clearButtonLoading(button);
     }
@@ -499,6 +526,109 @@ async function importClinicBackup(data) {
             console.error('更新 ' + collectionName + ' 資料時發生錯誤:', err);
         }
     }
+    async function replaceClinicBillingItems(items) {
+        try {
+            await waitForFirebaseDb();
+            const clinicId = localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+            const clinicCol = window.firebase.collection(window.firebase.db, 'clinics', clinicId, 'billingItems');
+            const globalCol = window.firebase.collection(window.firebase.db, 'globalBillingItems');
+            const clinicSnap = await window.firebase.getDocs(clinicCol);
+            const globalSnap = await window.firebase.getDocs(globalCol);
+            const existingClinicIds = new Set();
+            const existingGlobalIds = new Set();
+            clinicSnap.forEach(d => existingClinicIds.add(d.id));
+            globalSnap.forEach(d => existingGlobalIds.add(d.id));
+            const newClinicIds = new Set();
+            const newGlobalIds = new Set();
+            if (Array.isArray(items)) {
+                items.forEach(it => {
+                    if (!it || it.id === undefined || it.id === null) return;
+                    const idStr = String(it.id);
+                    if (it.shared) newGlobalIds.add(idStr);
+                    else newClinicIds.add(idStr);
+                });
+            }
+            const batch = window.firebase.writeBatch(window.firebase.db);
+            let opCount = 0;
+            const commitIfNeeded = async () => {
+                if (opCount > 0) {
+                    await batch.commit();
+                    opCount = 0;
+                }
+            };
+            existingClinicIds.forEach(id => {
+                if (!newClinicIds.has(id)) {
+                    batch.delete(window.firebase.doc(window.firebase.db, 'clinics', clinicId, 'billingItems', id));
+                    opCount++;
+                }
+            });
+            existingGlobalIds.forEach(id => {
+                if (!newGlobalIds.has(id)) {
+                    batch.delete(window.firebase.doc(window.firebase.db, 'globalBillingItems', id));
+                    opCount++;
+                }
+            });
+            if (Array.isArray(items)) {
+                for (const it of items) {
+                    if (!it || it.id === undefined || it.id === null) continue;
+                    const { id, ...rest } = it || {};
+                    const dataToWrite = { ...rest };
+                    const idStr = String(it.id);
+                    if (it.shared) {
+                        batch.set(window.firebase.doc(window.firebase.db, 'globalBillingItems', idStr), dataToWrite);
+                    } else {
+                        batch.set(window.firebase.doc(window.firebase.db, 'clinics', clinicId, 'billingItems', idStr), dataToWrite);
+                    }
+                    opCount++;
+                    if (opCount >= 500) await commitIfNeeded();
+                }
+            }
+            await commitIfNeeded();
+        } catch (err) {
+            console.error('更新收費項目資料時發生錯誤:', err);
+        }
+    }
+    function parseBackupDate(dateInput) {
+        try {
+            if (!dateInput) return null;
+            if (dateInput instanceof Date) return isNaN(dateInput.getTime()) ? null : dateInput;
+            if (typeof dateInput === 'object' && dateInput.seconds !== undefined) {
+                const d = new Date(dateInput.seconds * 1000);
+                return isNaN(d.getTime()) ? null : d;
+            }
+            if (typeof dateInput === 'string') {
+                const d = new Date(dateInput);
+                return isNaN(d.getTime()) ? null : d;
+            }
+            if (typeof dateInput === 'number') {
+                const d = new Date(dateInput);
+                return isNaN(d.getTime()) ? null : d;
+            }
+            return null;
+        } catch (_e) {
+            return null;
+        }
+    }
+    function normalizeConsultations(items) {
+        if (!Array.isArray(items)) return [];
+        return items.map(c => {
+            const clone = { ...(c || {}) };
+            if (clone.id !== undefined && clone.id !== null) clone.id = String(clone.id);
+            if (clone.patientId !== undefined && clone.patientId !== null) clone.patientId = String(clone.patientId);
+            let d = parseBackupDate(clone.date || clone.createdAt || clone.updatedAt || null);
+            if (!d) d = new Date(0);
+            clone.date = d;
+            if (clone.createdAt) {
+                const ca = parseBackupDate(clone.createdAt);
+                if (ca) clone.createdAt = ca;
+            }
+            if (clone.updatedAt) {
+                const ua = parseBackupDate(clone.updatedAt);
+                if (ua) clone.updatedAt = ua;
+            }
+            return clone;
+        });
+    }
     // 覆蓋各集合並更新進度
     let stepCount = 0;
     // 覆蓋需要還原的集合，順序為：patients -> consultations -> users -> billingItems -> patientPackages
@@ -506,7 +636,7 @@ async function importClinicBackup(data) {
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
-    await replaceCollection('consultations', Array.isArray(data.consultations) ? data.consultations : []);
+    await replaceCollection('consultations', normalizeConsultations(Array.isArray(data.consultations) ? data.consultations : []));
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
@@ -514,7 +644,7 @@ async function importClinicBackup(data) {
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
-    await replaceCollection('billingItems', Array.isArray(data.billingItems) ? data.billingItems : []);
+    await replaceClinicBillingItems(Array.isArray(data.billingItems) ? data.billingItems : []);
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
@@ -585,16 +715,7 @@ async function importClinicBackup(data) {
             });
         }
         consultationCache = Array.isArray(data.consultations)
-            ? data.consultations.map(c => {
-                const clone = { ...(c || {}) };
-                if (clone.id !== undefined && clone.id !== null) {
-                    clone.id = String(clone.id);
-                }
-                if (clone.patientId !== undefined && clone.patientId !== null) {
-                    clone.patientId = String(clone.patientId);
-                }
-                return clone;
-            })
+            ? normalizeConsultations(data.consultations)
             : [];
         userCache = Array.isArray(data.users)
             ? data.users.map(u => {
@@ -632,10 +753,9 @@ async function importClinicBackup(data) {
         billingItems = Array.isArray(data.billingItems) ? data.billingItems : [];
         billingItemsLoaded = true;
         try {
-            localStorage.setItem('billingItems', JSON.stringify(billingItems));
-        } catch (_lsErr) {
-            // 忽略 localStorage 錯誤
-        }
+            const cid = localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+            localStorage.setItem(`billingItems_${cid}`, JSON.stringify(billingItems));
+        } catch (_lsErr) {}
         // 更新病人總數快取
         patientsCountCache = Array.isArray(patientCache) ? patientCache.length : 0;
         // 重新產生病人分頁快取，使 fetchPatientsPage() 可以直接從快取取得資料
