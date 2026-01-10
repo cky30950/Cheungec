@@ -629,6 +629,41 @@ async function importClinicBackup(data) {
             return clone;
         });
     }
+    function enrichConsultationsWithPatientName(items, patients) {
+        try {
+            const map = {};
+            if (Array.isArray(patients)) {
+                for (const p of patients) {
+                    if (!p) continue;
+                    const idStr = (p.id !== undefined && p.id !== null) ? String(p.id) : null;
+                    if (!idStr) continue;
+                    const name =
+                        p.name ||
+                        p.patientName ||
+                        p.fullName ||
+                        p.displayName ||
+                        p.chineseName ||
+                        p.englishName ||
+                        '';
+                    map[idStr.trim()] = name;
+                }
+            }
+            return Array.isArray(items)
+                ? items.map(c => {
+                    const clone = { ...(c || {}) };
+                    if (clone.patientId !== undefined && clone.patientId !== null) {
+                        const pid = String(clone.patientId).trim();
+                        if ((!clone.patientName || String(clone.patientName).trim() === '') && map[pid]) {
+                            clone.patientName = map[pid];
+                        }
+                    }
+                    return clone;
+                })
+                : [];
+        } catch (_e) {
+            return Array.isArray(items) ? items.slice() : [];
+        }
+    }
     // 覆蓋各集合並更新進度
     let stepCount = 0;
     // 覆蓋需要還原的集合，順序為：patients -> consultations -> users -> billingItems -> patientPackages
@@ -636,7 +671,9 @@ async function importClinicBackup(data) {
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
-    await replaceCollection('consultations', normalizeConsultations(Array.isArray(data.consultations) ? data.consultations : []));
+    const normalizedConsultations = normalizeConsultations(Array.isArray(data.consultations) ? data.consultations : []);
+    const enrichedConsultations = enrichConsultationsWithPatientName(normalizedConsultations, Array.isArray(data.patients) ? data.patients : []);
+    await replaceCollection('consultations', enrichedConsultations);
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
@@ -655,8 +692,21 @@ async function importClinicBackup(data) {
     const rtdbData = data && typeof data.rtdb === 'object' ? data.rtdb : null;
     if (rtdbData) {
         try {
-            for (const key of Object.keys(rtdbData)) {
-                await window.firebase.set(window.firebase.ref(window.firebase.rtdb, key), rtdbData[key]);
+            const clinicId = (function() {
+                try {
+                    return localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+                } catch (_e) {
+                    return (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default') || 'local-default';
+                }
+            })();
+            const needsClinicScope = new Set(['herbInventory', 'herbInventorySlice', 'scheduleShifts']);
+            for (const rawKey of Object.keys(rtdbData)) {
+                const key = String(rawKey);
+                const shouldScope = needsClinicScope.has(key);
+                const finalPath = shouldScope
+                    ? `clinics/${String(clinicId)}/${key}`
+                    : key;
+                await window.firebase.set(window.firebase.ref(window.firebase.rtdb, finalPath), rtdbData[rawKey]);
             }
             // 更新本地中藥庫存或其他即時資料快取
             if (typeof initHerbInventory === 'function') {
@@ -667,6 +717,12 @@ async function importClinicBackup(data) {
                     herbInventoryInitialized = true;
                 } catch (_e) {}
             }
+            // 重新載入排班資料以反映當前診所
+            try {
+                if (typeof window.scheduleReloadForClinic === 'function') {
+                    await window.scheduleReloadForClinic();
+                }
+            } catch (_eSched) {}
         } catch (err) {
             console.error('還原 Realtime Database 資料時發生錯誤:', err);
         }
