@@ -1628,16 +1628,370 @@ async function fetchUsers(forceRefresh = false) {
     return userCache;
 }
         
-        // 診所設定
-        let clinicSettings = JSON.parse(localStorage.getItem('clinicSettings') || '{}');
-        if (!clinicSettings.chineseName) {
-            clinicSettings.chineseName = '名醫診所系統';
-            // 預設英文名稱改為 Dr.Great Clinic，而非原本的 TCM Clinic
-            clinicSettings.englishName = 'Dr.Great Clinic';
-            clinicSettings.businessHours = '週一至週五 09:00-18:00';
-            clinicSettings.phone = '(852) 2345-6789';
-            clinicSettings.address = '香港中環皇后大道中123號';
-            localStorage.setItem('clinicSettings', JSON.stringify(clinicSettings));
+        let clinicSettings = {};
+        let currentClinicId = localStorage.getItem('currentClinicId') || null;
+        let clinicsList = [];
+        function prePopulateClinicsFromCache() {
+            try {
+                const stored = localStorage.getItem('clinics');
+                if (stored) {
+                    const local = JSON.parse(stored);
+                    if (Array.isArray(local) && local.length) {
+                        clinicsList = local;
+                        if (!currentClinicId) {
+                            currentClinicId = local[0].id;
+                            localStorage.setItem('currentClinicId', currentClinicId);
+                        }
+                        const found = local.find(c => String(c.id) === String(currentClinicId));
+                        clinicSettings = found || {};
+                        populateClinicSelectors();
+                        updateClinicSettingsDisplay();
+                        updateCurrentClinicDisplay();
+                    }
+                }
+            } catch (_e) {}
+        }
+        async function initClinics() {
+            prePopulateClinicsFromCache();
+            await waitForFirebase();
+            let userLoggedIn = !!(window.firebase && window.firebase.auth && window.firebase.auth.currentUser);
+            let res = null;
+            try {
+                res = await window.firebaseDataManager.getClinics();
+            } catch (_eGet) {
+                res = { success: false, data: [] };
+            }
+            clinicsList = res && res.success && Array.isArray(res.data) ? res.data : [];
+            if (!clinicsList.length) {
+                if (userLoggedIn) {
+                    try {
+                        const created = await window.firebaseDataManager.addClinic({
+                            chineseName: '名醫診所系統',
+                            englishName: 'Dr.Great Clinic',
+                            businessHours: '週一至週五 09:00-18:00',
+                            phone: '(852) 2345-6789',
+                            address: '香港中環皇后大道中123號',
+                            createdAt: new Date()
+                        });
+                        if (created && created.success && created.id) {
+                            const single = await window.firebaseDataManager.getClinicById(created.id);
+                            clinicsList = single && single.success && single.data ? [{ id: created.id, ...single.data }] : [];
+                            currentClinicId = created.id;
+                            localStorage.setItem('currentClinicId', currentClinicId);
+                        }
+                    } catch (_eAdd) {
+                        // 若寫入失敗則回退為本地預設
+                        clinicsList = [{
+                            id: 'local-default',
+                            chineseName: '名醫診所系統',
+                            englishName: 'Dr.Great Clinic',
+                            businessHours: '週一至週五 09:00-18:00',
+                            phone: '(852) 2345-6789',
+                            address: '香港中環皇后大道中123號'
+                        }];
+                        currentClinicId = 'local-default';
+                        localStorage.setItem('currentClinicId', currentClinicId);
+                    }
+                } else {
+                    // 未登入時提供本地預設，避免登入頁空白
+                    clinicsList = [{
+                        id: 'local-default',
+                        chineseName: '名醫診所系統',
+                        englishName: 'Dr.Great Clinic',
+                        businessHours: '週一至週五 09:00-18:00',
+                        phone: '(852) 2345-6789',
+                        address: '香港中環皇后大道中123號'
+                    }];
+                    currentClinicId = currentClinicId || 'local-default';
+                    localStorage.setItem('currentClinicId', currentClinicId);
+                }
+            }
+            if (((!currentClinicId) || currentClinicId === 'local-default') && clinicsList.length) {
+                const firstRealClinic = clinicsList.find(c => c && c.id && c.id !== 'local-default') || clinicsList[0];
+                currentClinicId = firstRealClinic.id;
+                localStorage.setItem('currentClinicId', currentClinicId);
+            }
+            if (currentClinicId && currentClinicId !== 'local-default') {
+                try {
+                    const cur = await window.firebaseDataManager.getClinicById(currentClinicId);
+                    clinicSettings = cur && cur.success && cur.data ? cur.data : {};
+                } catch (_eCur) {
+                    clinicSettings = clinicsList.find(c => c.id === currentClinicId) || {};
+                }
+            } else {
+                clinicSettings = clinicsList.find(c => c.id === currentClinicId) || {};
+            }
+            updateClinicSettingsDisplay();
+            populateClinicSelectors();
+            updateCurrentClinicDisplay();
+            try { localStorage.setItem('clinics', JSON.stringify(clinicsList)); } catch (_e) {}
+        }
+        function populateClinicSelectors() {
+            try {
+                const loginSel = document.getElementById('loginClinicSelector');
+                if (loginSel) {
+                    loginSel.innerHTML = clinicsList.map(c => `<option value="${c.id}">${c.chineseName || c.englishName || c.id}</option>`).join('');
+                    if (currentClinicId) loginSel.value = currentClinicId;
+                    loginSel.addEventListener('change', function() {
+                        setCurrentClinicId(this.value);
+                    });
+                }
+            } catch (_e) {}
+            try {
+                const editSel = document.getElementById('clinicSelectForEditing');
+                if (editSel) {
+                    editSel.innerHTML = clinicsList.map(c => `<option value="${c.id}">${c.chineseName || c.englishName || c.id}</option>`).join('');
+                    if (currentClinicId) editSel.value = currentClinicId;
+                    editSel.addEventListener('change', async function() {
+                        currentClinicId = this.value;
+                        localStorage.setItem('currentClinicId', currentClinicId);
+                        const cur = await window.firebaseDataManager.getClinicById(currentClinicId);
+                        clinicSettings = cur && cur.success && cur.data ? cur.data : {};
+                        document.getElementById('clinicChineseName').value = clinicSettings.chineseName || '';
+                        document.getElementById('clinicEnglishName').value = clinicSettings.englishName || '';
+                        document.getElementById('clinicBusinessHours').value = clinicSettings.businessHours || '';
+                        document.getElementById('clinicPhone').value = clinicSettings.phone || '';
+                        document.getElementById('clinicAddress').value = clinicSettings.address || '';
+                        updateClinicSettingsDisplay();
+                        updateCurrentClinicDisplay();
+                    });
+                }
+            } catch (_e2) {}
+            try {
+                let currentSel = document.getElementById('currentClinicSelector');
+                if (currentSel) {
+                    // 移除既有事件綁定：複製節點並替換，以確保選擇不會觸發讀取
+                    const parent = currentSel.parentNode;
+                    const cloned = currentSel.cloneNode(false);
+                    if (parent && cloned) {
+                        parent.replaceChild(cloned, currentSel);
+                        currentSel = cloned;
+                    }
+                    currentSel.innerHTML = clinicsList.map(c => `<option value="${c.id}">${c.chineseName || c.englishName || c.id}</option>`).join('');
+                    if (currentClinicId) currentSel.value = currentClinicId;
+                    // 不在 change 綁定 setCurrentClinicId，改由「確定」按鈕處理
+                }
+            } catch (_e3) {}
+            try {
+                const addBtn = document.getElementById('addClinicButton');
+                if (addBtn && !addBtn.dataset.bound) {
+                    addBtn.addEventListener('click', async function() {
+                        const created = await window.firebaseDataManager.addClinic({
+                            chineseName: '新診所',
+                            englishName: '',
+                            businessHours: '',
+                            phone: '',
+                            address: '',
+                            createdAt: new Date()
+                        });
+                        if (created && created.success && created.id) {
+                            const listRes = await window.firebaseDataManager.getClinics();
+                            clinicsList = listRes && listRes.success && Array.isArray(listRes.data) ? listRes.data : [];
+                            populateClinicSelectors();
+                            setCurrentClinicId(created.id);
+                            showToast('已新增診所', 'success');
+                        } else {
+                            showToast('新增診所失敗', 'error');
+                        }
+                    });
+                    addBtn.dataset.bound = 'true';
+                }
+            } catch (_e3) {}
+            try {
+                const delBtn = document.getElementById('deleteClinicButton');
+                if (delBtn && !delBtn.dataset.bound) {
+                    delBtn.addEventListener('click', async function() {
+                        if (!currentClinicId || currentClinicId === 'local-default') {
+                            showToast('未選擇診所或此診所不可刪除', 'error');
+                            return;
+                        }
+                        if (!Array.isArray(clinicsList) || clinicsList.length <= 1) {
+                            showToast('至少保留一間診所，無法刪除', 'error');
+                            return;
+                        }
+                        const ok = window.confirm('確定要刪除目前選擇的診所嗎？刪除後不可恢復。');
+                        if (!ok) return;
+                        try {
+                            const res = await window.firebaseDataManager.deleteClinic(currentClinicId);
+                            if (res && res.success) {
+                                const listRes = await window.firebaseDataManager.getClinics();
+                                clinicsList = listRes && listRes.success && Array.isArray(listRes.data) ? listRes.data : [];
+                                const nextId = clinicsList.length ? clinicsList[0].id : null;
+                                if (nextId) {
+                                    await setCurrentClinicId(nextId);
+                                } else {
+                                    currentClinicId = 'local-default';
+                                    clinicSettings = {
+                                        chineseName: '名醫診所系統',
+                                        englishName: 'Dr.Great Clinic',
+                                        businessHours: '週一至週五 09:00-18:00',
+                                        phone: '(852) 2345-6789',
+                                        address: '香港中環皇后大道中123號'
+                                    };
+                                    populateClinicSelectors();
+                                    updateClinicSettingsDisplay();
+                                    updateCurrentClinicDisplay();
+                                }
+                                showToast('診所已刪除', 'success');
+                            } else {
+                                showToast('刪除診所失敗', 'error');
+                            }
+                        } catch (err) {
+                            console.error('刪除診所錯誤:', err);
+                            showToast('刪除診所失敗', 'error');
+                        }
+                    });
+                    delBtn.dataset.bound = 'true';
+                }
+            } catch (_e4) {}
+        }
+        let _globalLoadingTotal = 0;
+        let _globalLoadingCurrent = 0;
+        function showGlobalLoading(total = 100, text = '') {
+            _globalLoadingTotal = total > 0 ? total : 100;
+            _globalLoadingCurrent = 0;
+            const overlay = document.getElementById('globalLoadingOverlay');
+            const bar = document.getElementById('globalLoadingProgressBar');
+            const percent = document.getElementById('globalLoadingPercent');
+            const t = document.getElementById('globalLoadingText');
+            if (overlay) overlay.classList.remove('hidden');
+            if (bar) bar.style.width = '0%';
+            if (percent) percent.textContent = '0%';
+            if (t && text) t.textContent = text;
+        }
+        function advanceGlobalLoading(step = 1) {
+            _globalLoadingCurrent += step;
+            const p = Math.max(0, Math.min(100, Math.round((_globalLoadingCurrent / _globalLoadingTotal) * 100)));
+            const bar = document.getElementById('globalLoadingProgressBar');
+            const percent = document.getElementById('globalLoadingPercent');
+            if (bar) bar.style.width = p + '%';
+            if (percent) percent.textContent = p + '%';
+        }
+        function hideGlobalLoading() {
+            const overlay = document.getElementById('globalLoadingOverlay');
+            if (overlay) overlay.classList.add('hidden');
+            _globalLoadingTotal = 0;
+            _globalLoadingCurrent = 0;
+        }
+        async function setCurrentClinicId(id) {
+            try {
+                const consultFormEl = document.getElementById('consultationForm');
+                const isConsultFormVisible = consultFormEl && !consultFormEl.classList.contains('hidden');
+                const isConsulting = (typeof currentConsultingAppointmentId !== 'undefined' && currentConsultingAppointmentId);
+                if (isConsultFormVisible || isConsulting) {
+                    const lang = localStorage.getItem('lang') || 'zh';
+                    const zhMsg = '目前正在診症或修改病歷，請先完成或關閉後再切換診所';
+                    const enMsg = 'You are consulting or editing a medical record. Finish or close before switching clinic.';
+                    showToast(lang === 'en' ? enMsg : zhMsg, 'warning');
+                    try {
+                        const sel = document.getElementById('currentClinicSelector');
+                        if (sel && currentClinicId) sel.value = currentClinicId;
+                    } catch (_eSel) {}
+                    return;
+                }
+            } catch (_guardErr) {}
+            showGlobalLoading(7, '切換診所並載入所需資料…');
+            currentClinicId = id;
+            localStorage.setItem('currentClinicId', currentClinicId);
+            const cur = await window.firebaseDataManager.getClinicById(currentClinicId);
+            clinicSettings = cur && cur.success && cur.data ? cur.data : {};
+            advanceGlobalLoading();
+            try {
+                if (Array.isArray(clinicsList)) {
+                    clinicsList = clinicsList.map(c => (String(c.id) === String(currentClinicId) ? { ...c, ...clinicSettings } : c));
+                }
+            } catch (_e) {}
+            updateClinicSettingsDisplay();
+            advanceGlobalLoading();
+            updateCurrentClinicDisplay();
+            advanceGlobalLoading();
+            try { populateClinicSelectors(); } catch (_e2) {}
+            advanceGlobalLoading();
+            try { localStorage.setItem('clinics', JSON.stringify(clinicsList)); } catch (_e3) {}
+            try { loadTodayAppointments(); } catch (_e) {}
+            advanceGlobalLoading();
+            try { if (typeof window.scheduleReloadForClinic === 'function') window.scheduleReloadForClinic(); } catch (_e4) {}
+            try { await initBillingItems(true); } catch (_e5) {}
+            advanceGlobalLoading();
+            try { await initHerbInventory(true); } catch (_eInv) {}
+            try { if (typeof displayHerbLibrary === 'function') displayHerbLibrary(); } catch (_eDisp) {}
+            try { if (typeof displayBillingItems === 'function') displayBillingItems(); } catch (_e6) {}
+            advanceGlobalLoading();
+            try {
+                const modal = document.getElementById('inventoryHistoryModal');
+                if (modal && !modal.classList.contains('hidden')) {
+                    try { loadInventoryHistory('in'); } catch (_ei) {}
+                    try { loadInventoryHistory('out'); } catch (_eo) {}
+                }
+            } catch (_eInvHist) {}
+            hideGlobalLoading();
+        }
+        function updateCurrentClinicDisplay() {
+            const el = document.getElementById('currentClinicDisplay');
+            if (el) {
+                let name = '';
+                try { name = clinicSettings.chineseName || clinicSettings.englishName || ''; } catch (_eName) {}
+                if (!name) {
+                    try {
+                        if (Array.isArray(clinicsList)) {
+                            const c = clinicsList.find(c => String(c.id) === String(currentClinicId));
+                            name = (c && (c.chineseName || c.englishName)) || '';
+                        }
+                    } catch (_eList) {}
+                }
+                if (!name) name = currentClinicId || '';
+                el.textContent = '當前診所：' + name;
+            }
+            try {
+                const currentSel = document.getElementById('currentClinicSelector');
+                if (currentSel && currentClinicId) currentSel.value = currentClinicId;
+            } catch (_e) {}
+            try {
+                const switchBtn = document.getElementById('clinicSwitchButton');
+                if (switchBtn) {
+                    if (Array.isArray(clinicsList) && clinicsList.length <= 1) {
+                        switchBtn.classList.add('hidden');
+                    } else {
+                        switchBtn.classList.remove('hidden');
+                    }
+                }
+            } catch (_e2) {}
+        }
+        async function resolveClinicSettingsByConsultation(consultation) {
+            let result = {};
+            try {
+                const cid = consultation && consultation.clinicId;
+                const cname = consultation && consultation.clinicName;
+                if (cid && cid !== 'local-default') {
+                    try {
+                        const cur = await window.firebaseDataManager.getClinicById(cid);
+                        if (cur && cur.success && cur.data) {
+                            result = cur.data;
+                        }
+                    } catch (_eFetchClinic) {}
+                }
+                if (!result || Object.keys(result).length === 0) {
+                    try {
+                        if (Array.isArray(clinicsList)) {
+                            const byId = cid ? clinicsList.find(c => String(c.id) === String(cid)) : null;
+                            result = byId || result;
+                            if ((!result || Object.keys(result).length === 0) && cname) {
+                                const byName = clinicsList.find(c => (String(c.chineseName) === String(cname)) || (String(c.englishName) === String(cname)));
+                                result = byName || result;
+                            }
+                        }
+                    } catch (_eList) {}
+                }
+                if (!result || Object.keys(result).length === 0) {
+                    result = clinicSettings || {};
+                }
+            } catch (_err) {
+                result = clinicSettings || {};
+            }
+            return result;
+        }
+        if (!window.resolveClinicSettingsByConsultation) {
+            window.resolveClinicSettingsByConsultation = resolveClinicSettingsByConsultation;
         }
         
         // 浮動提示功能改用 Toastr 提供視覺與功能性提示
@@ -2304,19 +2658,21 @@ function detachPatientConsultationsListener(patientId) {
  * @param {boolean} forceRefresh
  */
 async function initHerbInventory(forceRefresh = false) {
-    // 根據當前庫存模式決定讀取資料的路徑。'granule' 對應原有顆粒沖劑資料，
-    // 'slice' 對應飲片資料。預設為 'herbInventory'。
-    const dbPath = (currentInventoryMode === 'slice') ? 'herbInventorySlice' : 'herbInventory';
-    // 如果不是強制刷新且已初始化過，且監聽器仍然存在且路徑未改變，直接返回。
-    // 若已初始化但監聽器已被取消（herbInventoryListenerAttached 為 false），或路徑改變時，仍需重新掛載監聽。
-    if (herbInventoryInitialized && herbInventoryListenerAttached && !forceRefresh && herbInventoryRefPath === dbPath) {
+    const clinicId = (function() {
+        try {
+            return localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+        } catch (_e) {
+            return (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default') || 'local-default';
+        }
+    })();
+    const basePath = (currentInventoryMode === 'slice') ? 'herbInventorySlice' : 'herbInventory';
+    const clinicPath = 'clinics/' + String(clinicId) + '/' + basePath;
+    if (herbInventoryInitialized && herbInventoryListenerAttached && !forceRefresh && herbInventoryRefPath === clinicPath) {
         return;
     }
-    // 等待 Firebase 初始化完成
     await waitForFirebaseDb();
-    const inventoryRef = window.firebase.ref(window.firebase.rtdb, dbPath);
-    // 若為強制刷新或路徑改變且監聽已經掛載，先取消舊的監聽以避免多重回呼
-    if ((forceRefresh || herbInventoryRefPath !== dbPath) && herbInventoryListenerAttached && typeof window.herbInventoryRef !== 'undefined' && window.herbInventoryRef) {
+    const inventoryRef = window.firebase.ref(window.firebase.rtdb, clinicPath);
+    if ((forceRefresh || herbInventoryRefPath !== clinicPath) && herbInventoryListenerAttached && typeof window.herbInventoryRef !== 'undefined' && window.herbInventoryRef) {
         try {
             window.firebase.off(window.herbInventoryRef, 'value');
             herbInventoryListenerAttached = false;
@@ -2324,17 +2680,20 @@ async function initHerbInventory(forceRefresh = false) {
             console.error('重置中藥庫存監聽時發生錯誤:', err);
         }
     }
-    // 更新全域參考及路徑，以便後續取消監聽
     try {
         window.herbInventoryRef = inventoryRef;
     } catch (_e) {
-        // 若無法設置全域，忽略
     }
-    herbInventoryRefPath = dbPath;
-    // 讀取當前庫存快照
+    herbInventoryRefPath = clinicPath;
     try {
         const snapshot = await window.firebase.get(inventoryRef);
-        herbInventory = snapshot && snapshot.exists() ? snapshot.val() || {} : {};
+        if (snapshot && snapshot.exists()) {
+            herbInventory = snapshot.val() || {};
+        } else {
+            const globalRef = window.firebase.ref(window.firebase.rtdb, basePath);
+            const globalSnap = await window.firebase.get(globalRef);
+            herbInventory = globalSnap && globalSnap.exists() ? globalSnap.val() || {} : {};
+        }
         herbInventoryInitialized = true;
         try {
             if (currentInventoryMode === 'slice') {
@@ -2350,7 +2709,6 @@ async function initHerbInventory(forceRefresh = false) {
         herbInventory = {};
         herbInventoryInitialized = true;
     }
-    // 若尚未掛載監聽器，或因強制刷新取消後需重新掛載，則註冊監聽器
     if (!herbInventoryListenerAttached) {
         window.firebase.onValue(inventoryRef, (snap) => {
             herbInventory = snap && snap.exists() ? snap.val() || {} : {};
@@ -2419,17 +2777,20 @@ async function setHerbInventory(itemId, quantity, threshold, unit, disabled) {
         data.threshold = Number(threshold);
     }
     if (unit !== undefined && unit !== null) {
-        // 儲存使用者選擇的單位，以便日後顯示
         data.unit = unit;
     }
-    // 新增 disabled 屬性：若提供此參數則更新停用狀態
     if (disabled !== undefined && disabled !== null) {
-        // 確保為布林值
         data.disabled = !!disabled;
     }
-    // 根據當前庫存模式選擇儲存路徑
-    const dbPath = (currentInventoryMode === 'slice') ? 'herbInventorySlice' : 'herbInventory';
-    const refPath = window.firebase.ref(window.firebase.rtdb, dbPath + '/' + String(itemId));
+    const clinicId = (function() {
+        try {
+            return localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+        } catch (_e) {
+            return (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default') || 'local-default';
+        }
+    })();
+    const basePath = (currentInventoryMode === 'slice') ? 'herbInventorySlice' : 'herbInventory';
+    const refPath = window.firebase.ref(window.firebase.rtdb, 'clinics/' + String(clinicId) + '/' + basePath + '/' + String(itemId));
     await window.firebase.update(refPath, data);
 }
 
@@ -2441,8 +2802,15 @@ async function setHerbInventory(itemId, quantity, threshold, unit, disabled) {
  */
 async function getHerbInventoryForMode(itemId, mode) {
     await waitForFirebaseDb();
+    const clinicId = (function() {
+        try {
+            return localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+        } catch (_e) {
+            return (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default') || 'local-default';
+        }
+    })();
     const path = (mode === 'slice') ? 'herbInventorySlice' : 'herbInventory';
-    const ref = window.firebase.ref(window.firebase.rtdb, path + '/' + String(itemId));
+    const ref = window.firebase.ref(window.firebase.rtdb, 'clinics/' + String(clinicId) + '/' + path + '/' + String(itemId));
     try {
         const snap = await window.firebase.get(ref);
         if (snap && snap.exists()) {
@@ -2455,6 +2823,19 @@ async function getHerbInventoryForMode(itemId, mode) {
             };
         }
     } catch (_e) {}
+    const globalRef = window.firebase.ref(window.firebase.rtdb, path + '/' + String(itemId));
+    try {
+        const gSnap = await window.firebase.get(globalRef);
+        if (gSnap && gSnap.exists()) {
+            const inv = gSnap.val() || {};
+            return {
+                quantity: inv.quantity ?? 0,
+                threshold: inv.threshold ?? 0,
+                unit: inv.unit || 'g',
+                disabled: !!inv.disabled
+            };
+        }
+    } catch (_e2) {}
     return { quantity: 0, threshold: 0, unit: 'g', disabled: false };
 }
 
@@ -2474,8 +2855,15 @@ async function setHerbInventoryForMode(itemId, quantity, threshold, unit, disabl
     if (threshold !== undefined && threshold !== null) data.threshold = Number(threshold);
     if (unit !== undefined && unit !== null) data.unit = unit;
     if (disabled !== undefined && disabled !== null) data.disabled = !!disabled;
+    const clinicId = (function() {
+        try {
+            return localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+        } catch (_e) {
+            return (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default') || 'local-default';
+        }
+    })();
     const path = (mode === 'slice') ? 'herbInventorySlice' : 'herbInventory';
-    const ref = window.firebase.ref(window.firebase.rtdb, path + '/' + String(itemId));
+    const ref = window.firebase.ref(window.firebase.rtdb, 'clinics/' + String(clinicId) + '/' + path + '/' + String(itemId));
     await window.firebase.update(ref, data);
 }
 
@@ -3537,21 +3925,23 @@ async function recordInventoryHistory(type, entries, extra = {}) {
             if (type === 'out' && extra && extra.consultationId) {
                 if (extra.replaceExistingForConsultation) {
                     try {
-                        const baseRef = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/out');
+                        const clinicId = localStorage.getItem('currentClinicId') || currentClinicId || 'local-default';
+                        const baseRef = window.firebase.ref(window.firebase.rtdb, 'clinics/' + String(clinicId) + '/inventoryHistory/out');
                         let snap = null;
                         try { snap = await window.firebase.get(baseRef); } catch (_e) { snap = null; }
                         const obj = snap && snap.exists() ? snap.val() || {} : {};
                         for (const k in obj) {
                             const rec = obj[k] || {};
                             if (String(rec.consultationId || '') === String(extra.consultationId)) {
-                                const child = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/out/' + String(k));
+                                const child = window.firebase.ref(window.firebase.rtdb, 'clinics/' + String(clinicId) + '/inventoryHistory/out/' + String(k));
                                 await window.firebase.set(child, null);
                             }
                         }
                     } catch (_e) {}
                 } else if (arr.length) {
                     try {
-                        const baseRef = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/out');
+                        const clinicId = localStorage.getItem('currentClinicId') || currentClinicId || 'local-default';
+                        const baseRef = window.firebase.ref(window.firebase.rtdb, 'clinics/' + String(clinicId) + '/inventoryHistory/out');
                         const q = window.firebase.query(baseRef, window.firebase.orderByChild('timestamp'), window.firebase.limitToLast(50));
                         let snap = null;
                         try { snap = await window.firebase.get(q); } catch (_e) { snap = null; }
@@ -3573,7 +3963,8 @@ async function recordInventoryHistory(type, entries, extra = {}) {
                 }
             }
             const ts = Date.now();
-            const ref = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/' + String(type) + '/' + String(ts));
+            const clinicId = localStorage.getItem('currentClinicId') || currentClinicId || 'local-default';
+            const ref = window.firebase.ref(window.firebase.rtdb, 'clinics/' + String(clinicId) + '/inventoryHistory/' + String(type) + '/' + String(ts));
             const data = { timestamp: ts, entries: arr };
             for (const k in extra) { data[k] = extra[k]; }
             await window.firebase.set(ref, data);
@@ -3583,7 +3974,8 @@ async function recordInventoryHistory(type, entries, extra = {}) {
             if (!consultationId) return null;
             await waitForFirebaseDb();
             try {
-                const baseRef = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/out');
+                const clinicId = localStorage.getItem('currentClinicId') || currentClinicId || 'local-default';
+                const baseRef = window.firebase.ref(window.firebase.rtdb, 'clinics/' + String(clinicId) + '/inventoryHistory/out');
                 const q = window.firebase.query(baseRef, window.firebase.orderByChild('consultationId'), window.firebase.equalTo(String(consultationId)));
                 const snap = await window.firebase.get(q);
                 if (!snap || !snap.exists()) return null;
@@ -3692,7 +4084,8 @@ async function recordInventoryHistory(type, entries, extra = {}) {
             if (!container) return;
             container.innerHTML = '';
             try {
-                const baseRef = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/' + String(type));
+                const clinicId = localStorage.getItem('currentClinicId') || currentClinicId || 'local-default';
+                const baseRef = window.firebase.ref(window.firebase.rtdb, 'clinics/' + String(clinicId) + '/inventoryHistory/' + String(type));
                 const q = window.firebase.query(baseRef, window.firebase.orderByChild('timestamp'), window.firebase.limitToLast(20));
                 let snap = null;
                 try { snap = await window.firebase.get(q); } catch (_qe) { snap = null; }
@@ -3774,7 +4167,8 @@ async function recordInventoryHistory(type, entries, extra = {}) {
                         const extraTag = missing ? '，<span class="text-red-600">已退回</span>' : '';
                         let locText = '';
                         try {
-                            const baseRef3 = window.firebase.ref(window.firebase.rtdb, 'inventoryHistory/out');
+                            const clinicId = localStorage.getItem('currentClinicId') || currentClinicId || 'local-default';
+                            const baseRef3 = window.firebase.ref(window.firebase.rtdb, 'clinics/' + String(clinicId) + '/inventoryHistory/out');
                             const q3 = window.firebase.query(baseRef3, window.firebase.orderByChild('consultationId'), window.firebase.equalTo(String(cid)));
                             let snap3 = null;
                             try { snap3 = await window.firebase.get(q3); } catch (_e3) { snap3 = null; }
@@ -3791,10 +4185,10 @@ async function recordInventoryHistory(type, entries, extra = {}) {
                                     if (modes.size === 1) {
                                         const m = Array.from(modes)[0];
                                         locText = '，入庫位置：' + (m === 'slice' ? '飲片' : '顆粒沖劑');
-                                    } else if (modes.size > 1) {
-                                        locText = '，入庫位置：混合';
-                                    }
+                                } else if (modes.size > 1) {
+                                    locText = '，入庫位置：混合';
                                 }
+                            }
                             }
                         } catch (_eLoc) {}
                         div.innerHTML = '<div class="text-sm text-gray-600">舊出庫記錄（病歷編號：' + mrn + locText + extraTag + '）</div>' +
@@ -3847,6 +4241,20 @@ async function recordInventoryHistory(type, entries, extra = {}) {
          * 從 Firestore 讀取收費項目資料，若資料不存在則使用預設資料初始化。
          * 此函式會等待 Firebase 初始化完成後再執行。
          */
+        function getClinicScopedStorageKey(base) {
+            try {
+                const lsCid = localStorage.getItem('currentClinicId');
+                const memCid = (typeof currentClinicId !== 'undefined' ? currentClinicId : null);
+                let cid = lsCid || memCid || 'local-default';
+                if (cid === 'local-default' && Array.isArray(clinicsList) && clinicsList.length) {
+                    const firstRealClinic = clinicsList.find(c => c && c.id && c.id !== 'local-default') || clinicsList[0];
+                    cid = firstRealClinic.id || cid;
+                }
+                return `${base}_${cid}`;
+            } catch (_e) {
+                return `${base}_local-default`;
+            }
+        }
         async function initBillingItems(forceRefresh = false) {
             // 若已載入且不需要強制重新載入，直接返回以避免重複讀取
             if (billingItemsLoaded && !forceRefresh) {
@@ -3855,7 +4263,7 @@ async function recordInventoryHistory(type, entries, extra = {}) {
             // 優先嘗試從 localStorage 載入收費項目
             if (!forceRefresh) {
                 try {
-                    const stored = localStorage.getItem('billingItems');
+                    const stored = localStorage.getItem(getClinicScopedStorageKey('billingItems'));
                     if (stored) {
                         const localData = JSON.parse(stored);
                         if (Array.isArray(localData)) {
@@ -3872,24 +4280,29 @@ async function recordInventoryHistory(type, entries, extra = {}) {
             await waitForFirebaseDb();
             try {
                 // 從 Firestore 取得 billingItems 集合資料
-                const querySnapshot = await window.firebase.getDocs(
-                    window.firebase.collection(window.firebase.db, 'billingItems')
+                const clinicId = localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+                const clinicSnap = await window.firebase.getDocs(
+                    window.firebase.collection(window.firebase.db, 'clinics', clinicId, 'billingItems')
                 );
-                const itemsFromFirestore = [];
-                querySnapshot.forEach((docSnap) => {
-                    // 將文件 ID 作為 id 欄位，避免依賴資料內的 id
-                    itemsFromFirestore.push({ id: docSnap.id, ...docSnap.data() });
+                const globalSnap = await window.firebase.getDocs(
+                    window.firebase.collection(window.firebase.db, 'globalBillingItems')
+                );
+                const byId = new Map();
+                // 先加入全域共用項目
+                globalSnap.forEach(docSnap => {
+                    const data = { id: docSnap.id, ...docSnap.data(), shared: true };
+                    byId.set(String(data.id), data);
                 });
-                if (itemsFromFirestore.length === 0) {
-                    // Firestore 中沒有資料時，不自動載入預設資料，保持空陣列
-                    billingItems = [];
-                } else {
-                    billingItems = itemsFromFirestore;
-                }
+                // 再加入診所專屬項目（覆蓋相同 id）
+                clinicSnap.forEach(docSnap => {
+                    const data = { id: docSnap.id, ...docSnap.data(), shared: !!docSnap.data().shared };
+                    byId.set(String(data.id), data);
+                });
+                billingItems = Array.from(byId.values());
                 billingItemsLoaded = true;
                 // 將資料寫入 localStorage
                 try {
-                    localStorage.setItem('billingItems', JSON.stringify(billingItems));
+                    localStorage.setItem(getClinicScopedStorageKey('billingItems'), JSON.stringify(billingItems));
                 } catch (lsErr) {
                     console.warn('保存收費項目到本地失敗:', lsErr);
                 }
@@ -4565,6 +4978,8 @@ async function syncUserDataFromFirebase() {
             
             document.getElementById('userRole').textContent = `當前用戶：${getUserDisplayName(user)}`;
             document.getElementById('sidebarUserRole').textContent = `當前用戶：${getUserDisplayName(user)}`;
+            updateCurrentClinicDisplay();
+            try { initClinics(); } catch (_e) {}
             
             generateSidebarMenu();
             // 登入後更新歡迎頁卡片顯示
@@ -6772,7 +7187,8 @@ async function selectPatientForRegistration(patientId) {
                 chiefComplaint: chiefComplaint || '無特殊主訴',
                 status: 'registered', // registered, waiting, consulting, completed
                 createdAt: new Date().toISOString(),
-                createdBy: currentUserData ? currentUserData.username : currentUser
+                createdBy: currentUserData ? currentUserData.username : currentUser,
+                clinicId: currentClinicId || null
             };
 
             // 若有選擇問診資料，僅保存問診 ID 與摘要。避免將完整問診內容存入掛號資料，
@@ -6961,6 +7377,9 @@ async function loadTodayAppointments() {
     let todayAppointments = appointments.filter(apt => 
         new Date(apt.appointmentTime).toDateString() === targetDateStr
     );
+    if (currentClinicId) {
+        todayAppointments = todayAppointments.filter(apt => String(apt.clinicId || '') === String(currentClinicId));
+    }
     
     // 如果當前用戶是醫師，只顯示掛給自己的病人
     if (currentUserData && currentUserData.position === '醫師') {
@@ -7513,6 +7932,10 @@ function parseConsultationDate(dateInput) {
     if (!dateInput) return null;
     
     try {
+        if (dateInput && typeof dateInput.toDate === 'function') {
+            const d = dateInput.toDate();
+            return isNaN(d.getTime()) ? null : d;
+        }
         // 如果是 Firebase Timestamp 格式
         if (dateInput.seconds) {
             return new Date(dateInput.seconds * 1000);
@@ -7520,7 +7943,19 @@ function parseConsultationDate(dateInput) {
         
         // 如果是字符串格式
         if (typeof dateInput === 'string') {
-            const parsed = new Date(dateInput);
+            const s = dateInput.trim();
+            const m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+            if (m) {
+                const y = parseInt(m[1], 10);
+                const mo = parseInt(m[2], 10) - 1;
+                const d = parseInt(m[3], 10);
+                const hh = m[4] ? parseInt(m[4], 10) : 0;
+                const mm = m[5] ? parseInt(m[5], 10) : 0;
+                const ss = m[6] ? parseInt(m[6], 10) : 0;
+                const dt = new Date(y, mo, d, hh, mm, ss);
+                if (!isNaN(dt.getTime())) return dt;
+            }
+            const parsed = new Date(s);
             if (!isNaN(parsed.getTime())) {
                 return parsed;
             }
@@ -8818,6 +9253,7 @@ async function saveConsultation() {
         const consultationData = {
             appointmentId: currentConsultingAppointmentId,
             patientId: appointment.patientId,
+            patientName: appointment.patientName,
             symptoms: symptoms,
             tongue: document.getElementById('formTongue').value.trim(),
             pulse: document.getElementById('formPulse').value.trim(),
@@ -8917,6 +9353,11 @@ async function saveConsultation() {
             }
             consultationData.date = existing && existing.date ? existing.date : new Date();
             consultationData.doctor = existing && existing.doctor ? existing.doctor : currentUser;
+            // 若既有病歷未包含診所，則補上目前診所
+            try {
+                consultationData.clinicId = (existing && existing.clinicId) ? existing.clinicId : (currentClinicId || null);
+                consultationData.clinicName = (existing && existing.clinicName) ? existing.clinicName : (clinicSettings && clinicSettings.chineseName ? clinicSettings.chineseName : '');
+            } catch (_eClinicEdit) {}
             // Update the existing consultation record
             const updateResult = await window.firebaseDataManager.updateConsultation(String(appointment.consultationId), consultationData);
             if (updateResult && updateResult.success) {
@@ -8960,6 +9401,11 @@ async function saveConsultation() {
             consultationData.medicalRecordNumber = generateMedicalRecordNumber();
             consultationData.date = new Date();
             consultationData.doctor = currentUser;
+            // 記錄診所資訊
+            try {
+                consultationData.clinicId = currentClinicId || null;
+                consultationData.clinicName = clinicSettings && clinicSettings.chineseName ? clinicSettings.chineseName : '';
+            } catch (_eClinic) {}
             const result = await window.firebaseDataManager.addConsultation(consultationData);
             if (result && result.success) {
                 operationSuccess = true;
@@ -9206,6 +9652,7 @@ if (!patient) {
             const nextLabel = dict['較新'] || '較新';
             const doctorLabel = dict['醫師：'] || '醫師：';
             const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
+            const clinicLabel = dict['診所：'] || '診所：';
 
             contentDiv.innerHTML = `
                 <!-- 分頁導航 -->
@@ -9241,32 +9688,50 @@ if (!patient) {
                 <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
                     <div class="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-4 border-b border-gray-200">
                         <div class="flex justify-between items-center">
-                            <div class="flex items-center space-x-4">
+                            <div class="flex flex-col space-y-1">
                                 <span class="font-semibold text-gray-900 text-lg">
                                     ${(() => {
-                                        // 使用通用日期解析函式處理各種日期格式
                                         const parsedDate = parseConsultationDate(consultation.date);
                                         if (!parsedDate || isNaN(parsedDate.getTime())) {
                                             return '日期未知';
                                         }
-                                        // 根據語言設定輸出日期格式。英語使用 en-US，中文使用 zh-TW。
                                         const locale = lang === 'en' ? 'en-US' : 'zh-TW';
                                         const datePart = parsedDate.toLocaleDateString(locale);
                                         const timePart = parsedDate.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
                                         return datePart + ' ' + timePart;
                                     })()}
                                 </span>
+                        ${(() => {
+                            let clinicName = '';
+                            try {
+                                if (consultation.clinicName) clinicName = consultation.clinicName;
+                                else if (consultation.clinicId) {
+                                    const foundClinic = Array.isArray(clinicsList) ? clinicsList.find(c => String(c.id) === String(consultation.clinicId)) : null;
+                                    clinicName = foundClinic ? (foundClinic.chineseName || foundClinic.englishName || '') : '';
+                                } else {
+                                    clinicName = '';
+                                }
+                            } catch (_e) {
+                                clinicName = '';
+                            }
+                            return `
+                            <div class="flex items-center space-x-2">
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
                                     ${doctorLabel}${getDoctorDisplayName(consultation.doctor)}
-                                </span>
-                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
-                                    ${recordNumberLabel}${consultation.medicalRecordNumber || consultation.id}
-                                </span>
-                                ${consultation.updatedAt ? `
-                                    <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                                        已修改
-                                    </span>
-                                ` : ''}
+                                        </span>
+                                        <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
+                                            ${recordNumberLabel}${consultation.medicalRecordNumber || consultation.id}
+                                        </span>
+                                        <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
+                                            ${clinicLabel}${window.escapeHtml(clinicName || '未設定')}
+                                        </span>
+                                        ${consultation.updatedAt ? `
+                                            <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                                                已修改
+                                            </span>
+                                        ` : ''}
+                                    </div>`;
+                                })()}
                             </div>
                             <div class="flex flex-wrap justify-end gap-1">
                                 <button onclick="printConsultationRecord('${consultation.id}')" 
@@ -9641,6 +10106,7 @@ function displayConsultationMedicalHistoryPage() {
     const nextLabel = dict['較新'] || '較新';
     const doctorLabel = dict['醫師：'] || '醫師：';
     const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
+    const clinicLabel = dict['診所：'] || '診所：';
 
     // Compose the HTML content with translated dynamic labels.  Chinese
     // strings remain in the markup for static phrases that the i18n
@@ -9680,22 +10146,41 @@ function displayConsultationMedicalHistoryPage() {
         <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
             <div class="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-4 border-b border-gray-200">
                 <div class="flex justify-between items-center">
-                    <div class="flex items-center space-x-4">
+                    <div class="flex flex-col space-y-1">
                         <span class="font-semibold text-gray-900 text-lg">
                             ${formatConsultationDateTime(consultation.date)}
                         </span>
-                        <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
-                            ${doctorLabel}${getDoctorDisplayName(consultation.doctor)}
-                        </span>
-                        <!-- 新增病歷編號顯示 -->
-                        <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
-                            ${recordNumberLabel}${consultation.medicalRecordNumber || consultation.id}
-                        </span>
-                        ${consultation.updatedAt ? `
-                            <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                                已修改
-                            </span>
-                        ` : ''}
+                        ${(() => {
+                            let clinicName = '';
+                            try {
+                                if (consultation.clinicName) clinicName = consultation.clinicName;
+                                else if (consultation.clinicId) {
+                                    const foundClinic = Array.isArray(clinicsList) ? clinicsList.find(c => String(c.id) === String(consultation.clinicId)) : null;
+                                    clinicName = foundClinic ? (foundClinic.chineseName || foundClinic.englishName || '') : '';
+                                } else {
+                                    clinicName = '';
+                                }
+                            } catch (_e) {
+                                clinicName = '';
+                            }
+                            return `
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
+                                    ${doctorLabel}${getDoctorDisplayName(consultation.doctor)}
+                                </span>
+                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
+                                    ${recordNumberLabel}${consultation.medicalRecordNumber || consultation.id}
+                                </span>
+                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
+                                    ${clinicLabel}${window.escapeHtml(clinicName || '未設定')}
+                                </span>
+                                ${consultation.updatedAt ? `
+                                    <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                                        已修改
+                                    </span>
+                                ` : ''}
+                            </div>`;
+                        })()}
                     </div>
                     <div class="flex flex-wrap justify-end gap-1">
                         <button onclick="printConsultationRecord('${consultation.id}')" 
@@ -10244,6 +10729,7 @@ async function printConsultationRecord(consultationId, consultationData = null) 
             keepReceipt: isEnglish ? 'Please keep this receipt properly' : '本收據請妥善保存',
             contactCounter: isEnglish ? 'If you have any questions, please contact the counter' : '如有疑問請洽櫃檯'
         };
+        const clinicPrint = await resolveClinicSettingsByConsultation(consultation);
         // Construct receipt HTML with localized labels
         const printContent = `
             <!DOCTYPE html>
@@ -10406,9 +10892,9 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                 <div class="receipt-container">
                     <!-- Clinic Header -->
                     <div class="clinic-header">
-                        <div class="clinic-name">${clinicSettings.chineseName || '名醫診所系統'}</div>
-                        <div class="clinic-subtitle">${clinicSettings.englishName || 'Dr.Great Clinic'}</div>
-                        <div class="clinic-subtitle">${isEnglish ? 'Tel:' : '電話：'}${clinicSettings.phone || '(852) 2345-6789'}　${isEnglish ? 'Address:' : '地址：'}${clinicSettings.address || '香港中環皇后大道中123號'}</div>
+                        <div class="clinic-name">${clinicPrint.chineseName || '名醫診所系統'}</div>
+                        <div class="clinic-subtitle">${clinicPrint.englishName || 'Dr.Great Clinic'}</div>
+                        <div class="clinic-subtitle">${isEnglish ? 'Tel:' : '電話：'}${clinicPrint.phone || '(852) 2345-6789'}　${isEnglish ? 'Address:' : '地址：'}${clinicPrint.address || '香港中環皇后大道中123號'}</div>
                     </div>
                     
                     <!-- Receipt Title -->
@@ -10656,7 +11142,7 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                         </div>
                         <div class="footer-row">
                             <span>${TR.clinicHours}${colon}</span>
-                            <span>${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</span>
+                            <span>${clinicPrint.businessHours || '週一至週五 09:00-18:00'}</span>
                         </div>
                         <div class="footer-row">
                             <span>${TR.keepReceipt}</span>
@@ -10791,6 +11277,7 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
             certificateIssuedAt: isEnglish ? 'Certificate Issued At' : '證明書開立時間',
             watermark: isEnglish ? 'Arrival Certificate' : '到診證明'
         };
+        const clinicPrint = await resolveClinicSettingsByConsultation(consultation);
         // Build certificate HTML
         const printContent = `
             <!DOCTYPE html>
@@ -10967,9 +11454,9 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
                     <div class="content">
                         <!-- Clinic Header -->
                         <div class="clinic-header">
-                            <div class="clinic-name">${clinicSettings.chineseName || '名醫診所系統'}</div>
-                            <div class="clinic-subtitle">${clinicSettings.englishName || 'Dr.Great Clinic'}</div>
-                            <div class="clinic-subtitle">${isEnglish ? 'Tel:' : '電話：'}${clinicSettings.phone || '(852) 2345-6789'}　${isEnglish ? 'Address:' : '地址：'}${clinicSettings.address || '香港中環皇后大道中123號'}</div>
+                            <div class="clinic-name">${clinicPrint.chineseName || '名醫診所系統'}</div>
+                            <div class="clinic-subtitle">${clinicPrint.englishName || 'Dr.Great Clinic'}</div>
+                            <div class="clinic-subtitle">${isEnglish ? 'Tel:' : '電話：'}${clinicPrint.phone || '(852) 2345-6789'}　${isEnglish ? 'Address:' : '地址：'}${clinicPrint.address || '香港中環皇后大道中123號'}</div>
                         </div>
                         
                         <!-- Certificate Number -->
@@ -11067,7 +11554,7 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
                         <!-- Footer Note -->
                         <div class="footer-note">
                             <div>${TC.footerNote1}</div>
-                            <div>${TC.footerTel}${colon}${clinicSettings.phone || '(852) 2345-6789'} | ${TC.footerHours}${colon}${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</div>
+                            <div>${TC.footerTel}${colon}${clinicPrint.phone || '(852) 2345-6789'} | ${TC.footerHours}${colon}${clinicPrint.businessHours || '週一至週五 09:00-18:00'}</div>
                             <div style="margin-top: 10px; font-size: 10px;">
                                 ${TC.certificateIssuedAt}${colon}${new Date().toLocaleString(dateLocale)}
                             </div>
@@ -11231,6 +11718,7 @@ async function printSickLeave(consultationId, consultationData = null) {
             issuedAt: isEnglish ? 'Certificate Issued At' : '證明書開立時間',
             watermark: isEnglish ? 'Sick Leave' : '病假證明'
         };
+        const clinicPrint = await resolveClinicSettingsByConsultation(consultation);
         // 構建 HTML 內容
         const printContent = `
             <!DOCTYPE html>
@@ -11403,9 +11891,9 @@ async function printSickLeave(consultationId, consultationData = null) {
                     <div class="watermark">${SL.watermark}</div>
                     <div class="content">
                         <div class="clinic-header">
-                            <div class="clinic-name">${clinicSettings.chineseName || '名醫診所系統'}</div>
-                            <div class="clinic-subtitle">${clinicSettings.englishName || 'Dr.Great Clinic'}</div>
-                            <div class="clinic-subtitle">${isEnglish ? 'Tel' : '電話'}${colon}${clinicSettings.phone || '(852) 2345-6789'}　${isEnglish ? 'Address' : '地址'}${colon}${clinicSettings.address || '香港中環皇后大道中123號'}</div>
+                            <div class="clinic-name">${clinicPrint.chineseName || '名醫診所系統'}</div>
+                            <div class="clinic-subtitle">${clinicPrint.englishName || 'Dr.Great Clinic'}</div>
+                            <div class="clinic-subtitle">${isEnglish ? 'Tel' : '電話'}${colon}${clinicPrint.phone || '(852) 2345-6789'}　${isEnglish ? 'Address' : '地址'}${colon}${clinicPrint.address || '香港中環皇后大道中123號'}</div>
                         </div>
                         <div class="certificate-number">${SL.certificateNumber}${colon}SL${consultation.id.toString().padStart(6, '0')}</div>
                         <div class="certificate-title">${SL.title}</div>
@@ -11440,7 +11928,7 @@ async function printSickLeave(consultationId, consultationData = null) {
                         </div>
                         <div class="footer-note">
                             <div>${SL.footerNote}</div>
-                            <div>${SL.footerTel}${colon}${clinicSettings.phone || '(852) 2345-6789'} | ${SL.footerHours}${colon}${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</div>
+                            <div>${SL.footerTel}${colon}${clinicPrint.phone || '(852) 2345-6789'} | ${SL.footerHours}${colon}${clinicPrint.businessHours || '週一至週五 09:00-18:00'}</div>
                             <div style="margin-top: 10px; font-size: 10px;">${SL.issuedAt}${colon}${new Date().toLocaleString(dateLocale)}</div>
                         </div>
                     </div>
@@ -11915,6 +12403,7 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
             saveAdvice: isEnglish ? 'Please keep this advice safe, this prescription cannot be refilled.' : '本醫囑請妥善保存，此藥方不可重配',
             contact: isEnglish ? 'If you have any questions, please contact the front desk.' : '如有疑問請洽櫃檯'
         };
+        const clinicPrint = await resolveClinicSettingsByConsultation(consultation);
         // 構建列印內容
         const printContent = `
             <!DOCTYPE html>
@@ -12030,9 +12519,9 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
             <body>
                 <div class="advice-container">
                     <div class="clinic-header">
-                        <div class="clinic-name">${clinicSettings.chineseName || '名醫診所系統'}</div>
-                        <div class="clinic-subtitle">${clinicSettings.englishName || 'Dr.Great Clinic'}</div>
-                        <div class="clinic-subtitle">${isEnglish ? 'Tel' : '電話'}${colon}${clinicSettings.phone || '(852) 2345-6789'}　${isEnglish ? 'Address' : '地址'}${colon}${clinicSettings.address || '香港中環皇后大道中123號'}</div>
+                        <div class="clinic-name">${clinicPrint.chineseName || '名醫診所系統'}</div>
+                        <div class="clinic-subtitle">${clinicPrint.englishName || 'Dr.Great Clinic'}</div>
+                        <div class="clinic-subtitle">${isEnglish ? 'Tel' : '電話'}${colon}${clinicPrint.phone || '(852) 2345-6789'}　${isEnglish ? 'Address' : '地址'}${colon}${clinicPrint.address || '香港中環皇后大道中123號'}</div>
                     </div>
                     <div class="advice-title">${PI.title}</div>
                     <div class="patient-info">
@@ -12055,7 +12544,7 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                     ${followUpHtml ? `<div class="section-title">${PI.followUp}</div><div class="section-content">${followUpHtml}</div>` : ''}
                     <div class="footer-info">
                         <div class="footer-row"><span>${PI.printTime}${colon}</span><span>${new Date().toLocaleString(dateLocale)}</span></div>
-                        <div class="footer-row"><span>${PI.businessHours}${colon}</span><span>${clinicSettings.businessHours || '週一至週五 09:00-18:00'}</span></div>
+                        <div class="footer-row"><span>${PI.businessHours}${colon}</span><span>${clinicPrint.businessHours || '週一至週五 09:00-18:00'}</span></div>
                         <div class="footer-row"><span>${PI.saveAdvice}</span><span>${PI.contact}</span></div>
                     </div>
                 </div>
@@ -13154,6 +13643,7 @@ async function initializeSystemAfterLogin() {
             document.getElementById('clinicPhone').value = clinicSettings.phone || '';
             document.getElementById('clinicAddress').value = clinicSettings.address || '';
             
+            try { populateClinicSelectors(); } catch (_e) {}
             document.getElementById('clinicSettingsModal').classList.remove('hidden');
         }
         
@@ -13161,7 +13651,7 @@ async function initializeSystemAfterLogin() {
             document.getElementById('clinicSettingsModal').classList.add('hidden');
         }
         
-        function saveClinicSettings() {
+        async function saveClinicSettings() {
             const chineseName = document.getElementById('clinicChineseName').value.trim();
             const englishName = document.getElementById('clinicEnglishName').value.trim();
             const businessHours = document.getElementById('clinicBusinessHours').value.trim();
@@ -13173,22 +13663,28 @@ async function initializeSystemAfterLogin() {
                 return;
             }
             
-            // 更新診所設定
             clinicSettings.chineseName = chineseName;
             clinicSettings.englishName = englishName;
             clinicSettings.businessHours = businessHours;
             clinicSettings.phone = phone;
             clinicSettings.address = address;
             clinicSettings.updatedAt = new Date().toISOString();
-            
-            // 保存到本地儲存
-            localStorage.setItem('clinicSettings', JSON.stringify(clinicSettings));
-            
-            // 更新系統管理頁面的顯示
-            updateClinicSettingsDisplay();
-            
-            hideClinicSettingsModal();
-            showToast('診所資料已成功更新！', 'success');
+            try {
+                if (currentClinicId) {
+                    await window.firebaseDataManager.updateClinic(currentClinicId, clinicSettings);
+                    const listRes = await window.firebaseDataManager.getClinics();
+                    clinicsList = listRes && listRes.success && Array.isArray(listRes.data) ? listRes.data : clinicsList;
+                    updateClinicSettingsDisplay();
+                    populateClinicSelectors();
+                    updateCurrentClinicDisplay();
+                    hideClinicSettingsModal();
+                    showToast('診所資料已成功更新！', 'success');
+                } else {
+                    showToast('未選擇診所', 'error');
+                }
+            } catch (e) {
+                showToast('更新診所資料失敗', 'error');
+            }
         }
         
         function updateClinicSettingsDisplay() {
@@ -14404,6 +14900,7 @@ async function initializeSystemAfterLogin() {
             document.getElementById('billingItemUnit').value = '';
             document.getElementById('billingItemDescription').value = '';
             document.getElementById('billingItemActive').checked = true;
+            const sh = document.getElementById('billingItemShared'); if (sh) sh.checked = false;
         }
         
         function editBillingItem(id) {
@@ -14428,6 +14925,7 @@ async function initializeSystemAfterLogin() {
             document.getElementById('billingItemUnit').value = item.unit || '';
             document.getElementById('billingItemDescription').value = item.description || '';
             document.getElementById('billingItemActive').checked = item.active !== false;
+            const sh = document.getElementById('billingItemShared'); if (sh) sh.checked = !!item.shared;
             document.getElementById('billingItemPackageUses').value = item.packageUses || '';
             document.getElementById('billingItemValidityDays').value = item.validityDays || '';
             {
@@ -14506,6 +15004,8 @@ async function initializeSystemAfterLogin() {
             try {
                 // 始終使用字串作為 ID，以避免字串與數字比較造成的匹配問題
                 const newId = editingBillingItemId || String(Date.now());
+                const prevItem = editingBillingItemId ? billingItems.find(b => String(b.id) === String(editingBillingItemId)) : null;
+                const wasShared = prevItem ? !!prevItem.shared : false;
                 const item = {
                     id: newId,
                     name: name,
@@ -14516,6 +15016,7 @@ async function initializeSystemAfterLogin() {
                     packageUses: packageUses,
                     validityDays: validityDays,
                     active: document.getElementById('billingItemActive').checked,
+                    shared: !!(document.getElementById('billingItemShared') && document.getElementById('billingItemShared').checked),
                     createdAt: editingBillingItemId ? (billingItems.find(b => String(b.id) === String(editingBillingItemId)) || {}).createdAt : new Date().toISOString(),
                     updatedAt: new Date().toISOString()
                 };
@@ -14535,7 +15036,7 @@ async function initializeSystemAfterLogin() {
 
                 // 將最新收費項目存回本地以支援跨裝置同步讀取。
                 try {
-                    localStorage.setItem('billingItems', JSON.stringify(billingItems));
+                    localStorage.setItem(getClinicScopedStorageKey('billingItems'), JSON.stringify(billingItems));
                 } catch (lsErrUpdate) {
                     console.warn('保存收費項目到本地失敗:', lsErrUpdate);
                 }
@@ -14550,10 +15051,34 @@ async function initializeSystemAfterLogin() {
                     } catch (_omitErr) {
                         dataToWrite = item;
                     }
-                    await window.firebase.setDoc(
-                        window.firebase.doc(window.firebase.db, 'billingItems', String(item.id)),
-                        dataToWrite
-                    );
+                    const clinicId = localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+                    if (item.shared) {
+                        await window.firebase.setDoc(
+                            window.firebase.doc(window.firebase.db, 'globalBillingItems', String(item.id)),
+                            dataToWrite
+                        );
+                        // 若由診所專屬改為共用，刪除診所節點的舊資料以避免重複
+                        if (editingBillingItemId && !wasShared) {
+                            try {
+                                await window.firebase.deleteDoc(
+                                    window.firebase.doc(window.firebase.db, 'clinics', clinicId, 'billingItems', String(item.id))
+                                );
+                            } catch (_delClinic) {}
+                        }
+                    } else {
+                        await window.firebase.setDoc(
+                            window.firebase.doc(window.firebase.db, 'clinics', clinicId, 'billingItems', String(item.id)),
+                            dataToWrite
+                        );
+                        // 若由共用改為診所專屬，刪除全域節點舊資料
+                        if (editingBillingItemId && wasShared) {
+                            try {
+                                await window.firebase.deleteDoc(
+                                    window.firebase.doc(window.firebase.db, 'globalBillingItems', String(item.id))
+                                );
+                            } catch (_delGlobal) {}
+                        }
+                    }
                 } catch (error) {
                     console.error('儲存收費項目至 Firestore 失敗:', error);
                 }
@@ -14587,15 +15112,22 @@ async function initializeSystemAfterLogin() {
                 if (confirmDel) {
                     billingItems = billingItems.filter(b => String(b.id) !== idStr);
                     try {
-                        await window.firebase.deleteDoc(
-                            window.firebase.doc(window.firebase.db, 'billingItems', String(id))
-                        );
+                        const clinicId = localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+                        if (item.shared) {
+                            await window.firebase.deleteDoc(
+                                window.firebase.doc(window.firebase.db, 'globalBillingItems', String(id))
+                            );
+                        } else {
+                            await window.firebase.deleteDoc(
+                                window.firebase.doc(window.firebase.db, 'clinics', clinicId, 'billingItems', String(id))
+                            );
+                        }
                     } catch (error) {
                         console.error('刪除收費項目資料至 Firestore 失敗:', error);
                     }
                     // 刪除後更新本地存儲，以便其他裝置下次載入時取得最新資料
                     try {
-                        localStorage.setItem('billingItems', JSON.stringify(billingItems));
+                        localStorage.setItem(getClinicScopedStorageKey('billingItems'), JSON.stringify(billingItems));
                     } catch (lsErrDel) {
                         console.warn('刪除收費項目後保存本地資料失敗:', lsErrDel);
                     }
@@ -16344,7 +16876,7 @@ async function searchBillingForConsultation() {
                 }
                 // 取得最近一次診症記錄
                 const lastConsultation = patientConsultations.length > 0 ? patientConsultations[0] : null;
-                if (!lastConsultation || !lastConsultation.prescription) {
+                if (!lastConsultation || (!lastConsultation.multiPrescriptions && !lastConsultation.prescription)) {
                     {
                         const lang = localStorage.getItem('lang') || 'zh';
                         const zhMsg = `${patient.name} 沒有上次處方記錄可載入`;
@@ -16356,8 +16888,37 @@ async function searchBillingForConsultation() {
                 }
                 // 清空並解析處方
                 clearActivePrescriptionItems();
-                parsePrescriptionToItems(lastConsultation.prescription);
-                updatePrescriptionDisplay();
+                let usedMulti = false;
+                try {
+                    if (lastConsultation.multiPrescriptions) {
+                        const mp = JSON.parse(lastConsultation.multiPrescriptions);
+                        if (Array.isArray(mp) && mp.length > 0) {
+                            prescriptions = mp.map(sec => {
+                                const name = sec && sec.name ? sec.name : '處方';
+                                const items = Array.isArray(sec && sec.items) ? sec.items : [];
+                                const days = parseInt(sec && sec.days) || 5;
+                                const freq = parseInt(sec && sec.freq) || 2;
+                                const mode = (sec && sec.mode) === 'slice' ? 'slice' : 'granule';
+                                return { name, items, days, freq, mode };
+                            });
+                            activePrescriptionIndex = 0;
+                            selectedPrescriptionItems = prescriptions[activePrescriptionIndex].items;
+                            try {
+                                const m = prescriptions[activePrescriptionIndex] && prescriptions[activePrescriptionIndex].mode ? prescriptions[activePrescriptionIndex].mode : 'granule';
+                                if (m === 'granule' || m === 'slice') {
+                                    changeInventoryType(m);
+                                }
+                            } catch (_e) {}
+                            updatePrescriptionDisplay();
+                            try { updateMedicineFeeByDays(getTotalMedicationDays()); } catch (_e) {}
+                            usedMulti = true;
+                        }
+                    }
+                } catch (_e) {}
+                if (!usedMulti) {
+                    parsePrescriptionToItems(lastConsultation.prescription);
+                    updatePrescriptionDisplay();
+                }
                 try {
                     const daysEl = document.getElementById('medicationDays');
                     const freqEl = document.getElementById('medicationFrequency');
@@ -16831,18 +17392,46 @@ const consultationDate = (() => {
             }
             
             // 載入處方內容
-            clearActivePrescriptionItems();
-            // 先嘗試從結構化處方資料重建
             let prescriptionLoaded = false;
-            if (consultation.prescriptionStructured) {
+            if (consultation.multiPrescriptions) {
                 try {
-                    const parsedItems = JSON.parse(consultation.prescriptionStructured);
-                    if (Array.isArray(parsedItems) && parsedItems.length > 0) {
-                        setActivePrescriptionItems(parsedItems);
+                    const mp = JSON.parse(consultation.multiPrescriptions);
+                    if (Array.isArray(mp) && mp.length > 0) {
+                        prescriptions = mp.map(sec => {
+                            const name = sec && sec.name ? sec.name : '處方';
+                            const items = Array.isArray(sec && sec.items) ? sec.items : [];
+                            const days = parseInt(sec && sec.days) || 5;
+                            const freq = parseInt(sec && sec.freq) || 2;
+                            const mode = (sec && sec.mode) === 'slice' ? 'slice' : 'granule';
+                            return { name, items, days, freq, mode };
+                        });
+                        activePrescriptionIndex = 0;
+                        selectedPrescriptionItems = prescriptions[activePrescriptionIndex].items;
+                        try {
+                            const m = prescriptions[activePrescriptionIndex] && prescriptions[activePrescriptionIndex].mode ? prescriptions[activePrescriptionIndex].mode : 'granule';
+                            if (m === 'granule' || m === 'slice') {
+                                changeInventoryType(m);
+                            }
+                        } catch (_e) {}
+                        updatePrescriptionDisplay();
                         prescriptionLoaded = true;
                     }
                 } catch (_e) {
                     prescriptionLoaded = false;
+                }
+            }
+            if (!prescriptionLoaded) {
+                clearActivePrescriptionItems();
+                if (consultation.prescriptionStructured) {
+                    try {
+                        const parsedItems = JSON.parse(consultation.prescriptionStructured);
+                        if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+                            setActivePrescriptionItems(parsedItems);
+                            prescriptionLoaded = true;
+                        }
+                    } catch (_e) {
+                        prescriptionLoaded = false;
+                    }
                 }
             }
             if (prescriptionLoaded) {
@@ -17726,8 +18315,10 @@ async function deleteUser(id) {
             }
             // 載入醫師選項
             loadFinancialDoctorOptions();
+            try { if (!Array.isArray(clinicsList) || clinicsList.length === 0) await initClinics(); } catch (_e) {}
+            loadFinancialClinicOptions();
             // 生成初始報表
-            generateFinancialReport();
+            await generateFinancialReport();
         }
 
         // 格式化日期為 YYYY-MM-DD
@@ -17756,6 +18347,21 @@ async function deleteUser(id) {
                 option.textContent = `${doctor.name}`;
                 doctorSelect.appendChild(option);
             });
+        }
+        function loadFinancialClinicOptions() {
+            const sel = document.getElementById('clinicFilterFinancial');
+            if (!sel) return;
+            sel.innerHTML = '<option value="">全部診所</option>';
+            const list = Array.isArray(clinicsList) ? clinicsList : [];
+            list.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.chineseName || c.englishName || c.id;
+                sel.appendChild(opt);
+            });
+            try {
+                if (currentClinicId) sel.value = currentClinicId;
+            } catch (_e) {}
         }
 
         // 從 Firebase 載入用戶資料以供財務報表使用
@@ -17828,38 +18434,38 @@ async function deleteUser(id) {
                     }
                 }
                 let res = await window.firebaseDataManager.getConsultations(true);
-                if (res && res.success) {
-                    let all = res.data;
-                    while (res.hasMore) {
-                        res = await window.firebaseDataManager.getConsultationsNextPage();
-                        if (res && res.success && Array.isArray(res.data)) {
-                            all = res.data;
-                        } else {
-                            break;
+                        if (res && res.success) {
+                            let all = res.data;
+                            while (res.hasMore) {
+                                res = await window.firebaseDataManager.getConsultationsNextPage();
+                                if (res && res.success && Array.isArray(res.data)) {
+                                    all = res.data;
+                                } else {
+                                    break;
+                                }
+                            }
+                            consultations = all.map(item => {
+                                let dateStr = null;
+                                if (item.date) {
+                                    if (typeof item.date === 'object' && item.date.seconds) {
+                                        dateStr = new Date(item.date.seconds * 1000).toISOString();
+                                    } else {
+                                        dateStr = item.date;
+                                    }
+                                } else if (item.createdAt) {
+                                    if (typeof item.createdAt === 'object' && item.createdAt.seconds) {
+                                        dateStr = new Date(item.createdAt.seconds * 1000).toISOString();
+                                    } else {
+                                        dateStr = item.createdAt;
+                                    }
+                                }
+                                return { ...item, date: dateStr, clinicId: item.clinicId || null, clinicName: item.clinicName || '' };
+                            });
                         }
+                    } catch (error) {
+                        console.error('載入 Firebase 診症資料失敗:', error);
                     }
-                    consultations = all.map(item => {
-                        let dateStr = null;
-                        if (item.date) {
-                            if (typeof item.date === 'object' && item.date.seconds) {
-                                dateStr = new Date(item.date.seconds * 1000).toISOString();
-                            } else {
-                                dateStr = item.date;
-                            }
-                        } else if (item.createdAt) {
-                            if (typeof item.createdAt === 'object' && item.createdAt.seconds) {
-                                dateStr = new Date(item.createdAt.seconds * 1000).toISOString();
-                            } else {
-                                dateStr = item.createdAt;
-                            }
-                        }
-                        return { ...item, date: dateStr };
-                    });
                 }
-            } catch (error) {
-                console.error('載入 Firebase 診症資料失敗:', error);
-            }
-        }
 
         // 快速日期選擇
         function setQuickDate() {
@@ -18025,6 +18631,8 @@ async function deleteUser(id) {
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             const doctorFilter = document.getElementById('doctorFilter').value;
+            const clinicFilterEl = document.getElementById('clinicFilterFinancial');
+            const clinicFilter = clinicFilterEl ? clinicFilterEl.value : '';
             let reportType = '';
             const rptElem = document.getElementById('reportType');
             if (rptElem) {
@@ -18036,7 +18644,7 @@ async function deleteUser(id) {
                 return;
             }
 
-            const cacheKey = `${startDate}|${endDate}|${doctorFilter||''}`;
+            const cacheKey = `${startDate}|${endDate}|${doctorFilter||''}|${clinicFilter||''}`;
             const existing = financialReportCache[cacheKey] || readCache('financialReportCache', cacheKey);
             if (existing) {
                 try {
@@ -18067,7 +18675,7 @@ async function deleteUser(id) {
                                         dateStr = item.createdAt;
                                     }
                                 }
-                                return { id: item.id, date: dateStr, doctor: item.doctor, status: item.status, billingItems: item.billingItems, createdAt: item.createdAt, updatedAt: item.updatedAt };
+                                return { id: item.id, date: dateStr, doctor: item.doctor, status: item.status, billingItems: item.billingItems, clinicId: item.clinicId || null, clinicName: item.clinicName || '', createdAt: item.createdAt, updatedAt: item.updatedAt };
                             };
                             const deltas = deltaRes.data.map(normalize);
                             const start = new Date(startDate);
@@ -18076,8 +18684,9 @@ async function deleteUser(id) {
                                 const d = new Date(c.date);
                                 const dateInRange = d >= start && d <= end;
                                 const doctorMatch = !doctorFilter || c.doctor === doctorFilter;
+                                const clinicMatch = !clinicFilter || (c.clinicId && String(c.clinicId) === String(clinicFilter));
                                 const isCompleted = c.status === 'completed';
-                                return dateInRange && doctorMatch && isCompleted;
+                                return dateInRange && doctorMatch && clinicMatch && isCompleted;
                             };
                             const index = new Map(existing.filteredConsultations.map(c => [String(c.id), c]));
                             for (const r of deltas) {
@@ -18125,7 +18734,7 @@ async function deleteUser(id) {
             }
 
             // 過濾診症資料
-            const filteredConsultations = filterFinancialConsultations(startDate, endDate, doctorFilter);
+            const filteredConsultations = filterFinancialConsultations(startDate, endDate, doctorFilter, clinicFilter);
             
             // 計算統計資料
             const stats = calculateFinancialStatistics(filteredConsultations);
@@ -18155,7 +18764,7 @@ async function deleteUser(id) {
         }
 
         // 過濾診症資料
-        function filterFinancialConsultations(startDate, endDate, doctorFilter) {
+        function filterFinancialConsultations(startDate, endDate, doctorFilter, clinicFilter) {
             const start = new Date(startDate);
             const end = new Date(endDate + 'T23:59:59.999Z');
 
@@ -18163,9 +18772,10 @@ async function deleteUser(id) {
                 const consultationDate = new Date(consultation.date);
                 const dateInRange = consultationDate >= start && consultationDate <= end;
                 const doctorMatch = !doctorFilter || consultation.doctor === doctorFilter;
+                const clinicMatch = !clinicFilter || (consultation.clinicId && String(consultation.clinicId) === String(clinicFilter));
                 const isCompleted = consultation.status === 'completed';
 
-                return dateInRange && doctorMatch && isCompleted;
+                return dateInRange && doctorMatch && clinicMatch && isCompleted;
             });
         }
 
@@ -18463,8 +19073,13 @@ async function exportFinancialReport() {
     if (doctorFilterInput) {
         doctorFilter = doctorFilterInput.value;
     }
+    let clinicFilter = '';
+    const clinicFilterInput = document.getElementById('clinicFilterFinancial');
+    if (clinicFilterInput) {
+        clinicFilter = clinicFilterInput.value;
+    }
     // 過濾診症資料並計算統計以生成更詳細的報表
-    const filteredConsultations = filterFinancialConsultations(startDate, endDate, doctorFilter);
+    const filteredConsultations = filterFinancialConsultations(startDate, endDate, doctorFilter, clinicFilter);
     const stats = calculateFinancialStatistics(filteredConsultations);
     const months = monthsInDateRange(startDate, endDate);
     let totalCost = 0;
@@ -18494,6 +19109,11 @@ async function exportFinancialReport() {
     let textReport = '';
     if (doctorFilter) {
         textReport += `選擇醫師: ${doctorFilter}\n`;
+    }
+    if (clinicFilter) {
+        const clinicOpt = (Array.isArray(clinicsList) ? clinicsList.find(c => String(c.id) === String(clinicFilter)) : null);
+        const clinicName = clinicOpt ? (clinicOpt.chineseName || clinicOpt.englishName || clinicOpt.id) : clinicFilter;
+        textReport += `選擇診所: ${clinicName}\n`;
     }
     textReport += `報表標題: 財務報表 - ${reportType}\n`;
     textReport += `期間: ${startDate} 至 ${endDate}\n`;
@@ -20457,6 +21077,90 @@ class FirebaseDataManager {
         console.log('Firebase 數據管理器已準備就緒');
     }
 
+    async addClinic(clinicData) {
+        if (!this.isReady) return { success: false };
+        try {
+            let dataToWrite;
+            try {
+                const { id, ...rest } = clinicData || {};
+                dataToWrite = rest;
+            } catch (_e) {
+                dataToWrite = clinicData;
+            }
+            const docRef = await window.firebase.addDoc(
+                window.firebase.collection(window.firebase.db, 'clinics'),
+                {
+                    ...dataToWrite,
+                    createdAt: new Date()
+                }
+            );
+            return { success: true, id: docRef.id };
+        } catch (err) {
+            return { success: false, error: err && err.message ? err.message : String(err) };
+        }
+    }
+    async getClinics() {
+        if (!this.isReady) return { success: false, data: [] };
+        try {
+            const snap = await window.firebase.getDocs(
+                window.firebase.collection(window.firebase.db, 'clinics')
+            );
+            const list = [];
+            snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+            try { localStorage.setItem('clinics', JSON.stringify(list)); } catch (_e) {}
+            return { success: true, data: list };
+        } catch (err) {
+            return { success: false, data: [] };
+        }
+    }
+    async getClinicById(id) {
+        if (!this.isReady) return { success: false, data: null };
+        try {
+            const d = await window.firebase.getDoc(
+                window.firebase.doc(window.firebase.db, 'clinics', id)
+            );
+            if (d && d.exists()) {
+                return { success: true, data: d.data() };
+            }
+            return { success: false, data: null };
+        } catch (err) {
+            return { success: false, data: null };
+        }
+    }
+    async updateClinic(id, clinicData) {
+        if (!this.isReady) return { success: false };
+        try {
+            let dataToWrite;
+            try {
+                const { id: _id, ...rest } = clinicData || {};
+                dataToWrite = rest;
+            } catch (_e) {
+                dataToWrite = clinicData;
+            }
+            await window.firebase.updateDoc(
+                window.firebase.doc(window.firebase.db, 'clinics', id),
+                {
+                    ...dataToWrite,
+                    updatedAt: new Date()
+                }
+            );
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: err && err.message ? err.message : String(err) };
+        }
+    }
+    async deleteClinic(id) {
+        if (!this.isReady) return { success: false };
+        try {
+            await window.firebase.deleteDoc(
+                window.firebase.doc(window.firebase.db, 'clinics', id)
+            );
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: err && err.message ? err.message : String(err) };
+        }
+    }
+
     // 病人數據管理
     async addPatient(patientData) {
         if (!this.isReady) {
@@ -20887,9 +21591,25 @@ class FirebaseDataManager {
         if (!this.isReady) return { success: false, data: [] };
         try {
             const colRef = window.firebase.collection(window.firebase.db, 'consultations');
-            const start = new Date(startDateStr);
+            const parseOrNull = (s) => {
+                if (!s || typeof s !== 'string') return null;
+                const d = new Date(s);
+                return isNaN(d.getTime()) ? null : d;
+            };
+            let start = parseOrNull(startDateStr);
+            let end = parseOrNull(endDateStr);
+            const today = new Date();
+            if (!start && end) {
+                start = new Date(end);
+            }
+            if (!end && start) {
+                end = new Date(start);
+            }
+            if (!start && !end) {
+                start = new Date(today);
+                end = new Date(today);
+            }
             start.setHours(0, 0, 0, 0);
-            const end = new Date(endDateStr);
             end.setHours(23, 59, 59, 999);
             const pageSize = 100;
             const parts = [];
@@ -22103,6 +22823,8 @@ document.addEventListener('DOMContentLoaded', function() {
         searchInput.addEventListener('input', debouncedLoadPatientList);
     }
 
+    try { initClinics(); } catch (_e) {}
+
     // 掛號彈窗的病人搜尋欄位：加入防抖處理
     const patientSearchInput = document.getElementById('patientSearchInput');
     if (patientSearchInput) {
@@ -22328,6 +23050,64 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
+        try {
+            const switchBtn = document.getElementById('clinicSwitchButton');
+            if (switchBtn && !switchBtn.dataset.bound) {
+                switchBtn.addEventListener('click', function () {
+                    try {
+                        const modal = document.getElementById('clinicSwitchModal');
+                        if (modal) {
+                            modal.classList.remove('hidden');
+                            try { if (typeof populateClinicSelectors === 'function') populateClinicSelectors(); } catch (_e) {}
+                        }
+                    } catch (e) {
+                        console.error('切換診所按鈕事件錯誤:', e);
+                    }
+                });
+                switchBtn.dataset.bound = 'true';
+            }
+            const closeBtn = document.getElementById('clinicSwitchCloseButton');
+            if (closeBtn && !closeBtn.dataset.bound) {
+                closeBtn.addEventListener('click', function () {
+                    try {
+                        const modal = document.getElementById('clinicSwitchModal');
+                        if (modal) modal.classList.add('hidden');
+                    } catch (e) {
+                        console.error('關閉切換診所彈窗錯誤:', e);
+                    }
+                });
+                closeBtn.dataset.bound = 'true';
+            }
+            const confirmBtn = document.getElementById('clinicSwitchConfirmButton');
+            if (confirmBtn && !confirmBtn.dataset.bound) {
+                confirmBtn.addEventListener('click', async function () {
+                    try {
+                        const sel = document.getElementById('currentClinicSelector');
+                        if (sel && sel.value) {
+                            await setCurrentClinicId(sel.value);
+                        }
+                        const modal = document.getElementById('clinicSwitchModal');
+                        if (modal) modal.classList.add('hidden');
+                    } catch (e) {
+                        console.error('確定切換診所錯誤:', e);
+                    }
+                });
+                confirmBtn.dataset.bound = 'true';
+            }
+            try {
+                const modal = document.getElementById('clinicSwitchModal');
+                if (modal) {
+                    const overlay = modal.querySelector('.absolute');
+                    if (overlay && !overlay.dataset.bound) {
+                        overlay.addEventListener('click', function () {
+                            try { modal.classList.add('hidden'); } catch (_e) {}
+                        });
+                        overlay.dataset.bound = 'true';
+                    }
+                }
+            } catch (_e) {}
+        } catch (_e) {}
+ 
         // 病人資料管理：新增/隱藏/儲存事件綁定
         // 新增病人按鈕
         const showAddPatientBtn = document.getElementById('showAddPatientButton');
@@ -22669,14 +23449,15 @@ async function displayMedicalRecords(pageChange = false) {
         `;
     } catch (_e) {}
     const searchInput = document.getElementById('searchMedicalRecord');
-    const term = searchInput && searchInput.value ? searchInput.value.toLowerCase().trim() : '';
+    const rawTerm = searchInput && searchInput.value ? searchInput.value.trim() : '';
+    const term = rawTerm.toLowerCase();
     const itemsPerPage = (paginationSettings.medicalRecordList && paginationSettings.medicalRecordList.itemsPerPage) ? paginationSettings.medicalRecordList.itemsPerPage : medicalRecordPageSize;
     let currentPage = (paginationSettings.medicalRecordList && paginationSettings.medicalRecordList.currentPage) ? paginationSettings.medicalRecordList.currentPage : 1;
     let filtered = [];
     if (term) {
         let res = medicalRecordSearchCache[term] || null;
         if (!Array.isArray(res)) {
-            res = await searchMedicalRecords(term, 50);
+            res = await searchMedicalRecords(rawTerm, 50);
             if (Array.isArray(res)) medicalRecordSearchCache[term] = res;
         }
         medicalRecords = Array.isArray(res) ? res : [];
@@ -22722,7 +23503,7 @@ async function displayMedicalRecords(pageChange = false) {
     try {
         const getTimestamp = (rec) => {
             try {
-                const raw = rec.date || null;
+                const raw = rec.date || rec.createdAt || rec.updatedAt || null;
                 const parsed = parseConsultationDate(raw);
                 return parsed && !isNaN(parsed.getTime()) ? parsed.getTime() : 0;
             } catch (_err) {
@@ -22797,9 +23578,20 @@ async function displayMedicalRecords(pageChange = false) {
                     doctorName = rec.doctor.displayName || rec.doctor.name || rec.doctor.fullName || rec.doctor.email || '';
                 }
             }
+            let clinicName = '';
+            try {
+                if (rec.clinicName) {
+                    clinicName = rec.clinicName;
+                } else if (rec.clinicId) {
+                    const foundClinic = Array.isArray(clinicsList)
+                        ? clinicsList.find(c => String(c.id) === String(rec.clinicId))
+                        : null;
+                    clinicName = foundClinic ? (foundClinic.chineseName || foundClinic.englishName || '') : '';
+                }
+            } catch (_eClinicList) {}
             let dateStr = '';
             try {
-                const rawDate = rec.date || null;
+                const rawDate = rec.date || rec.createdAt || rec.updatedAt || null;
                 const parsed = parseConsultationDate(rawDate);
                 if (parsed && !isNaN(parsed.getTime())) {
                     const locale = lang === 'en' ? 'en-US' : 'zh-TW';
@@ -22822,6 +23614,7 @@ async function displayMedicalRecords(pageChange = false) {
             tbody.innerHTML += `
                 <tr>
                     <td class="px-4 py-2 whitespace-nowrap">${window.escapeHtml(recordNumDisplay)}</td>
+                    <td class="px-4 py-2 whitespace-nowrap">${clinicName ? window.escapeHtml(clinicName) : ''}</td>
                     <td class="px-4 py-2 whitespace-nowrap">${window.escapeHtml(patientName)}</td>
                     <td class="px-4 py-2 whitespace-nowrap">${window.escapeHtml(complaintDisplay)}</td>
                     <td class="px-4 py-2 whitespace-nowrap">${window.escapeHtml(doctorName)}</td>
@@ -22907,6 +23700,7 @@ async function fetchMedicalRecordPage(page = 1, pageSize = 10) {
             const arr = [];
             snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
             try {
+                let needsRefetch = false;
                 for (const r of arr) {
                     if (r && typeof r.date === 'string') {
                         const parsed = parseConsultationDate(r.date);
@@ -22917,15 +23711,37 @@ async function fetchMedicalRecordPage(page = 1, pageSize = 10) {
                                     { date: parsed }
                                 );
                                 r.date = parsed;
+                                needsRefetch = true;
                             } catch (_udErr) {}
                         }
                     }
                 }
+                if (needsRefetch) {
+                    const snapNew = await window.firebase.getDocs(window.firebase.firestoreQuery(
+                        colRef,
+                        window.firebase.orderBy('date', 'desc'),
+                        window.firebase.limit(pageSize)
+                    ));
+                    const refreshed = [];
+                    snapNew.forEach(d => refreshed.push({ id: d.id, ...d.data() }));
+                    medicalRecordPageCache[1] = refreshed;
+                    medicalRecordPageCursors[1] = snapNew.docs.length ? snapNew.docs[snapNew.docs.length - 1] : null;
+                    try {
+                        refreshed.sort((a, b) => {
+                            const A = parseConsultationDate(a.date || a.createdAt || a.updatedAt || null);
+                            const B = parseConsultationDate(b.date || b.createdAt || b.updatedAt || null);
+                            const tA = (A && !isNaN(A.getTime())) ? A.getTime() : 0;
+                            const tB = (B && !isNaN(B.getTime())) ? B.getTime() : 0;
+                            return tB - tA;
+                        });
+                    } catch (_e2) {}
+                    return refreshed;
+                }
             } catch (_normErr) {}
             try {
                 arr.sort((a, b) => {
-                    const A = parseConsultationDate(a.date || null);
-                    const B = parseConsultationDate(b.date || null);
+                    const A = parseConsultationDate(a.date || a.createdAt || a.updatedAt || null);
+                    const B = parseConsultationDate(b.date || b.createdAt || b.updatedAt || null);
                     const tA = (A && !isNaN(A.getTime())) ? A.getTime() : 0;
                     const tB = (B && !isNaN(B.getTime())) ? B.getTime() : 0;
                     return tB - tA;
@@ -22976,8 +23792,8 @@ async function fetchMedicalRecordPage(page = 1, pageSize = 10) {
         } catch (_normErr2) {}
         try {
             arr2.sort((a, b) => {
-                const A = parseConsultationDate(a.date || null);
-                const B = parseConsultationDate(b.date || null);
+                const A = parseConsultationDate(a.date || a.createdAt || a.updatedAt || null);
+                const B = parseConsultationDate(b.date || b.createdAt || b.updatedAt || null);
                 const tA = (A && !isNaN(A.getTime())) ? A.getTime() : 0;
                 const tB = (B && !isNaN(B.getTime())) ? B.getTime() : 0;
                 return tB - tA;
@@ -23026,8 +23842,8 @@ async function fetchMedicalRecordPageAsc(ascIndex = 1, pageSize = 10) {
             } catch (_normErr3) {}
             try {
                 arr.sort((a, b) => {
-                    const A = parseConsultationDate(a.date || null);
-                    const B = parseConsultationDate(b.date || null);
+                    const A = parseConsultationDate(a.date || a.createdAt || a.updatedAt || null);
+                    const B = parseConsultationDate(b.date || b.createdAt || b.updatedAt || null);
                     const tA = (A && !isNaN(A.getTime())) ? A.getTime() : 0;
                     const tB = (B && !isNaN(B.getTime())) ? B.getTime() : 0;
                     return tB - tA;
@@ -23136,6 +23952,62 @@ async function searchMedicalRecords(term, limitCount = 50) {
             );
             const s1 = await window.firebase.getDocs(q1);
             s1.forEach(d => {
+                const id = String(d.id);
+                if (!seen.has(id) && out.length < limitCount) {
+                    out.push({ id: d.id, ...d.data() });
+                    seen.add(id);
+                }
+            });
+        } catch (_e) {}
+        try {
+            const termUpper = (term || '').toUpperCase();
+            if (termUpper && termUpper !== term) {
+                const col = window.firebase.collection(window.firebase.db, 'consultations');
+                const q1u = window.firebase.firestoreQuery(
+                    col,
+                    window.firebase.where('medicalRecordNumber', '==', termUpper),
+                    window.firebase.limit(Math.max(1, Math.min(20, limitCount)))
+                );
+                const s1u = await window.firebase.getDocs(q1u);
+                s1u.forEach(d => {
+                    const id = String(d.id);
+                    if (!seen.has(id) && out.length < limitCount) {
+                        out.push({ id: d.id, ...d.data() });
+                        seen.add(id);
+                    }
+                });
+            }
+        } catch (_e) {}
+        try {
+            const termUpper = (term || '').toUpperCase();
+            const col = window.firebase.collection(window.firebase.db, 'consultations');
+            const qPref = window.firebase.firestoreQuery(
+                col,
+                window.firebase.orderBy('medicalRecordNumber', 'asc'),
+                window.firebase.startAt(termUpper),
+                window.firebase.endAt(termUpper + '\uf8ff'),
+                window.firebase.limit(Math.max(1, Math.min(20, limitCount)))
+            );
+            const sPref = await window.firebase.getDocs(qPref);
+            sPref.forEach(d => {
+                const id = String(d.id);
+                if (!seen.has(id) && out.length < limitCount) {
+                    out.push({ id: d.id, ...d.data() });
+                    seen.add(id);
+                }
+            });
+        } catch (_e) {}
+        try {
+            const col = window.firebase.collection(window.firebase.db, 'consultations');
+            const qPrefRaw = window.firebase.firestoreQuery(
+                col,
+                window.firebase.orderBy('medicalRecordNumber', 'asc'),
+                window.firebase.startAt(term),
+                window.firebase.endAt(term + '\uf8ff'),
+                window.firebase.limit(Math.max(1, Math.min(20, limitCount)))
+            );
+            const sPrefRaw = await window.firebase.getDocs(qPrefRaw);
+            sPrefRaw.forEach(d => {
                 const id = String(d.id);
                 if (!seen.has(id) && out.length < limitCount) {
                     out.push({ id: d.id, ...d.data() });
@@ -23291,6 +24163,7 @@ function viewMedicalRecord(recordId, patientId) {
         // 準備醫師與病歷編號標籤（含冒號），如果翻譯存在則使用翻譯
         const doctorLabel = dict['醫師：'] || '醫師：';
         const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
+        const clinicLabel = dict['診所：'] || '診所：';
         // 構建可選擇載入病歷按鈕的 HTML
         let loadButtonHtml = '';
         try {
@@ -23307,15 +24180,36 @@ function viewMedicalRecord(recordId, patientId) {
         // Header 區塊
         detailHtml += '<div class="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-4 border-b border-gray-200">';
         detailHtml += '<div class="flex justify-between items-center">';
-        // 左側日期與標籤
-        detailHtml += '<div class="flex items-center space-x-4">';
+        // 左側日期與表列（分兩行）
+        detailHtml += '<div class="flex flex-col space-y-1">';
         detailHtml += `<span class="font-semibold text-gray-900 text-lg">${window.escapeHtml(dateTimeStr)}</span>`;
-        detailHtml += `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">${window.escapeHtml(doctorLabel)}${window.escapeHtml(doctorName)}</span>`;
-        detailHtml += `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">${window.escapeHtml(recordNumberLabel)}${window.escapeHtml(rec.medicalRecordNumber || rec.id)}</span>`;
+            // 第二行表列包含醫師、病歷編號與診所
+            (function () {
+                // 取得診所顯示名稱
+                let clinicName = '';
+                try {
+                    if (rec.clinicName) {
+                        clinicName = rec.clinicName;
+                    } else if (rec.clinicId) {
+                        const foundClinic = Array.isArray(clinicsList) ? clinicsList.find(c => String(c.id) === String(rec.clinicId)) : null;
+                        clinicName = foundClinic ? (foundClinic.chineseName || foundClinic.englishName || '') : '';
+                    } else {
+                        clinicName = '';
+                    }
+                } catch (_e) {
+                    clinicName = '';
+                }
+                const row = [
+                    `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">${window.escapeHtml(doctorLabel)}${window.escapeHtml(doctorName)}</span>`,
+                    `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">${window.escapeHtml(recordNumberLabel)}${window.escapeHtml(rec.medicalRecordNumber || rec.id)}</span>`,
+                    `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">${window.escapeHtml(clinicLabel)}${window.escapeHtml(clinicName || '未設定')}</span>`
+                ].join('');
+                detailHtml += `<div class="flex items-center space-x-2">${row}</div>`;
+            })();
         if (rec.updatedAt) {
             detailHtml += '<span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">已修改</span>';
         }
-        detailHtml += '</div>'; // 關閉左側信息
+        detailHtml += '</div>'; // 關閉左側信息（兩行）
         // 右側按鈕
         detailHtml += '<div class="flex flex-wrap justify-end gap-1">';
         detailHtml += `<button onclick="printConsultationRecord('${rec.id}')" class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">列印收據</button>`;

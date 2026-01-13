@@ -441,6 +441,10 @@
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
+                        <span id="currentClinicDisplay" class="text-sm text-gray-600">當前診所：</span>
+                        <button id="clinicSwitchButton" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm transition duration-200">
+                            切換
+                        </button>
                         <span id="userRole" class="text-sm text-gray-600"></span>
                         <button id="logoutButton" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm transition duration-200">
                             登出
@@ -449,6 +453,32 @@
                 </div>
             </div>
         </nav>
+        <!-- 切換診所彈窗 -->
+        <div id="clinicSwitchModal" class="fixed inset-0 z-50 hidden">
+            <div class="absolute inset-0 bg-black bg-opacity-50"></div>
+            <div class="relative max-w-md mx-auto mt-24 bg-white rounded-xl shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4">切換診所</h3>
+                <select id="currentClinicSelector" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"></select>
+                <div class="flex justify-end space-x-2 mt-6">
+                    <button id="clinicSwitchCloseButton" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg text-sm transition duration-200">關閉</button>
+                    <button id="clinicSwitchConfirmButton" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm transition duration-200">確定</button>
+                </div>
+            </div>
+        </div>
+        <!-- 全局載入遮罩與進度條 -->
+        <div id="globalLoadingOverlay" class="fixed inset-0 hidden" style="z-index: 60;">
+            <div class="absolute inset-0 bg-black bg-opacity-40"></div>
+            <div class="relative max-w-md mx-auto mt-32 bg-white rounded-xl shadow-lg p-6">
+                <h3 class="text-base font-semibold mb-4 text-gray-800">正在載入資料</h3>
+                <div class="w-full bg-gray-200 rounded h-2 overflow-hidden">
+                    <div id="globalLoadingProgressBar" class="bg-indigo-500 h-2 rounded" style="width:0%"></div>
+                </div>
+                <div class="flex justify-between items-center mt-3">
+                    <p id="globalLoadingText" class="text-sm text-gray-700">切換診所並載入所需資料…</p>
+                    <span id="globalLoadingPercent" class="text-sm text-gray-600">0%</span>
+                </div>
+            </div>
+        </div>
         <!-- 主要內容區域 -->
         <!-- 主要內容包裝區，新增 id 方便在顯示個人設置或模板庫時隱藏整個包裝 -->
         <div id="contentWrapper" class="max-w-7xl mx-auto px-4 py-6">
@@ -1551,10 +1581,16 @@
                                     <textarea id="billingItemDescription" placeholder="請描述收費項目的詳細內容" rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"></textarea>
                                 </div>
                                 <div class="md:col-span-2">
-                                    <label class="flex items-center">
-                                        <input type="checkbox" id="billingItemActive" checked class="mr-2 rounded">
-                                        <span class="text-sm font-medium text-gray-700">啟用此收費項目</span>
-                                    </label>
+                                    <div class="flex items-center gap-6">
+                                        <label class="flex items-center">
+                                            <input type="checkbox" id="billingItemActive" checked class="mr-2 rounded">
+                                            <span class="text-sm font-medium text-gray-700">啟用此收費項目</span>
+                                        </label>
+                                        <label class="flex items-center" title="勾選後此項目將供所有診所使用">
+                                            <input type="checkbox" id="billingItemShared" class="mr-2 rounded">
+                                            <span class="text-sm font-medium text-gray-700">診所共用項目</span>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                             
@@ -1750,9 +1786,14 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">醫師篩選</label>
-                            <select id="doctorFilter" onchange="generateFinancialReport()" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                <option value="">全部醫師</option>
-                            </select>
+                            <div class="flex gap-4">
+                                <select id="doctorFilter" onchange="generateFinancialReport()" class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <option value="">全部醫師</option>
+                                </select>
+                                <select id="clinicFilterFinancial" onchange="generateFinancialReport()" class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <option value="">全部診所</option>
+                                </select>
+                            </div>
                         </div>
                         
                         <div class="flex items-end space-x-2">
@@ -1960,7 +2001,7 @@
 <div class="bg-gray-50 rounded-lg p-6">
     <h3 class="text-lg font-semibold mb-4">資料備份與還原</h3>
     <!-- 說明備份內容：模板庫、中藥庫及穴位庫不包含在匯出備份中 -->
-    <p class="text-sm text-gray-600 mb-4">您可以匯出診所資料備份（包含所有功能資料，不含模板庫、中藥庫及穴位庫），或匯入之前的備份檔案。實時掛號及問診資料不包含在備份中。</p>
+    <p class="text-sm text-gray-600 mb-4">您可以匯出診所資料備份（包含所有功能資料，不含模板庫及穴位庫），或匯入之前的備份檔案。實時掛號及問診資料不包含在備份中。</p>
     <div class="flex flex-col md:flex-row gap-4">
         <button id="backupExportBtn" onclick="exportClinicBackup()" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition duration-200">
             匯出備份
@@ -2042,6 +2083,7 @@
                             <tr>
                                 <!-- 將表頭字體與大小調整為與其他版面一致，使用 text-sm、font-semibold，移除 uppercase 與 tracking-wider -->
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">病歷編號</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">診所</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">病人姓名</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">主訴</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-700">醫師</th>
@@ -2051,7 +2093,7 @@
                         </thead>
                         <tbody id="medicalRecordTableBody" class="divide-y divide-gray-200">
                             <tr>
-                                <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                                <td colspan="7" class="px-4 py-8 text-center text-gray-500">
                                     <!-- 內容將由 JavaScript 動態填充 -->
                                 </td>
                             </tr>
@@ -2181,7 +2223,10 @@
                 <span class="text-3xl mr-3">📈</span>
                 個人統計分析
               </h2>
-              <div>
+              <div class="flex items-center gap-2">
+                <select id="personalStatsClinicSelect" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                  <option value="ALL">全部診所</option>
+                </select>
                 <select id="personalStatsMonthSelect" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
                   <option value="ALL">全部月份</option>
                 </select>
@@ -2491,6 +2536,12 @@
             </div>
             
             <div class="p-6">
+                <div class="mb-4 flex items-center gap-3">
+                    <label class="text-sm text-gray-700">選擇診所</label>
+                    <select id="clinicSelectForEditing" class="border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"></select>
+                    <button id="addClinicButton" class="ml-auto bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm">新增診所</button>
+                    <button id="deleteClinicButton" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm">刪除診所</button>
+                </div>
                 <div class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">診所中文名稱 *</label>
