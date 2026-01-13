@@ -1939,8 +1939,28 @@ async function fetchUsers(forceRefresh = false) {
                         }
                     } catch (_eList) {}
                 }
-                if (!name) name = currentClinicId || '';
-                el.textContent = '當前診所：' + name;
+                if (!name) {
+                    el.textContent = '當前診所：載入中…';
+                    try {
+                        const cid = currentClinicId;
+                        if (cid && window.firebaseDataManager && typeof window.firebaseDataManager.getClinicById === 'function') {
+                            window.firebaseDataManager.getClinicById(cid).then(res => {
+                                if (res && res.success && res.data) {
+                                    clinicSettings = res.data;
+                                    let n = '';
+                                    try { n = clinicSettings.chineseName || clinicSettings.englishName || ''; } catch (_eN) {}
+                                    if (!n && Array.isArray(clinicsList)) {
+                                        const cc = clinicsList.find(c => String(c.id) === String(cid));
+                                        n = (cc && (cc.chineseName || cc.englishName)) || '';
+                                    }
+                                    if (n) el.textContent = '當前診所：' + n;
+                                }
+                            }).catch(() => {});
+                        }
+                    } catch (_eAsync) {}
+                } else {
+                    el.textContent = '當前診所：' + name;
+                }
             }
             try {
                 const currentSel = document.getElementById('currentClinicSelector');
