@@ -4187,9 +4187,9 @@ async function recordInventoryHistory(type, entries, extra = {}) {
                         const modes = new Set(items.map(e => e && e.mode).filter(m => m === 'slice' || m === 'granule'));
                         if (modes.size === 1) {
                             const m = Array.from(modes)[0];
-                            extra.push('入庫位置：' + (m === 'slice' ? '飲片' : '顆粒沖劑'));
+                            extra.push('位置：' + (m === 'slice' ? '飲片' : '顆粒沖劑'));
                         } else if (modes.size > 1) {
-                            extra.push('入庫位置：混合');
+                            extra.push('位置：混合');
                         }
                         const missing = await isConsultationMissing(rec.consultationId);
                         if (missing) { extra.push('<span class="text-red-600">已退回</span>'); }
@@ -4250,9 +4250,9 @@ async function recordInventoryHistory(type, entries, extra = {}) {
                                     const modes = new Set(latestRec.entries.map(e => e && e.mode).filter(m => m === 'slice' || m === 'granule'));
                                     if (modes.size === 1) {
                                         const m = Array.from(modes)[0];
-                                        locText = '，入庫位置：' + (m === 'slice' ? '飲片' : '顆粒沖劑');
+                                        locText = '，位置：' + (m === 'slice' ? '飲片' : '顆粒沖劑');
                                 } else if (modes.size > 1) {
-                                    locText = '，入庫位置：混合';
+                                    locText = '，位置：混合';
                                 }
                             }
                             }
@@ -9919,8 +9919,6 @@ if (!patient) {
                                 </div>
                                 
                                 ${(() => {
-                                    let showBlock = !!consultation.prescription || !!consultation.multiPrescriptions || !!consultation.usage;
-                                    if (!showBlock) return '';
                                     let medInfoHtml = '';
                                     try {
                                         if (consultation.multiPrescriptions) {
@@ -24373,8 +24371,6 @@ function viewMedicalRecord(recordId, patientId) {
         detailHtml += '</div>';
         // 服用方法（含各處方天數與次數）
         (function () {
-            let showBlock = !!rec.prescription || !!rec.multiPrescriptions || !!rec.usage;
-            if (!showBlock) return;
             detailHtml += '<div>';
             detailHtml += '<span class="text-sm font-semibold text-gray-700 block mb-2">服用方法</span>';
             let medInfoHtml = '';
