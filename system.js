@@ -18492,7 +18492,7 @@ async function deleteUser(id) {
                                     dateStr = item.createdAt;
                                 }
                             }
-                            return { id: item.id, date: dateStr, doctor: item.doctor, status: item.status, billingItems: item.billingItems, prescription: item.prescription, acupunctureNotes: item.acupunctureNotes, createdAt: item.createdAt, updatedAt: item.updatedAt };
+                            return { id: item.id, date: dateStr, doctor: item.doctor, status: item.status, billingItems: item.billingItems, clinicId: item.clinicId || null, clinicName: item.clinicName || '', prescription: item.prescription, acupunctureNotes: item.acupunctureNotes, createdAt: item.createdAt, updatedAt: item.updatedAt };
                         });
                         return;
                     }
