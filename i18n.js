@@ -683,6 +683,9 @@ window.translations = {
         "無項目": "No items",
         "暫無記錄": "No records",
         "舊出庫記錄": "Old outgoing record",
+        "進出貨記錄": "Inventory History",
+        "入庫": "Restock",
+        "出庫": "Outgoing",
 
         
         "排序方式": "Sort by",
