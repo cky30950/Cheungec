@@ -675,6 +675,14 @@ window.translations = {
         "載入中…": "Loading…",
         "未命名診所": "Unnamed Clinic",
         "確定": "Confirm",
+        "顆粒": "Granules",
+        "類型：": "Type:",
+        "位置：": "Location:",
+        "混合": "Mixed",
+        "已退回": "Returned",
+        "無項目": "No items",
+        "暫無記錄": "No records",
+        "舊出庫記錄": "Old outgoing record",
 
         
         "排序方式": "Sort by",

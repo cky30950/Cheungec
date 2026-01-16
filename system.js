@@ -687,8 +687,25 @@ async function computeGlobalUsageCounts() {
         
     }
     globalUsageCounts = {};
-    if (Array.isArray(consultations)) {
-        consultations.forEach(cons => {
+    let list = Array.isArray(consultations) ? consultations.slice() : [];
+    try {
+        const cid = typeof currentClinicId !== 'undefined' ? currentClinicId : null;
+        const cnameZh = clinicSettings && clinicSettings.chineseName ? String(clinicSettings.chineseName).trim().toLowerCase() : '';
+        const cnameEn = clinicSettings && clinicSettings.englishName ? String(clinicSettings.englishName).trim().toLowerCase() : '';
+        if (cid && cid !== 'local-default') {
+            list = list.filter(cons => {
+                try {
+                    const itemCid = cons && cons.clinicId ? String(cons.clinicId) : '';
+                    const itemName = cons && cons.clinicName ? String(cons.clinicName).trim().toLowerCase() : '';
+                    if (itemCid && String(itemCid) === String(cid)) return true;
+                    if (itemName && (itemName === cnameZh || itemName === cnameEn)) return true;
+                } catch (_e0) {}
+                return false;
+            });
+        }
+    } catch (_ef) {}
+    if (Array.isArray(list)) {
+        list.forEach(cons => {
             try {
                 const pres = cons && cons.prescription ? cons.prescription : '';
                 const lines = pres.split('\n');
@@ -1742,6 +1759,7 @@ async function fetchUsers(forceRefresh = false) {
             try { await initBillingItems(true); } catch (_e5) {}
             advanceGlobalLoading();
             try { await initHerbInventory(true); } catch (_eInv) {}
+            try { if (typeof computeGlobalUsageCounts === 'function') await computeGlobalUsageCounts(); } catch (_eUsage) {}
             try { if (typeof displayHerbLibrary === 'function') displayHerbLibrary(); } catch (_eDisp) {}
             try { if (typeof displayBillingItems === 'function') displayBillingItems(); } catch (_e6) {}
             advanceGlobalLoading();
@@ -3798,7 +3816,13 @@ async function recordInventoryHistory(type, entries, extra = {}) {
             try {
                 if (Array.isArray(herbLibrary)) {
                     const found = herbLibrary.find(h => String(h.id) === String(id));
-                    if (found && found.name) return found.name;
+                    if (found) {
+                        try {
+                            const lang = (localStorage.getItem('lang') || 'zh').toLowerCase();
+                            if (lang.startsWith('en') && found.englishName) return found.englishName;
+                        } catch (_eLang) {}
+                        if (found.name) return found.name;
+                    }
                 }
             } catch (_e) {}
             return String(id);
@@ -3863,33 +3887,37 @@ async function recordInventoryHistory(type, entries, extra = {}) {
                         const qty = typeof e.quantity === 'number' ? e.quantity : 0;
                         const unit = e.unit || 'g';
                         let modeTag = '';
-                        if (e.mode === 'slice') modeTag = '（飲片）';
-                        else if (e.mode === 'granule') modeTag = '（顆粒）';
-                        return name + '：' + qty + unit + (modeTag ? modeTag : '');
+                        if (e.mode === 'slice') modeTag = '（' + (typeof window.t === 'function' ? window.t('飲片') : '飲片') + '）';
+                        else if (e.mode === 'granule') modeTag = '（' + (typeof window.t === 'function' ? window.t('顆粒') : '顆粒') + '）';
+                        return name + '：' + qty + ((typeof window.t === 'function') ? window.t(unit === 'g' ? '克' : unit) : unit) + (modeTag ? modeTag : '');
                     });
                     const extra = [];
-                    if (type === 'in' && rec.mode) { extra.push('類型：' + rec.mode); }
+                    if (type === 'in' && rec.mode) { extra.push((typeof window.t === 'function' ? window.t('類型：') : '類型：') + rec.mode); }
                     if (type === 'out' && rec.consultationId) {
                         const mrn = await getMedicalRecordNumberByConsultationId(rec.consultationId);
-                        extra.push('病歷編號：' + mrn);
+                        extra.push((typeof window.t === 'function' ? window.t('病歷編號：') : '病歷編號：') + mrn);
                         const modes = new Set(items.map(e => e && e.mode).filter(m => m === 'slice' || m === 'granule'));
                         if (modes.size === 1) {
                             const m = Array.from(modes)[0];
-                            extra.push('位置：' + (m === 'slice' ? '飲片' : '顆粒沖劑'));
+                            const posLabel = (typeof window.t === 'function' ? window.t('位置：') : '位置：');
+                            const posVal = (typeof window.t === 'function' ? window.t(m === 'slice' ? '飲片' : '顆粒沖劑') : (m === 'slice' ? '飲片' : '顆粒沖劑'));
+                            extra.push(posLabel + posVal);
                         } else if (modes.size > 1) {
-                            extra.push('位置：混合');
+                            const posLabel = (typeof window.t === 'function' ? window.t('位置：') : '位置：');
+                            const posVal = (typeof window.t === 'function' ? window.t('混合') : '混合');
+                            extra.push(posLabel + posVal);
                         }
                         const missing = await isConsultationMissing(rec.consultationId);
-                        if (missing) { extra.push('<span class="text-red-600">已退回</span>'); }
+                        if (missing) { extra.push('<span class="text-red-600">' + ((typeof window.t === 'function') ? window.t('已退回') : '已退回') + '</span>'); }
                     }
                     div.innerHTML = '<div class="text-sm text-gray-600">' + timeText + (extra.length ? '（' + extra.join('，') + '）' : '') + '</div>' +
-                        '<div class="mt-1 text-gray-800">' + (lines.length ? lines.join('；') : '無項目') + '</div>';
+                        '<div class="mt-1 text-gray-800">' + (lines.length ? lines.join('；') : ((typeof window.t === 'function') ? window.t('無項目') : '無項目')) + '</div>';
                     container.appendChild(div);
                 }
                 if (!container.children.length) {
                     const empty = document.createElement('div');
                     empty.className = 'text-gray-500 px-3 py-2';
-                    empty.textContent = '暫無記錄';
+                    empty.textContent = (typeof window.t === 'function') ? window.t('暫無記錄') : '暫無記錄';
                     container.appendChild(empty);
                 }
             } catch (_e) {}
@@ -3938,21 +3966,25 @@ async function recordInventoryHistory(type, entries, extra = {}) {
                                     const modes = new Set(latestRec.entries.map(e => e && e.mode).filter(m => m === 'slice' || m === 'granule'));
                                     if (modes.size === 1) {
                                         const m = Array.from(modes)[0];
-                                        locText = '，位置：' + (m === 'slice' ? '飲片' : '顆粒沖劑');
+                                        const posLabel = (typeof window.t === 'function' ? window.t('位置：') : '位置：');
+                                        const posVal = (typeof window.t === 'function' ? window.t(m === 'slice' ? '飲片' : '顆粒沖劑') : (m === 'slice' ? '飲片' : '顆粒沖劑'));
+                                        locText = '，' + posLabel + posVal;
                                 } else if (modes.size > 1) {
-                                    locText = '，位置：混合';
+                                    const posLabel = (typeof window.t === 'function' ? window.t('位置：') : '位置：');
+                                    const posVal = (typeof window.t === 'function' ? window.t('混合') : '混合');
+                                    locText = '，' + posLabel + posVal;
                                 }
                             }
                             }
                         } catch (_eLoc) {}
-                        div.innerHTML = '<div class="text-sm text-gray-600">舊出庫記錄（病歷編號：' + mrn + locText + extraTag + '）</div>' +
-                            '<div class="mt-1 text-gray-800">' + (lines.length ? lines.join('；') : '無項目') + '</div>';
+                        div.innerHTML = '<div class="text-sm text-gray-600">' + ((typeof window.t === 'function') ? window.t('舊出庫記錄') : '舊出庫記錄') + '（' + ((typeof window.t === 'function') ? window.t('病歷編號：') : '病歷編號：') + mrn + locText + extraTag + '）</div>' +
+                            '<div class="mt-1 text-gray-800">' + (lines.length ? lines.join('；') : ((typeof window.t === 'function') ? window.t('無項目') : '無項目')) + '</div>';
                         container.appendChild(div);
                     }
                     if (!container.children.length) {
                         const empty2 = document.createElement('div');
                         empty2.className = 'text-gray-500 px-3 py-2';
-                        empty2.textContent = '暫無記錄';
+                        empty2.textContent = (typeof window.t === 'function') ? window.t('暫無記錄') : '暫無記錄';
                         container.appendChild(empty2);
                     }
                 } catch (_e2) {}
