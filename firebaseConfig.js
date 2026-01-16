@@ -1,5 +1,5 @@
-// Firebase configuration file.
-// 填寫您自己的 Firebase 設定值，切勿將此檔案提交至公共版本控制系統。
+
+
 const firebaseConfig = {
   apiKey: "AIzaSyCx_BLIWVKZs0vJa5TwL6zoycJexY_5nXU",
   authDomain: "system-1e90a.firebaseapp.com",

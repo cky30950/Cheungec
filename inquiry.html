@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>中醫預診系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 Firebase 初始化腳本，供預診結果上傳使用 -->
+    
     <script type="module" src="firebase_init.js"></script>
     <style>
         /* Mobile-first responsive design */
@@ -223,13 +223,13 @@
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
     <div class="container mx-auto px-2 sm:px-4 py-4 sm:py-8 max-w-4xl">
-        <!-- Header -->
+        
         <div class="text-center mb-6 sm:mb-8">
             <h1 class="text-3xl sm:text-4xl font-bold text-gray-800 mb-2">中醫預診系統</h1>
             <p class="text-gray-600 text-sm sm:text-base px-4">請詳細填寫以下預診資料，幫助醫師更好地了解您的狀況</p>
         </div>
 
-        <!-- Progress Bar -->
+        
         <div class="progress-container mb-6 sm:mb-8">
             <div class="flex items-center justify-between mb-3">
                 <span class="text-sm font-medium text-gray-600">預診進度</span>
@@ -245,17 +245,17 @@
         </div>
 
 
-        <!-- Guidelines moved into Section 1 -->
-        <!-- Form Container -->
+        
+        
         <div class="section-card bg-white rounded-2xl shadow-xl p-4 sm:p-8 form-container">
             <form id="diagnosisForm">
                 
-                <!-- Section 1: Basic Info -->
+                
                 <div class="section slide-in" id="section1">
-                    <!-- 預診須知僅在第一頁顯示 -->
+                    
                     <div class="section-card bg-white rounded-2xl shadow-xl p-4 sm:p-8" id="guidelines">
                         <div class="instructions-container">
-                            <!-- 預診須知 -->
+                            
                             <div class="instructions-content slide-in">
                                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 mb-8">
                                     <h3 class="text-xl font-bold text-blue-800 mb-4 flex items-center">
@@ -334,7 +334,7 @@
                             基本資料
                         </h2>
                         
-                        <!-- 必填項目 -->
+                        
                         <h3 class="text-xl font-bold text-red-600 mb-4 flex items-center">
                             <span class="text-red-500 mr-2">*</span>必填
                         </h3>
@@ -372,7 +372,7 @@
                                     主要有什麼不舒服？
                                 </label>
                                 
-                                <!-- Body Part Selection -->
+                                
                                 <div class="space-y-3">
                                     <label class="block text-sm font-medium text-gray-600 mb-2">
                                         先選擇身體部位
@@ -395,7 +395,7 @@
                                     </select>
                                 </div>
 
-                                <!-- Detailed Location Selection -->
+                                
                                 <div class="space-y-3">
                                     <label class="block text-sm font-medium text-gray-600 mb-2">
                                         再選擇詳細位置
@@ -411,7 +411,7 @@
                     </div>
                 </div>
 
-                <!-- Section 2: Additional Symptoms -->
+                
                 <div class="section hidden slide-in" id="section2">
                     <div class="form-section">
                         <h2 class="section-title text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
@@ -424,7 +424,7 @@
                         </div>
                         
                         <div id="symptomOptions" class="grid grid-cols-1 sm:grid-cols-2 gap-3 grid-mobile mb-6">
-                            <!-- 症狀選項將根據選擇的身體部位動態生成 -->
+                            
                         </div>
                         
                         <div class="space-y-3 mt-6 pt-6 border-t border-gray-200">
@@ -436,7 +436,7 @@
                     </div>
                 </div>
 
-                <!-- Section 3: Sweating -->
+                
                 <div class="section hidden slide-in" id="section3">
                     <div class="form-section">
                         <h2 class="section-title text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
@@ -444,7 +444,7 @@
                             汗出情況
                         </h2>
                         
-                        <!-- 必填項目 -->
+                        
                         <h3 class="text-xl font-bold text-red-600 mb-4 flex items-center">
                             <span class="text-red-500 mr-2">*</span>必填
                         </h3>
@@ -476,7 +476,7 @@
                             </label>
                         </div>
                         
-                        <!-- 選填項目 -->
+                        
                         <h3 class="text-xl font-bold text-green-600 mb-4 flex items-center pt-6 border-t border-gray-200">
                             <span class="text-green-500 mr-2">○</span>選填
                         </h3>
@@ -490,7 +490,7 @@
                     </div>
                 </div>
 
-                <!-- Section 4: Temperature -->
+                
                 <div class="section hidden slide-in" id="section4">
                     <div class="form-section">
                         <h2 class="section-title text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
@@ -498,7 +498,7 @@
                             寒熱情況
                         </h2>
                         
-                        <!-- 必填項目 -->
+                        
                         <h3 class="text-xl font-bold text-red-600 mb-4 flex items-center">
                             <span class="text-red-500 mr-2">*</span>必填
                         </h3>
@@ -522,7 +522,7 @@
                             </label>
                         </div>
                         
-                        <!-- 選填項目 -->
+                        
                         <h3 class="text-xl font-bold text-green-600 mb-4 flex items-center pt-6 border-t border-gray-200">
                             <span class="text-green-500 mr-2">○</span>選填
                         </h3>
@@ -547,7 +547,7 @@
                     </div>
                 </div>
 
-                <!-- Section 5: Appetite -->
+                
                 <div class="section hidden slide-in" id="section5">
                     <div class="form-section">
                         <h2 class="section-title text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
@@ -555,7 +555,7 @@
                             胃口情況
                         </h2>
                         
-                        <!-- 必填項目 -->
+                        
                         <h3 class="text-xl font-bold text-red-600 mb-4 flex items-center">
                             <span class="text-red-500 mr-2">*</span>必填
                         </h3>
@@ -579,7 +579,7 @@
                             </label>
                         </div>
                         
-                        <!-- 選填項目 -->
+                        
                         <h3 class="text-xl font-bold text-green-600 mb-4 flex items-center pt-6 border-t border-gray-200">
                             <span class="text-green-500 mr-2">○</span>選填
                         </h3>
@@ -612,7 +612,7 @@
                     </div>
                 </div>
 
-                <!-- Section 6: Drinking -->
+                
                 <div class="section hidden slide-in" id="section6">
                     <div class="form-section">
                         <h2 class="section-title text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
@@ -620,7 +620,7 @@
                             飲水情況
                         </h2>
                         
-                        <!-- 必填項目 -->
+                        
                         <h3 class="text-xl font-bold text-red-600 mb-4 flex items-center">
                             <span class="text-red-500 mr-2">*</span>必填
                         </h3>
@@ -640,7 +640,7 @@
                             </label>
                         </div>
                         
-                        <!-- 選填項目 -->
+                        
                         <h3 class="text-xl font-bold text-green-600 mb-4 flex items-center pt-6 border-t border-gray-200">
                             <span class="text-green-500 mr-2">○</span>選填
                         </h3>
@@ -675,7 +675,7 @@
 
 
 
-                <!-- Section 7: Urination -->
+                
                 <div class="section hidden slide-in" id="section7">
                     <div class="form-section">
                         <h2 class="section-title text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
@@ -683,7 +683,7 @@
                             小便情況
                         </h2>
                         
-                        <!-- 必填項目 -->
+                        
                         <h3 class="text-xl font-bold text-red-600 mb-4 flex items-center">
                             <span class="text-red-500 mr-2">*</span>必填
                         </h3>
@@ -716,7 +716,7 @@
                             </div>
                         </div>
                         
-                        <!-- 選填項目 -->
+                        
                         <h3 class="text-xl font-bold text-green-600 mb-4 flex items-center pt-6 border-t border-gray-200">
                             <span class="text-green-500 mr-2">○</span>選填
                         </h3>
@@ -765,7 +765,7 @@
                     </div>
                 </div>
 
-                <!-- Section 8: Bowel Movement -->
+                
                 <div class="section hidden slide-in" id="section8">
                     <div class="form-section">
                         <h2 class="section-title text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
@@ -773,7 +773,7 @@
                             大便情況
                         </h2>
                         
-                        <!-- 必填項目 -->
+                        
                         <h3 class="text-xl font-bold text-red-600 mb-4 flex items-center">
                             <span class="text-red-500 mr-2">*</span>必填
                         </h3>
@@ -842,7 +842,7 @@
                             </div>
                         </div>
                         
-                        <!-- 選填項目 -->
+                        
                         <h3 class="text-xl font-bold text-green-600 mb-4 flex items-center pt-6 border-t border-gray-200">
                             <span class="text-green-500 mr-2">○</span>選填
                         </h3>
@@ -875,7 +875,7 @@
                     </div>
                 </div>
 
-                <!-- Section 9: Sleep -->
+                
                 <div class="section hidden slide-in" id="section9">
                     <div class="form-section">
                         <h2 class="section-title text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
@@ -883,7 +883,7 @@
                             睡眠情況
                         </h2>
                         
-                        <!-- 必填項目 -->
+                        
                         <h3 class="text-xl font-bold text-red-600 mb-4 flex items-center">
                             <span class="text-red-500 mr-2">*</span>必填
                         </h3>
@@ -899,7 +899,7 @@
                             </label>
                         </div>
                         
-                        <!-- 選填項目 -->
+                        
                         <h3 class="text-xl font-bold text-green-600 mb-4 flex items-center pt-6 border-t border-gray-200">
                             <span class="text-green-500 mr-2">○</span>選填
                         </h3>
@@ -940,7 +940,7 @@
                     </div>
                 </div>
 
-                <!-- Section 10: Energy -->
+                
                 <div class="section hidden slide-in" id="section10">
                     <div class="form-section">
                         <h2 class="section-title text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
@@ -948,7 +948,7 @@
                             體力精神
                         </h2>
                         
-                        <!-- 必填項目 -->
+                        
                         <h3 class="text-xl font-bold text-red-600 mb-4 flex items-center">
                             <span class="text-red-500 mr-2">*</span>必填
                         </h3>
@@ -969,7 +969,7 @@
                             </div>
                         </div>
                         
-                        <!-- 選填項目 -->
+                        
                         <h3 class="text-xl font-bold text-green-600 mb-4 flex items-center pt-6 border-t border-gray-200">
                             <span class="text-green-500 mr-2">○</span>選填
                         </h3>
@@ -1002,7 +1002,7 @@
                     </div>
                 </div>
 
-                <!-- Section 11: Medical History -->
+                
                 <div class="section hidden slide-in" id="section11">
                     <div class="form-section">
                         <h2 class="section-title text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
@@ -1011,13 +1011,13 @@
                             <span class="text-green-600 text-lg ml-2">（選填）</span>
                         </h2>
                         
-                        <!-- 選填項目 -->
+                        
                         <h3 class="text-xl font-bold text-green-600 mb-4 flex items-center">
                             <span class="text-green-500 mr-2">○</span>選填
                         </h3>
                         
                         <div class="space-y-6">
-                            <!-- Common Medical Conditions -->
+                            
                             <div>
                                 <label class="block text-lg font-medium text-gray-700 mb-3">常見疾病</label>
                                 <div class="grid md:grid-cols-2 gap-4 mb-6">
@@ -1044,7 +1044,7 @@
                                 </div>
                             </div>
 
-                            <!-- Detailed Medical History -->
+                            
                             <div>
                                 <label class="block text-lg font-medium text-gray-700 mb-3">過去的健康狀況</label>
                                 <p class="text-sm text-gray-600 mb-3">請詳細描述您曾經患過的疾病、手術、重大外傷等</p>
@@ -1059,7 +1059,7 @@
                     </div>
                 </div>
 
-                <!-- Section 12: Current Medications & Allergies -->
+                
                 <div class="section hidden slide-in" id="section12">
                     <div class="form-section">
                         <h2 class="section-title text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
@@ -1068,7 +1068,7 @@
                             <span class="text-green-600 text-lg ml-2">（選填）</span>
                         </h2>
                         
-                        <!-- 選填項目 -->
+                        
                         <h3 class="text-xl font-bold text-green-600 mb-4 flex items-center">
                             <span class="text-green-500 mr-2">○</span>選填
                         </h3>
@@ -1134,7 +1134,7 @@
                     </div>
                 </div>
 
-                <!-- Navigation Buttons -->
+                
                 <div class="nav-buttons flex justify-between mt-8 pt-6 border-t border-gray-200">
                     <button type="button" id="prevBtn" class="btn-secondary px-6 py-4 text-white rounded-xl font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center" disabled>
                         上一步
@@ -1149,7 +1149,7 @@
             </form>
         </div>
 
-        <!-- Results Modal -->
+        
         <div id="resultsModal" class="modal-backdrop fixed inset-0 hidden items-center justify-center z-50 p-4">
             <div class="bg-white rounded-2xl p-6 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
                 <div class="text-center mb-6">
@@ -1164,7 +1164,7 @@
                     <button onclick="closeResults()" class="btn-primary px-8 py-4 text-white rounded-xl font-semibold text-lg flex items-center">
                         完成
                     </button>
-                    <!-- 新增返回首頁按鈕：導向至主頁面，使用同一網站的首頁連結 -->
+                    
                     <a href="index.html" class="btn-secondary px-8 py-4 text-white rounded-xl font-semibold text-lg flex items-center">
                         返回首頁
                     </a>
@@ -2161,7 +2161,7 @@
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
-    <!-- 版權聲明 -->
+    
     <div class="max-w-7xl mx-auto px-4 py-4 mt-8">
         <div class="text-center border-t border-gray-200 pt-4">
             <div class="text-xs text-gray-400">

@@ -1,7 +1,4 @@
-/**
- * 個人統計分析模組（V2）
- * 僅處理病歷中的「處方」與「針灸備註」欄位，漸進讀取＋本地快取＋增量更新。
- */
+
 let personalHerbChartInstance = null;
 let personalFormulaChartInstance = null;
 let personalAcupointChartInstance = null;
@@ -135,15 +132,38 @@ function computeAvailableMonths(list) {
 function renderPersonalStatistics(stats) {
     if (!stats) return;
     const { herbCounts, formulaCounts, acupointCounts } = stats;
+    function getLang() {
+        try { return (localStorage.getItem('lang') || 'zh').toLowerCase(); } catch (_e) { return 'zh'; }
+    }
+    function mapDisplayName(name, type) {
+        const langSel = getLang();
+        if (!langSel.startsWith('en')) return name;
+        try {
+            if (type === 'herb' || type === 'formula') {
+                if (Array.isArray(herbLibrary)) {
+                    const item = herbLibrary.find(h => h && h.name === name && (type === 'herb' ? h.type === 'herb' : h.type === 'formula'));
+                    if (item && item.englishName) return item.englishName;
+                }
+            } else if (type === 'acupoint') {
+                if (Array.isArray(acupointLibrary)) {
+                    const ac = acupointLibrary.find(a => a && a.name === name);
+                    if (ac && ac.englishName) return ac.englishName;
+                }
+            }
+        } catch (_e) {}
+        return name;
+    }
     function renderList(counts, listId) {
         const listEl = document.getElementById(listId);
         if (!listEl) return [];
         listEl.innerHTML = '';
         const entries = Object.entries(counts || {}).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        const type = (listId === 'personalHerbList') ? 'herb' : (listId === 'personalFormulaList') ? 'formula' : 'acupoint';
         entries.forEach(([name, count]) => {
             const li = document.createElement('li');
             li.className = 'py-1 flex justify-between';
-            li.innerHTML = `<span>${window.escapeHtml(name)}</span><span class="font-semibold">${count}</span>`;
+            const disp = mapDisplayName(name, type);
+            li.innerHTML = `<span>${window.escapeHtml(disp)}</span><span class="font-semibold">${count}</span>`;
             listEl.appendChild(li);
         });
         return entries;
@@ -154,22 +174,23 @@ function renderPersonalStatistics(stats) {
         if (oldInstance && typeof oldInstance.destroy === 'function') {
             try { oldInstance.destroy(); } catch (_e) {}
         }
-        const labels = entries.map(e => e[0]);
+        const type = (canvasId === 'personalHerbChart') ? 'herb' : (canvasId === 'personalFormulaChart') ? 'formula' : 'acupoint';
+        const labels = entries.map(e => mapDisplayName(e[0], type));
         const dataVals = entries.map(e => e[1]);
         const ctx = canvas.getContext('2d');
         return new Chart(ctx, {
             type: 'bar',
             data: {
                 labels,
-                datasets: [{ label: '使用次數', data: dataVals }],
+                datasets: [{ label: (typeof window.t === 'function' ? window.t('使用次數') : '使用次數'), data: dataVals }],
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: { title: { display: true, text: '名稱' } },
-                    y: { title: { display: true, text: '使用次數' }, beginAtZero: true },
+                    x: { title: { display: true, text: (typeof window.t === 'function' ? window.t('名稱') : '名稱') } },
+                    y: { title: { display: true, text: (typeof window.t === 'function' ? window.t('使用次數') : '使用次數') }, beginAtZero: true },
                 },
             },
         });
@@ -407,7 +428,7 @@ function populateMonthSelect(months, currentKey) {
     sel.innerHTML = '';
     const allOpt = document.createElement('option');
     allOpt.value = 'ALL';
-    allOpt.textContent = '全部月份';
+    allOpt.textContent = window.t('全部月份');
     sel.appendChild(allOpt);
     const desiredKey = currentKey || 'ALL';
     const seen = new Set();
@@ -460,7 +481,7 @@ function populateClinicSelect(initialClinicId) {
     sel.innerHTML = '';
     const allOpt = document.createElement('option');
     allOpt.value = 'ALL';
-    allOpt.textContent = '全部診所';
+    allOpt.textContent = window.t('全部診所');
     sel.appendChild(allOpt);
     const clinics = readClinicsForPersonalStats();
     clinics.forEach(c => {

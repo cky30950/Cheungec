@@ -1,21 +1,13 @@
-// i18n.js - basic internationalisation support for the clinic system
 
-/**
- * Translation dictionaries keyed by original Chinese text.  Each property
- * corresponds to a supported language (zh for Chinese, en for English).
- * The keys in each dictionary should match the original Chinese content
- * found in the HTML.  When switching languages the code will replace
- * elements' textContent and placeholders based on the mapping below.  If a
- * translation is not found for a particular string the original text will
- * be left unchanged.
- */
+
+
 window.translations = {
     zh: {
-        // Chinese translations simply map original text to itself.  This
-        // dictionary only needs entries for strings that have English
-        // translations below – everything else will remain unchanged.
+        
+        
+        
         "無已購買的套票：": "無已購買的套票：",
-        // Package management status when no packages are purchased (no colon variant)
+        
         "無已購買的套票": "無已購買的套票",
         "庫存：": "庫存：",
         "警戒：": "警戒：",
@@ -34,7 +26,7 @@ window.translations = {
         "有效套票": "有效套票",
         "下一頁": "下一頁",
         "上一頁": "上一頁",
-        // Pagination: first and last page labels
+        
         "最前一頁": "最前一頁",
         "最後一頁": "最後一頁",
         "失效套票": "失效套票",
@@ -85,7 +77,7 @@ window.translations = {
         "+ 新增病人": "+ 新增病人",
         "+ 新增穴位組合": "+ 新增穴位組合",
         "+ 新增藥方組合": "+ 新增藥方組合",
-        // Button label used in batch inventory restock for adding a new herb
+        
         "+ 新增藥材": "+ 新增藥材",
         "管理分類": "管理分類",
         "一般用戶": "一般用戶",
@@ -94,7 +86,7 @@ window.translations = {
         "不使用問診資料": "不使用問診資料",
         "中藥庫": "中藥庫",
         "中藥服用方法": "中藥服用方法",
-        // 批量入庫相關翻譯
+        
         "批量入庫": "批量入庫",
         "新增藥材": "新增藥材",
         "請選擇中藥": "請選擇中藥",
@@ -168,7 +160,7 @@ window.translations = {
         "年報表": "年報表",
         "年齡": "年齡",
         "年齡：": "年齡：",
-        // Generic number label colon variant used in registration search
+        
         "編號：": "編號：",
         "序號": "序號",
         "建議休息期間": "建議休息期間",
@@ -188,7 +180,7 @@ window.translations = {
         "掛號診症系統": "掛號診症系統",
         "掛號醫師": "掛號醫師",
         "掛號醫師 *": "掛號醫師 *",
-        // Colon variant for registration doctor to ensure proper translation lookup
+        
         "掛號醫師：": "掛號醫師：",
         "搜索病人掛號": "搜索病人掛號",
         "操作": "操作",
@@ -251,13 +243,13 @@ window.translations = {
         "病史及備註": "病史及備註",
         "病史及備註：": "病史及備註：",
         "病歷記錄": "病歷記錄",
-        // 病歷管理功能
+        
         "病歷管理": "病歷管理",
         "搜尋病歷編號、病人姓名或醫師...": "搜尋病歷編號、病人姓名或醫師...",
         "病歷詳細資訊": "病歷詳細資訊",
         "檢視": "檢視",
         "療程": "療程",
-        // 新增：病歷管理功能的介紹與診症列表中的取消候診
+        
         "查看及搜尋病歷": "查看及搜尋病歷",
         "取消候診": "取消候診",
         "登入系統": "登入系統",
@@ -385,13 +377,9 @@ window.translations = {
         "🔍 搜索穴位：": "🔍 搜索穴位：",
         "🔍 診斷模板": "🔍 診斷模板",
         "🔍 載入診斷模板": "🔍 載入診斷模板",
-        /*
-         * 加入個人設置與收費項目管理按鈕的完整字串，包含前導 + 號。這些字串在
-         * 英文介面中需要對應翻譯，中文介面則保持原樣。未添加將導致 i18n 在
-         * 找不到鍵時退回原字串。參見 system.html 中行 1715 與 1745。
-         */
+        
         "+ 管理分類": "+ 管理分類",
-        /* 以下為補充的翻譯鍵，用於補齊介面上尚未翻譯的中文文字 */
+        
         "不含模板庫與中藥庫": "不含模板庫與中藥庫",
         "中藥材名稱": "中藥材名稱",
         "中醫診斷": "中醫診斷",
@@ -457,10 +445,10 @@ window.translations = {
         "查看醫囑與診斷模板": "查看醫囑與診斷模板",
         "查看中藥材及方劑資料": "查看中藥材及方劑資料",
         "查看穴位資料": "查看穴位資料",
-        // ------- Added comma above to fix syntax error -------
+        
         "管理診療費用及收費項目": "管理診療費用及收費項目",
-        // 下面新增登入頁輸入欄位的佔位提示翻譯（中文版就是原文）
-        // 以下為新增的輸入欄位提示，中文版就是原文
+        
+        
         "中醫病名診斷...": "中醫病名診斷...",
         "例如：10": "例如：10",
         "例如：180（半年）": "例如：180（半年）",
@@ -480,7 +468,9 @@ window.translations = {
         "搜尋病人姓名、編號或電話...": "搜尋病人姓名、編號或電話...",
         "搜尋病人編號、姓名或電話...": "搜尋病人編號、姓名或電話...",
         "搜尋穴位、經絡名稱或功能...": "搜尋穴位、經絡名稱或功能...",
+        "搜尋穴位、經絡、功能或國際代碼...": "搜尋穴位、經絡、功能或國際代碼...",
         "搜尋穴位名稱、經絡或定位...": "搜尋穴位名稱、經絡或定位...",
+        "搜尋穴位名稱、經絡、定位或國際代碼...": "搜尋穴位名稱、經絡、定位或國際代碼...",
         "搜尋穴位組合名稱...": "搜尋穴位組合名稱...",
         "搜尋藥方組合名稱...": "搜尋藥方組合名稱...",
         "搜尋診斷模板名稱或內容...": "搜尋診斷模板名稱或內容...",
@@ -529,7 +519,7 @@ window.translations = {
         "搜尋常用藥方...": "搜尋常用藥方...",
         "搜尋常用穴位...": "搜尋常用穴位...",
         "穴位名稱": "穴位名稱",
-        // Add colon variants and navigation terms to ensure labels translate properly
+        
         "醫師：": "醫師：",
         "病歷編號：": "病歷編號：",
         "較舊": "較舊",
@@ -539,20 +529,18 @@ window.translations = {
         "請輸入電子郵件": "請輸入電子郵件",
         "請輸入密碼": "請輸入密碼",
         "管理慣用藥方及穴位組合": "管理慣用藥方及穴位組合",
-        /* Additional keys added to fill missing translations in the zh dictionary.
-         * These entries mirror the Chinese originals and enable proper mapping
-         * when switching languages. */
+        
         "組合名稱 *": "組合名稱 *",
         "個可用": "個可用",
         "管理中藥分類": "管理中藥分類",
         "管理穴位分類": "管理穴位分類",
         "管理醫囑分類": "管理醫囑分類",
         "管理診斷分類": "管理診斷分類",
-        // 簡體中文搜索提示變體
+        
         "搜索穴位、經絡名稱或功能...": "搜索穴位、經絡名稱或功能...",
         "搜索穴位名稱、經絡或定位...": "搜索穴位名稱、經絡或定位...",
 
-        // 補充未翻譯的提示訊息（原文即為中文）
+        
         "保存庫存變更失敗！": "保存庫存變更失敗！",
         "兩次輸入的密碼不一致！": "兩次輸入的密碼不一致！",
         "密碼長度至少需 6 位數！": "密碼長度至少需 6 位數！",
@@ -562,7 +550,7 @@ window.translations = {
         "請填寫電子郵件地址！": "請填寫電子郵件地址！",
         "請輸入並確認密碼！": "請輸入並確認密碼！",
 
-        // 個人統計分析與帳號安全設定相關翻譯（原文即為中文）
+        
         "個人統計分析": "個人統計分析",
         "統計醫師個人用藥與穴位使用情況，提供用藥和穴位偏好分析。": "統計醫師個人用藥與穴位使用情況，提供用藥和穴位偏好分析。",
         "常用方劑": "常用方劑",
@@ -582,11 +570,11 @@ window.translations = {
         "刪除帳號後，您將無法再登入系統，且所有與此帳號相關的資料將無法恢復。請慎重操作！": "刪除帳號後，您將無法再登入系統，且所有與此帳號相關的資料將無法恢復。請慎重操作！",
         "密碼確認": "密碼確認",
         "請輸入您的密碼": "請輸入您的密碼",
-        // 新增：個人統計與帳號安全相關的側邊說明
+        
         "統計個人用藥與穴位偏好": "統計個人用藥與穴位偏好",
         "變更密碼及刪除帳號": "變更密碼及刪除帳號",
 
-        // ==== Herb and inventory management translations (self‑mapping for Chinese) ====
+        
         "編輯庫存": "編輯庫存",
         "剩餘數量": "剩餘數量",
         "補貨警戒量": "補貨警戒量",
@@ -598,13 +586,13 @@ window.translations = {
         "兩": "兩",
         "錢": "錢",
 
-        // Herb library sorting labels
+        
         "排序方式": "排序方式",
         "庫存最多": "庫存最多",
         "庫存最少": "庫存最少",
         "使用最多": "使用最多",
         "使用最少": "使用最少",
-        // Schedule calendar translations
+        
         "行事曆排班": "行事曆排班",
         "排班與行事曆管理": "排班與行事曆管理",
         "請選擇醫師或護理師": "請選擇醫師或護理師",
@@ -620,20 +608,20 @@ window.translations = {
         "已匯出行事曆": "已匯出行事曆",
         "匯出行事曆失敗": "匯出行事曆失敗",
         "刪除此排班嗎？": "刪除此排班嗎？",
-        // 新增訂閱與付款管理相關翻譯條目
+        
         "訂閱與付款": "訂閱與付款",
         "您可以查看並管理系統訂閱或付款狀態。": "您可以查看並管理系統訂閱或付款狀態。",
         "管理訂閱/付款": "管理訂閱/付款",
         "無法取得客戶門戶連結！": "無法取得客戶門戶連結！",
         "開啟付款管理視窗失敗！": "開啟付款管理視窗失敗！",
-        // 庫存類型選擇
+        
         "顆粒沖劑": "顆粒沖劑",
         "飲片": "飲片",
     },
     en: {
-        // Updated inventory and alert labels without trailing space
+        
         "無已購買的套票：": "No packages purchased：",
-        // Package management status when no packages are purchased (no colon variant)
+        
         "無已購買的套票": "No packages purchased",
         "庫存：": "Inventory:",
         "警戒：": "Alert:",
@@ -652,17 +640,17 @@ window.translations = {
         "診症完成後無法調整套票數量": "Package quantity cannot be adjusted after the consultation is completed",
         "選擇的醫師無效，請重新選擇！": "Selected doctor is invalid, please choose again!",
         "未偵測到有效的中藥庫資料": "No valid Chinese medicine library data detected",
-        // Inventory type selector translations
+        
         "顆粒沖劑": "Granules",
         "飲片": "Herbal slices",
-        // Batch restocking translations
+        
         "批量入庫": "Batch restock",
         "新增藥材": "Add Herb",
         "請選擇中藥": "Select Herb",
         "數量": "Quantity",
         "單位": "Unit",
         "批量入庫失敗！": "Batch restock failed!",
-        // Inventory management translations
+        
         "編輯庫存": "Edit Inventory",
         "剩餘數量": "Remaining Quantity",
         "補貨警戒量": "Restock Threshold",
@@ -674,18 +662,27 @@ window.translations = {
         "兩": "Liang",
         "錢": "Qian",
 
-        // Additional translations for inventory display and usage
+        
         "餘量：": "Remaining:",
         "剩餘": "Remaining",
         "使用次數": "Usage Count",
+        "名稱": "Name",
+        "當前診所：": "Current Clinic:",
+        "切換": "Switch",
+        "切換診所": "Switch Clinic",
+        "正在載入資料": "Loading Data",
+        "切換診所並載入所需資料…": "Switch clinic and load required data…",
+        "載入中…": "Loading…",
+        "未命名診所": "Unnamed Clinic",
+        "確定": "Confirm",
 
-        // Herb library sorting labels
+        
         "排序方式": "Sort by",
         "庫存最多": "Most Stock",
         "庫存最少": "Least Stock",
         "使用最多": "Most Used",
         "使用最少": "Least Used",
-        // Schedule calendar translations
+        
         "行事曆排班": "Schedule Calendar",
         "排班與行事曆管理": "Schedule and Calendar Management",
         "請選擇醫師或護理師": "Please select a doctor or nurse",
@@ -701,7 +698,7 @@ window.translations = {
         "已匯出行事曆": "Schedule exported",
         "匯出行事曆失敗": "Failed to export schedule",
         "刪除此排班嗎？": "Delete this schedule?",
-        // Subscription & billing management translations
+        
         "訂閱與付款": "Subscription & Billing",
         "您可以查看並管理系統訂閱或付款狀態。": "You can view and manage your system subscription or billing status.",
         "管理訂閱/付款": "Manage Subscription/Billing",
@@ -754,7 +751,7 @@ window.translations = {
         "未偵測到有效的模板資料": "No valid template data detected",
         "不能停用自己的帳號！": "Cannot disable your own account!",
 
-        // --- Added translations for chat system ---
+        
         "聊天": "Chat",
         "主頻道": "Main Channel",
         "輸入訊息...": "Enter message...",
@@ -762,7 +759,7 @@ window.translations = {
         "未知用戶": "Unknown user",
         "私人聊天": "Private chat",
 
-        // --- Added translations for medical scheduling system UI ---
+        
         "醫療排班系統": "Medical Scheduling System",
         "上一個": "Previous",
         "下一個": "Next",
@@ -799,10 +796,10 @@ window.translations = {
         "夜班 (00:00-08:00)": "Night (00:00-08:00)",
         "急診班": "Emergency",
         "自訂時間": "Custom",
-        // Shift type label used when a custom schedule is chosen.  Without
-        // this entry the label "自訂" would remain untranslated on the
-        // calendar and in notifications.  It is distinct from
-        // "自訂時間" which refers specifically to the custom time option.
+        
+        
+        
+        
         "自訂": "Custom",
         "備註": "Notes",
         "輸入備註資訊...": "Enter notes...",
@@ -829,7 +826,7 @@ window.translations = {
         "覆蓋現有排班（如果有衝突）": "Overwrite existing shifts (if there is a conflict)",
         "建立固定排班": "Create fixed schedule",
 
-        // --- Added translations for scheduling notifications and prompts ---
+        
         "請填寫所有必填欄位！": "Please fill in all required fields!",
         "排班更新成功！": "Shift updated successfully!",
         "排班新增成功！": "Shift added successfully!",
@@ -859,7 +856,7 @@ window.translations = {
         "只有管理員才能執行": "Only administrators can perform ",
         "！": "!",
         "確定要清空所有排班嗎？此操作無法復原。": "Are you sure you want to clear all shifts? This action cannot be undone.",
-        // Confirmation dialog translations
+        
         "確定要刪除以下排班嗎？": "Are you sure you want to delete the following shift?",
         "人員：": "Staff:",
         "此操作無法復原！": "This action cannot be undone!",
@@ -875,7 +872,7 @@ window.translations = {
         "無": "None",
         "可排班": "Available",
         "已排班": "Scheduled",
-        // Additional translations for schedule list and contact
+        
         "的排班記錄：": " shift records:",
         "備註:": "Notes:",
         "聯絡": "Contact",
@@ -884,16 +881,16 @@ window.translations = {
         "部門:": "Department:",
         "職位:": "Position:",
         "要撥打電話嗎？": "Would you like to call?",
-        // Translations for additional scheduling messages
+        
         "已為": "Added for",
         "新增": "added",
         "您沒有權限讀取排班資料，如需存取請聯繫管理員": "You do not have permission to read schedule data. Please contact the administrator to access it.",
 
-        // Additional scheduling translations
+        
         "建立固定排班": "create fixed schedule",
         "固定排班建立完成！": "Fixed schedule created successfully!",
         "新增排班：": "Added shifts:",
-        // Specific phrases for actions in the scheduling system
+        
         "新增排班": "Add shift",
         "編輯排班": "Edit shift",
         "刪除排班": "Delete shift",
@@ -903,11 +900,11 @@ window.translations = {
         "替換排班：": "Replaced shifts:",
         "替換": "replaced",
         "工作日：": "Working days:",
-        // Additional labels used in the scheduling UI
-        // When confirming deletion or showing details, colon versions of labels
-        // need their own translation keys. Without these entries, the
-        // translate helper will fall back to the Chinese original.  Add
-        // translations for "日期：", "無" and "班別：".
+        
+        
+        
+        
+        
         "日期：": "Date:",
         "無": "None",
         "班別：": "Shift type:",
@@ -918,23 +915,23 @@ window.translations = {
         "排班": "Shift",
         "滿班": "Full",
         "排班表": "Shift schedule",
-        // Filename base used when exporting the schedule to iCal.  When
-        // generating the .ics file, the code retrieves this translation and
-        // appends '.ics' so that the exported file has a localized name.
+        
+        
+        
         "醫療排班行事曆": "Medical shift schedule",
-        // Placeholder name for unknown staff in example data.  This is only
-        // shown when a staff entry lacks a name; do not confuse it with the
-        // chat system's "未知用戶" (Unknown user) which is translated separately.
+        
+        
+        
         "未知人員": "Unknown staff",
-        // Navigation labels for previous/next month in the scheduling calendar
+        
         "上一個月": "Previous month",
         "下一個月": "Next month",
 
-        // Labels for the scheduling menu item and its description
+        
         "醫療排班": "Medical scheduling",
         "排班與行事曆查看": "View schedules and calendar",
 
-        // Generic phrase used when referring to an unspecified operation (e.g., in admin checks)
+        
         "此操作": "this action",
         "，替換": ", replaced",
         "。": ".",
@@ -1053,7 +1050,7 @@ window.translations = {
         "有效套票": "Valid packages",
         "下一頁": "Next page",
         "上一頁": "Previous page",
-        // Pagination: first and last page labels
+        
         "最前一頁": "First page",
         "最後一頁": "Last page",
         "失效套票": "Expired packages",
@@ -1067,7 +1064,7 @@ window.translations = {
         "搜尋穴位": "Search for Acupoints",
         "穴位": "Acupoints",
         "針法": "Acupuncture Method",
-        // Use abbreviated unit to display quantity in grams
+        
         "克": "g",
         "刪除": "Delete",
         "撤回診症": "Withdraw",
@@ -1090,22 +1087,22 @@ window.translations = {
         "無特殊主訴": "None",
         "病歷編號": "Record Number",
         "醫師": "Doctor",
-        // Updated translations for dynamic record labels.  These translate
-        // the suffix portion only; the patient's name preceding
-        // "的診症記錄" or "的病歷記錄" will be retained during
-        // dynamic translation (see translateNode below).
+        
+        
+        
+        
         "的診症記錄": "'s Consultation Records",
         "的病歷記錄": "'s Medical Records",
         "當前用戶": "Current User",
 
-        // Additional variant with trailing colon for labels that include punctuation.
-        // Add trailing space after colon so that dynamic names are separated
+        
+        
         "當前用戶：": "Current User: ",
 
-        // Add translations for meridian names.  These entries allow the
-        // translation logic to translate dynamic strings such as
-        // "手太陰肺經 (11)" by matching the base name and preserving
-        // the numeric suffix (see translateNode for dynamic logic).
+        
+        
+        
+        
         "手太陰肺經": "Hand Taiyin Lung Meridian",
         "手陽明大腸經": "Hand Yangming Large Intestine Meridian",
         "足陽明胃經": "Foot Yangming Stomach Meridian",
@@ -1132,7 +1129,7 @@ window.translations = {
         "+ 新增病人": "+ Add Patient",
         "+ 新增穴位組合": "+ Add Acupoint Combo",
         "+ 新增藥方組合": "+ Add Formula Combo",
-        // Button label used in batch inventory restock for adding a new herb
+        
         "+ 新增藥材": "+ Add Herb",
         "管理分類": "Manage Categories",
         "一般用戶": "General User",
@@ -1166,8 +1163,10 @@ window.translations = {
         "全部用戶": "All Users",
         "全部科別": "All Departments",
         "全部醫師": "All Doctors",
+        "全部診所": "All Clinics",
         "全部針法": "All Needling Methods",
         "全部類別": "All Types",
+        "全部月份": "All Months",
         "其他": "Others",
         "出生日期 *": "Date of Birth *",
         "出處": "Source",
@@ -1226,7 +1225,7 @@ window.translations = {
         "掛號診症系統": "Registration and Consultation System",
         "掛號醫師": "Doctor",
         "掛號醫師 *": "Doctor *",
-        // Colon variant for registration doctor to ensure proper translation lookup
+        
         "掛號醫師：": "Doctor:",
         "搜索病人掛號": "Search patient registrations",
         "操作": "Actions",
@@ -1289,13 +1288,13 @@ window.translations = {
         "病史及備註": "Medical History & Notes",
         "病史及備註：": "Medical History & Notes:",
         "病歷記錄": "Medical Records",
-        // Medical record management page
+        
         "病歷管理": "Medical Record Management",
         "搜尋病歷編號、病人姓名或醫師...": "Search record number, patient name or doctor...",
         "病歷詳細資訊": "Medical Record Details",
         "檢視": "View",
         "療程": "Treatment Course",
-        // Added translations for medical record management description and cancel waiting action
+        
         "查看及搜尋病歷": "View and search medical records",
         "取消候診": "Cancel arrival",
         "登入系統": "Login",
@@ -1313,7 +1312,7 @@ window.translations = {
         "統計期間收入": "Income for the period",
         "統計資料、備份匯出": "Statistics & Backup Export",
         "編號": "ID",
-        // Generic number label colon variant used in registration search
+        
         "編號：": "ID:",
         "編輯組合": "Edit Combo",
         "總收入": "Total Revenue",
@@ -1354,7 +1353,7 @@ window.translations = {
         "診症人次": "Number of Consultations",
         "診症系統": "Consultation System",
         "診症記錄": "Records",
-        // Added translations for colon variants and navigation terms
+        
         "醫師：": "Doctor:",
         "病歷編號：": "Record Number:",
         "較舊": "Older",
@@ -1432,15 +1431,9 @@ window.translations = {
         "🔍 診斷模板": "🔍 Diagnosis Templates",
         "🔍 載入診斷模板": "🔍 Load Diagnosis Templates",
 
-        /*
-         * Additional translations for action buttons in the personal settings and billing
-         * item management sections.  Without these exact mappings the English UI would
-         * still display Chinese when the language is switched.  The keys here include
-         * the leading "+" symbol and a space to match the actual button labels in
-         * system.html.  See lines 1715 and 1745 in system.html for reference.
-         */
+        
         "+ 管理分類": "+ Manage Categories",
-        /* Additional translations to cover previously untranslated visible text */
+        
         "不含模板庫與中藥庫": "Excluding template and herb libraries",
         "中藥材名稱": "Herbal ingredient name",
         "中醫診斷": "TCM diagnosis",
@@ -1508,18 +1501,17 @@ window.translations = {
         "查看穴位資料": "View acupoint information",
         "管理診療費用及收費項目": "Manage medical expenses and charges",
         "管理慣用藥方及穴位組合": "Manage commonly used prescriptions and acupoint combinations",
-        /* Additional translations added to cover previously untranslated Chinese labels.
-         * These keys correspond to new features like category management and dynamic labels. */
+        
         "組合名稱 *": "Combination Name *",
         "個可用": "available",
         "管理中藥分類": "Manage herb categories",
         "管理穴位分類": "Manage acupoint categories",
         "管理醫囑分類": "Manage prescription categories",
         "管理診斷分類": "Manage diagnosis categories",
-        // Simplified Chinese search hints
+        
         "搜索穴位、經絡名稱或功能...": "Search acupoints, meridian name, or function...",
         "搜索穴位名稱、經絡或定位...": "Search acupoint name, meridian, or location...",
-        // Additional placeholder translations
+        
         "中醫病名診斷...": "TCM disease name diagnosis...",
         "例如：10": "e.g.: 10",
         "例如：180（半年）": "e.g.: 180 (half year)",
@@ -1539,7 +1531,9 @@ window.translations = {
         "搜尋病人姓名、編號或電話...": "Search patient name, ID, or phone...",
         "搜尋病人編號、姓名或電話...": "Search patient ID, name, or phone...",
         "搜尋穴位、經絡名稱或功能...": "Search acupoint, meridian name, or function...",
+        "搜尋穴位、經絡、功能或國際代碼...": "Search acupoint, meridian, function or international code...",
         "搜尋穴位名稱、經絡或定位...": "Search acupoint name, meridian, or location...",
+        "搜尋穴位名稱、經絡、定位或國際代碼...": "Search acupoint name, meridian, location or international code...",
         "搜尋穴位組合名稱...": "Search acupoint combination name...",
         "搜尋藥方組合名稱...": "Search formula combination name...",
         "搜尋診斷模板名稱或內容...": "Search diagnosis template name or content...",
@@ -1589,28 +1583,23 @@ window.translations = {
         "搜尋常用穴位...": "Search common acupoints...",
         "穴位名稱": "Acupoint name",
         "如：服藥完畢後": "e.g.: after finishing medication",
-        // Added translations for login page input placeholders
+        
         "請輸入電子郵件": "Please enter your email",
         "請輸入密碼": "Please enter your password"
         ,
-        // Age units for dynamic age formatting.  These entries allow the
-        // translation logic to convert age suffixes such as "30歲", "6個月"
-        // and "5天" by matching the numeric prefix and appending the
-        // translated unit.  See translateNode for the corresponding regex.
+        
+        
+        
+        
         "歲": "years",
         "個月": "months",
         "天": "days"
     }
 };
 
-    // Add translation helper and dynamic translations for runtime messages
+    
     (function() {
-        /**
-         * Helper function to translate a given text according to the currently selected language.
-         * Falls back to the original text if no translation is found.
-         * @param {string} text - The original Chinese text to translate.
-         * @returns {string} Translated text based on current language or original text if not found.
-         */
+        
         function t(text) {
             try {
                 const lang = localStorage.getItem('lang') || 'zh';
@@ -1620,9 +1609,9 @@ window.translations = {
                 return text;
             }
         }
-        // Expose translation helper globally so other scripts (e.g., system.js) can use it.
+        
         window.t = t;
-        // Define dynamic runtime translations. These keys correspond to messages created dynamically in system.js.
+        
         const dynamicTranslations = {
             '基本資料': 'Basic Information',
             '醫療資訊': 'Medical Information',
@@ -1637,18 +1626,18 @@ window.translations = {
             '病史及備註：': 'Medical History & Notes:',
             '過敏史：': 'Allergies:',
             '建檔日期：': 'Created At:',
-    // 標題用於病人列表中顯示建檔日期
+    
     '建檔日期': 'Created At',
             '更新日期：': 'Updated At:',
             '診症記錄摘要': 'Consultation Summary',
             '載入診症記錄中...': 'Loading consultation records...',
-            // -----------------------------------------------------------------
-            // Additional in‑progress status translations
-            // These strings appear on buttons or status labels while actions
-            // such as saving, updating or loading are underway.  Without
-            // corresponding English translations the UI will continue to show
-            // Chinese when the language is switched.  By defining them here
-            // they will be merged into both zh and en dictionaries below.
+            
+            
+            
+            
+            
+            
+            
             '保存中...': 'Saving...',
             '儲存中...': 'Saving...',
             '更新中...': 'Updating...',
@@ -1699,7 +1688,7 @@ window.translations = {
             '匯出備份失敗，請稍後再試': 'Failed to export backup, please try again later',
             '取消套票使用時發生錯誤': 'An error occurred while canceling package usage',
 
-            // Added translations for previously untranslated toast messages
+            
             '保存庫存變更失敗！': 'Failed to save inventory changes!',
             '兩次輸入的密碼不一致！': 'The two entered passwords do not match!',
             '密碼長度至少需 6 位數！': 'Password must be at least 6 characters long!',
@@ -1709,7 +1698,7 @@ window.translations = {
             '請填寫電子郵件地址！': 'Please enter your email address!',
             '請輸入並確認密碼！': 'Please enter and confirm your password!',
 
-            // Personal statistics analysis and account security settings translations
+            
             '個人統計分析': 'Personal Statistics Analysis',
             '統計醫師個人用藥與穴位使用情況，提供用藥和穴位偏好分析。': 'Analyze the doctor’s personal herb and acupoint usage to provide herb and acupoint preference analysis.',
             '常用方劑': 'Common Formulas',
@@ -1729,7 +1718,7 @@ window.translations = {
             '刪除帳號後，您將無法再登入系統，且所有與此帳號相關的資料將無法恢復。請慎重操作！': 'After deleting your account, you will no longer be able to log into the system, and all data associated with this account will be irrecoverable. Please proceed carefully.',
             '密碼確認': 'Password Confirmation',
             '請輸入您的密碼': 'Please enter your password',
-            // Sidebar descriptions for personal statistics and account security
+            
             '統計個人用藥與穴位偏好': 'Analyze personal herb and acupoint preferences',
             '變更密碼及刪除帳號': 'Change Password and Delete Account',
             '只有管理員可以刪除病人': 'Only administrators can delete patients',
@@ -1863,40 +1852,34 @@ window.translations = {
             '匯入完成！': 'Import complete!',
             '匯入失敗！': 'Import failed!'
         };
-        // Merge dynamic translations into the existing dictionaries.
+        
         Object.keys(dynamicTranslations).forEach(function(key) {
-            // Ensure the zh dictionary keeps the original Chinese text.
+            
             if (!window.translations.zh[key]) {
                 window.translations.zh[key] = key;
             }
-            // Always set the English translation to the provided value.
+            
             window.translations.en[key] = dynamicTranslations[key];
         });
     })();
 
-// Declare isTranslating early so it is available wherever referenced.
-// Using var ensures the declaration is hoisted and accessible before use.
-// Track whether a translation is currently being applied to avoid recursive invocation
+
+
+
 var isTranslating = false;
 
-// Keep a record of the last language each node was translated into.
-// We use a data attribute on each element (data-last-lang) rather than a WeakMap
-// to persist the last translated language across DOM updates.  This helps
-// prevent repeatedly re‑translating the same node when it hasn't changed
-// languages, which can improve performance on pages with large DOMs.
 
 
-/**
- * Save the original text and placeholder values for each element.  This
- * allows switching languages back and forth by always referencing the
- * original Chinese string as the lookup key.  Only leaf elements (with
- * no child elements) are considered for text replacement to avoid
- * overriding nested HTML structures.
- */
+
+
+
+
+
+
 function storeOriginalText() {
     const all = document.querySelectorAll('*');
     all.forEach(el => {
-        // Only store text for leaf nodes to prevent replacing content of complex elements
+        
         if (el.children.length === 0) {
             const text = (el.textContent || '').trim();
             if (text) {
@@ -1914,61 +1897,44 @@ function storeOriginalText() {
     });
 }
 
-/**
- * Recursively translate a DOM node and its descendants.  This function
- * ensures that the original text and placeholder values are stored on
- * first encounter, and then looks up a translated value from the
- * provided dictionary.  It operates on leaf nodes only (elements
- * without child elements) to avoid altering internal structures.
- * @param {Node} node The DOM node to translate.
- * @param {Object} dict The translation dictionary for the current language.
- */
+
 function translateNode(node, dict, lang) {
-    // Guard against null/undefined nodes
+    
     if (!node) return;
-    /**
-     * When encountering a text node, translate its contents directly.  We
-     * preserve the original trimmed Chinese text and leading/trailing
-     * whitespace so that repeated translations or language switches do
-     * not destroy the formatting.  The translated value is looked up
-     * from the provided dictionary; if none is found the original
-     * Chinese text is retained.  A custom __lastLang property is used
-     * to prevent re‑translating the same node multiple times when the
-     * language has not changed.
-     */
+    
     if (node.nodeType === Node.TEXT_NODE) {
         const fullText = node.nodeValue || '';
-        // Extract the trimmed content (Chinese or previously translated) by
-        // removing leading and trailing whitespace.  If the trimmed text
-        // is empty there is nothing to translate.
+        
+        
+        
         const trimmed = fullText.trim();
         if (!trimmed) return;
-        // Store original trimmed text and whitespace on first encounter
+        
         if (node.__originalText === undefined) {
             node.__originalText = trimmed;
-            // Capture leading/trailing whitespace from the original node value
+            
             const leadingMatch = fullText.match(/^\s*/);
             const trailingMatch = fullText.match(/\s*$/);
             node.__leadingWhitespace = leadingMatch ? leadingMatch[0] : '';
             node.__trailingWhitespace = trailingMatch ? trailingMatch[0] : '';
         }
-        // Only update the text if we haven't already translated to this
-        // language.  This avoids unnecessary DOM mutations when
-        // MutationObserver triggers and ensures that switching languages
-        // restores the correct value.
+        
+        
+        
+        
         if (node.__lastLang !== lang) {
             const original = node.__originalText;
             let replacement = original;
             if (dict && Object.prototype.hasOwnProperty.call(dict, original)) {
-                // Direct match found in dictionary
+                
                 replacement = dict[original];
             } else {
-                // Handle dynamic patterns such as counts in parentheses and
-                // suffixed medical/consultation record labels.  These
-                // patterns preserve the dynamic portion (e.g. patient name or
-                // numeric count) while translating the static Chinese part.
-                // 1. Patterns like "X (123)": translate X and keep
-                //    "(123)" suffix.
+                
+                
+                
+                
+                
+                
                 const parenMatch = original.match(/^(.*?)(\s*\(\d+\))$/);
                 if (parenMatch) {
                     const base = parenMatch[1].trim();
@@ -1977,19 +1943,19 @@ function translateNode(node, dict, lang) {
                         replacement = dict[base] + suffix;
                     }
                 } else {
-                    // 2. Pattern for numeric available counts like "11 個可用".
-                    //    Extract the numeric prefix and translate the "個可用" suffix.
+                    
+                    
                     const availableMatch = original.match(/^(\d+)\s*個可用$/);
-                    // 3. Pattern for ages such as "30歲", "6個月" or "5天".
-                    //    Extract the numeric prefix and translate the suffix if present in the dictionary.
+                    
+                    
                     const ageMatch = original.match(/^(\d+)\s*(歲|個月|天)$/);
                     if (availableMatch && dict && Object.prototype.hasOwnProperty.call(dict, '個可用')) {
                         replacement = availableMatch[1] + ' ' + dict['個可用'];
                     } else if (ageMatch && dict && Object.prototype.hasOwnProperty.call(dict, ageMatch[2])) {
                         replacement = ageMatch[1] + ' ' + dict[ageMatch[2]];
                     } else {
-                        // 4. Patterns like "Name的診症記錄" or "Name的病歷記錄".
-                        //    Extract the name and translate the suffix.
+                        
+                        
                         const diagMatch = original.match(/^(.+?)(的診症記錄)$/);
                         const medMatch = original.match(/^(.+?)(的病歷記錄)$/);
                         if (diagMatch && dict && Object.prototype.hasOwnProperty.call(dict, diagMatch[2])) {
@@ -1997,9 +1963,9 @@ function translateNode(node, dict, lang) {
                         } else if (medMatch && dict && Object.prototype.hasOwnProperty.call(dict, medMatch[2])) {
                             replacement = medMatch[1] + dict[medMatch[2]];
                         } else {
-                            // 5. Generic pattern for base strings ending with a full‑width colon (：) and dynamic suffix.
-                            //    For example: "當前用戶：王五".  If the base (including colon) exists in the dictionary,
-                            //    translate it and preserve the trailing dynamic part.
+                            
+                            
+                            
                             const colonMatch = original.match(/^(.+?：)(.*)$/);
                             if (colonMatch && dict && Object.prototype.hasOwnProperty.call(dict, colonMatch[1])) {
                                 replacement = dict[colonMatch[1]] + colonMatch[2];
@@ -2008,17 +1974,17 @@ function translateNode(node, dict, lang) {
                     }
                 }
             }
-            // Combine preserved whitespace with the translated or original text
+            
             node.nodeValue = (node.__leadingWhitespace || '') + replacement + (node.__trailingWhitespace || '');
             node.__lastLang = lang;
         }
         return;
     }
-    // If the node is not an element, there is nothing further to do
+    
     if (node.nodeType !== Node.ELEMENT_NODE) return;
-    // If the element has no child elements it is considered a leaf node for
-    // the purposes of translating its own textContent and placeholder.  We
-    // use dataset to persist the original text and placeholder values.
+    
+    
+    
     if (node.children.length === 0) {
         if (node.dataset.lastLang !== lang) {
             const currentText = (node.textContent || '').trim();
@@ -2029,10 +1995,10 @@ function translateNode(node, dict, lang) {
                 const original = node.dataset.originalText;
                 let replacement = original;
                 if (dict && Object.prototype.hasOwnProperty.call(dict, original)) {
-                    // Direct match
+                    
                     replacement = dict[original];
                 } else {
-                    // Dynamic patterns similar to those used for text nodes
+                    
                     const parenMatch = original && original.match(/^(.*?)(\s*\(\d+\))$/);
                     if (parenMatch) {
                         const base = parenMatch[1].trim();
@@ -2041,7 +2007,7 @@ function translateNode(node, dict, lang) {
                             replacement = dict[base] + suffix;
                         }
                     } else {
-                        // Age pattern: e.g. "30歲", "6個月", "5天"
+                        
                         const ageMatch = original && original.match(/^(\d+)\s*(歲|個月|天)$/);
                         if (ageMatch && dict && Object.prototype.hasOwnProperty.call(dict, ageMatch[2])) {
                             replacement = ageMatch[1] + ' ' + dict[ageMatch[2]];
@@ -2053,7 +2019,7 @@ function translateNode(node, dict, lang) {
                             } else if (medMatch && dict && Object.prototype.hasOwnProperty.call(dict, medMatch[2])) {
                                 replacement = medMatch[1] + dict[medMatch[2]];
                             } else {
-                                // Generic colon pattern: base with colon and dynamic suffix
+                                
                                 const colonMatch = original && original.match(/^(.+?：)(.*)$/);
                                 if (colonMatch && dict && Object.prototype.hasOwnProperty.call(dict, colonMatch[1])) {
                                     replacement = dict[colonMatch[1]] + colonMatch[2];
@@ -2064,7 +2030,7 @@ function translateNode(node, dict, lang) {
                 }
                 node.textContent = replacement;
             }
-            // Translate the placeholder attribute on leaf elements
+            
             if (node.hasAttribute('placeholder')) {
                 const phVal = node.getAttribute('placeholder').trim();
                 if (!node.dataset.originalPlaceholder && phVal) {
@@ -2075,7 +2041,7 @@ function translateNode(node, dict, lang) {
                     node.setAttribute('placeholder', dict[originalPh]);
                 }
             }
-            // Translate the data-placeholder attribute used for contenteditable placeholders
+            
             if (node.hasAttribute('data-placeholder')) {
                 const dpVal = node.getAttribute('data-placeholder').trim();
                 if (!node.dataset.originalDataPlaceholder && dpVal) {
@@ -2089,68 +2055,56 @@ function translateNode(node, dict, lang) {
             node.dataset.lastLang = lang;
         }
     }
-    // Recursively translate all child nodes.  We iterate over childNodes
-    // instead of children so that text nodes are also processed.
+    
+    
     Array.from(node.childNodes).forEach(child => translateNode(child, dict, lang));
 }
 
-/**
- * Apply translations based on the currently selected language.  The
- * language code is stored in localStorage under the key 'lang'.  If not
- * present the default language is Chinese ('zh').  For each element
- * containing a data‑original‑text attribute the translation is looked up
- * in the dictionary; if found the textContent is replaced, otherwise the
- * text remains unchanged.  Placeholders are handled similarly.
- */
+
 function applyTranslations() {
-    // Guard against recursive invocation when triggered by mutation observer
+    
     if (isTranslating) return;
     isTranslating = true;
     try {
         const lang = localStorage.getItem('lang') || 'zh';
         const dict = window.translations[lang] || {};
-        // Translate the entire document body
+        
         translateNode(document.body, dict, lang);
     } finally {
-        // Reset flag after translation
+        
         isTranslating = false;
     }
 }
 
-/**
- * Change the current language and persist it to localStorage.  This
- * function triggers translation immediately after updating the stored
- * language code.
- * @param {string} lang - the language code ('zh' or 'en')
- */
+
 function setLanguage(lang) {
     localStorage.setItem('lang', lang);
     applyTranslations();
 }
 
-// Observe DOM mutations to automatically translate dynamically added
-// elements (such as modals or lists that are created after initial
-// page load).  Whenever new nodes are added the translations are
-// applied.  This helps ensure that dynamic content will also be
-// translated without needing to call applyTranslations manually in
-// every script.
+
+
+
+
+
+
 
 const observer = new MutationObserver(mutations => {
-    // Do not react to mutations while a translation is being applied.
+    
     if (isTranslating) return;
     const lang = localStorage.getItem('lang') || 'zh';
     const dict = window.translations[lang] || {};
     mutations.forEach(m => {
         if (m.addedNodes && m.addedNodes.length > 0) {
             m.addedNodes.forEach(node => {
-                // Only translate nodes that are elements
+                
                 translateNode(node, dict, lang);
             });
         }
     });
 });
 
-// Setup event listeners on DOMContentLoaded
+
 document.addEventListener('DOMContentLoaded', () => {
     const savedLang = localStorage.getItem('lang') || 'zh';
     const langSelector = document.getElementById('languageSelector');
@@ -2161,10 +2115,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     applyTranslations();
-    // Observe the entire document body for dynamic content. Previously we only observed
-    // the #mainSystem container which meant elements outside of it (e.g. login page,
-    // toast notifications, or modals) were not automatically translated. By observing
-    // document.body we ensure all dynamically added content is translated when the
-    // language changes.
+    
+    
+    
+    
+    
     observer.observe(document.body, { childList: true, subtree: true });
 });

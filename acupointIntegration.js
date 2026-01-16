@@ -1,22 +1,13 @@
-/*
- * 模組：穴位庫地圖整合 (Enhanced Version)
- * 本檔案定義了穴位座標資料與地圖初始化函式。
- * 
- * 修正記錄：
- * 1. 增強字串匹配：自動去除空白、處理括號、擴充異體字庫。
- * 2. 除錯模式：在 Console 輸出未匹配到的穴位名稱。
- */
+
 
 (function() {
     'use strict';
 
-    /**
-     * 座標資料表：以穴位名稱為鍵，對應座標陣列 [{x, y}, ...]。
-     */
+    
     const ACUPOINT_COORDS = {
-        // ==========================================
-        // 頭部與頸部 (Head & Neck)
-        // ==========================================
+        
+        
+        
         '百會': [
             { x: 0.8858, y: 0.9476 }, 
             { x: 0.5733, y: 0.9161 }, 
@@ -261,9 +252,9 @@
         ],
         '天窗': [{ x: 0.8765, y: 0.8196 }],
 
-        // ==========================================
-        // 上肢 (Upper Limb)
-        // ==========================================
+        
+        
+        
         '尺澤': [
             { x: 0.7580, y: 0.7591 },
             { x: 0.2408, y: 0.6391 }
@@ -497,9 +488,9 @@
         ],
         '肩髃': [{ x: 0.2254, y: 0.7924 }],
 
-        // ==========================================
-        // 胸、腹、背部 (Trunk)
-        // ==========================================
+        
+        
+        
         '天谿': [
             { x: 0.8514, y: 0.7104 },
             { x: 0.1989, y: 0.7336 }
@@ -589,13 +580,13 @@
             { x: 0.4533, y: 0.4901 }
         ],
         '氣衝': [
-            { x: 0.8268, y: 0.5011 }, // 側腹
-            { x: 0.1671, y: 0.5278 }  // 腹股溝
+            { x: 0.8268, y: 0.5011 }, 
+            { x: 0.1671, y: 0.5278 }  
         ],
         '居髎': [{ x: 0.8546, y: 0.5081 }],
         '環跳': [
-            { x: 0.8792, y: 0.4902 }, // 側腹/臀
-            { x: 0.5020, y: 0.5034 }  // 背部/臀
+            { x: 0.8792, y: 0.4902 }, 
+            { x: 0.5020, y: 0.5034 }  
         ],
         '輒筋': [{ x: 0.8819, y: 0.7020 }],
         '淵腋': [{ x: 0.8905, y: 0.7055 }],
@@ -694,8 +685,8 @@
             { x: 0.1898, y: 0.6278 }
         ],
         '京門': [
-            { x: 0.8697, y: 0.6103 }, // 側腹
-            { x: 0.4965, y: 0.6155 }  // 背部
+            { x: 0.8697, y: 0.6103 }, 
+            { x: 0.4965, y: 0.6155 }  
         ],
         '水分': [
             { x: 0.8110, y: 0.5974 },
@@ -856,9 +847,9 @@
         '胞肓': [{ x: 0.4790, y: 0.5375 }],
         '秩邊': [{ x: 0.4787, y: 0.5139 }],
 
-        // ==========================================
-        // 下肢 (Lower Limb)
-        // ==========================================
+        
+        
+        
         '京骨': [
             { x: 0.8717, y: 0.0294 },
             { x: 0.5000, y: 0.0180 }
@@ -1082,9 +1073,7 @@
         '足五里': [{ x: 0.1671, y: 0.4888 }]
     };
 
-    /*
-     * 簡繁與異體字轉換表 (Expanded)
-     */
+    
     const CHAR_TO_SIMPLIFIED = {
         '雲': '云', '門': '门', '處': '处', '頭': '头', '臨': '临',
         '維': '维', '頜': '颌', '厭': '厌', '陽': '阳', '攢': '攒',
@@ -1102,7 +1091,7 @@
 
     function normalizeName(str) {
         if (!str) return '';
-        // 移除所有空白、括號及括號內的內容、數字編號(如 ST36)
+        
         return str.replace(/\s+/g, '')
                   .replace(/[\(\[\{].*?[\)\]\}]/g, '')
                   .trim();
@@ -1131,7 +1120,7 @@
         return results;
     }
 
-    // 自動生成同義鍵
+    
     (function generateSynonyms() {
         const originalEntries = Object.entries(ACUPOINT_COORDS);
         for (const [name, coordsList] of originalEntries) {
@@ -1148,9 +1137,7 @@
         }
     })();
 
-    /**
-     * 將座標資料套用至全域 acupointLibrary。
-     */
+    
     function applyAcupointCoordinates() {
         let library;
         try {
@@ -1174,7 +1161,7 @@
                     const rawName = ac.name || '';
                     const cleanedName = normalizeName(rawName);
                     
-                    // 尋找對應的座標陣列
+                    
                     let coordsList = ACUPOINT_COORDS[cleanedName];
                     if (!coordsList) {
                         try {
@@ -1185,7 +1172,7 @@
                         }
                     }
 
-                    // 嘗試異體字模糊搜索 (Last Resort)
+                    
                     if (!coordsList) {
                          const potentialKeys = Object.keys(ACUPOINT_COORDS);
                          const foundKey = potentialKeys.find(k => k.includes(cleanedName) || cleanedName.includes(k));
@@ -1194,7 +1181,7 @@
                          }
                     }
 
-                    // 處理已經存在於物件中的 x, y (字串轉數字)
+                    
                     if (typeof ac.x === 'string' && !Number.isNaN(parseFloat(ac.x))) ac.x = parseFloat(ac.x);
                     if (typeof ac.y === 'string' && !Number.isNaN(parseFloat(ac.y))) ac.y = parseFloat(ac.y);
 
@@ -1206,7 +1193,7 @@
                     } else if (typeof ac.x === 'number' && typeof ac.y === 'number') {
                         ac.multiCoords = [{x: ac.x, y: ac.y}];
                     } else {
-                        // DEBUG: 輸出無法匹配的穴位
+                        
                         console.warn(`[AcupointMap] 無法找到座標: "${rawName}" (cleaned: ${cleanedName})`);
                         failCount++;
                     }
@@ -1221,9 +1208,7 @@
         } catch (_e) {}
     }
 
-    /**
-     * 初始化穴位地圖。
-     */
+    
     window.initAcupointMap = function() {
         try {
             const mapContainer = document.getElementById('acupointMap');
@@ -1261,7 +1246,7 @@
                 map.options.maxBoundsViscosity = 1.0;
                 map.setView([h / 2, w / 2], initialZoom);
                 
-                // Resize Observer and Events
+                
                 try {
                     setTimeout(function(){ try { map.invalidateSize(); } catch(_e) {} }, 50);
                     window.addEventListener('resize', function(){ try { map.invalidateSize(); } catch(_e) {} });
@@ -1271,7 +1256,7 @@
                     }
                 } catch (_e) {}
 
-                // Cursor Style
+                
                 try {
                     const mapEl = map.getContainer();
                     if (mapEl && mapEl.style) {
@@ -1281,7 +1266,7 @@
                     }
                 } catch (_cursorErr) {}
 
-                // Marker Rendering Logic
+                
                 let library;
                 try {
                     library = typeof acupointLibrary !== 'undefined' ? acupointLibrary : window.acupointLibrary;
@@ -1346,7 +1331,7 @@
                     });
                 }
 
-                // Coordinate Display (Debug tool)
+                
                 try {
                     const mapEl = map.getContainer();
                     if (mapEl) {

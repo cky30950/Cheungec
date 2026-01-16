@@ -6,7 +6,7 @@
     <title>中藥資料庫 - 雲端版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Firebase SDK -->
+    
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getDatabase, ref, set, get, push, onValue, remove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
@@ -69,7 +69,7 @@
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-    <!-- Header -->
+    
     <header class="bg-white shadow-sm border-b">
         <div class="max-w-6xl mx-auto px-6 py-4">
             <div class="flex items-center justify-between">
@@ -94,7 +94,7 @@
     </header>
 
     <div class="max-w-6xl mx-auto px-6 py-8">
-        <!-- Loading Indicator -->
+        
         <div id="loadingIndicator" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
             <div class="text-center">
                 <div class="loading-spinner mx-auto mb-4"></div>
@@ -102,12 +102,12 @@
             </div>
         </div>
 
-        <!-- Main Content Grid -->
+        
         <div id="mainContent" class="grid grid-cols-1 lg:grid-cols-3 gap-8 hidden">
             
-            <!-- Left Panel - Search -->
+            
             <div class="lg:col-span-2 space-y-6">
-                <!-- Search Section -->
+                
                 <div class="bg-white rounded-lg shadow-sm border p-6">
                     <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                         <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -138,9 +138,9 @@
 
             </div>
 
-            <!-- Right Panel - Data Import -->
+            
             <div class="space-y-6">
-                <!-- Data Import Section -->
+                
                 <div class="bg-white rounded-lg shadow-sm border p-6">
                     <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                         <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,7 +149,7 @@
                         資料導入
                     </h2>
                     
-                    <!-- Smart Input Area -->
+                    
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-2">
                             智能格式識別
@@ -164,13 +164,13 @@
                         ></textarea>
                     </div>
                     
-                    <!-- Action Buttons -->
+                    
                     <div class="space-y-3">
                         <button id="importBtn" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-medium transition-colors">
                             ⬆️ 智能導入到雲端
                         </button>
                         
-                        <!-- Progress Bar -->
+                        
                         <div id="progressContainer" class="hidden bg-gray-50 rounded-lg p-4">
                             <div class="flex items-center justify-between mb-2">
                                 <span id="progressText" class="text-sm text-gray-600">準備導入...</span>
@@ -203,7 +203,7 @@
 
                 </div>
 
-                <!-- Statistics -->
+                
                 <div class="bg-white rounded-lg shadow-sm border p-6">
                     <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                         <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -231,9 +231,9 @@
             </div>
         </div>
 
-        <!-- Data Display -->
+        
         <div id="dataDisplay" class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8 hidden">
-            <!-- Herbs List -->
+            
             <div class="bg-white rounded-lg shadow-sm border p-6">
                 <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                     <div class="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
@@ -244,7 +244,7 @@
                 </div>
             </div>
 
-            <!-- Symptoms List -->
+            
             <div class="bg-white rounded-lg shadow-sm border p-6">
                 <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                     <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
@@ -257,10 +257,10 @@
         </div>
     </div>
 
-    <!-- Search Results Modal -->
+    
     <div id="searchModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
         <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
-            <!-- Modal Header -->
+            
             <div class="flex items-center justify-between p-6 border-b border-gray-200">
                 <div class="flex items-center space-x-3">
                     <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -280,14 +280,14 @@
                 </button>
             </div>
             
-            <!-- Modal Content -->
+            
             <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
                 <div id="modalResultsContainer">
-                    <!-- Results will be populated here -->
+                    
                 </div>
             </div>
             
-            <!-- Modal Footer -->
+            
             <div class="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
                 <div class="flex items-center space-x-4">
                     <span id="modalResultCount" class="text-sm text-gray-600"></span>
@@ -305,10 +305,10 @@
         </div>
     </div>
 
-    <!-- Edit Modal -->
+    
     <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] hidden">
         <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-hidden">
-            <!-- Edit Modal Header -->
+            
             <div class="flex items-center justify-between p-6 border-b border-gray-200">
                 <div class="flex items-center space-x-3">
                     <div class="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
@@ -328,9 +328,9 @@
                 </button>
             </div>
             
-            <!-- Edit Modal Content -->
+            
             <div class="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
-                <!-- Search and Filter -->
+                
                 <div class="mb-6">
                     <div class="flex space-x-4 mb-4">
                         <input 
@@ -347,13 +347,13 @@
                     </div>
                 </div>
                 
-                <!-- Edit Items List -->
+                
                 <div id="editItemsList" class="space-y-3">
-                    <!-- Items will be populated here -->
+                    
                 </div>
             </div>
             
-            <!-- Edit Modal Footer -->
+            
             <div class="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
                 <div class="flex items-center space-x-4">
                     <span id="editItemCount" class="text-sm text-gray-600">載入中...</span>
@@ -371,10 +371,10 @@
         </div>
     </div>
 
-    <!-- Edit Item Detail Modal -->
+    
     <div id="editDetailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] hidden">
         <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
-            <!-- Detail Modal Header -->
+            
             <div class="flex items-center justify-between p-6 border-b border-gray-200">
                 <div class="flex items-center space-x-3">
                     <div id="editDetailIcon" class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -392,9 +392,9 @@
                 </button>
             </div>
             
-            <!-- Detail Modal Content -->
+            
             <div class="p-6 overflow-y-auto max-h-[calc(80vh-180px)]">
-                <!-- Name Edit -->
+                
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-2">名稱</label>
                     <input 
@@ -405,16 +405,16 @@
                     >
                 </div>
                 
-                <!-- Related Items Edit -->
+                
                 <div class="mb-6">
                     <label id="editRelatedLabel" class="block text-sm font-medium text-gray-700 mb-2">關聯項目</label>
                     <div class="space-y-2 mb-4">
                         <div id="editRelatedItems" class="space-y-2">
-                            <!-- Related items will be populated here -->
+                            
                         </div>
                     </div>
                     
-                    <!-- Add New Related Item -->
+                    
                     <div class="flex space-x-2">
                         <input 
                             type="text" 
@@ -429,7 +429,7 @@
                 </div>
             </div>
             
-            <!-- Detail Modal Footer -->
+            
             <div class="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
                 <button id="deleteItemBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
                     🗑️ 刪除項目
@@ -446,7 +446,7 @@
         </div>
     </div>
 
-    <!-- Notification Toast -->
+    
     <div id="toast" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300 z-[10001]">
         <div class="flex items-center space-x-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
