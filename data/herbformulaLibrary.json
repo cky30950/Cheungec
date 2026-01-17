@@ -4423,6 +4423,20 @@
       "usage": "散劑，酒或溫開水送服",
       "updatedAt": "2025-08-21T10:00:00.001Z",
       "englishName": "DangGuiShaoYaoSan"
+    },
+    {
+      "id": 1756000000012,
+      "type": "formula",
+      "name": "海藻玉壺湯",
+      "composition": "海藻\n昆布\n陳皮\n青皮\n連翹\n貝母\n半夏\n當歸\n川芎\n獨活\n甘草",
+      "createdAt": "2025-08-21T10:00:00.001Z",
+      "source": "醫宗金鑒",
+      "effects": "化痰軟堅，理氣散結",
+      "cautions": "脾胃虛寒者慎用；孕婦慎用",
+      "indications": "癭瘤初起，頸部腫塊，皮色不變，質軟不痛，隨喜怒消長",
+      "usage": "水煎服",
+      "updatedAt": "2025-08-21T10:00:00.001Z",
+      "englishName": "HaiZaoYuHuTang"
     }
   ]
 }
