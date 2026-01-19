@@ -17016,30 +17016,10 @@ const consultationDate = (() => {
             document.getElementById('formUsage').value = consultation.usage || '';
             document.getElementById('formTreatmentCourse').value = consultation.treatmentCourse || '';
             document.getElementById('formInstructions').value = consultation.instructions || '';
-            document.getElementById('formFollowUpDate').value = consultation.followUpDate || '';
-            document.getElementById('formVisitTime').value = consultation.visitTime || '';
             
             
-
-            // 載入休息期間
-            if (consultation.restStartDate && consultation.restEndDate) {
-                document.getElementById('formRestStartDate').value = consultation.restStartDate;
-                document.getElementById('formRestEndDate').value = consultation.restEndDate;
-                updateRestPeriod();
-            } else {
-                // 使用預設休息期間（今天），預設建議休息 1 天
-                const startDate = new Date();
-                const endDate = new Date();
-                // 預設休息期間為一天，結束日期與開始日期相同
-                endDate.setDate(startDate.getDate());
-                
-                const startDateStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
-                const endDateStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
-                
-                document.getElementById('formRestStartDate').value = startDateStr;
-                document.getElementById('formRestEndDate').value = endDateStr;
-                updateRestPeriod();
-            }
+            
+            
             
             // 載入處方內容
             let prescriptionLoaded = false;
