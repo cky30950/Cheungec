@@ -18211,7 +18211,7 @@ async function deleteUser(id) {
 
             lines.forEach(line => {
                 line = line.trim();
-                if (!line || line.includes('小計') || line.includes('總費用')) {
+                if (!line || line.includes('小計') || line.includes('總費用') || line.includes('折扣適用於') || line.includes('折扣適用於:')) {
                     // 提取總費用
                     if (line.includes('總費用')) {
                         const match = line.match(/\$(\d+)/);
@@ -18223,21 +18223,22 @@ async function deleteUser(id) {
                 }
 
                 // 解析收費項目格式：項目名 x數量 = $金額 或 項目名 x數量 = -$金額
-                const itemMatch = line.match(/^(.+?)\s+x(\d+)\s+=\s+([\-\$]?\d+)$/);
+                const itemMatch = line.match(/^(.+?)\s+x(\d+)\s+=\s+(-?\$?\d+|\$?-?\d+)$/);
                 if (itemMatch) {
                     const itemName = itemMatch[1].trim();
                     const quantity = parseInt(itemMatch[2]);
-                    const amount = parseInt(itemMatch[3].replace(/[\-\$]/g, ''));
-                    const isDiscount = itemMatch[3].includes('-');
+                    const rawAmount = (itemMatch[3] || '').trim();
+                    const amountNumber = parseInt(rawAmount.replace(/[^\d]/g, ''), 10) || 0;
+                    const signedAmount = rawAmount.includes('-') ? -amountNumber : amountNumber;
 
                     items.push({
                         name: itemName,
                         quantity: quantity,
-                        unitPrice: Math.abs(amount / quantity),
-                        totalAmount: isDiscount ? -amount : amount,
+                        unitPrice: quantity ? Math.abs(signedAmount / quantity) : 0,
+                        totalAmount: signedAmount,
                         category: getFinancialCategoryFromItemName(itemName)
                     });
-                    totalAmountSum += isDiscount ? -amount : amount;
+                    totalAmountSum += signedAmount;
                 }
             });
 
@@ -18249,7 +18250,7 @@ async function deleteUser(id) {
 
         // 根據項目名稱推斷類別
         function getFinancialCategoryFromItemName(itemName) {
-            if (itemName.includes('診金') || itemName.includes('診療') || itemName.includes('複診')) {
+            if (itemName.includes('診金') || itemName.includes('診療') || itemName.includes('初診') || itemName.includes('複診')) {
                 return 'consultation';
             } else if (itemName.includes('藥') || itemName.includes('中藥') || itemName.includes('調劑')) {
                 return 'medicine';
@@ -18443,9 +18444,6 @@ async function deleteUser(id) {
 
                 // 服務統計
                 parsed.items.forEach(item => {
-                    if (item.category === 'discount') {
-                        return;
-                    }
                     if (!serviceStats[item.category]) {
                         serviceStats[item.category] = {
                             name: getFinancialCategoryDisplayName(item.category),
@@ -18502,13 +18500,15 @@ async function deleteUser(id) {
 
         // 更新關鍵指標
         function updateFinancialKeyMetrics(stats) {
-            const net = (typeof stats.netRevenue === 'number') ? stats.netRevenue : stats.totalRevenue;
-            document.getElementById('totalRevenue').textContent = `$${net.toLocaleString()}`;
+            const total = (typeof stats.totalRevenue === 'number') ? stats.totalRevenue : 0;
+            const totalCost = (typeof stats.totalCost === 'number') ? stats.totalCost : 0;
+            const net = (typeof stats.netRevenue === 'number') ? stats.netRevenue : (total - totalCost);
+            document.getElementById('totalRevenue').textContent = `$${Math.round(total).toLocaleString()}`;
             document.getElementById('totalConsultations').textContent = stats.totalConsultations.toLocaleString();
             document.getElementById('averageRevenue').textContent = `$${Math.round(stats.averageRevenue).toLocaleString()}`;
             document.getElementById('activeDoctors').textContent = stats.activeDoctors;
             const rc = document.getElementById('revenueChange');
-            if (rc) rc.textContent = '扣除成本後淨收入';
+            if (rc) rc.textContent = `淨收入：$${Math.round(net).toLocaleString()}（成本：$${Math.round(totalCost).toLocaleString()}）`;
         }
 
         // 更新財務表格
@@ -18527,7 +18527,8 @@ async function deleteUser(id) {
                 { item: '藥費收入', amount: 0, category: 'medicine' },
                 { item: '治療費收入', amount: 0, category: 'treatment' },
                 { item: '其他收入', amount: 0, category: 'other' },
-                { item: '套票收入', amount: 0, category: 'package' }
+                { item: '套票收入', amount: 0, category: 'package' },
+                { item: '折扣/優惠', amount: 0, category: 'discount' }
             ];
 
             // 計算各類別收入
@@ -18539,11 +18540,12 @@ async function deleteUser(id) {
                 }
             });
 
-            const totalRevenue = stats.totalRevenue;
+            const totalRevenue = typeof stats.totalRevenue === 'number' ? stats.totalRevenue : 0;
 
             const totalCost = typeof stats.totalCost === 'number' ? stats.totalCost : 0;
             const netRevenue = typeof stats.netRevenue === 'number' ? stats.netRevenue : (totalRevenue - totalCost);
             const extendedRows = [
+                { item: '總收入', amount: totalRevenue, category: 'total' },
                 { item: '總成本', amount: totalCost, category: 'expense' },
                 { item: '淨收入', amount: netRevenue, category: 'net' }
             ];

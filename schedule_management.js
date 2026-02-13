@@ -36,24 +36,58 @@
         let shiftSubmitInProgress = false;
 
         
-        const hkHolidays2025 = [
-            { date: '2025-01-01', name: '元旦' },
-            { date: '2025-01-29', name: '農曆新年初一' },
-            { date: '2025-01-30', name: '農曆新年初二' },
-            { date: '2025-01-31', name: '農曆新年初三' },
+        const hkHolidaysFallback = [
+            { date: '2024-01-01', name: '一月一日' },
+            { date: '2024-02-10', name: '農曆年初一' },
+            { date: '2024-02-12', name: '農曆年初三' },
+            { date: '2024-02-13', name: '農曆年初四' },
+            { date: '2024-03-29', name: '耶穌受難節' },
+            { date: '2024-03-30', name: '耶穌受難節翌日' },
+            { date: '2024-04-01', name: '復活節星期一' },
+            { date: '2024-04-04', name: '清明節' },
+            { date: '2024-05-01', name: '勞動節' },
+            { date: '2024-05-15', name: '佛誕' },
+            { date: '2024-06-10', name: '端午節' },
+            { date: '2024-07-01', name: '香港特別行政區成立紀念日' },
+            { date: '2024-09-18', name: '中秋節翌日' },
+            { date: '2024-10-01', name: '國慶日' },
+            { date: '2024-10-11', name: '重陽節' },
+            { date: '2024-12-25', name: '聖誕節' },
+            { date: '2024-12-26', name: '聖誕節後第一個周日' },
+            { date: '2025-01-01', name: '一月一日' },
+            { date: '2025-01-29', name: '農曆年初一' },
+            { date: '2025-01-30', name: '農曆年初二' },
+            { date: '2025-01-31', name: '農曆年初三' },
             { date: '2025-04-04', name: '清明節' },
-            { date: '2025-04-18', name: '耶穌受難日' },
-            { date: '2025-04-19', name: '耶穌受難日翌日' },
+            { date: '2025-04-18', name: '耶穌受難節' },
+            { date: '2025-04-19', name: '耶穌受難節翌日' },
             { date: '2025-04-21', name: '復活節星期一' },
             { date: '2025-05-01', name: '勞動節' },
             { date: '2025-05-05', name: '佛誕' },
             { date: '2025-05-31', name: '端午節' },
-            { date: '2025-07-01', name: '香港特區成立紀念日' },
+            { date: '2025-07-01', name: '香港特別行政區成立紀念日' },
             { date: '2025-10-01', name: '國慶日' },
             { date: '2025-10-07', name: '中秋節翌日' },
             { date: '2025-10-29', name: '重陽節' },
             { date: '2025-12-25', name: '聖誕節' },
-            { date: '2025-12-26', name: '聖誕節後第一個周日' }
+            { date: '2025-12-26', name: '聖誕節後第一個周日' },
+            { date: '2026-01-01', name: '一月一日' },
+            { date: '2026-02-17', name: '農曆年初一' },
+            { date: '2026-02-18', name: '農曆年初二' },
+            { date: '2026-02-19', name: '農曆年初三' },
+            { date: '2026-04-03', name: '耶穌受難節' },
+            { date: '2026-04-04', name: '耶穌受難節翌日' },
+            { date: '2026-04-06', name: '清明節翌日' },
+            { date: '2026-04-07', name: '復活節星期一翌日' },
+            { date: '2026-05-01', name: '勞動節' },
+            { date: '2026-05-25', name: '佛誕翌日' },
+            { date: '2026-06-19', name: '端午節' },
+            { date: '2026-07-01', name: '香港特別行政區成立紀念日' },
+            { date: '2026-09-26', name: '中秋節翌日' },
+            { date: '2026-10-01', name: '國慶日' },
+            { date: '2026-10-19', name: '重陽節翌日' },
+            { date: '2026-12-25', name: '聖誕節' },
+            { date: '2026-12-26', name: '聖誕節後第一個周日' }
         ];
 
         const usHolidays2025 = [
@@ -71,6 +105,118 @@
             { date: '2025-12-25', name: 'Christmas Day' }
         ];
 
+        const HK_HOLIDAY_1823_TC_URL = 'https://www.1823.gov.hk/common/ical/tc.json';
+        const HK_HOLIDAY_CACHE_KEY_TC = 'hk_public_holidays_1823_tc_v1';
+        const HK_HOLIDAY_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
+
+        function upsertHolidayName(map, date, name) {
+            if (!date || !name) return;
+            const existing = map[date];
+            if (!existing) {
+                map[date] = name;
+                return;
+            }
+            if (existing === name) return;
+            map[date] = existing + ' / ' + name;
+        }
+
+        function buildHolidayMapFromList(list) {
+            const map = Object.create(null);
+            if (!Array.isArray(list)) return map;
+            list.forEach(item => {
+                if (!item) return;
+                upsertHolidayName(map, item.date, item.name);
+            });
+            return map;
+        }
+
+        function parse1823HolidayJson(json) {
+            try {
+                const vc = json && Array.isArray(json.vcalendar) ? json.vcalendar[0] : null;
+                const events = vc && Array.isArray(vc.vevent) ? vc.vevent : [];
+                const out = [];
+                events.forEach(ev => {
+                    if (!ev) return;
+                    const raw = ev.dtstart && Array.isArray(ev.dtstart) ? ev.dtstart[0] : null;
+                    const name = ev.summary || '';
+                    if (!raw || typeof raw !== 'string') return;
+                    if (raw.length !== 8) return;
+                    const yyyy = raw.slice(0, 4);
+                    const mm = raw.slice(4, 6);
+                    const dd = raw.slice(6, 8);
+                    const date = `${yyyy}-${mm}-${dd}`;
+                    if (!name) return;
+                    out.push({ date, name });
+                });
+                return out;
+            } catch (_e) {
+                return [];
+            }
+        }
+
+        let hkHolidayByDate = buildHolidayMapFromList(hkHolidaysFallback);
+        let usHolidayByDate = buildHolidayMapFromList(usHolidays2025);
+        let hkHolidayRemoteLoadInProgress = false;
+
+        function tryHydrateHkHolidaysFromCache() {
+            try {
+                const raw = localStorage.getItem(HK_HOLIDAY_CACHE_KEY_TC);
+                if (!raw) return false;
+                const cached = JSON.parse(raw);
+                if (!cached || !Array.isArray(cached.list)) return false;
+                if (cached.fetchedAt && Date.now() - cached.fetchedAt > HK_HOLIDAY_CACHE_MAX_AGE_MS) {
+                    return false;
+                }
+                const map = buildHolidayMapFromList(cached.list);
+                if (Object.keys(map).length === 0) return false;
+                hkHolidayByDate = map;
+                return true;
+            } catch (_e) {
+                return false;
+            }
+        }
+
+        async function refreshHkHolidaysFrom1823({ force = false } = {}) {
+            if (hkHolidayRemoteLoadInProgress) return;
+            if (!force) {
+                try {
+                    const raw = localStorage.getItem(HK_HOLIDAY_CACHE_KEY_TC);
+                    if (raw) {
+                        const cached = JSON.parse(raw);
+                        if (cached && cached.fetchedAt && Date.now() - cached.fetchedAt <= HK_HOLIDAY_CACHE_MAX_AGE_MS) {
+                            return;
+                        }
+                    }
+                } catch (_e) {
+                    
+                }
+            }
+            if (!window.fetch) return;
+            hkHolidayRemoteLoadInProgress = true;
+            try {
+                const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+                const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
+                const res = await fetch(HK_HOLIDAY_1823_TC_URL, { signal: controller ? controller.signal : undefined });
+                if (timeoutId) clearTimeout(timeoutId);
+                if (!res || !res.ok) return;
+                const json = await res.json();
+                const list = parse1823HolidayJson(json);
+                const map = buildHolidayMapFromList(list);
+                if (Object.keys(map).length === 0) return;
+                hkHolidayByDate = map;
+                try {
+                    localStorage.setItem(HK_HOLIDAY_CACHE_KEY_TC, JSON.stringify({ fetchedAt: Date.now(), list }));
+                } catch (_e) {
+                    
+                }
+            } catch (_e) {
+                
+            } finally {
+                hkHolidayRemoteLoadInProgress = false;
+            }
+        }
+
+        tryHydrateHkHolidaysFromCache();
         
 
         
@@ -78,23 +224,13 @@
             
             if (!selectedHolidayRegion) return null;
             const dateStr = formatDate(date);
-            
-            const mmdd = dateStr.slice(5);
-            let list = [];
+            let name = '';
             if (selectedHolidayRegion === 'hk') {
-                list = hkHolidays2025;
+                name = hkHolidayByDate[dateStr] || '';
             } else if (selectedHolidayRegion === 'us') {
-                list = usHolidays2025;
+                name = usHolidayByDate[dateStr] || '';
             }
-            
-            const match = list.find(h => {
-                
-                return h.date.slice(5) === mmdd;
-            });
-            if (match) {
-                
-                return { date: dateStr, name: match.name };
-            }
+            if (name) return { date: dateStr, name };
             return null;
         }
 
@@ -104,6 +240,13 @@
             
             if (typeof renderCalendar === 'function') {
                 renderCalendar();
+            }
+            if (selectedHolidayRegion === 'hk') {
+                refreshHkHolidaysFrom1823().then(() => {
+                    if (selectedHolidayRegion === 'hk' && typeof renderCalendar === 'function') {
+                        renderCalendar();
+                    }
+                }).catch(() => {});
             }
         }
         
@@ -1936,74 +2079,87 @@
                 
                 let html = '<!DOCTYPE html><html lang="' + (lang === 'zh' ? 'zh-TW' : 'en') + '"><head><meta charset="UTF-8"><title>' + translate('排班表') + '</title>';
                 html += '<style>';
-                html += 'body{font-family:\'Noto Sans TC\',sans-serif;padding:20px;}';
-                html += 'h2{text-align:center;margin:0 0 20px;font-size:20px;}';
-                html += 'table{width:100%;border-collapse:collapse;margin-top:10px;}';
-                html += 'th,td{border:1px solid #ccc;padding:6px;vertical-align:top;font-size:14px;}';
-                html += 'th{background:#f3f4f6;font-weight:600;}';
-                html += 'ul{margin:0;padding-left:20px;}';
-                html += 'li{margin-bottom:4px;line-height:1.4;}';
-                html += 'em{color:#6b7280;}';
+                html += '@page { size: A4 portrait; margin: 10mm; }';
+                html += 'body { font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 10.5pt; margin: 0; padding: 0; color: #333; }';
+                html += 'h2 { text-align: center; margin: 0 0 10px 0; font-size: 16pt; font-weight: bold; border-bottom: 2px solid #333; padding-bottom: 5px; }';
+                html += 'table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 0; }';
+                html += 'th, td { border: 1px solid #888; padding: 3px 4px; vertical-align: top; word-wrap: break-word; line-height: 1.3; }';
+                html += 'th { background-color: #e0e0e0 !important; font-weight: bold; text-align: center; height: 30px; vertical-align: middle; }';
+                html += '.date-col { width: 45px; text-align: center; font-weight: bold; }';
+                html += '.day-col { width: 35px; text-align: center; }';
+                html += '.weekend { background-color: #f0f0f0 !important; }';
+                html += '.shift-cell { text-align: left; font-size: 10pt; }';
+                html += '.staff-item { display: inline-block; margin-right: 6px; white-space: nowrap; }';
+                html += '.footer { margin-top: 5px; font-size: 8pt; text-align: right; color: #666; }';
+                html += 'tr { page-break-inside: avoid; }';
+                html += '@media print { body { -webkit-print-color-adjust: exact; } }';
                 html += '</style></head><body>';
                 
-                
-                
                 let title;
+                const clinicName = getCurrentClinicName();
                 if (lang === 'en') {
-                    
                     const mm = String(month + 1).padStart(2, '0');
-                    const clinicName = getCurrentClinicName();
-                    title = translate('排班表') + ' - ' + year + '/' + mm + (clinicName ? ' - ' + translate('診所') + ': ' + clinicName : '');
+                    title = translate('排班表') + ' - ' + year + '/' + mm + (clinicName ? ' - ' + clinicName : '');
                 } else {
-                    const clinicName = getCurrentClinicName();
-                    title = year + ' 年 ' + (month + 1) + ' 月' + translate('排班表') + (clinicName ? '（' + translate('診所') + '：' + clinicName + '）' : '');
+                    title = year + ' 年 ' + (month + 1) + ' 月 ' + translate('排班表') + (clinicName ? '（' + clinicName + '）' : '');
                 }
                 html += '<h2>' + title + '</h2>';
                 
-                html += '<table><thead><tr><th style="width:120px;">' + translate('日期') + '</th><th>' + translate('排班') + '</th></tr></thead><tbody>';
+                html += '<table><thead><tr>';
+                html += '<th class="date-col">' + translate('日期') + '</th>';
+                html += '<th class="day-col">' + translate('星期') + '</th>';
+                html += '<th>' + translate('早班') + '<div style="font-size:0.8em; font-weight:normal;">08:00-16:00</div></th>';
+                html += '<th>' + translate('中班') + '<div style="font-size:0.8em; font-weight:normal;">16:00-00:00</div></th>';
+                html += '<th>' + translate('夜班') + '<div style="font-size:0.8em; font-weight:normal;">00:00-08:00</div></th>';
+                html += '<th>' + translate('其他/急診') + '</th>';
+                html += '</tr></thead><tbody>';
                 
                 for (let day = 1; day <= lastDay; day++) {
                     const dateObj = new Date(year, month, day);
                     const dateStr = formatDate(dateObj);
+                    const dayOfWeek = dateObj.getDay();
                     const dayShifts = shifts.filter(s => s.date === dateStr && passesFilter(s));
-                    let cellContent;
-                    if (dayShifts.length === 0) {
-                        
-                        cellContent = `<em>${translate('無排班')}</em>`;
-                    } else {
-                        dayShifts.sort((a, b) => parseTimeToMinutes(a.startTime) - parseTimeToMinutes(b.startTime));
-                        cellContent = '<ul>';
-                        dayShifts.forEach(shift => {
-                            const staffMember = findStaffById(shift.staffId);
-                            const duration = calculateShiftDuration(shift.startTime, shift.endTime);
-                            
-                            
-                            
-                            const typeName = translate(getShiftTypeName(shift.type));
-                            let info = staffMember.name;
-                            if (staffMember.level) info += ' ' + staffMember.level;
-                            info += ' ' + shift.startTime + '-' + shift.endTime + ' (' + duration + 'h)';
-                            info += ' - ' + typeName;
-                            if (shift.notes) info += ' - ' + shift.notes;
-                            cellContent += '<li>' + info + '</li>';
-                        });
-                        cellContent += '</ul>';
-                    }
                     
-                    const weekdayCh = weekdays[dateObj.getDay()];
-                    const weekdayName = translate(weekdayCh);
-                    let displayDate;
-                    if (lang === 'en') {
+                    const morning = [];
+                    const afternoon = [];
+                    const night = [];
+                    const others = [];
+
+                    dayShifts.forEach(shift => {
+                        const staffMember = findStaffById(shift.staffId);
+                        const name = staffMember.name; 
                         
-                        const mm = String(month + 1).padStart(2, '0');
-                        const dd = String(day).padStart(2, '0');
-                        displayDate = mm + '/' + dd + ' (' + weekdayName + ')';
-                    } else {
-                        displayDate = (month + 1) + '月' + day + '日 (' + weekdayCh + ')';
-                    }
-                    html += '<tr><td>' + displayDate + '</td><td>' + cellContent + '</td></tr>';
+                        if (shift.type === 'morning') morning.push(name);
+                        else if (shift.type === 'afternoon') afternoon.push(name);
+                        else if (shift.type === 'night') night.push(name);
+                        else {
+                            others.push(name + ' <span style="font-size:0.85em;color:#555;">(' + shift.startTime + '-' + shift.endTime + ')</span>');
+                        }
+                    });
+
+                    const rowClass = (dayOfWeek === 0 || dayOfWeek === 6) ? 'weekend' : '';
+                    const weekdayCh = weekdays[dayOfWeek];
+                    
+                    let dateDisplay = (month + 1) + '/' + day;
+
+                    html += '<tr class="' + rowClass + '">';
+                    html += '<td class="date-col">' + dateDisplay + '</td>';
+                    html += '<td class="day-col">' + translate(weekdayCh) + '</td>';
+                    
+                    html += '<td class="shift-cell">' + morning.map(n => '<span class="staff-item">' + n + '</span>').join('') + '</td>';
+                    html += '<td class="shift-cell">' + afternoon.map(n => '<span class="staff-item">' + n + '</span>').join('') + '</td>';
+                    html += '<td class="shift-cell">' + night.map(n => '<span class="staff-item">' + n + '</span>').join('') + '</td>';
+                    html += '<td class="shift-cell">' + others.map(n => '<span class="staff-item">' + n + '</span>').join('') + '</td>';
+                    
+                    html += '</tr>';
                 }
-                html += '</tbody></table></body></html>';
+                html += '</tbody></table>';
+                
+                const nowStr = new Date().toLocaleString(lang === 'zh' ? 'zh-TW' : 'en-US');
+                html += '<div class="footer">' + translate('列印時間：') + nowStr + '</div>';
+                
+                html += '</body></html>';
+                
                 const printWin = window.open('', '_blank');
                 if (printWin) {
                     printWin.document.open();
@@ -2014,7 +2170,6 @@
                         try { printWin.print(); } catch (_) {} finally { printWin.close(); }
                     }, 300);
                 } else {
-                    
                     const unableMsg = translate('無法開啟列印視窗，請檢查瀏覽器設定。');
                     try {
                         if (typeof window.showToast === 'function') {
@@ -2030,7 +2185,6 @@
                 }
             } catch (err) {
                 console.error('printCurrentMonthSchedule error', err);
-                
                 const errMsg = translate('列印排班表時發生錯誤！');
                 try {
                     if (typeof window.showToast === 'function') {
