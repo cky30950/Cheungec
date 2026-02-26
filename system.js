@@ -27927,6 +27927,11 @@ ${item.points.map(pt => {
   function showTooltip(event, encodedContent) {
     const tooltip = document.getElementById('tooltip');
     if (!tooltip) return;
+    if (tooltip.parentElement !== document.body) {
+      document.body.appendChild(tooltip);
+    }
+    tooltip.style.zIndex = '2147483647';
+    tooltip.style.position = 'fixed';
     const content = decodeURIComponent(encodedContent || '');
     // 使用 innerText 可以處理換行符號，避免 XSS
     tooltip.innerText = content;
@@ -27943,6 +27948,8 @@ ${item.points.map(pt => {
   function moveTooltip(event) {
     const tooltip = document.getElementById('tooltip');
     if (!tooltip || tooltip.classList.contains('hidden')) return;
+    tooltip.style.zIndex = '2147483647';
+    tooltip.style.position = 'fixed';
     const offsetX = 10;
     const offsetY = 10;
     // 使用 clientX/clientY 以取得視窗內座標，配合 position:fixed 讓提示靠近游標
