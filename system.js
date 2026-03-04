@@ -4143,6 +4143,17 @@ async function recordInventoryHistory(type, entries, extra = {}) {
 
 
 
+function loadUsersFromLocalStorage() {
+    try {
+        const stored = localStorage.getItem('users');
+        if (!stored) return [];
+        const parsed = JSON.parse(stored);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (_e) {
+        return [];
+    }
+}
+
 async function waitForFirebase() {
   while (!window.firebase) {
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -4154,6 +4165,58 @@ async function waitForFirebaseDb() {
   while (!window.firebase.db) {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
+}
+
+async function waitForFirebaseDataManager(timeoutMs = 10000) {
+    const start = Date.now();
+    while (!(window.firebaseDataManager && window.firebaseDataManager.isReady)) {
+        if (Date.now() - start > timeoutMs) return false;
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    return true;
+}
+
+async function waitForFirebaseConnectionStatus(timeoutMs = 2000) {
+    const start = Date.now();
+    while (!window.firebaseStatusInitialized) {
+        if (Date.now() - start > timeoutMs) break;
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+}
+
+async function fetchAuthorizedUserByUidOrEmail(uid, email) {
+    try {
+        await waitForFirebaseDb();
+        const colRef = window.firebase.collection(window.firebase.db, 'users');
+        if (uid) {
+            const q1 = window.firebase.firestoreQuery(
+                colRef,
+                window.firebase.where('uid', '==', uid),
+                window.firebase.limit(1)
+            );
+            const snap1 = await window.firebase.getDocs(q1);
+            if (snap1 && !snap1.empty) {
+                const docSnap = snap1.docs[0];
+                return { id: docSnap.id, ...docSnap.data() };
+            }
+        }
+        if (email) {
+            const q2 = window.firebase.firestoreQuery(
+                colRef,
+                window.firebase.where('email', '==', email),
+                window.firebase.limit(1)
+            );
+            const snap2 = await window.firebase.getDocs(q2);
+            if (snap2 && !snap2.empty) {
+                const docSnap = snap2.docs[0];
+                return { id: docSnap.id, ...docSnap.data() };
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('查詢授權用戶資料失敗:', error);
+        return null;
+    }
 }
 
 
@@ -4431,7 +4494,8 @@ async function attemptMainLogin() {
         await waitForFirebase();
 
         
-        if (window.firebaseConnected === false) {
+        await waitForFirebaseConnectionStatus(1500);
+        if (window.firebaseStatusInitialized === true && window.firebaseConnected === false) {
             showToast('無法連接到伺服器，請稍後再試', 'error');
             return;
         }
@@ -4481,13 +4545,41 @@ async function attemptMainLogin() {
                 
                 
                 try {
-                    await window.firebaseDataManager.updateUser(matchingUser.id, { uid: uid });
+                    await waitForFirebaseDataManager(8000);
+                    if (window.firebaseDataManager && typeof window.firebaseDataManager.updateUser === 'function') {
+                        await window.firebaseDataManager.updateUser(matchingUser.id, { uid: uid });
+                    }
                 } catch (error) {
                     console.error('更新用戶 UID 失敗:', error);
                 }
                 
                 
                 localStorage.setItem('users', JSON.stringify(users));
+            }
+        }
+
+        if (!matchingUser) {
+            const remoteUser = await fetchAuthorizedUserByUidOrEmail(uid, firebaseUser && firebaseUser.email);
+            if (remoteUser) {
+                matchingUser = remoteUser;
+                if (uid && (!matchingUser.uid || matchingUser.uid !== uid)) {
+                    matchingUser.uid = uid;
+                    try {
+                        await waitForFirebaseDataManager(8000);
+                        if (window.firebaseDataManager && typeof window.firebaseDataManager.updateUser === 'function') {
+                            await window.firebaseDataManager.updateUser(matchingUser.id, { uid: uid });
+                        }
+                    } catch (error) {
+                        console.error('更新用戶 UID 失敗:', error);
+                    }
+                }
+                try {
+                    if (!Array.isArray(users)) users = [];
+                    const idx = users.findIndex(u => u && u.id === matchingUser.id);
+                    if (idx >= 0) users[idx] = { ...users[idx], ...matchingUser };
+                    else users.push(matchingUser);
+                    localStorage.setItem('users', JSON.stringify(users));
+                } catch (_e) {}
             }
         }
 
@@ -4640,9 +4732,17 @@ async function attemptMainLogin() {
 
 async function syncUserDataFromFirebase() {
     try {
+        const localFallback = loadUsersFromLocalStorage();
+        if (Array.isArray(localFallback) && localFallback.length && (!Array.isArray(users) || users.length === 0)) {
+            users = localFallback;
+        }
+
         if (!window.firebaseDataManager || !window.firebaseDataManager.isReady) {
-            console.log('Firebase 數據管理器尚未準備就緒，跳過同步');
-            return;
+            const ok = await waitForFirebaseDataManager(8000);
+            if (!ok) {
+                console.log('Firebase 數據管理器尚未準備就緒，使用本地用戶快取');
+                return;
+            }
         }
 
         
@@ -4679,7 +4779,10 @@ async function syncUserDataFromFirebase() {
             console.log('已同步 Firebase 用戶數據到本地:', users.length, '筆 (使用快取)');
         } else {
             
-            console.warn('無法從 Firebase 取得完整用戶列表，未回退同步單一用戶資料');
+            if (Array.isArray(localFallback) && localFallback.length && (!Array.isArray(users) || users.length === 0)) {
+                users = localFallback;
+            }
+            console.warn('無法從 Firebase 取得完整用戶列表，改使用本地快取:', Array.isArray(users) ? users.length : 0, '筆');
         }
     } catch (error) {
         console.error('同步 Firebase 用戶數據失敗:', error);
