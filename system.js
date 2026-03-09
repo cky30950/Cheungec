@@ -28757,7 +28757,7 @@ document.addEventListener('DOMContentLoaded', function () {
         loginCopy.className = 'text-center mt-8 text-xs text-gray-400';
         loginCopy.innerHTML = `
           <div class="border-t border-gray-200 pt-4">
-            Copyright © 2025 <span class="text-gray-600 font-medium">名醫有限公司</span>. All rights reserved.
+            Copyright © 2025 <span class="text-gray-600 font-medium">名醫診所系統</span>. All rights reserved.
           </div>
         `;
         cardContainer.appendChild(loginCopy);
@@ -28772,7 +28772,7 @@ document.addEventListener('DOMContentLoaded', function () {
       globalContainer.innerHTML = `
         <div class="text-center border-t border-gray-200 pt-4">
           <div class="text-xs text-gray-400">
-            Copyright © 2025 <span class="text-gray-600 font-medium">名醫有限公司</span>. All rights reserved.
+            Copyright © 2025 <span class="text-gray-600 font-medium">名醫診所系統</span>. All rights reserved.
           </div>
         </div>
       `;
