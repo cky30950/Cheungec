@@ -5292,6 +5292,21 @@
   "cautions": "風寒咳嗽及脾胃虛寒者慎用",
   "type": "herb",
   "englishName": "BeiShaShen"
+},
+{
+  "id": 1755100003015,
+  "name": "茯神",
+  "alias": "伏神、茯神木",
+  "nature": "甘、淡，平",
+  "meridian": "心、脾經",
+  "effects": "寧心安神，利水滲濕",
+  "indications": "心神不安，驚悸健忘，失眠多夢，小便不利",
+  "dosage": "9-15g",
+  "cautions": "暫無",
+  "type": "herb",
+  "englishName": "FuShen",
+  "createdAt": "2025-08-12T10:24:05.533Z",
+  "updatedAt": "2025-08-12T10:24:05.533Z"
 }
   ]
 }
