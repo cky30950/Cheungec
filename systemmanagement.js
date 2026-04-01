@@ -842,6 +842,532 @@ async function importClinicBackup(data) {
     }
 }
 
+let legacyMigrationParsedState = null;
+
+function triggerLegacyMigrationImport() {
+    const input = document.getElementById('legacyMigrationFileInput');
+    if (input) {
+        input.value = '';
+        input.click();
+    }
+}
+
+function setLegacyMigrationProgress(percent, text, visible) {
+    const container = document.getElementById('legacyMigrationProgressContainer');
+    const bar = document.getElementById('legacyMigrationProgressBar');
+    const label = document.getElementById('legacyMigrationProgressText');
+    if (!container || !bar || !label) return;
+    if (visible) {
+        container.classList.remove('hidden');
+    } else {
+        container.classList.add('hidden');
+    }
+    const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
+    bar.style.width = `${safePercent}%`;
+    label.textContent = text || `遷移進度 ${safePercent}%`;
+}
+
+function parseCsvTextToObjects(text) {
+    const content = String(text || '').replace(/^\uFEFF/, '');
+    const rows = [];
+    let row = [];
+    let value = '';
+    let inQuotes = false;
+    for (let i = 0; i < content.length; i++) {
+        const ch = content[i];
+        if (ch === '"') {
+            if (inQuotes && content[i + 1] === '"') {
+                value += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (ch === ',' && !inQuotes) {
+            row.push(value);
+            value = '';
+        } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+            if (ch === '\r' && content[i + 1] === '\n') i++;
+            row.push(value);
+            if (row.some(cell => String(cell || '').trim() !== '')) {
+                rows.push(row);
+            }
+            row = [];
+            value = '';
+        } else {
+            value += ch;
+        }
+    }
+    row.push(value);
+    if (row.some(cell => String(cell || '').trim() !== '')) {
+        rows.push(row);
+    }
+    if (!rows.length) return [];
+    const headers = rows[0].map(h => String(h || '').trim());
+    return rows.slice(1).map(cells => {
+        const obj = {};
+        headers.forEach((header, idx) => {
+            obj[header] = String(cells[idx] || '').trim();
+        });
+        return obj;
+    });
+}
+
+function getValueByKeys(item, keys) {
+    if (!item || typeof item !== 'object') return '';
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(item, key)) {
+            const value = item[key];
+            if (value !== undefined && value !== null && String(value).trim() !== '') {
+                return String(value).trim();
+            }
+        }
+    }
+    return '';
+}
+
+function normalizeDateStringToDate(raw) {
+    if (!raw && raw !== 0) return null;
+    if (raw instanceof Date && !isNaN(raw.getTime())) return raw;
+    if (typeof raw === 'number') {
+        const d = new Date(raw);
+        return isNaN(d.getTime()) ? null : d;
+    }
+    if (typeof raw === 'object' && raw.seconds !== undefined) {
+        const d = new Date(Number(raw.seconds) * 1000);
+        return isNaN(d.getTime()) ? null : d;
+    }
+    const str = String(raw).trim();
+    if (!str) return null;
+    const normalized = str.replace(/\./g, '-').replace(/\//g, '-');
+    const d = new Date(normalized);
+    return isNaN(d.getTime()) ? null : d;
+}
+
+function formatDateToInput(date) {
+    const d = normalizeDateStringToDate(date);
+    if (!d) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function normalizeLegacyPatientItem(item, index) {
+    const name = getValueByKeys(item, ['name', 'patientName', 'fullName', '姓名', '病人姓名']);
+    const genderRaw = getValueByKeys(item, ['gender', 'sex', '性別']);
+    const phone = getValueByKeys(item, ['phone', 'mobile', 'phoneNumber', '聯絡電話', '電話']);
+    const idCard = getValueByKeys(item, ['idCard', 'identityNo', 'idNumber', '身分證', '身分證字號']);
+    const birthDate = getValueByKeys(item, ['birthDate', 'birthday', 'dob', '出生日期']);
+    const address = getValueByKeys(item, ['address', '住址']);
+    const allergies = getValueByKeys(item, ['allergies', '過敏史']);
+    const history = getValueByKeys(item, ['history', 'medicalHistory', '病史']);
+    const patientNumber = getValueByKeys(item, ['patientNumber', '病歷號', '病人編號']);
+    const legacySourceId = getValueByKeys(item, ['id', 'patientId', 'oldId', '舊系統ID']);
+    if (!name) {
+        return { valid: false, reason: `第 ${index + 1} 筆病人缺少姓名` };
+    }
+    let gender = genderRaw || '未填';
+    if (gender === 'M' || gender.toLowerCase() === 'male') gender = '男';
+    if (gender === 'F' || gender.toLowerCase() === 'female') gender = '女';
+    const normalized = {
+        name,
+        gender,
+        phone: phone || '',
+        birthDate: formatDateToInput(birthDate),
+        idCard: idCard || `LEGACY-${Date.now()}-${index + 1}`,
+        address: address || '',
+        allergies: allergies || '',
+        history: history || '',
+        patientNumber: patientNumber || '',
+        legacySourceId: legacySourceId || '',
+        legacyRaw: item
+    };
+    return { valid: true, data: normalized };
+}
+
+function normalizeLegacyConsultationItem(item, index) {
+    const symptoms = getValueByKeys(item, ['symptoms', 'chiefComplaint', 'complaint', '主訴', '現病史']);
+    const diagnosis = getValueByKeys(item, ['diagnosis', '辨證', '中醫診斷', '診斷']);
+    const tongue = getValueByKeys(item, ['tongue', '舌象']);
+    const pulse = getValueByKeys(item, ['pulse', '脈象']);
+    const syndrome = getValueByKeys(item, ['syndrome', '證型']);
+    const prescription = getValueByKeys(item, ['prescription', '處方']);
+    const instructions = getValueByKeys(item, ['instructions', '醫囑']);
+    const medicalRecordNumber = getValueByKeys(item, ['medicalRecordNumber', '病歷編號', 'recordNumber']);
+    const dateRaw = getValueByKeys(item, ['date', 'consultationDate', 'visitDate', '日期', '就診日期', 'createdAt']);
+    const legacySourceId = getValueByKeys(item, ['id', 'consultationId', 'oldId', '舊系統ID']);
+    const patientId = getValueByKeys(item, ['patientId', 'oldPatientId', '病人ID']);
+    const patientNumber = getValueByKeys(item, ['patientNumber', '病人編號', '病歷號']);
+    const patientName = getValueByKeys(item, ['patientName', 'name', '病人姓名', '姓名']);
+    const idCard = getValueByKeys(item, ['idCard', '身分證', '身分證字號']);
+    const phone = getValueByKeys(item, ['phone', 'mobile', '電話', '聯絡電話']);
+    const date = normalizeDateStringToDate(dateRaw);
+    if (!symptoms && !diagnosis) {
+        return { valid: false, reason: `第 ${index + 1} 筆病歷缺少主訴或診斷` };
+    }
+    const normalized = {
+        symptoms: symptoms || '舊系統匯入',
+        diagnosis: diagnosis || '舊系統匯入待補',
+        tongue: tongue || '',
+        pulse: pulse || '',
+        syndrome: syndrome || '',
+        prescription: prescription || '',
+        instructions: instructions || '',
+        medicalRecordNumber: medicalRecordNumber || '',
+        date: date || new Date(),
+        legacySourceId: legacySourceId || '',
+        patientRef: {
+            patientId: patientId || '',
+            patientNumber: patientNumber || '',
+            patientName: patientName || '',
+            idCard: idCard || '',
+            phone: phone || ''
+        },
+        legacyRaw: item
+    };
+    return { valid: true, data: normalized };
+}
+
+function inferArrayType(items) {
+    if (!Array.isArray(items) || !items.length) return 'patients';
+    const sample = items[0] || {};
+    const keys = Object.keys(sample).map(k => String(k).toLowerCase());
+    const consultationHints = ['symptoms', 'diagnosis', 'chiefcomplaint', 'medicalrecordnumber', 'patientid'];
+    const hit = consultationHints.some(h => keys.some(k => k.includes(h)));
+    return hit ? 'consultations' : 'patients';
+}
+
+function collectLegacyRawData(data, dataType) {
+    const normalizedType = dataType || 'auto';
+    let patientItems = [];
+    let consultationItems = [];
+    if (Array.isArray(data)) {
+        const inferred = normalizedType === 'auto' ? inferArrayType(data) : normalizedType;
+        if (inferred === 'consultations') consultationItems = data;
+        else patientItems = data;
+        return { patientItems, consultationItems };
+    }
+    if (!data || typeof data !== 'object') {
+        return { patientItems, consultationItems };
+    }
+    const patientKeys = ['patients', 'patient', 'patientList', 'patientData'];
+    const consultationKeys = ['consultations', 'consultation', 'records', 'medicalRecords', 'visits', 'visitRecords'];
+    patientKeys.forEach(k => {
+        if (Array.isArray(data[k])) patientItems = patientItems.concat(data[k]);
+    });
+    consultationKeys.forEach(k => {
+        if (Array.isArray(data[k])) consultationItems = consultationItems.concat(data[k]);
+    });
+    if (data.data && typeof data.data === 'object') {
+        patientKeys.forEach(k => {
+            if (Array.isArray(data.data[k])) patientItems = patientItems.concat(data.data[k]);
+        });
+        consultationKeys.forEach(k => {
+            if (Array.isArray(data.data[k])) consultationItems = consultationItems.concat(data.data[k]);
+        });
+    }
+    if (normalizedType === 'patients') consultationItems = [];
+    if (normalizedType === 'consultations') patientItems = [];
+    if (normalizedType === 'mixed' && !patientItems.length && !consultationItems.length) {
+        const entries = Object.values(data).filter(v => Array.isArray(v));
+        entries.forEach(arr => {
+            const t = inferArrayType(arr);
+            if (t === 'consultations') consultationItems = consultationItems.concat(arr);
+            else patientItems = patientItems.concat(arr);
+        });
+    }
+    return { patientItems, consultationItems };
+}
+
+function buildLegacyMigrationSummaryHtml(parsed) {
+    const patientInvalidHtml = parsed.invalidPatients.slice(0, 5).map(msg => `<li>${msg}</li>`).join('');
+    const consultationInvalidHtml = parsed.invalidConsultations.slice(0, 5).map(msg => `<li>${msg}</li>`).join('');
+    const patientPreview = parsed.patients.slice(0, 3).map(p => `${p.name}${p.phone ? ` / ${p.phone}` : ''}`).join('、');
+    const consultationPreview = parsed.consultations.slice(0, 3).map(c => `${c.patientRef.patientName || '未命名病人'} / ${c.diagnosis}`).join('、');
+    return `
+        <div class="space-y-2">
+            <div>解析完成：病人 ${parsed.patients.length} 筆、病歷 ${parsed.consultations.length} 筆</div>
+            <div>病人預覽：${patientPreview || '無'}</div>
+            <div>病歷預覽：${consultationPreview || '無'}</div>
+            <div>病人無效資料：${parsed.invalidPatients.length} 筆</div>
+            ${patientInvalidHtml ? `<ul class="list-disc ml-5 text-red-600">${patientInvalidHtml}</ul>` : ''}
+            <div>病歷無效資料：${parsed.invalidConsultations.length} 筆</div>
+            ${consultationInvalidHtml ? `<ul class="list-disc ml-5 text-red-600">${consultationInvalidHtml}</ul>` : ''}
+        </div>
+    `;
+}
+
+async function handleLegacyMigrationFile(file) {
+    if (!file) return;
+    const fileInfo = document.getElementById('legacyMigrationFileInfo');
+    const summary = document.getElementById('legacyMigrationSummary');
+    if (fileInfo) {
+        fileInfo.textContent = `已選擇：${file.name}`;
+    }
+    try {
+        const formatSelect = document.getElementById('legacyMigrationFormat');
+        const typeSelect = document.getElementById('legacyMigrationDataType');
+        const selectedFormat = formatSelect ? formatSelect.value : 'auto';
+        const selectedType = typeSelect ? typeSelect.value : 'auto';
+        const text = await file.text();
+        const ext = String(file.name || '').toLowerCase().split('.').pop();
+        const format = selectedFormat === 'auto' ? (ext === 'csv' ? 'csv' : 'json') : selectedFormat;
+        let patientItems = [];
+        let consultationItems = [];
+        if (format === 'csv') {
+            const objects = parseCsvTextToObjects(text);
+            const inferredType = selectedType === 'auto' ? inferArrayType(objects) : selectedType;
+            if (inferredType === 'consultations') consultationItems = objects;
+            else patientItems = objects;
+        } else {
+            const jsonData = JSON.parse(text);
+            const collected = collectLegacyRawData(jsonData, selectedType);
+            patientItems = collected.patientItems;
+            consultationItems = collected.consultationItems;
+        }
+        const patients = [];
+        const consultations = [];
+        const invalidPatients = [];
+        const invalidConsultations = [];
+        patientItems.forEach((item, idx) => {
+            const result = normalizeLegacyPatientItem(item, idx);
+            if (result.valid) patients.push(result.data);
+            else invalidPatients.push(result.reason);
+        });
+        consultationItems.forEach((item, idx) => {
+            const result = normalizeLegacyConsultationItem(item, idx);
+            if (result.valid) consultations.push(result.data);
+            else invalidConsultations.push(result.reason);
+        });
+        legacyMigrationParsedState = {
+            fileName: file.name,
+            patients,
+            consultations,
+            invalidPatients,
+            invalidConsultations
+        };
+        if (summary) {
+            summary.innerHTML = buildLegacyMigrationSummaryHtml(legacyMigrationParsedState);
+            summary.classList.remove('hidden');
+        }
+        showToast('舊資料檔案解析完成，請確認預覽後開始轉移', 'success');
+    } catch (error) {
+        legacyMigrationParsedState = null;
+        if (summary) {
+            summary.classList.add('hidden');
+            summary.innerHTML = '';
+        }
+        console.error('解析舊資料檔案失敗:', error);
+        showToast('解析失敗，請確認檔案格式（JSON/CSV）', 'error');
+    }
+}
+
+function buildPatientLookupMaps(items) {
+    const byLegacyId = new Map();
+    const byPatientNumber = new Map();
+    const byIdCard = new Map();
+    const byPhone = new Map();
+    const byName = new Map();
+    (items || []).forEach(item => {
+        if (!item) return;
+        const id = item.id ? String(item.id) : '';
+        const legacySourceId = item.legacySourceId ? String(item.legacySourceId).trim() : '';
+        const patientNumber = item.patientNumber ? String(item.patientNumber).trim() : '';
+        const idCard = item.idCard ? String(item.idCard).trim().toUpperCase() : '';
+        const phone = item.phone ? String(item.phone).trim() : '';
+        const name = item.name ? String(item.name).trim().toLowerCase() : '';
+        if (legacySourceId && id) byLegacyId.set(legacySourceId, id);
+        if (patientNumber && id) byPatientNumber.set(patientNumber, id);
+        if (idCard && id) byIdCard.set(idCard, id);
+        if (phone && id) byPhone.set(phone, id);
+        if (name && id && !byName.has(name)) byName.set(name, id);
+    });
+    return { byLegacyId, byPatientNumber, byIdCard, byPhone, byName };
+}
+
+function resolveConsultationPatientId(patientRef, lookup) {
+    if (!patientRef || !lookup) return '';
+    const legacyId = patientRef.patientId ? String(patientRef.patientId).trim() : '';
+    const patientNumber = patientRef.patientNumber ? String(patientRef.patientNumber).trim() : '';
+    const idCard = patientRef.idCard ? String(patientRef.idCard).trim().toUpperCase() : '';
+    const phone = patientRef.phone ? String(patientRef.phone).trim() : '';
+    const name = patientRef.patientName ? String(patientRef.patientName).trim().toLowerCase() : '';
+    if (legacyId && lookup.byLegacyId.has(legacyId)) return lookup.byLegacyId.get(legacyId);
+    if (legacyId && lookup.byPatientNumber.has(legacyId)) return lookup.byPatientNumber.get(legacyId);
+    if (patientNumber && lookup.byPatientNumber.has(patientNumber)) return lookup.byPatientNumber.get(patientNumber);
+    if (idCard && lookup.byIdCard.has(idCard)) return lookup.byIdCard.get(idCard);
+    if (phone && lookup.byPhone.has(phone)) return lookup.byPhone.get(phone);
+    if (name && lookup.byName.has(name)) return lookup.byName.get(name);
+    return '';
+}
+
+async function startLegacyDataMigration() {
+    if (!legacyMigrationParsedState) {
+        showToast('請先選擇並解析舊資料檔案', 'error');
+        return;
+    }
+    const totalToImport = legacyMigrationParsedState.patients.length + legacyMigrationParsedState.consultations.length;
+    if (!totalToImport) {
+        showToast('沒有可遷移的有效資料', 'error');
+        return;
+    }
+    const confirmed = await showConfirmation('舊資料轉移將新增/合併病人並匯入病歷，確定開始嗎？', 'warning');
+    if (!confirmed) return;
+    const button = document.getElementById('legacyMigrationStartBtn');
+    setButtonLoading(button);
+    const summary = document.getElementById('legacyMigrationSummary');
+    try {
+        setLegacyMigrationProgress(1, '遷移進度 1%（初始化）', true);
+        await ensureFirebaseReady();
+        const existingPatientsRes = await window.firebaseDataManager.getPatients(true);
+        const existingPatients = existingPatientsRes && existingPatientsRes.success && Array.isArray(existingPatientsRes.data)
+            ? existingPatientsRes.data
+            : [];
+        const lookup = buildPatientLookupMaps(existingPatients);
+        let patientSuccess = 0;
+        let patientMerged = 0;
+        let patientFailed = 0;
+        let consultationSuccess = 0;
+        let consultationSkipped = 0;
+        let consultationFailed = 0;
+        let currentStep = 0;
+        const totalSteps = totalToImport + 2;
+        for (let i = 0; i < legacyMigrationParsedState.patients.length; i++) {
+            const item = legacyMigrationParsedState.patients[i];
+            const idCardKey = item.idCard ? String(item.idCard).trim().toUpperCase() : '';
+            const phoneKey = item.phone ? String(item.phone).trim() : '';
+            const legacyKey = item.legacySourceId ? String(item.legacySourceId).trim() : '';
+            const patientNumberKey = item.patientNumber ? String(item.patientNumber).trim() : '';
+            const existingId = (legacyKey && lookup.byLegacyId.get(legacyKey))
+                || (patientNumberKey && lookup.byPatientNumber.get(patientNumberKey))
+                || (idCardKey && lookup.byIdCard.get(idCardKey))
+                || (phoneKey && lookup.byPhone.get(phoneKey))
+                || '';
+            if (existingId) {
+                patientMerged++;
+            } else {
+                try {
+                    let finalPatientNumber = item.patientNumber;
+                    if (!finalPatientNumber) {
+                        if (typeof generatePatientNumberFromFirebase === 'function') {
+                            finalPatientNumber = await generatePatientNumberFromFirebase();
+                        } else {
+                            finalPatientNumber = `P${String(Date.now()).slice(-6)}`;
+                        }
+                    }
+                    const saveRes = await window.firebaseDataManager.addPatient({
+                        name: item.name,
+                        gender: item.gender,
+                        phone: item.phone,
+                        birthDate: item.birthDate,
+                        idCard: item.idCard,
+                        address: item.address,
+                        allergies: item.allergies,
+                        history: item.history,
+                        patientNumber: finalPatientNumber,
+                        legacySourceId: item.legacySourceId || '',
+                        importSource: 'legacyMigration',
+                        importAt: new Date().toISOString()
+                    });
+                    if (saveRes && saveRes.success && saveRes.id) {
+                        patientSuccess++;
+                        if (legacyKey) lookup.byLegacyId.set(legacyKey, saveRes.id);
+                        if (finalPatientNumber) lookup.byPatientNumber.set(finalPatientNumber, saveRes.id);
+                        if (idCardKey) lookup.byIdCard.set(idCardKey, saveRes.id);
+                        if (phoneKey) lookup.byPhone.set(phoneKey, saveRes.id);
+                        if (item.name) {
+                            const nameKey = String(item.name).trim().toLowerCase();
+                            if (nameKey && !lookup.byName.has(nameKey)) lookup.byName.set(nameKey, saveRes.id);
+                        }
+                    } else {
+                        patientFailed++;
+                    }
+                } catch (_patientError) {
+                    patientFailed++;
+                }
+            }
+            currentStep++;
+            const percent = Math.round((currentStep / totalSteps) * 100);
+            setLegacyMigrationProgress(percent, `遷移進度 ${percent}%（病人 ${i + 1}/${legacyMigrationParsedState.patients.length}）`, true);
+        }
+        const latestPatientsRes = await window.firebaseDataManager.getPatients(true);
+        const latestPatients = latestPatientsRes && latestPatientsRes.success && Array.isArray(latestPatientsRes.data)
+            ? latestPatientsRes.data
+            : [];
+        const latestLookup = buildPatientLookupMaps(latestPatients);
+        const patientNameMap = new Map();
+        latestPatients.forEach(p => {
+            if (p && p.id) patientNameMap.set(String(p.id), p.name || '');
+        });
+        for (let j = 0; j < legacyMigrationParsedState.consultations.length; j++) {
+            const item = legacyMigrationParsedState.consultations[j];
+            const resolvedPatientId = resolveConsultationPatientId(item.patientRef, latestLookup);
+            if (!resolvedPatientId) {
+                consultationSkipped++;
+                currentStep++;
+                const percent = Math.round((currentStep / totalSteps) * 100);
+                setLegacyMigrationProgress(percent, `遷移進度 ${percent}%（病歷 ${j + 1}/${legacyMigrationParsedState.consultations.length}）`, true);
+                continue;
+            }
+            try {
+                const consultationPayload = {
+                    patientId: resolvedPatientId,
+                    patientName: patientNameMap.get(String(resolvedPatientId)) || item.patientRef.patientName || '',
+                    date: item.date instanceof Date ? item.date : new Date(),
+                    symptoms: item.symptoms,
+                    diagnosis: item.diagnosis,
+                    tongue: item.tongue,
+                    pulse: item.pulse,
+                    syndrome: item.syndrome,
+                    prescription: item.prescription,
+                    instructions: item.instructions,
+                    medicalRecordNumber: item.medicalRecordNumber || (typeof generateMedicalRecordNumber === 'function' ? generateMedicalRecordNumber() : `MR${Date.now()}${String(j + 1).padStart(3, '0')}`),
+                    importSource: 'legacyMigration',
+                    legacySourceId: item.legacySourceId || '',
+                    importedAt: new Date().toISOString()
+                };
+                const saveConsultationRes = await window.firebaseDataManager.addConsultation(consultationPayload);
+                if (saveConsultationRes && saveConsultationRes.success) consultationSuccess++;
+                else consultationFailed++;
+            } catch (_consultationError) {
+                consultationFailed++;
+            }
+            currentStep++;
+            const percent = Math.round((currentStep / totalSteps) * 100);
+            setLegacyMigrationProgress(percent, `遷移進度 ${percent}%（病歷 ${j + 1}/${legacyMigrationParsedState.consultations.length}）`, true);
+        }
+        currentStep++;
+        setLegacyMigrationProgress(Math.round((currentStep / totalSteps) * 100), '遷移進度 99%（更新畫面）', true);
+        try {
+            if (typeof loadPatientList === 'function') loadPatientList();
+            if (typeof loadTodayAppointments === 'function') await loadTodayAppointments();
+            if (typeof updateStatistics === 'function') updateStatistics();
+        } catch (_refreshError) {}
+        setLegacyMigrationProgress(100, '遷移進度 100%（完成）', true);
+        const resultHtml = `
+            <div class="space-y-2">
+                <div class="font-semibold text-green-700">資料轉移完成</div>
+                <div>病人新增：${patientSuccess} 筆</div>
+                <div>病人已存在略過：${patientMerged} 筆</div>
+                <div>病人失敗：${patientFailed} 筆</div>
+                <div>病歷新增：${consultationSuccess} 筆</div>
+                <div>病歷找不到病人略過：${consultationSkipped} 筆</div>
+                <div>病歷失敗：${consultationFailed} 筆</div>
+            </div>
+        `;
+        if (summary) {
+            summary.innerHTML = resultHtml;
+            summary.classList.remove('hidden');
+        }
+        showToast('舊資料轉移完成', 'success');
+    } catch (error) {
+        console.error('舊資料轉移失敗:', error);
+        showToast('舊資料轉移失敗，請稍後重試', 'error');
+    } finally {
+        clearButtonLoading(button);
+    }
+}
+
 
 if (!window.systemManagement) {
     window.systemManagement = {};
@@ -860,6 +1386,9 @@ window.systemManagement.exportClinicBackup = exportClinicBackup;
 window.systemManagement.triggerBackupImport = triggerBackupImport;
 window.systemManagement.handleBackupFile = handleBackupFile;
 window.systemManagement.importClinicBackup = importClinicBackup;
+window.systemManagement.triggerLegacyMigrationImport = triggerLegacyMigrationImport;
+window.systemManagement.handleLegacyMigrationFile = handleLegacyMigrationFile;
+window.systemManagement.startLegacyDataMigration = startLegacyDataMigration;
 
 
 window.showClinicSettingsModal = showClinicSettingsModal;
@@ -876,6 +1405,9 @@ window.exportClinicBackup = exportClinicBackup;
 window.triggerBackupImport = triggerBackupImport;
 window.handleBackupFile = handleBackupFile;
 window.importClinicBackup = importClinicBackup;
+window.triggerLegacyMigrationImport = triggerLegacyMigrationImport;
+window.handleLegacyMigrationFile = handleLegacyMigrationFile;
+window.startLegacyDataMigration = startLegacyDataMigration;
 
 
 document.addEventListener('DOMContentLoaded', function() {

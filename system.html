@@ -2018,6 +2018,49 @@
     </div>
 </div>
                                 
+                    <div class="bg-gray-50 rounded-lg p-6 md:col-span-2">
+                        <h3 class="text-lg font-semibold mb-4">舊資料轉移系統</h3>
+                        <p class="text-sm text-gray-600 mb-4">可匯入舊診所系統的 JSON 或 CSV。支援病人與病歷資料，系統會先解析預覽，再執行遷移並回報成功/略過/失敗筆數。</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">匯入檔案格式</label>
+                                <select id="legacyMigrationFormat" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                    <option value="auto" selected>自動判斷</option>
+                                    <option value="json">JSON</option>
+                                    <option value="csv">CSV</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">資料類型</label>
+                                <select id="legacyMigrationDataType" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                    <option value="auto" selected>自動判斷</option>
+                                    <option value="patients">病人資料</option>
+                                    <option value="consultations">病歷資料</option>
+                                    <option value="mixed">病人+病歷</option>
+                                </select>
+                            </div>
+                            <div class="flex items-end">
+                                <button id="legacyMigrationStartBtn" onclick="startLegacyDataMigration()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition duration-200">
+                                    開始資料轉移
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex flex-col md:flex-row gap-4 mb-4">
+                            <button id="legacyMigrationChooseBtn" onclick="triggerLegacyMigrationImport()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-200">
+                                選擇舊資料檔案
+                            </button>
+                            <div id="legacyMigrationFileInfo" class="text-sm text-gray-600 flex items-center">尚未選擇檔案</div>
+                        </div>
+                        <input type="file" id="legacyMigrationFileInput" accept=".json,.csv,text/csv,application/json" class="hidden" onchange="handleLegacyMigrationFile(this.files[0])">
+                        <div id="legacyMigrationSummary" class="hidden rounded-lg bg-white border border-gray-200 p-4 text-sm text-gray-700 mb-4"></div>
+                        <div id="legacyMigrationProgressContainer" class="hidden">
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div id="legacyMigrationProgressBar" class="bg-indigo-600 h-2.5 rounded-full" style="width:0%"></div>
+                            </div>
+                            <div id="legacyMigrationProgressText" class="mt-2 text-sm text-gray-700">遷移進度 0%</div>
+                        </div>
+                    </div>
+                                
                     <div class="bg-gray-50 rounded-lg p-6">
                         <h3 class="text-lg font-semibold mb-4">診所設定</h3>
                         <div class="space-y-3">
