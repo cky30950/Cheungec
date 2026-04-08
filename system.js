@@ -1024,6 +1024,81 @@ let patientConsultationsCache = {};
 let patientConsultationsListeners = {};
 let currentPatientHistoryPatientId = null;
 let currentConsultationHistoryPatientId = null;
+const consultationHistoryPager = {
+    contexts: {
+        patient: {
+            getPatientId: () => currentPatientHistoryPatientId,
+            setPatientId: (id) => { currentPatientHistoryPatientId = id; },
+            getConsultations: () => currentPatientConsultations,
+            setConsultations: (list) => { currentPatientConsultations = list; },
+            getCurrentPage: () => currentPatientHistoryPage,
+            setCurrentPage: (page) => { currentPatientHistoryPage = page; }
+        },
+        consultation: {
+            getPatientId: () => currentConsultationHistoryPatientId,
+            setPatientId: (id) => { currentConsultationHistoryPatientId = id; },
+            getConsultations: () => currentConsultationConsultations,
+            setConsultations: (list) => { currentConsultationConsultations = list; },
+            getCurrentPage: () => currentConsultationHistoryPage,
+            setCurrentPage: (page) => { currentConsultationHistoryPage = page; }
+        }
+    },
+    normalizeAndSortConsultations(list) {
+        const arr = Array.isArray(list) ? list.slice() : [];
+        return arr.sort((a, b) => {
+            const dateA = parseConsultationDate(a.date);
+            const dateB = parseConsultationDate(b.date);
+            if (!dateA || isNaN(dateA.getTime())) return 1;
+            if (!dateB || isNaN(dateB.getTime())) return -1;
+            return dateA - dateB;
+        });
+    },
+    setContextData(contextKey, patientId, list) {
+        const ctx = this.contexts[contextKey];
+        if (!ctx) return;
+        const sorted = this.normalizeAndSortConsultations(list);
+        ctx.setPatientId(patientId);
+        ctx.setConsultations(sorted);
+        ctx.setCurrentPage(Math.max(0, sorted.length - 1));
+    },
+    async loadForContext(contextKey, patientId) {
+        const ctx = this.contexts[contextKey];
+        if (!ctx) return { success: false, data: [] };
+        const consultationResult = await window.firebaseDataManager.getPatientConsultations(patientId);
+        if (!consultationResult || !consultationResult.success) {
+            return { success: false, data: [] };
+        }
+        this.setContextData(contextKey, patientId, consultationResult.data || []);
+        return { success: true, data: ctx.getConsultations() };
+    },
+    applyListenerList(patientId, list) {
+        const pid = String(patientId || '');
+        const contexts = ['patient', 'consultation'];
+        contexts.forEach((key) => {
+            const ctx = this.contexts[key];
+            if (!ctx) return;
+            if (String(ctx.getPatientId() || '') !== pid) return;
+            this.setContextData(key, pid, list || []);
+        });
+    },
+    changePage(contextKey, direction) {
+        const ctx = this.contexts[contextKey];
+        if (!ctx) return false;
+        const list = ctx.getConsultations();
+        const oldPage = Number(ctx.getCurrentPage()) || 0;
+        const newPage = oldPage + direction;
+        if (newPage < 0 || newPage >= list.length) return false;
+        ctx.setCurrentPage(newPage);
+        return true;
+    },
+    close(contextKey) {
+        const ctx = this.contexts[contextKey];
+        if (!ctx) return;
+        const pid = ctx.getPatientId();
+        try { detachPatientConsultationsListener(pid); } catch (_e) {}
+        ctx.setPatientId(null);
+    }
+};
 
 
 
@@ -2437,28 +2512,14 @@ async function attachPatientConsultationsListener(patientId) {
             try {
                 const m1 = document.getElementById('patientMedicalHistoryModal');
                 if (m1 && !m1.classList.contains('hidden') && currentPatientHistoryPatientId && String(currentPatientHistoryPatientId) === pid) {
-                    currentPatientConsultations = list.slice().sort((a, b) => {
-                        const da = parseConsultationDate(a.date);
-                        const db = parseConsultationDate(b.date);
-                        if (!da || isNaN(da.getTime())) return 1;
-                        if (!db || isNaN(db.getTime())) return -1;
-                        return da - db;
-                    });
-                    currentPatientHistoryPage = currentPatientConsultations.length - 1;
+                    consultationHistoryPager.applyListenerList(pid, list);
                     displayPatientMedicalHistoryPage();
                 }
             } catch (_e) {}
             try {
                 const m2 = document.getElementById('medicalHistoryModal');
                 if (m2 && !m2.classList.contains('hidden') && currentConsultationHistoryPatientId && String(currentConsultationHistoryPatientId) === pid) {
-                    currentConsultationConsultations = list.slice().sort((a, b) => {
-                        const da = parseConsultationDate(a.date);
-                        const db = parseConsultationDate(b.date);
-                        if (!da || isNaN(da.getTime())) return 1;
-                        if (!db || isNaN(db.getTime())) return -1;
-                        return da - db;
-                    });
-                    currentConsultationHistoryPage = currentConsultationConsultations.length - 1;
+                    consultationHistoryPager.applyListenerList(pid, list);
                     displayConsultationMedicalHistoryPage();
                 }
             } catch (_e) {}
@@ -9568,26 +9629,12 @@ if (!patient) {
     return;
 }
             
-            // 獲取該病人的所有診症記錄（從 Firestore 取得）
-            // 強制重新取得診症記錄，避免跨裝置快取不一致
-            const consultationResult = await window.firebaseDataManager.getPatientConsultations(patientId);
+            // 透過共用 pager 載入並同步狀態
+            const consultationResult = await consultationHistoryPager.loadForContext('patient', patientId);
             if (!consultationResult.success) {
                 showToast('無法讀取診症記錄！', 'error');
                 return;
             }
-            
-            // 使用通用日期解析函式對資料進行排序，按日期升序排列（較舊至較新）
-            currentPatientConsultations = consultationResult.data.slice().sort((a, b) => {
-                const dateA = parseConsultationDate(a.date);
-                const dateB = parseConsultationDate(b.date);
-                // 若其中一個日期無法解析，將其放到較後面
-                if (!dateA || isNaN(dateA.getTime())) return 1;
-                if (!dateB || isNaN(dateB.getTime())) return -1;
-                return dateA - dateB;
-            });
-            
-            // 預設顯示最新的病歷（最近一次診症）
-            currentPatientHistoryPage = currentPatientConsultations.length - 1;
             
             // 設置標題
             document.getElementById('patientMedicalHistoryTitle').textContent = `${patient.name} 的病歷記錄`;
@@ -9961,9 +10008,7 @@ if (!patient) {
         }
         
         function changePatientHistoryPage(direction) {
-            const newPage = currentPatientHistoryPage + direction;
-            if (newPage >= 0 && newPage < currentPatientConsultations.length) {
-                currentPatientHistoryPage = newPage;
+            if (consultationHistoryPager.changePage('patient', direction)) {
                 displayPatientMedicalHistoryPage();
             }
         }
@@ -9971,8 +10016,7 @@ if (!patient) {
         // 關閉病人病歷查看彈窗
         function closePatientMedicalHistoryModal() {
             document.getElementById('patientMedicalHistoryModal').classList.add('hidden');
-            try { detachPatientConsultationsListener(currentPatientHistoryPatientId); } catch (_e) {}
-            currentPatientHistoryPatientId = null;
+            consultationHistoryPager.close('patient');
         }
 
 
@@ -10007,30 +10051,12 @@ async function viewPatientMedicalHistory(patientId) {
             return;
         }
         
-        // 獲取該病人的所有診症記錄（強制刷新），避免跨裝置快取不一致
-        const consultationResult = await window.firebaseDataManager.getPatientConsultations(patientId);
+        // 透過共用 pager 載入並同步狀態
+        const consultationResult = await consultationHistoryPager.loadForContext('consultation', patientId);
         if (!consultationResult.success) {
             showToast('無法讀取診症記錄', 'error');
             return;
         }
-
-        /**
-         * Firebase 回傳的診症記錄預設按照日期降序（最新在前），
-         * 但在病歷瀏覽頁面中希望將順序調整為「較舊在左、最新在右」。
-         * 因此這裡先複製一份資料，再使用日期進行升序排序，
-         * 並將當前頁索引設為最後一筆，確保進入頁面時顯示最新的一次診症。
-         */
-        currentConsultationConsultations = consultationResult.data.slice().sort((a, b) => {
-            const dateA = parseConsultationDate(a.date);
-            const dateB = parseConsultationDate(b.date);
-            // 若其中一個日期無法解析，將其放到較後面
-            if (!dateA || isNaN(dateA.getTime())) return 1;
-            if (!dateB || isNaN(dateB.getTime())) return -1;
-            return dateA - dateB;
-        });
-
-        // 預設顯示最新的病歷（最近一次診症在最右）
-        currentConsultationHistoryPage = currentConsultationConsultations.length - 1;
         
         // 設置標題（轉義使用者輸入，避免 XSS）
         document.getElementById('medicalHistoryTitle').textContent = `${window.escapeHtml(patient.name)} 的診症記錄`;
@@ -10406,9 +10432,7 @@ function displayConsultationMedicalHistoryPage() {
 }
         
         function changeConsultationHistoryPage(direction) {
-            const newPage = currentConsultationHistoryPage + direction;
-            if (newPage >= 0 && newPage < currentConsultationConsultations.length) {
-                currentConsultationHistoryPage = newPage;
+            if (consultationHistoryPager.changePage('consultation', direction)) {
                 displayConsultationMedicalHistoryPage();
             }
         }
@@ -10416,8 +10440,7 @@ function displayConsultationMedicalHistoryPage() {
         // 關閉診症記錄彈窗
         function closeMedicalHistoryModal() {
             document.getElementById('medicalHistoryModal').classList.add('hidden');
-            try { detachPatientConsultationsListener(currentConsultationHistoryPatientId); } catch (_e) {}
-            currentConsultationHistoryPatientId = null;
+            consultationHistoryPager.close('consultation');
         }
         
 
