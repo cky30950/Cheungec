@@ -1085,7 +1085,10 @@ const consultationHistoryPager = {
         state.recordsByIndex.forEach((record, idx) => {
             const key = this.getRecordDateKey(record);
             if (!key) return;
-            map[key] = idx;
+            if (!Array.isArray(map[key])) {
+                map[key] = [];
+            }
+            map[key].push(idx);
         });
         state.dateIndexMap = map;
         state.dateIndexReady = true;
@@ -1233,9 +1236,10 @@ const consultationHistoryPager = {
                     return;
                 }
                 const ascIndex = Math.max(0, state.totalCount - 1 - descIndex);
-                if (typeof map[key] !== 'number') {
-                    map[key] = ascIndex;
+                if (!Array.isArray(map[key])) {
+                    map[key] = [];
                 }
+                map[key].push(ascIndex);
                 descIndex++;
             });
             state.dateIndexMap = map;
@@ -1251,7 +1255,15 @@ const consultationHistoryPager = {
     getDateIndex(patientId, dateKey) {
         const state = this.getCachedPatientState(patientId);
         if (!state || !state.dateIndexMap) return null;
-        return typeof state.dateIndexMap[dateKey] === 'number' ? state.dateIndexMap[dateKey] : null;
+        const indices = state.dateIndexMap[dateKey];
+        if (!Array.isArray(indices) || indices.length === 0) return null;
+        return indices[indices.length - 1];
+    },
+    getDateIndices(patientId, dateKey) {
+        const state = this.getCachedPatientState(patientId);
+        if (!state || !state.dateIndexMap) return [];
+        const indices = state.dateIndexMap[dateKey];
+        return Array.isArray(indices) ? indices.slice() : [];
     },
     getDateIndexMap(patientId) {
         const state = this.getCachedPatientState(patientId);
@@ -9868,8 +9880,8 @@ async function saveConsultation() {
         let currentPatientConsultations = [];
         let currentPatientHistoryPage = 0;
         const historyCalendarState = {
-            patient: { open: false, year: null, month: null },
-            consultation: { open: false, year: null, month: null }
+            patient: { open: false, year: null, month: null, selectedDateKey: null },
+            consultation: { open: false, year: null, month: null, selectedDateKey: null }
         };
         function getHistoryCalendarContextPatientId(contextKey) {
             return contextKey === 'patient' ? currentPatientHistoryPatientId : currentConsultationHistoryPatientId;
@@ -9891,6 +9903,7 @@ async function saveConsultation() {
             const st = historyCalendarState[contextKey];
             if (!st) return;
             st.open = false;
+            st.selectedDateKey = null;
         }
         function openHistoryCalendarAtCurrentMonth(contextKey) {
             const st = historyCalendarState[contextKey];
@@ -9902,6 +9915,29 @@ async function saveConsultation() {
             st.year = baseDate.getFullYear();
             st.month = baseDate.getMonth();
             st.open = true;
+            st.selectedDateKey = null;
+        }
+        function buildHistoryDateSelectionHtml(contextKey, dateMap) {
+            const st = historyCalendarState[contextKey];
+            if (!st || !st.selectedDateKey) return '';
+            const indices = Array.isArray(dateMap[st.selectedDateKey]) ? dateMap[st.selectedDateKey].slice() : [];
+            if (indices.length <= 1) return '';
+            const patientId = getHistoryCalendarContextPatientId(contextKey);
+            const state = consultationHistoryPager.getCachedPatientState(patientId);
+            const records = (state && Array.isArray(state.recordsByIndex)) ? state.recordsByIndex : [];
+            const buttons = indices.map((idx, arrIdx) => {
+                const rec = records[idx];
+                const ts = rec ? formatConsultationDateTime(rec.date || rec.createdAt || rec.updatedAt) : `同日病歷 ${arrIdx + 1}`;
+                const no = rec && (rec.medicalRecordNumber || rec.id) ? (rec.medicalRecordNumber || rec.id) : '';
+                const label = no ? `${ts}（${no}）` : ts;
+                return `<button onclick="selectHistoryCalendarRecord('${contextKey}', ${idx}, event)" class="w-full text-left px-3 py-2 text-sm rounded bg-white border border-blue-200 hover:bg-blue-50 transition">${window.escapeHtml(label)}</button>`;
+            }).join('');
+            return `
+                <div class="mt-3 bg-white border border-blue-200 rounded p-2">
+                    <div class="text-xs text-gray-600 mb-2">已選日期 ${st.selectedDateKey}，請選擇病歷：</div>
+                    <div class="space-y-2">${buttons}</div>
+                </div>
+            `;
         }
         function buildHistoryCalendarHtml(contextKey) {
             const st = historyCalendarState[contextKey];
@@ -9924,12 +9960,15 @@ async function saveConsultation() {
             }
             for (let day = 1; day <= daysInMonth; day++) {
                 const key = `${year}-${pad(month + 1)}-${pad(day)}`;
-                const hasRecord = typeof dateMap[key] === 'number';
+                const dateIndices = Array.isArray(dateMap[key]) ? dateMap[key] : [];
+                const hasRecord = dateIndices.length > 0;
+                const count = dateIndices.length;
                 if (hasRecord) {
                     cells += `
                         <button onclick="selectHistoryCalendarDate('${contextKey}', '${key}', event)"
-                                class="h-10 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 transition duration-150">
+                                class="h-10 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 transition duration-150 relative">
                             ${day}
+                            ${count > 1 ? `<span class="absolute -top-1 -right-1 text-[10px] leading-none px-1 py-0.5 rounded-full bg-white text-blue-600 border border-blue-200">${count}</span>` : ''}
                         </button>
                     `;
                 } else {
@@ -9940,6 +9979,7 @@ async function saveConsultation() {
                     `;
                 }
             }
+            const selectionHtml = buildHistoryDateSelectionHtml(contextKey, dateMap);
             return `
                 <div class="mb-6 border border-blue-100 bg-blue-50 rounded-lg p-3">
                     <div class="flex items-center justify-between mb-3">
@@ -9954,6 +9994,7 @@ async function saveConsultation() {
                         ${cells}
                     </div>
                     <div class="text-xs text-gray-500 mt-2">藍色日期代表有病歷，點擊可跳轉</div>
+                    ${selectionHtml}
                 </div>
             `;
         }
@@ -9965,6 +10006,7 @@ async function saveConsultation() {
             try {
                 if (st.open) {
                     st.open = false;
+                    st.selectedDateKey = null;
                     renderHistoryCalendar(contextKey);
                     return;
                 }
@@ -9987,6 +10029,18 @@ async function saveConsultation() {
             const d = new Date(st.year, st.month + delta, 1);
             st.year = d.getFullYear();
             st.month = d.getMonth();
+            st.selectedDateKey = null;
+            renderHistoryCalendar(contextKey);
+        }
+        function jumpToHistoryCalendarIndex(contextKey, patientId, targetIndex) {
+            const latestState = consultationHistoryPager.getCachedPatientState(patientId);
+            const ctx = consultationHistoryPager.contexts[contextKey];
+            if (!ctx) return;
+            if (latestState && Array.isArray(latestState.recordsByIndex)) {
+                ctx.setConsultations(latestState.recordsByIndex);
+            }
+            ctx.setCurrentPage(targetIndex);
+            closeHistoryCalendar(contextKey);
             renderHistoryCalendar(contextKey);
         }
         async function selectHistoryCalendarDate(contextKey, dateKey, evt) {
@@ -9995,24 +10049,41 @@ async function saveConsultation() {
             try {
                 const patientId = getHistoryCalendarContextPatientId(contextKey);
                 if (!patientId) return;
-                let targetIndex = consultationHistoryPager.getDateIndex(patientId, dateKey);
-                if (typeof targetIndex !== 'number') {
+                let dateIndices = consultationHistoryPager.getDateIndices(patientId, dateKey);
+                if (!Array.isArray(dateIndices) || dateIndices.length === 0) {
                     const indexed = await consultationHistoryPager.ensureDateIndex(patientId);
                     if (!indexed) return;
-                    targetIndex = consultationHistoryPager.getDateIndex(patientId, dateKey);
+                    dateIndices = consultationHistoryPager.getDateIndices(patientId, dateKey);
                 }
-                if (typeof targetIndex !== 'number') return;
+                if (!Array.isArray(dateIndices) || dateIndices.length === 0) return;
+                if (dateIndices.length > 1) {
+                    for (const idx of dateIndices) {
+                        await consultationHistoryPager.ensureLoadedAtIndex(patientId, idx);
+                    }
+                    const st = historyCalendarState[contextKey];
+                    if (st) {
+                        st.selectedDateKey = dateKey;
+                    }
+                    renderHistoryCalendar(contextKey);
+                    return;
+                }
+                const targetIndex = dateIndices[0];
                 const loaded = await consultationHistoryPager.ensureLoadedAtIndex(patientId, targetIndex);
                 if (!loaded) return;
-                const latestState = consultationHistoryPager.getCachedPatientState(patientId);
-                const ctx = consultationHistoryPager.contexts[contextKey];
-                if (!ctx) return;
-                if (latestState && Array.isArray(latestState.recordsByIndex)) {
-                    ctx.setConsultations(latestState.recordsByIndex);
-                }
-                ctx.setCurrentPage(targetIndex);
-                closeHistoryCalendar(contextKey);
-                renderHistoryCalendar(contextKey);
+                jumpToHistoryCalendarIndex(contextKey, patientId, targetIndex);
+            } finally {
+                if (btn) clearButtonLoading(btn);
+            }
+        }
+        async function selectHistoryCalendarRecord(contextKey, targetIndex, evt) {
+            const btn = evt && evt.currentTarget ? evt.currentTarget : null;
+            if (btn) setButtonLoading(btn, '讀取中...');
+            try {
+                const patientId = getHistoryCalendarContextPatientId(contextKey);
+                if (!patientId) return;
+                const loaded = await consultationHistoryPager.ensureLoadedAtIndex(patientId, targetIndex);
+                if (!loaded) return;
+                jumpToHistoryCalendarIndex(contextKey, patientId, targetIndex);
             } finally {
                 if (btn) clearButtonLoading(btn);
             }
