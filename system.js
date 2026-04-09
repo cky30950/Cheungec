@@ -1062,8 +1062,33 @@ const consultationHistoryPager = {
             descPageCache: {},
             descPageCursors: {},
             allLoaded: false,
-            mode: 'paged'
+            mode: 'paged',
+            dateIndexMap: {},
+            dateIndexReady: false
         };
+    },
+    dateToKey(dateObj) {
+        if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) return '';
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    },
+    getRecordDateKey(record) {
+        if (!record || typeof record !== 'object') return '';
+        const d = parseConsultationDate(record.date || record.createdAt || record.updatedAt || null);
+        return this.dateToKey(d);
+    },
+    rebuildDateIndexFromState(state) {
+        if (!state || !Array.isArray(state.recordsByIndex)) return;
+        const map = {};
+        state.recordsByIndex.forEach((record, idx) => {
+            const key = this.getRecordDateKey(record);
+            if (!key) return;
+            map[key] = idx;
+        });
+        state.dateIndexMap = map;
+        state.dateIndexReady = true;
     },
     getCachedPatientState(patientId) {
         const pid = String(patientId || '');
@@ -1118,6 +1143,7 @@ const consultationHistoryPager = {
         state.recordsByIndex = sorted.slice();
         state.descPageCache = {};
         state.descPageCursors = {};
+        this.rebuildDateIndexFromState(state);
         return { success: true, state };
     },
     async fetchDescPage(patientId, descPageNumber) {
@@ -1175,6 +1201,62 @@ const consultationHistoryPager = {
         const pageResult = await this.fetchDescPage(pid, descPageNumber);
         return !!(pageResult && pageResult.success && state.recordsByIndex[targetIndex]);
     },
+    async ensureDateIndex(patientId) {
+        const pid = String(patientId || '');
+        if (!pid) return false;
+        const stateResult = await this.ensurePatientState(pid, false);
+        if (!stateResult.success || !stateResult.state) return false;
+        const state = stateResult.state;
+        if (state.dateIndexReady && state.dateIndexMap && Object.keys(state.dateIndexMap).length > 0) {
+            return true;
+        }
+        if (state.mode === 'full') {
+            this.rebuildDateIndexFromState(state);
+            return true;
+        }
+        try {
+            await waitForFirebaseDb();
+            const colRef = window.firebase.collection(window.firebase.db, 'consultations');
+            const q = window.firebase.firestoreQuery(
+                colRef,
+                window.firebase.where('patientId', '==', pid),
+                window.firebase.orderBy('date', 'desc')
+            );
+            const snapshot = await window.firebase.getDocs(q);
+            const map = {};
+            let descIndex = 0;
+            snapshot.forEach((docSnap) => {
+                const rec = { id: docSnap.id, ...docSnap.data() };
+                const key = this.getRecordDateKey(rec);
+                if (!key) {
+                    descIndex++;
+                    return;
+                }
+                const ascIndex = Math.max(0, state.totalCount - 1 - descIndex);
+                if (typeof map[key] !== 'number') {
+                    map[key] = ascIndex;
+                }
+                descIndex++;
+            });
+            state.dateIndexMap = map;
+            state.dateIndexReady = true;
+            return true;
+        } catch (_err) {
+            const fallback = await this.loadFullModeFallback(pid);
+            if (!fallback.success || !fallback.state) return false;
+            this.rebuildDateIndexFromState(fallback.state);
+            return true;
+        }
+    },
+    getDateIndex(patientId, dateKey) {
+        const state = this.getCachedPatientState(patientId);
+        if (!state || !state.dateIndexMap) return null;
+        return typeof state.dateIndexMap[dateKey] === 'number' ? state.dateIndexMap[dateKey] : null;
+    },
+    getDateIndexMap(patientId) {
+        const state = this.getCachedPatientState(patientId);
+        return (state && state.dateIndexMap) ? state.dateIndexMap : {};
+    },
     setContextData(contextKey, patientId, list) {
         const ctx = this.contexts[contextKey];
         if (!ctx) return;
@@ -1221,6 +1303,7 @@ const consultationHistoryPager = {
             state.recordsByIndex = sorted.slice();
             state.descPageCache = {};
             state.descPageCursors = {};
+            this.rebuildDateIndexFromState(state);
         }
         const contexts = ['patient', 'consultation'];
         contexts.forEach((key) => {
@@ -9784,6 +9867,156 @@ async function saveConsultation() {
         // 病人資料管理頁面的病歷查看功能
         let currentPatientConsultations = [];
         let currentPatientHistoryPage = 0;
+        const historyCalendarState = {
+            patient: { open: false, year: null, month: null },
+            consultation: { open: false, year: null, month: null }
+        };
+        function getHistoryCalendarContextPatientId(contextKey) {
+            return contextKey === 'patient' ? currentPatientHistoryPatientId : currentConsultationHistoryPatientId;
+        }
+        function getHistoryCalendarContextList(contextKey) {
+            return contextKey === 'patient' ? currentPatientConsultations : currentConsultationConsultations;
+        }
+        function getHistoryCalendarContextPage(contextKey) {
+            return contextKey === 'patient' ? currentPatientHistoryPage : currentConsultationHistoryPage;
+        }
+        function renderHistoryCalendar(contextKey) {
+            if (contextKey === 'patient') {
+                displayPatientMedicalHistoryPage();
+            } else {
+                displayConsultationMedicalHistoryPage();
+            }
+        }
+        function closeHistoryCalendar(contextKey) {
+            const st = historyCalendarState[contextKey];
+            if (!st) return;
+            st.open = false;
+        }
+        function openHistoryCalendarAtCurrentMonth(contextKey) {
+            const st = historyCalendarState[contextKey];
+            if (!st) return;
+            const list = getHistoryCalendarContextList(contextKey);
+            const page = getHistoryCalendarContextPage(contextKey);
+            const current = Array.isArray(list) ? list[page] : null;
+            const baseDate = parseConsultationDate(current && (current.date || current.createdAt || current.updatedAt)) || new Date();
+            st.year = baseDate.getFullYear();
+            st.month = baseDate.getMonth();
+            st.open = true;
+        }
+        function buildHistoryCalendarHtml(contextKey) {
+            const st = historyCalendarState[contextKey];
+            if (!st || !st.open) return '';
+            const patientId = getHistoryCalendarContextPatientId(contextKey);
+            if (!patientId) return '';
+            const dateMap = consultationHistoryPager.getDateIndexMap(patientId) || {};
+            const year = Number(st.year);
+            const month = Number(st.month);
+            if (!Number.isFinite(year) || !Number.isFinite(month)) return '';
+            const firstDay = new Date(year, month, 1);
+            const startWeekday = firstDay.getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const monthLabel = `${year}年${String(month + 1).padStart(2, '0')}月`;
+            const weekdayLabels = ['日', '一', '二', '三', '四', '五', '六'];
+            const pad = (n) => String(n).padStart(2, '0');
+            let cells = '';
+            for (let i = 0; i < startWeekday; i++) {
+                cells += `<div class="h-10"></div>`;
+            }
+            for (let day = 1; day <= daysInMonth; day++) {
+                const key = `${year}-${pad(month + 1)}-${pad(day)}`;
+                const hasRecord = typeof dateMap[key] === 'number';
+                if (hasRecord) {
+                    cells += `
+                        <button onclick="selectHistoryCalendarDate('${contextKey}', '${key}', event)"
+                                class="h-10 rounded-lg text-sm font-medium bg-blue-500 text-white hover:bg-blue-600 transition duration-150">
+                            ${day}
+                        </button>
+                    `;
+                } else {
+                    cells += `
+                        <div class="h-10 rounded-lg text-sm text-gray-400 bg-gray-100 flex items-center justify-center">
+                            ${day}
+                        </div>
+                    `;
+                }
+            }
+            return `
+                <div class="mb-6 border border-blue-100 bg-blue-50 rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-3">
+                        <button onclick="changeHistoryCalendarMonth('${contextKey}', -1)" class="px-2 py-1 rounded bg-white border border-gray-200 hover:bg-gray-100 text-sm">←</button>
+                        <div class="font-semibold text-gray-800">${monthLabel}</div>
+                        <button onclick="changeHistoryCalendarMonth('${contextKey}', 1)" class="px-2 py-1 rounded bg-white border border-gray-200 hover:bg-gray-100 text-sm">→</button>
+                    </div>
+                    <div class="grid grid-cols-7 gap-1 mb-1">
+                        ${weekdayLabels.map(w => `<div class="text-xs text-gray-600 text-center py-1">${w}</div>`).join('')}
+                    </div>
+                    <div class="grid grid-cols-7 gap-1">
+                        ${cells}
+                    </div>
+                    <div class="text-xs text-gray-500 mt-2">藍色日期代表有病歷，點擊可跳轉</div>
+                </div>
+            `;
+        }
+        async function toggleHistoryCalendar(contextKey, evt) {
+            const st = historyCalendarState[contextKey];
+            if (!st) return;
+            const btn = evt && evt.currentTarget ? evt.currentTarget : null;
+            if (btn) setButtonLoading(btn, '讀取中...');
+            try {
+                if (st.open) {
+                    st.open = false;
+                    renderHistoryCalendar(contextKey);
+                    return;
+                }
+                const patientId = getHistoryCalendarContextPatientId(contextKey);
+                if (!patientId) return;
+                const ok = await consultationHistoryPager.ensureDateIndex(patientId);
+                if (!ok) {
+                    showToast('無法建立病歷日曆索引', 'error');
+                    return;
+                }
+                openHistoryCalendarAtCurrentMonth(contextKey);
+                renderHistoryCalendar(contextKey);
+            } finally {
+                if (btn) clearButtonLoading(btn);
+            }
+        }
+        function changeHistoryCalendarMonth(contextKey, delta) {
+            const st = historyCalendarState[contextKey];
+            if (!st) return;
+            const d = new Date(st.year, st.month + delta, 1);
+            st.year = d.getFullYear();
+            st.month = d.getMonth();
+            renderHistoryCalendar(contextKey);
+        }
+        async function selectHistoryCalendarDate(contextKey, dateKey, evt) {
+            const btn = evt && evt.currentTarget ? evt.currentTarget : null;
+            if (btn) setButtonLoading(btn, '讀取中...');
+            try {
+                const patientId = getHistoryCalendarContextPatientId(contextKey);
+                if (!patientId) return;
+                let targetIndex = consultationHistoryPager.getDateIndex(patientId, dateKey);
+                if (typeof targetIndex !== 'number') {
+                    const indexed = await consultationHistoryPager.ensureDateIndex(patientId);
+                    if (!indexed) return;
+                    targetIndex = consultationHistoryPager.getDateIndex(patientId, dateKey);
+                }
+                if (typeof targetIndex !== 'number') return;
+                const loaded = await consultationHistoryPager.ensureLoadedAtIndex(patientId, targetIndex);
+                if (!loaded) return;
+                const latestState = consultationHistoryPager.getCachedPatientState(patientId);
+                const ctx = consultationHistoryPager.contexts[contextKey];
+                if (!ctx) return;
+                if (latestState && Array.isArray(latestState.recordsByIndex)) {
+                    ctx.setConsultations(latestState.recordsByIndex);
+                }
+                ctx.setCurrentPage(targetIndex);
+                closeHistoryCalendar(contextKey);
+                renderHistoryCalendar(contextKey);
+            } finally {
+                if (btn) clearButtonLoading(btn);
+            }
+        }
         
         async function showPatientMedicalHistory(patientId) {
     try {
@@ -9838,6 +10071,7 @@ if (!patient) {
             `;
             
             currentPatientHistoryPatientId = patientId;
+            closeHistoryCalendar('patient');
             // 顯示分頁病歷記錄
             displayPatientMedicalHistoryPage();
             
@@ -9901,6 +10135,7 @@ if (!patient) {
             const doctorLabel = dict['醫師：'] || '醫師：';
             const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
             const clinicLabel = dict['診所：'] || '診所：';
+            const calendarHtml = buildHistoryCalendarHtml('patient');
 
             contentDiv.innerHTML = `
                 <!-- 分頁導航 -->
@@ -9916,6 +10151,10 @@ if (!patient) {
                     </div>
                     
                     <div class="flex items-center space-x-2">
+                        <button onclick="toggleHistoryCalendar('patient', event)"
+                                class="px-3 py-1 bg-white text-blue-700 border border-blue-200 rounded hover:bg-blue-50 text-sm">
+                            日曆
+                        </button>
                         <button onclick="changePatientHistoryPage(-1, event)" 
                                 ${currentPatientHistoryPage === 0 ? 'disabled' : ''}
                                 class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
@@ -9931,6 +10170,7 @@ if (!patient) {
                         </button>
                     </div>
                 </div>
+                ${calendarHtml}
                 
                 <!-- 當前病歷記錄 -->
                 <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
@@ -10198,6 +10438,7 @@ if (!patient) {
         // 關閉病人病歷查看彈窗
         function closePatientMedicalHistoryModal() {
             document.getElementById('patientMedicalHistoryModal').classList.add('hidden');
+            closeHistoryCalendar('patient');
             consultationHistoryPager.close('patient');
         }
 
@@ -10278,6 +10519,7 @@ async function viewPatientMedicalHistory(patientId) {
         `;
         
         currentConsultationHistoryPatientId = patientId;
+        closeHistoryCalendar('consultation');
         // 顯示分頁病歷記錄
         displayConsultationMedicalHistoryPage();
         
@@ -10350,6 +10592,7 @@ function displayConsultationMedicalHistoryPage() {
     const doctorLabel = dict['醫師：'] || '醫師：';
     const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
     const clinicLabel = dict['診所：'] || '診所：';
+    const calendarHtml = buildHistoryCalendarHtml('consultation');
 
     // Compose the HTML content with translated dynamic labels.  Chinese
     // strings remain in the markup for static phrases that the i18n
@@ -10369,6 +10612,10 @@ function displayConsultationMedicalHistoryPage() {
             </div>
             
             <div class="flex items-center space-x-2">
+                <button onclick="toggleHistoryCalendar('consultation', event)"
+                        class="px-3 py-1 bg-white text-blue-700 border border-blue-200 rounded hover:bg-blue-50 text-sm">
+                    日曆
+                </button>
                 <button onclick="changeConsultationHistoryPage(-1, event)" 
                         ${currentConsultationHistoryPage === 0 ? 'disabled' : ''}
                         class="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm">
@@ -10384,6 +10631,7 @@ function displayConsultationMedicalHistoryPage() {
                 </button>
             </div>
         </div>
+        ${calendarHtml}
         
         <!-- 當前病歷記錄 -->
         <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
@@ -10640,6 +10888,7 @@ function displayConsultationMedicalHistoryPage() {
         // 關閉診症記錄彈窗
         function closeMedicalHistoryModal() {
             document.getElementById('medicalHistoryModal').classList.add('hidden');
+            closeHistoryCalendar('consultation');
             consultationHistoryPager.close('consultation');
         }
         
