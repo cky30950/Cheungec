@@ -10195,10 +10195,10 @@ if (!patient) {
             // Prepare dynamic translation segments.  We look up static labels
             // from the dictionary and build English phrases when needed.
             const recordTitle = dict['診症記錄'] || '診症記錄';
-            const visitText = lang === 'zh'
+            const visitText = lang !== 'en'
                 ? `第 ${consultationNumber} 次診症`
                 : `Visit ${consultationNumber}`;
-            const totalText = lang === 'zh'
+            const totalText = lang !== 'en'
                 ? `共 ${totalPages} 次診症記錄`
                 : `Total ${totalPages} consultation records`;
             const prevLabel = dict['較舊'] || '較舊';
@@ -10652,10 +10652,10 @@ function displayConsultationMedicalHistoryPage() {
     // dictionary lookup is used for static terms like '診症記錄',
     // '較舊', '較新', '醫師：', and '病歷編號：'.
     const recordTitle = dict['診症記錄'] || '診症記錄';
-    const visitText = lang === 'zh'
+    const visitText = lang !== 'en'
         ? `第 ${consultationNumber} 次診症`
         : `Visit ${consultationNumber}`;
-    const totalText = lang === 'zh'
+    const totalText = lang !== 'en'
         ? `共 ${totalPages} 次診症記錄`
         : `Total ${totalPages} consultation records`;
     const prevLabel = dict['較舊'] || '較舊';

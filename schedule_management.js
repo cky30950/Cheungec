@@ -2077,7 +2077,8 @@
                 
                 const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
                 
-                let html = '<!DOCTYPE html><html lang="' + (lang === 'zh' ? 'zh-TW' : 'en') + '"><head><meta charset="UTF-8"><title>' + translate('排班表') + '</title>';
+                const htmlLang = lang === 'en' ? 'en' : (lang === 'zh-cn' ? 'zh-CN' : 'zh-TW');
+                let html = '<!DOCTYPE html><html lang="' + htmlLang + '"><head><meta charset="UTF-8"><title>' + translate('排班表') + '</title>';
                 html += '<style>';
                 html += '@page { size: A4 portrait; margin: 10mm; }';
                 html += 'body { font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 10.5pt; margin: 0; padding: 0; color: #333; }';
@@ -2155,7 +2156,8 @@
                 }
                 html += '</tbody></table>';
                 
-                const nowStr = new Date().toLocaleString(lang === 'zh' ? 'zh-TW' : 'en-US');
+                const locale = lang === 'en' ? 'en-US' : (lang === 'zh-cn' ? 'zh-CN' : 'zh-TW');
+                const nowStr = new Date().toLocaleString(locale);
                 html += '<div class="footer">' + translate('列印時間：') + nowStr + '</div>';
                 
                 html += '</body></html>';
