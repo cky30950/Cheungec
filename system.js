@@ -21181,6 +21181,124 @@ function formatPackageStatus(pkg) {
         : `剩餘 ${pkg.remainingUses}/${pkg.totalUses} 次 · ${exp.toLocaleDateString('zh-TW')} 到期（約 ${daysLeft} 天）`;
 }
 
+async function createManualPatientPackage(patientId) {
+    const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+    const isEn = lang && lang.toLowerCase().startsWith('en');
+    try {
+        if (!Array.isArray(billingItems) || billingItems.length === 0) {
+            await initBillingItems();
+        }
+    } catch (_e) {}
+    const packageItems = (Array.isArray(billingItems) ? billingItems : [])
+        .filter(item => item && item.active !== false && item.category === 'package' && Number(item.packageUses) > 0 && Number(item.validityDays) > 0);
+    if (packageItems.length === 0) {
+        showToast(isEn ? 'No package items in billing settings' : '收費項目中沒有可用的套票項目', 'warning');
+        return;
+    }
+    const options = {};
+    packageItems.forEach(item => {
+        const label = `${item.name || ''} (${Number(item.packageUses) || 0}次 / ${Number(item.validityDays) || 0}天)`;
+        options[String(item.id)] = window.escapeHtml(label);
+    });
+    const pickResult = await Swal.fire({
+        title: isEn ? 'Select package item' : '選擇套票項目',
+        input: 'select',
+        inputOptions: options,
+        inputPlaceholder: isEn ? 'Please select' : '請選擇',
+        showCancelButton: true,
+        confirmButtonText: isEn ? 'Confirm' : '確定',
+        cancelButtonText: isEn ? 'Cancel' : '取消'
+    });
+    if (!pickResult || !pickResult.isConfirmed) {
+        return;
+    }
+    const selectedId = String(pickResult.value || '');
+    const selectedItem = packageItems.find(item => String(item.id) === selectedId);
+    if (!selectedItem) {
+        showToast(isEn ? 'Invalid package item' : '套票項目無效', 'warning');
+        return;
+    }
+    const created = await purchasePackage(patientId, {
+        id: selectedItem.id,
+        name: selectedItem.name,
+        packageUses: Number(selectedItem.packageUses) || 0,
+        validityDays: Number(selectedItem.validityDays) || 0
+    });
+    if (!created) {
+        showToast(isEn ? 'Failed to create package' : '新增套票失敗', 'error');
+        return;
+    }
+    showToast(isEn ? 'Package created' : '已新增套票', 'success');
+    await loadPatientConsultationSummary(patientId);
+    await refreshPatientPackagesUI();
+}
+
+async function updatePatientPackageExpiry(patientId, packageRecordId) {
+    const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+    const isEn = lang && lang.toLowerCase().startsWith('en');
+    const packages = await getPatientPackages(patientId, true);
+    const pkg = Array.isArray(packages) ? packages.find(p => String(p.id) === String(packageRecordId)) : null;
+    if (!pkg) {
+        showToast(isEn ? 'Package not found' : '找不到套票', 'warning');
+        return;
+    }
+    const exp = new Date(pkg.expiresAt);
+    const defaultDate = Number.isNaN(exp.getTime()) ? '' : exp.toISOString().slice(0, 10);
+    const dateResult = await Swal.fire({
+        title: isEn ? 'Update expiry date' : '修改套票有效期',
+        input: 'date',
+        inputValue: defaultDate,
+        showCancelButton: true,
+        confirmButtonText: isEn ? 'Update' : '更新',
+        cancelButtonText: isEn ? 'Cancel' : '取消'
+    });
+    if (!dateResult || !dateResult.isConfirmed) return;
+    const dateText = String(dateResult.value || '').trim();
+    const newExp = new Date(`${dateText}T23:59:59`);
+    if (Number.isNaN(newExp.getTime())) {
+        showToast(isEn ? 'Invalid date' : '日期無效', 'warning');
+        return;
+    }
+    const updatedPackage = {
+        ...pkg,
+        expiresAt: newExp.toISOString()
+    };
+    const result = await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
+    if (!result || !result.success) {
+        showToast(isEn ? 'Failed to update expiry date' : '更新套票有效期失敗', 'error');
+        return;
+    }
+    showToast(isEn ? 'Expiry date updated' : '已更新套票有效期', 'success');
+    await loadPatientConsultationSummary(patientId);
+    await refreshPatientPackagesUI();
+}
+
+async function deletePatientPackageRecord(patientId, packageRecordId) {
+    const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+    const isEn = lang && lang.toLowerCase().startsWith('en');
+    const packages = await getPatientPackages(patientId, true);
+    const pkg = Array.isArray(packages) ? packages.find(p => String(p.id) === String(packageRecordId)) : null;
+    if (!pkg) {
+        showToast(isEn ? 'Package not found' : '找不到套票', 'warning');
+        return;
+    }
+    const ok = await showConfirmation(
+        isEn
+            ? `Delete package "${pkg.name || ''}"?\nThis action cannot be undone.`
+            : `確定要刪除套票「${pkg.name || ''}」嗎？\n此操作無法復原。`,
+        'warning'
+    );
+    if (!ok) return;
+    const result = await window.firebaseDataManager.deletePatientPackage(packageRecordId, patientId);
+    if (!result || !result.success) {
+        showToast(isEn ? 'Failed to delete package' : '刪除套票失敗', 'error');
+        return;
+    }
+    showToast(isEn ? 'Package deleted' : '已刪除套票', 'success');
+    await loadPatientConsultationSummary(patientId);
+    await refreshPatientPackagesUI();
+}
+
 async function renderPatientPackages(patientId) {
     const container = document.getElementById('patientPackagesList');
     if (!container) return;
@@ -21261,14 +21379,25 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
         // 若無套票資料，顯示提示文字並隱藏分頁控制
         if (!Array.isArray(pkgs) || pkgs.length === 0) {
             contentEl.innerHTML = `
-                <div class="bg-blue-50 border-blue-200 border rounded-lg p-3 text-center">
-                    <div class="text-blue-400 mb-1">
-                        <svg class="w-6 h-6 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
-                        </svg>
+                <div class="space-y-3">
+                    <div class="flex justify-end">
+                        <button
+                            type="button"
+                            onclick="createManualPatientPackage('${patientId}')"
+                            class="px-3 py-1.5 text-sm rounded bg-purple-600 text-white hover:bg-purple-700"
+                        >
+                            新增套票
+                        </button>
                     </div>
-                    <div class="text-sm font-medium text-blue-700">尚未購買套票</div>
-                    <div class="text-xs text-blue-600 mt-1">可於診療時購買套票享優惠</div>
+                    <div class="bg-blue-50 border-blue-200 border rounded-lg p-3 text-center">
+                        <div class="text-blue-400 mb-1">
+                            <svg class="w-6 h-6 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="text-sm font-medium text-blue-700">尚未購買套票</div>
+                        <div class="text-xs text-blue-600 mt-1">可於診療時購買套票享優惠</div>
+                    </div>
                 </div>
             `;
             // 移除分頁容器
@@ -21320,6 +21449,17 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
         let htmlParts = [];
         // 使用一個垂直容器，依序渲染有效與失效套票
         htmlParts.push('<div class="space-y-4">');
+        htmlParts.push(`
+            <div class="flex justify-end">
+                <button
+                    type="button"
+                    onclick="createManualPatientPackage('${patientId}')"
+                    class="px-3 py-1.5 text-sm rounded bg-purple-600 text-white hover:bg-purple-700"
+                >
+                    新增套票
+                </button>
+            </div>
+        `);
         // 有效套票列表
         if (pageValid.length > 0) {
             htmlParts.push('<div class="font-medium text-gray-700 mb-2">有效套票</div>');
@@ -21344,7 +21484,25 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
                             <div class="font-medium ${nameClass}">${safePkgName}</div>
                             <div class="text-xs ${statusClass}">${safeStatusText}</div>
                         </div>
-                        <div class="text-sm ${usesClass}">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
+                        <div class="text-right">
+                            <div class="text-sm ${usesClass} mb-1">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
+                            <div class="flex items-center justify-end gap-1">
+                                <button
+                                    type="button"
+                                    onclick="updatePatientPackageExpiry('${patientId}', '${pkg.id}')"
+                                    class="px-2 py-1 text-xs rounded bg-amber-500 text-white hover:bg-amber-600"
+                                >
+                                    修改有限期
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="deletePatientPackageRecord('${patientId}', '${pkg.id}')"
+                                    class="px-2 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700"
+                                >
+                                    刪除
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 `);
             });
@@ -21366,7 +21524,25 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
                             <div class="font-medium text-gray-500">${safePkgName}</div>
                             <div class="text-xs text-gray-400">${safeStatusText}</div>
                         </div>
-                        <div class="text-sm text-gray-500">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-500 mb-1">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
+                            <div class="flex items-center justify-end gap-1">
+                                <button
+                                    type="button"
+                                    onclick="updatePatientPackageExpiry('${patientId}', '${pkg.id}')"
+                                    class="px-2 py-1 text-xs rounded bg-amber-500 text-white hover:bg-amber-600"
+                                >
+                                    修改有限期
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="deletePatientPackageRecord('${patientId}', '${pkg.id}')"
+                                    class="px-2 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700"
+                                >
+                                    刪除
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 `);
             });
@@ -23178,6 +23354,39 @@ class FirebaseDataManager {
         }
     }
 
+    async deletePatientPackage(packageId, patientId = '') {
+        try {
+            await window.firebase.deleteDoc(
+                window.firebase.doc(window.firebase.db, 'patientPackages', packageId)
+            );
+            try {
+                const pidStr = String(patientId || '');
+                if (pidStr && patientPackagesCache && Array.isArray(patientPackagesCache[pidStr])) {
+                    patientPackagesCache[pidStr] = patientPackagesCache[pidStr].filter(p => String(p.id) !== String(packageId));
+                    try {
+                        const localKey = `patientPackages_${pidStr}`;
+                        localStorage.setItem(localKey, JSON.stringify(patientPackagesCache[pidStr]));
+                    } catch (e) {
+                        console.warn('更新本地患者套票資料失敗:', e);
+                    }
+                }
+            } catch (cacheErr) {
+                console.warn('刪除套票後更新本地快取失敗:', cacheErr);
+            }
+            try {
+                if (patientId) {
+                    await this.updatePatientPackageAggregates(patientId);
+                }
+            } catch (aggErr) {
+                console.error('刪除套票後更新套票彙總欄位失敗:', aggErr);
+            }
+            return { success: true };
+        } catch (error) {
+            console.error('刪除患者套票失敗:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     /**
      * 更新指定病人文件的套票彙總欄位。
      * 彙總欄位包括：
@@ -23770,13 +23979,37 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const switchBtn = document.getElementById('clinicSwitchButton');
             if (switchBtn && !switchBtn.dataset.bound) {
-                switchBtn.addEventListener('click', function () {
+                switchBtn.addEventListener('click', async function () {
                     try {
-                        const modal = document.getElementById('clinicSwitchModal');
-                        if (modal) {
-                            modal.classList.remove('hidden');
-                            try { if (typeof populateClinicSelectors === 'function') populateClinicSelectors(); } catch (_e) {}
+                        try { if (typeof populateClinicSelectors === 'function') populateClinicSelectors(); } catch (_e) {}
+                        const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+                        const isEn = lang && lang.toLowerCase().startsWith('en');
+                        const options = {};
+                        const availableClinics = Array.isArray(clinicsList) ? clinicsList : [];
+                        availableClinics.forEach(c => {
+                            if (!c || !c.id) return;
+                            options[String(c.id)] = window.escapeHtml(getClinicDisplayName(c));
+                        });
+                        if (Object.keys(options).length === 0) {
+                            showToast(isEn ? 'No clinic available' : '目前沒有可切換的診所', 'warning');
+                            return;
                         }
+                        const picked = await Swal.fire({
+                            title: isEn ? 'Switch clinic' : '切換診所',
+                            input: 'select',
+                            inputOptions: options,
+                            inputValue: currentClinicId ? String(currentClinicId) : '',
+                            inputPlaceholder: isEn ? 'Please select' : '請選擇',
+                            showCancelButton: true,
+                            confirmButtonText: isEn ? 'Next' : '下一步',
+                            cancelButtonText: isEn ? 'Cancel' : '取消'
+                        });
+                        if (!picked || !picked.isConfirmed) return;
+                        const targetClinicId = String(picked.value || '');
+                        if (!targetClinicId || String(targetClinicId) === String(currentClinicId || '')) {
+                            return;
+                        }
+                        await setCurrentClinicId(targetClinicId);
                     } catch (e) {
                         console.error('切換診所按鈕事件錯誤:', e);
                     }
@@ -25293,6 +25526,9 @@ async function deleteMedicalRecord(recordId) {
   window.loadPreviousPrescription = loadPreviousPrescription;
   window.logout = logout;
   window.refreshPatientPackagesUI = refreshPatientPackagesUI;
+  window.createManualPatientPackage = createManualPatientPackage;
+  window.updatePatientPackageExpiry = updatePatientPackageExpiry;
+  window.deletePatientPackageRecord = deletePatientPackageRecord;
   window.saveBillingItem = saveBillingItem;
   window.saveClinicSettings = saveClinicSettings;
   window.saveConsultation = saveConsultation;
