@@ -21299,6 +21299,56 @@ async function deletePatientPackageRecord(patientId, packageRecordId) {
     await refreshPatientPackagesUI();
 }
 
+async function updatePatientPackageRemainingUses(patientId, packageRecordId) {
+    const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+    const isEn = lang && lang.toLowerCase().startsWith('en');
+    const packages = await getPatientPackages(patientId, true);
+    const pkg = Array.isArray(packages) ? packages.find(p => String(p.id) === String(packageRecordId)) : null;
+    if (!pkg) {
+        showToast(isEn ? 'Package not found' : '找不到套票', 'warning');
+        return;
+    }
+    const totalUses = Number(pkg.totalUses);
+    const currentRemaining = Number(pkg.remainingUses);
+    const inputResult = await Swal.fire({
+        title: isEn ? 'Update remaining uses' : '修改剩餘次數',
+        input: 'number',
+        inputValue: Number.isFinite(currentRemaining) ? String(currentRemaining) : '0',
+        inputAttributes: {
+            min: '0',
+            step: '1'
+        },
+        showCancelButton: true,
+        confirmButtonText: isEn ? 'Update' : '更新',
+        cancelButtonText: isEn ? 'Cancel' : '取消'
+    });
+    if (!inputResult || !inputResult.isConfirmed) return;
+    const nextRemaining = parseInt(String(inputResult.value || '').trim(), 10);
+    if (!Number.isInteger(nextRemaining) || nextRemaining < 0) {
+        showToast(isEn ? 'Remaining uses must be a non-negative integer' : '剩餘次數必須為 0 或以上的整數', 'warning');
+        return;
+    }
+    if (Number.isFinite(totalUses) && nextRemaining > totalUses) {
+        showToast(
+            isEn ? `Remaining uses cannot exceed total uses (${totalUses})` : `剩餘次數不可大於總次數（${totalUses}）`,
+            'warning'
+        );
+        return;
+    }
+    const updatedPackage = {
+        ...pkg,
+        remainingUses: nextRemaining
+    };
+    const result = await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
+    if (!result || !result.success) {
+        showToast(isEn ? 'Failed to update remaining uses' : '更新剩餘次數失敗', 'error');
+        return;
+    }
+    showToast(isEn ? 'Remaining uses updated' : '已更新剩餘次數', 'success');
+    await loadPatientConsultationSummary(patientId);
+    await refreshPatientPackagesUI();
+}
+
 async function renderPatientPackages(patientId) {
     const container = document.getElementById('patientPackagesList');
     if (!container) return;
@@ -21489,6 +21539,13 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
                             <div class="flex items-center justify-end gap-1">
                                 <button
                                     type="button"
+                                    onclick="updatePatientPackageRemainingUses('${patientId}', '${pkg.id}')"
+                                    class="px-2 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700"
+                                >
+                                    修改剩餘次數
+                                </button>
+                                <button
+                                    type="button"
                                     onclick="updatePatientPackageExpiry('${patientId}', '${pkg.id}')"
                                     class="px-2 py-1 text-xs rounded bg-amber-500 text-white hover:bg-amber-600"
                                 >
@@ -21527,6 +21584,13 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
                         <div class="text-right">
                             <div class="text-sm text-gray-500 mb-1">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
                             <div class="flex items-center justify-end gap-1">
+                                <button
+                                    type="button"
+                                    onclick="updatePatientPackageRemainingUses('${patientId}', '${pkg.id}')"
+                                    class="px-2 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700"
+                                >
+                                    修改剩餘次數
+                                </button>
                                 <button
                                     type="button"
                                     onclick="updatePatientPackageExpiry('${patientId}', '${pkg.id}')"
@@ -25528,6 +25592,7 @@ async function deleteMedicalRecord(recordId) {
   window.refreshPatientPackagesUI = refreshPatientPackagesUI;
   window.createManualPatientPackage = createManualPatientPackage;
   window.updatePatientPackageExpiry = updatePatientPackageExpiry;
+  window.updatePatientPackageRemainingUses = updatePatientPackageRemainingUses;
   window.deletePatientPackageRecord = deletePatientPackageRecord;
   window.saveBillingItem = saveBillingItem;
   window.saveClinicSettings = saveClinicSettings;
