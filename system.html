@@ -690,7 +690,7 @@
                 </div>
                 
                 <div id="registrationModal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden flex items-center justify-center p-4">
-                    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full">
+                    <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full">
                         <div class="bg-green-600 text-white px-6 py-4 rounded-t-xl">
                             <div class="flex justify-between items-center">
                                 <h3 class="text-xl font-bold">病人掛號</h3>
@@ -698,54 +698,58 @@
                             </div>
                         </div>
                         
-                        <div class="p-6 space-y-4">
-                            
-                            <div class="bg-blue-50 rounded-lg p-4">
-                                <div class="flex items-center mb-2">
-                                    <span class="mr-2">👤</span>
-                                    <span class="font-semibold text-gray-700">病人資訊</span>
-                                </div>
-                                <div id="selectedPatientInfo" class="text-sm text-gray-600">
+                        <div class="p-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="space-y-4">
+                                    <div class="bg-blue-50 rounded-lg p-4">
+                                        <div class="flex items-center mb-2">
+                                            <span class="mr-2">👤</span>
+                                            <span class="font-semibold text-gray-700">病人資訊</span>
+                                        </div>
+                                        <div id="selectedPatientInfo" class="text-sm text-gray-600">
+                                            
+                                        </div>
+                                    </div>
                                     
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                    <span class="mr-2">👨‍⚕️</span><span>掛號醫師 *</span>
-                                </label>
-                                <select id="appointmentDoctor" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                    <option value="">請選擇醫師</option>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                            <span class="mr-2">👨‍⚕️</span><span>掛號醫師 *</span>
+                                        </label>
+                                        <select id="appointmentDoctor" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                            <option value="">請選擇醫師</option>
+                                            
+                                        </select>
+                                    </div>
                                     
-                                </select>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                    <span class="mr-2">⏰</span><span>掛號時間</span>
-                                </label>
-                                <input type="datetime-local" id="appointmentDateTime" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                            <span class="mr-2">⏰</span><span>掛號時間</span>
+                                        </label>
+                                        <input type="datetime-local" id="appointmentDateTime" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    </div>
+                                </div>
+
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                            <span class="mr-2">🧾</span><span>選擇問診資料</span>
+                                        </label>
+                                        <select id="inquirySelect" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                            <option value="">不使用問診資料</option>
+                                        </select>
+                                        <p class="text-xs text-gray-500 mt-1">若病人已填寫問診，可在此選擇預填資訊</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                            <span class="mr-2">📝</span><span>主訴症狀</span>
+                                        </label>
+                                        <textarea id="quickChiefComplaint" placeholder="請簡述病人的主要症狀..." rows="8" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"></textarea>
+                                    </div>
+                                </div>
                             </div>
 
-                            
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                    <span class="mr-2">🧾</span><span>選擇問診資料</span>
-                                </label>
-                                <select id="inquirySelect" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                    <option value="">不使用問診資料</option>
-                                </select>
-                                <p class="text-xs text-gray-500 mt-1">若病人已填寫問診，可在此選擇預填資訊</p>
-                            </div>
-
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                    <span class="mr-2">📝</span><span>主訴症狀</span>
-                                </label>
-                                <textarea id="quickChiefComplaint" placeholder="請簡述病人的主要症狀..." rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"></textarea>
-                            </div>
-                            
-                            <div class="flex space-x-3 pt-4">
+                            <div class="flex space-x-3 pt-6">
                                 <button onclick="closeRegistrationModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition duration-200">
                                     取消
                                 </button>

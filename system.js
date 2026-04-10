@@ -24001,7 +24001,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             inputValue: currentClinicId ? String(currentClinicId) : '',
                             inputPlaceholder: isEn ? 'Please select' : '請選擇',
                             showCancelButton: true,
-                            confirmButtonText: isEn ? 'Next' : '下一步',
+                            confirmButtonText: isEn ? 'Switch' : '切換',
                             cancelButtonText: isEn ? 'Cancel' : '取消'
                         });
                         if (!picked || !picked.isConfirmed) return;
