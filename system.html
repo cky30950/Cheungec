@@ -689,8 +689,8 @@
                     </div>
                 </div>
                 
-                <div id="registrationModal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden flex items-center justify-center p-4">
-                    <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full">
+                <div id="registrationModal" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto">
+                    <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
                         <div class="bg-green-600 text-white px-6 py-4 rounded-t-xl">
                             <div class="flex justify-between items-center">
                                 <h3 class="text-xl font-bold">病人掛號</h3>
@@ -698,7 +698,7 @@
                             </div>
                         </div>
                         
-                        <div class="p-6">
+                        <div class="p-6 overflow-y-auto flex-1">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="space-y-4">
                                     <div class="bg-blue-50 rounded-lg p-4">
@@ -749,7 +749,7 @@
                                 </div>
                             </div>
 
-                            <div class="flex space-x-3 pt-6">
+                            <div class="flex space-x-3 pt-6 sticky bottom-0 bg-white">
                                 <button onclick="closeRegistrationModal()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg transition duration-200">
                                     取消
                                 </button>
