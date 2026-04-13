@@ -19044,6 +19044,9 @@ async function deleteUser(id) {
 // 財務報表功能
         let currentFinancialTabType = 'summary';
         const financialReportCache = {};
+        const FINANCIAL_REPORT_MIN_REFRESH_MS = 15000;
+        let financialReportLastRunAt = 0;
+        let financialReportLastKey = '';
         
         // 載入財務報表頁面
         async function loadFinancialReports() {
@@ -19156,11 +19159,13 @@ async function deleteUser(id) {
                 const startEl = document.getElementById('startDate');
                 const endEl = document.getElementById('endDate');
                 const doctorEl = document.getElementById('doctorFilter');
+                const clinicEl = document.getElementById('clinicFilterFinancial');
                 if (startEl && endEl) {
                     const startVal = startEl.value;
                     const endVal = endEl.value;
                     const doctorVal = doctorEl ? doctorEl.value : '';
-                    const targeted = await window.firebaseDataManager.getConsultationsByRangeAndDoctor(startVal, endVal, doctorVal || null, true);
+                    const clinicVal = clinicEl ? clinicEl.value : '';
+                    const targeted = await window.firebaseDataManager.getConsultationsByRangeAndDoctor(startVal, endVal, doctorVal || null, true, clinicVal || null);
                     if (targeted && targeted.success) {
                         consultations = targeted.data.map(item => {
                             let dateStr = null;
@@ -19182,35 +19187,8 @@ async function deleteUser(id) {
                         return;
                     }
                 }
-                let res = await window.firebaseDataManager.getConsultations(true);
-                        if (res && res.success) {
-                            let all = res.data;
-                            while (res.hasMore) {
-                                res = await window.firebaseDataManager.getConsultationsNextPage();
-                                if (res && res.success && Array.isArray(res.data)) {
-                                    all = res.data;
-                                } else {
-                                    break;
-                                }
-                            }
-                            consultations = all.map(item => {
-                                let dateStr = null;
-                                if (item.date) {
-                                    if (typeof item.date === 'object' && item.date.seconds) {
-                                        dateStr = new Date(item.date.seconds * 1000).toISOString();
-                                    } else {
-                                        dateStr = item.date;
-                                    }
-                                } else if (item.createdAt) {
-                                    if (typeof item.createdAt === 'object' && item.createdAt.seconds) {
-                                        dateStr = new Date(item.createdAt.seconds * 1000).toISOString();
-                                    } else {
-                                        dateStr = item.createdAt;
-                                    }
-                                }
-                                return { ...item, date: dateStr, clinicId: item.clinicId || null, clinicName: item.clinicName || '' };
-                            });
-                        }
+                // 取消全量回退載入：避免財務報表在索引問題時掃描整個 consultations 集合。
+                consultations = [];
                     } catch (error) {
                         console.error('載入 Firebase 診症資料失敗:', error);
                     }
@@ -19396,19 +19374,29 @@ async function deleteUser(id) {
 
             const cacheKey = `${startDate}|${endDate}|${doctorFilter||''}|${clinicFilter||''}`;
             const existing = financialReportCache[cacheKey] || readCache('financialReportCache', cacheKey);
+            const nowTs = Date.now();
+            if (existing && financialReportLastKey === cacheKey && (nowTs - financialReportLastRunAt) < FINANCIAL_REPORT_MIN_REFRESH_MS) {
+                updateFinancialKeyMetrics(existing.stats);
+                updateFinancialTables(existing.filteredConsultations, existing.stats);
+                document.getElementById('lastUpdateTime').textContent = new Date().toLocaleString('zh-TW');
+                showToast('財務報表已更新（短時間內使用快取）', 'success');
+                return;
+            }
             if (existing) {
                 try {
                     if (window.firebaseDataManager && typeof window.firebaseDataManager.hasConsultationUpdates === 'function') {
                         const lastSyncAtRef = existing.lastSyncAt ? new Date(existing.lastSyncAt) : null;
-                        const hasUpdates = await window.firebaseDataManager.hasConsultationUpdates(startDate, endDate, doctorFilter || null, lastSyncAtRef);
+                        const hasUpdates = await window.firebaseDataManager.hasConsultationUpdates(startDate, endDate, doctorFilter || null, lastSyncAtRef, clinicFilter || null);
                         if (!hasUpdates) {
                             updateFinancialKeyMetrics(existing.stats);
                             updateFinancialTables(existing.filteredConsultations, existing.stats);
                             document.getElementById('lastUpdateTime').textContent = new Date().toLocaleString('zh-TW');
+                            financialReportLastKey = cacheKey;
+                            financialReportLastRunAt = Date.now();
                             showToast('財務報表已更新（使用快取）！', 'success');
                             return;
                         }
-                        const deltaRes = await window.firebaseDataManager.getConsultationsDeltaByRangeAndDoctor(lastSyncAtRef, doctorFilter || null, true);
+                        const deltaRes = await window.firebaseDataManager.getConsultationsDeltaByRangeAndDoctor(lastSyncAtRef, doctorFilter || null, true, clinicFilter || null);
                         if (deltaRes && deltaRes.success) {
                             const normalize = (item) => {
                                 let dateStr = null;
@@ -19450,7 +19438,7 @@ async function deleteUser(id) {
                             const merged = Array.from(index.values());
                             const stats = calculateFinancialStatistics(merged);
                             const mlist = monthsInDateRange(startDate, endDate);
-                            const exp = await getClinicExpensesByMonths(mlist);
+                            const exp = await getClinicExpensesByMonths(mlist, clinicFilter || null);
                             stats.totalCost = exp.totalCost;
                             stats.netRevenue = stats.totalRevenue - exp.totalCost;
                             updateFinancialKeyMetrics(stats);
@@ -19468,6 +19456,8 @@ async function deleteUser(id) {
                             const entry = { filteredConsultations: merged, stats, lastSyncAt: lastSyncAt.toISOString() };
                             financialReportCache[cacheKey] = entry;
                             writeCache('financialReportCache', cacheKey, entry);
+                            financialReportLastKey = cacheKey;
+                            financialReportLastRunAt = Date.now();
                             document.getElementById('lastUpdateTime').textContent = new Date().toLocaleString('zh-TW');
                             showToast('財務報表已更新！', 'success');
                             return;
@@ -19489,7 +19479,7 @@ async function deleteUser(id) {
             // 計算統計資料
             const stats = calculateFinancialStatistics(filteredConsultations);
             const mlist = monthsInDateRange(startDate, endDate);
-            const exp = await getClinicExpensesByMonths(mlist);
+            const exp = await getClinicExpensesByMonths(mlist, clinicFilter || null);
             stats.totalCost = exp.totalCost;
             stats.netRevenue = stats.totalRevenue - exp.totalCost;
             
@@ -19509,6 +19499,8 @@ async function deleteUser(id) {
             const entry = { filteredConsultations, stats, lastSyncAt: lastSyncAt.toISOString() };
             financialReportCache[cacheKey] = entry;
             writeCache('financialReportCache', cacheKey, entry);
+            financialReportLastKey = cacheKey;
+            financialReportLastRunAt = Date.now();
             document.getElementById('lastUpdateTime').textContent = new Date().toLocaleString('zh-TW');
             showToast('財務報表已更新！', 'success');
         }
@@ -19836,7 +19828,7 @@ async function exportFinancialReport() {
     let totalCost = 0;
     let byType = {};
     try {
-        const exp = await getClinicExpensesByMonths(months);
+        const exp = await getClinicExpensesByMonths(months, clinicFilter || null);
         totalCost = exp && typeof exp.totalCost === 'number' ? exp.totalCost : 0;
         byType = exp && exp.byType ? exp.byType : {};
     } catch (_e) {
@@ -19909,21 +19901,52 @@ function monthsInDateRange(startDateStr, endDateStr) {
     return list;
 }
 
-async function getClinicExpensesByMonths(months) {
+async function getClinicExpensesByMonths(months, clinicId = null) {
     await waitForFirebaseDb();
-    const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'clinicExpenses'));
+    const validMonths = Array.from(new Set((Array.isArray(months) ? months : []).filter(Boolean)));
+    if (validMonths.length === 0) {
+        return { totalCost: 0, byType: {} };
+    }
     let total = 0;
     const byType = {};
-    snapshot.forEach(docSnap => {
-        const d = docSnap.data() || {};
-        const m = d.month;
-        if (m && months.includes(m)) {
+    const chunkSize = 10;
+    const chunks = [];
+    for (let i = 0; i < validMonths.length; i += chunkSize) {
+        chunks.push(validMonths.slice(i, i + chunkSize));
+    }
+    for (const chunk of chunks) {
+        const colRef = window.firebase.collection(window.firebase.db, 'clinicExpenses');
+        const parts = [window.firebase.where('month', 'in', chunk)];
+        if (clinicId) {
+            parts.push(window.firebase.where('clinicId', '==', clinicId));
+        }
+        let snapshot = null;
+        try {
+            snapshot = await window.firebase.getDocs(window.firebase.firestoreQuery(colRef, ...parts));
+        } catch (_batchErr) {
+            // 若缺少複合索引，退回逐月查詢，仍避免全集合掃描。
+            for (const monthKey of chunk) {
+                const fallbackParts = [window.firebase.where('month', '==', monthKey)];
+                if (clinicId) fallbackParts.push(window.firebase.where('clinicId', '==', clinicId));
+                const fallbackSnap = await window.firebase.getDocs(window.firebase.firestoreQuery(colRef, ...fallbackParts));
+                fallbackSnap.forEach(docSnap => {
+                    const d = docSnap.data() || {};
+                    const amt = Number(d.amount) || 0;
+                    total += amt;
+                    const t = d.type || '其他費用';
+                    byType[t] = (byType[t] || 0) + amt;
+                });
+            }
+            continue;
+        }
+        snapshot.forEach(docSnap => {
+            const d = docSnap.data() || {};
             const amt = Number(d.amount) || 0;
             total += amt;
             const t = d.type || '其他費用';
             byType[t] = (byType[t] || 0) + amt;
-        }
-    });
+        });
+    }
     return { totalCost: total, byType };
 }
 
@@ -19954,7 +19977,7 @@ async function saveClinicExpense() {
     const createdBy = currentUserData ? currentUserData.username : (currentUser || 'system');
     await window.firebase.addDoc(
         window.firebase.collection(window.firebase.db, 'clinicExpenses'),
-        { month, type, amount: Number(amount), note: note || '', createdAt: new Date(), updatedAt: new Date(), createdBy }
+        { month, type, amount: Number(amount), note: note || '', clinicId: currentClinicId || null, clinicName: (clinicSettings && (clinicSettings.chineseName || clinicSettings.englishName)) ? (clinicSettings.chineseName || clinicSettings.englishName) : '', createdAt: new Date(), updatedAt: new Date(), createdBy }
     );
     showToast('成本已儲存', 'success');
     closeExpenseImportModal();
@@ -22603,7 +22626,7 @@ class FirebaseDataManager {
         }
     }
 
-    async getConsultationsByRangeAndDoctor(startDateStr, endDateStr, doctorFilter = null, completedOnly = true) {
+    async getConsultationsByRangeAndDoctor(startDateStr, endDateStr, doctorFilter = null, completedOnly = true, clinicFilter = null) {
         if (!this.isReady) return { success: false, data: [] };
         try {
             const colRef = window.firebase.collection(window.firebase.db, 'consultations');
@@ -22631,6 +22654,7 @@ class FirebaseDataManager {
             const parts = [];
             if (completedOnly) parts.push(window.firebase.where('status', '==', 'completed'));
             if (doctorFilter) parts.push(window.firebase.where('doctor', '==', doctorFilter));
+            if (clinicFilter) parts.push(window.firebase.where('clinicId', '==', clinicFilter));
             parts.push(window.firebase.orderBy('date', 'asc'));
             parts.push(window.firebase.where('date', '>=', start));
             parts.push(window.firebase.where('date', '<=', end));
@@ -22644,6 +22668,7 @@ class FirebaseDataManager {
                 const nextParts = [];
                 if (completedOnly) nextParts.push(window.firebase.where('status', '==', 'completed'));
                 if (doctorFilter) nextParts.push(window.firebase.where('doctor', '==', doctorFilter));
+                if (clinicFilter) nextParts.push(window.firebase.where('clinicId', '==', clinicFilter));
                 nextParts.push(window.firebase.orderBy('date', 'asc'));
                 nextParts.push(window.firebase.where('date', '>=', start));
                 nextParts.push(window.firebase.where('date', '<=', end));
@@ -22656,18 +22681,8 @@ class FirebaseDataManager {
             }
             return { success: true, data: list };
         } catch (error) {
-            console.warn('目標條件查詢失敗，改用完整載入:', error);
-            try {
-                let res = await this.getConsultations(true);
-                if (!res || !res.success) return { success: false, data: [] };
-                while (res.hasMore) {
-                    res = await this.getConsultationsNextPage();
-                    if (!res || !res.success) break;
-                }
-                return { success: true, data: Array.isArray(this.consultationsCache) ? this.consultationsCache.slice() : [] };
-            } catch (_e) {
-                return { success: false, data: [] };
-            }
+            console.warn('目標條件查詢失敗（已停用全量回退）:', error);
+            return { success: false, data: [], error: 'targeted-query-failed' };
         }
     }
 
@@ -22715,16 +22730,19 @@ class FirebaseDataManager {
         }
     }
 
-    async getConsultationsDeltaByRangeAndDoctor(sinceDate, doctorFilter = null, completedOnly = true) {
+    async getConsultationsDeltaByRangeAndDoctor(sinceDate, doctorFilter = null, completedOnly = true, clinicFilter = null) {
         if (!this.isReady) return { success: false, data: [] };
         try {
             const colRef = window.firebase.collection(window.firebase.db, 'consultations');
             const pageSize = 100;
             const list = [];
+            const q1Parts = [];
+            if (completedOnly) q1Parts.push(window.firebase.where('status', '==', 'completed'));
+            if (doctorFilter) q1Parts.push(window.firebase.where('doctor', '==', doctorFilter));
+            if (clinicFilter) q1Parts.push(window.firebase.where('clinicId', '==', clinicFilter));
             let q1 = window.firebase.firestoreQuery(
                 colRef,
-                completedOnly ? window.firebase.where('status', '==', 'completed') : window.firebase.where('status', '>=', ''),
-                doctorFilter ? window.firebase.where('doctor', '==', doctorFilter) : window.firebase.where('doctor', '>=', ''),
+                ...q1Parts,
                 window.firebase.where('updatedAt', '>', sinceDate),
                 window.firebase.orderBy('updatedAt', 'asc'),
                 window.firebase.limit(pageSize)
@@ -22735,8 +22753,7 @@ class FirebaseDataManager {
             while (snap1.docs.length === pageSize && last1) {
                 q1 = window.firebase.firestoreQuery(
                     colRef,
-                    completedOnly ? window.firebase.where('status', '==', 'completed') : window.firebase.where('status', '>=', ''),
-                    doctorFilter ? window.firebase.where('doctor', '==', doctorFilter) : window.firebase.where('doctor', '>=', ''),
+                    ...q1Parts,
                     window.firebase.where('updatedAt', '>', sinceDate),
                     window.firebase.orderBy('updatedAt', 'asc'),
                     window.firebase.startAfter(last1),
@@ -22746,10 +22763,13 @@ class FirebaseDataManager {
                 snap1.forEach(d => list.push({ id: d.id, ...d.data() }));
                 last1 = snap1.docs.length ? snap1.docs[snap1.docs.length - 1] : null;
             }
+            const q2Parts = [];
+            if (completedOnly) q2Parts.push(window.firebase.where('status', '==', 'completed'));
+            if (doctorFilter) q2Parts.push(window.firebase.where('doctor', '==', doctorFilter));
+            if (clinicFilter) q2Parts.push(window.firebase.where('clinicId', '==', clinicFilter));
             let q2 = window.firebase.firestoreQuery(
                 colRef,
-                completedOnly ? window.firebase.where('status', '==', 'completed') : window.firebase.where('status', '>=', ''),
-                doctorFilter ? window.firebase.where('doctor', '==', doctorFilter) : window.firebase.where('doctor', '>=', ''),
+                ...q2Parts,
                 window.firebase.where('createdAt', '>', sinceDate),
                 window.firebase.orderBy('createdAt', 'asc'),
                 window.firebase.limit(pageSize)
@@ -22760,8 +22780,7 @@ class FirebaseDataManager {
             while (snap2.docs.length === pageSize && last2) {
                 q2 = window.firebase.firestoreQuery(
                     colRef,
-                    completedOnly ? window.firebase.where('status', '==', 'completed') : window.firebase.where('status', '>=', ''),
-                    doctorFilter ? window.firebase.where('doctor', '==', doctorFilter) : window.firebase.where('doctor', '>=', ''),
+                    ...q2Parts,
                     window.firebase.where('createdAt', '>', sinceDate),
                     window.firebase.orderBy('createdAt', 'asc'),
                     window.firebase.startAfter(last2),
@@ -22851,7 +22870,7 @@ class FirebaseDataManager {
         }
     }
 
-    async hasConsultationUpdates(startDateStr, endDateStr, doctorFilter = null, sinceDate) {
+    async hasConsultationUpdates(startDateStr, endDateStr, doctorFilter = null, sinceDate, clinicFilter = null) {
         if (!this.isReady) return false;
         try {
             const colRef = window.firebase.collection(window.firebase.db, 'consultations');
@@ -22861,6 +22880,7 @@ class FirebaseDataManager {
             end.setHours(23, 59, 59, 999);
             const parts = [];
             if (doctorFilter) parts.push(window.firebase.where('doctor', '==', doctorFilter));
+            if (clinicFilter) parts.push(window.firebase.where('clinicId', '==', clinicFilter));
             parts.push(window.firebase.where('date', '>=', start));
             parts.push(window.firebase.where('date', '<=', end));
             if (sinceDate) parts.push(window.firebase.where('updatedAt', '>', sinceDate));
@@ -22872,6 +22892,7 @@ class FirebaseDataManager {
             if (sinceDate) {
                 const parts2 = [];
                 if (doctorFilter) parts2.push(window.firebase.where('doctor', '==', doctorFilter));
+                if (clinicFilter) parts2.push(window.firebase.where('clinicId', '==', clinicFilter));
                 parts2.push(window.firebase.where('date', '>=', start));
                 parts2.push(window.firebase.where('date', '<=', end));
                 parts2.push(window.firebase.where('createdAt', '>', sinceDate));
