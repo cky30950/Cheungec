@@ -422,10 +422,11 @@ function getHerbInventoryFromView(itemId) {
             quantity: inv.quantity ?? 0,
             threshold: inv.threshold ?? 0,
             unit: inv.unit || 'g',
-            disabled: !!inv.disabled
+            disabled: !!inv.disabled,
+            defaultDosage: (typeof inv.defaultDosage === 'number' && !Number.isNaN(inv.defaultDosage)) ? inv.defaultDosage : null
         };
     }
-    return { quantity: 0, threshold: 0, unit: 'g', disabled: false };
+    return { quantity: 0, threshold: 0, unit: 'g', disabled: false, defaultDosage: null };
 }
 
 
@@ -2882,15 +2883,31 @@ function getHerbInventory(itemId) {
             threshold: inv.threshold ?? 0,
             unit: inv.unit || 'g',
             
-            disabled: !!inv.disabled
+            disabled: !!inv.disabled,
+            defaultDosage: (typeof inv.defaultDosage === 'number' && !Number.isNaN(inv.defaultDosage)) ? inv.defaultDosage : null
         };
     }
     
-    return { quantity: 0, threshold: 0, unit: 'g', disabled: false };
+    return { quantity: 0, threshold: 0, unit: 'g', disabled: false, defaultDosage: null };
+}
+
+function parseDefaultDosageNumber(raw) {
+    const val = parseFloat(String(raw ?? '').trim());
+    if (!Number.isFinite(val) || val < 0) return null;
+    return Math.round(val * 100) / 100;
+}
+
+function resolvePrescriptionDefaultDosage(item, inv) {
+    if (inv && typeof inv.defaultDosage === 'number' && Number.isFinite(inv.defaultDosage) && inv.defaultDosage >= 0) {
+        return Math.round(inv.defaultDosage * 100) / 100;
+    }
+    const fromItem = parseDefaultDosageNumber(item && item.dosage);
+    if (fromItem !== null) return fromItem;
+    return item && item.type === 'formula' ? 5 : 1;
 }
 
 
-async function setHerbInventory(itemId, quantity, threshold, unit, disabled) {
+async function setHerbInventory(itemId, quantity, threshold, unit, disabled, defaultDosage) {
     await waitForFirebaseDb();
     const data = {};
     if (quantity !== undefined && quantity !== null) {
@@ -2904,6 +2921,9 @@ async function setHerbInventory(itemId, quantity, threshold, unit, disabled) {
     }
     if (disabled !== undefined && disabled !== null) {
         data.disabled = !!disabled;
+    }
+    if (defaultDosage !== undefined && defaultDosage !== null && !Number.isNaN(Number(defaultDosage))) {
+        data.defaultDosage = Number(defaultDosage);
     }
     const clinicId = (function() {
         try {
@@ -2937,7 +2957,8 @@ async function getHerbInventoryForMode(itemId, mode) {
                 quantity: inv.quantity ?? 0,
                 threshold: inv.threshold ?? 0,
                 unit: inv.unit || 'g',
-                disabled: !!inv.disabled
+                disabled: !!inv.disabled,
+                defaultDosage: (typeof inv.defaultDosage === 'number' && !Number.isNaN(inv.defaultDosage)) ? inv.defaultDosage : null
             };
         }
     } catch (_e) {}
@@ -2950,11 +2971,12 @@ async function getHerbInventoryForMode(itemId, mode) {
                 quantity: inv.quantity ?? 0,
                 threshold: inv.threshold ?? 0,
                 unit: inv.unit || 'g',
-                disabled: !!inv.disabled
+                disabled: !!inv.disabled,
+                defaultDosage: (typeof inv.defaultDosage === 'number' && !Number.isNaN(inv.defaultDosage)) ? inv.defaultDosage : null
             };
         }
     } catch (_e2) {}
-    return { quantity: 0, threshold: 0, unit: 'g', disabled: false };
+    return { quantity: 0, threshold: 0, unit: 'g', disabled: false, defaultDosage: null };
 }
 
 
@@ -2977,21 +2999,25 @@ async function getClinicScopedHerbInventoryForMode(itemId, mode) {
                 quantity: inv.quantity ?? 0,
                 threshold: inv.threshold ?? 0,
                 unit: inv.unit || 'g',
-                disabled: !!inv.disabled
+                disabled: !!inv.disabled,
+                defaultDosage: (typeof inv.defaultDosage === 'number' && !Number.isNaN(inv.defaultDosage)) ? inv.defaultDosage : null
             };
         }
     } catch (_e) {}
-    return { quantity: 0, threshold: 0, unit: 'g', disabled: false };
+    return { quantity: 0, threshold: 0, unit: 'g', disabled: false, defaultDosage: null };
 }
 
 
-async function setHerbInventoryForMode(itemId, quantity, threshold, unit, disabled, mode) {
+async function setHerbInventoryForMode(itemId, quantity, threshold, unit, disabled, mode, defaultDosage) {
     await waitForFirebaseDb();
     const data = {};
     if (quantity !== undefined && quantity !== null) data.quantity = Number(quantity);
     if (threshold !== undefined && threshold !== null) data.threshold = Number(threshold);
     if (unit !== undefined && unit !== null) data.unit = unit;
     if (disabled !== undefined && disabled !== null) data.disabled = !!disabled;
+    if (defaultDosage !== undefined && defaultDosage !== null && !Number.isNaN(Number(defaultDosage))) {
+        data.defaultDosage = Number(defaultDosage);
+    }
     const clinicId = (function() {
         try {
             return localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
@@ -3033,19 +3059,23 @@ async function revertInventoryForConsultation(consultationId) {
                 const newQty = (inv.quantity || 0) + consumption;
                 const unitToUse = inv.unit || 'g';
                 const thresholdToUse = typeof inv.threshold === 'number' ? inv.threshold : 0;
-                await setHerbInventoryForMode(itemId, newQty, thresholdToUse, unitToUse, inv.disabled, mode);
+                await setHerbInventoryForMode(itemId, newQty, thresholdToUse, unitToUse, inv.disabled, mode, inv.defaultDosage);
                 try {
                     if (mode === 'slice') {
                         herbInventorySlice[String(itemId)] = {
                             quantity: newQty,
                             threshold: thresholdToUse,
-                            unit: unitToUse
+                            unit: unitToUse,
+                            disabled: !!inv.disabled,
+                            defaultDosage: (typeof inv.defaultDosage === 'number' && Number.isFinite(inv.defaultDosage)) ? inv.defaultDosage : null
                         };
                     } else {
                         herbInventoryGranule[String(itemId)] = {
                             quantity: newQty,
                             threshold: thresholdToUse,
-                            unit: unitToUse
+                            unit: unitToUse,
+                            disabled: !!inv.disabled,
+                            defaultDosage: (typeof inv.defaultDosage === 'number' && Number.isFinite(inv.defaultDosage)) ? inv.defaultDosage : null
                         };
                     }
                 } catch (_e) {}
@@ -3079,14 +3109,16 @@ async function updateInventoryAfterConsultation(consultationId, items, days, fre
             const inv = getHerbInventory(key);
             const newQty = (inv.quantity || 0) + consumption;
             
-            await setHerbInventory(key, newQty, inv.threshold, inv.unit);
+            await setHerbInventory(key, newQty, inv.threshold, inv.unit, inv.disabled, inv.defaultDosage);
             
             try {
                 if (typeof herbInventory !== 'undefined') {
                     herbInventory[String(key)] = {
                         quantity: newQty,
                         threshold: inv.threshold,
-                        unit: inv.unit
+                        unit: inv.unit,
+                        disabled: !!inv.disabled,
+                        defaultDosage: (typeof inv.defaultDosage === 'number' && Number.isFinite(inv.defaultDosage)) ? inv.defaultDosage : null
                     };
                 }
             } catch (_e) {
@@ -3104,14 +3136,16 @@ async function updateInventoryAfterConsultation(consultationId, items, days, fre
         const consumption = dosage * days * freq;
         const inv = getHerbInventory(item.id);
         const newQty = (inv.quantity || 0) - consumption;
-        await setHerbInventory(item.id, newQty, inv.threshold, inv.unit);
+        await setHerbInventory(item.id, newQty, inv.threshold, inv.unit, inv.disabled, inv.defaultDosage);
         
         try {
             if (typeof herbInventory !== 'undefined') {
                 herbInventory[String(item.id)] = {
                     quantity: newQty,
                     threshold: inv.threshold,
-                    unit: inv.unit
+                    unit: inv.unit,
+                    disabled: !!inv.disabled,
+                    defaultDosage: (typeof inv.defaultDosage === 'number' && Number.isFinite(inv.defaultDosage)) ? inv.defaultDosage : null
                 };
             }
         } catch (_e) {
@@ -3204,19 +3238,23 @@ async function updateInventoryAfterConsultationMulti(consultationId, prescriptio
         const unit = inv.unit || 'g';
         const currQty = inv.quantity || 0;
         const newQty = currQty - delta;
-        await setHerbInventoryForMode(itemId, newQty, inv.threshold, unit, inv.disabled, mode);
+        await setHerbInventoryForMode(itemId, newQty, inv.threshold, unit, inv.disabled, mode, inv.defaultDosage);
         try {
             if (mode === 'slice') {
                 herbInventorySlice[String(itemId)] = {
                     quantity: newQty,
                     threshold: inv.threshold,
-                    unit
+                    unit,
+                    disabled: !!inv.disabled,
+                    defaultDosage: (typeof inv.defaultDosage === 'number' && Number.isFinite(inv.defaultDosage)) ? inv.defaultDosage : null
                 };
             } else {
                 herbInventoryGranule[String(itemId)] = {
                     quantity: newQty,
                     threshold: inv.threshold,
-                    unit
+                    unit,
+                    disabled: !!inv.disabled,
+                    defaultDosage: (typeof inv.defaultDosage === 'number' && Number.isFinite(inv.defaultDosage)) ? inv.defaultDosage : null
                 };
             }
         } catch (_e) {}
@@ -3281,6 +3319,7 @@ async function openInventoryModal(itemId) {
         const modal = document.getElementById('inventoryModal');
         const qtyInput = document.getElementById('inventoryQuantity');
         const thrInput = document.getElementById('inventoryThreshold');
+        const defaultDosageInput = document.getElementById('inventoryDefaultDosage');
         
         try {
             
@@ -3377,6 +3416,11 @@ async function openInventoryModal(itemId) {
             if (thrInput) {
                 thrInput.value = ((inv.threshold ?? 0) / factor).toString();
             }
+            if (defaultDosageInput) {
+                const item = Array.isArray(herbLibrary) ? herbLibrary.find(h => h && String(h.id) === String(itemId)) : null;
+                const defaultDose = resolvePrescriptionDefaultDosage(item || { type: 'herb', dosage: null }, inv);
+                defaultDosageInput.value = Number.isFinite(defaultDose) ? String(defaultDose) : '';
+            }
             
             try {
                 const qtyUnitSel = document.getElementById('inventoryQuantityUnit');
@@ -3468,6 +3512,7 @@ async function saveInventoryChanges() {
     try {
         const qtyInput = document.getElementById('inventoryQuantity');
         const thrInput = document.getElementById('inventoryThreshold');
+        const defaultDosageInput = document.getElementById('inventoryDefaultDosage');
         const qVal = qtyInput ? parseFloat(qtyInput.value) : NaN;
         const tVal = thrInput ? parseFloat(thrInput.value) : NaN;
         
@@ -3491,13 +3536,17 @@ async function saveInventoryChanges() {
             disabledVal = false;
         }
         
-        await setHerbInventoryForMode(id, quantityBase, thresholdBase, qtyUnit, disabledVal, currentHerbLibraryViewMode);
+        const itemForDefault = Array.isArray(herbLibrary) ? herbLibrary.find(h => h && String(h.id) === String(id)) : null;
+        const fallbackDefaultDose = resolvePrescriptionDefaultDosage(itemForDefault || { type: 'herb', dosage: null }, null);
+        const parsedDefaultDose = parseDefaultDosageNumber(defaultDosageInput ? defaultDosageInput.value : null);
+        const defaultDoseToSave = parsedDefaultDose !== null ? parsedDefaultDose : fallbackDefaultDose;
+        await setHerbInventoryForMode(id, quantityBase, thresholdBase, qtyUnit, disabledVal, currentHerbLibraryViewMode, defaultDoseToSave);
         try {
             if (currentHerbLibraryViewMode === 'slice') {
-                herbInventorySlice[String(id)] = { quantity: quantityBase, threshold: thresholdBase, unit: qtyUnit, disabled: !!disabledVal };
+                herbInventorySlice[String(id)] = { quantity: quantityBase, threshold: thresholdBase, unit: qtyUnit, disabled: !!disabledVal, defaultDosage: defaultDoseToSave };
                 herbInventorySliceInitialized = true;
             } else {
-                herbInventoryGranule[String(id)] = { quantity: quantityBase, threshold: thresholdBase, unit: qtyUnit, disabled: !!disabledVal };
+                herbInventoryGranule[String(id)] = { quantity: quantityBase, threshold: thresholdBase, unit: qtyUnit, disabled: !!disabledVal, defaultDosage: defaultDoseToSave };
                 herbInventoryGranuleInitialized = true;
             }
         } catch (_e) {}
@@ -16240,11 +16289,12 @@ async function initializeSystemAfterLogin() {
                 id: itemId,
                 type: type,
                 name: item.name,
-                // When adding a new item to the prescription, default the dosage based on the item type.
-                // Herbs default to 1 g; formulas do not use the `dosage` field for display purposes and remain null.
                 dosage: type === 'herb' ? (item.dosage || '1g') : null,
-                // Set the custom dosage default based on the item type: 1 g for herbs, 5 g for formulas.
-                customDosage: type === 'herb' ? '1' : '5',
+                customDosage: (() => {
+                    const inv = getHerbInventory(item.id);
+                    const dose = resolvePrescriptionDefaultDosage(item, inv);
+                    return String(dose);
+                })(),
                 composition: type === 'formula' ? item.composition : null,
                 effects: item.effects
             };
