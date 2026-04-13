@@ -3383,9 +3383,36 @@ async function openInventoryModal(itemId) {
                 };
                 thrInput.addEventListener('keypress', thrInput._enterSaveHandler);
             }
+
+            if (defaultDosageInput) {
+                if (defaultDosageInput._enterSaveHandler) {
+                    defaultDosageInput.removeEventListener('keypress', defaultDosageInput._enterSaveHandler);
+                }
+                defaultDosageInput._enterSaveHandler = function (ev) {
+                    if (ev && ev.key === 'Enter') {
+                        ev.preventDefault();
+                        try {
+                            const saveBtn = modal ? modal.querySelector('button[onclick*="saveInventoryChanges"]') : null;
+                            if (saveBtn && typeof saveBtn.click === 'function') {
+                                saveBtn.click();
+                                return;
+                            }
+                        } catch (_e) {
+                        }
+                        try {
+                            if (typeof saveInventoryChanges === 'function') {
+                                saveInventoryChanges();
+                            }
+                        } catch (_e) {
+                            console.error('Enter 鍵觸發庫存儲存失敗:', _e);
+                        }
+                    }
+                };
+                defaultDosageInput.addEventListener('keypress', defaultDosageInput._enterSaveHandler);
+            }
         } catch (_e) {
             
-            console.error('綁定庫存數量或警戒量輸入 Enter 鍵事件失敗:', _e);
+            console.error('綁定庫存輸入 Enter 鍵事件失敗:', _e);
         }
         const titleEl = document.getElementById('inventoryModalTitle');
         
