@@ -2901,8 +2901,6 @@ function resolvePrescriptionDefaultDosage(item, inv) {
     if (inv && typeof inv.defaultDosage === 'number' && Number.isFinite(inv.defaultDosage) && inv.defaultDosage >= 0) {
         return Math.round(inv.defaultDosage * 100) / 100;
     }
-    const fromItem = parseDefaultDosageNumber(item && item.dosage);
-    if (fromItem !== null) return fromItem;
     return item && item.type === 'formula' ? 5 : 1;
 }
 
