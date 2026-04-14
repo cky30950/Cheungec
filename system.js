@@ -19813,10 +19813,9 @@ async function deleteUser(id) {
         }
 
         // 匯出財務報表
-async function exportFinancialReport() {
+async function buildFinancialExportPayload() {
     const startDate = document.getElementById('startDate').value;
     const endDate = document.getElementById('endDate').value;
-    // 嘗試取得報表類型：舊的 reportType 元素可能不存在，改用 quickDate 文字或值
     let reportType = '';
     const rptElem = document.getElementById('reportType');
     if (rptElem) {
@@ -19824,27 +19823,17 @@ async function exportFinancialReport() {
     } else {
         const quickDateElem = document.getElementById('quickDate');
         if (quickDateElem) {
-            // 使用選項的顯示文字，若沒有則使用值
             const selIndex = quickDateElem.selectedIndex;
-            if (selIndex >= 0) {
-                reportType = quickDateElem.options[selIndex].text || quickDateElem.value;
-            } else {
-                reportType = quickDateElem.value;
-            }
+            if (selIndex >= 0) reportType = quickDateElem.options[selIndex].text || quickDateElem.value;
+            else reportType = quickDateElem.value;
         }
     }
-    // 取得醫師篩選條件（若有）
     let doctorFilter = '';
     const doctorFilterInput = document.getElementById('doctorFilter');
-    if (doctorFilterInput) {
-        doctorFilter = doctorFilterInput.value;
-    }
+    if (doctorFilterInput) doctorFilter = doctorFilterInput.value;
     let clinicFilter = '';
     const clinicFilterInput = document.getElementById('clinicFilterFinancial');
-    if (clinicFilterInput) {
-        clinicFilter = clinicFilterInput.value;
-    }
-    // 過濾診症資料並計算統計以生成更詳細的報表
+    if (clinicFilterInput) clinicFilter = clinicFilterInput.value;
     const filteredConsultations = filterFinancialConsultations(startDate, endDate, doctorFilter, clinicFilter);
     const stats = calculateFinancialStatistics(filteredConsultations);
     const months = monthsInDateRange(startDate, endDate);
@@ -19858,45 +19847,53 @@ async function exportFinancialReport() {
         totalCost = 0;
         byType = {};
     }
-    // 準備各區塊文字
+    const clinicOpt = clinicFilter ? (Array.isArray(clinicsList) ? clinicsList.find(c => String(c.id) === String(clinicFilter)) : null) : null;
+    const clinicName = clinicOpt ? (clinicOpt.chineseName || clinicOpt.englishName || clinicOpt.id) : clinicFilter;
+    return {
+        startDate,
+        endDate,
+        reportType,
+        doctorFilter,
+        clinicFilter,
+        clinicName,
+        filteredConsultations,
+        stats,
+        totalCost,
+        byType,
+        generatedAt: new Date().toLocaleString('zh-TW')
+    };
+}
+
+async function exportFinancialReportTxt() {
+    const data = await buildFinancialExportPayload();
+    const { startDate, endDate, reportType, doctorFilter, clinicFilter, clinicName, stats, totalCost, byType } = data;
     const doctorLines = Object.keys(stats.doctorStats).map(key => {
-        const data = stats.doctorStats[key];
+        const d = stats.doctorStats[key];
         const doctorName = key || '未知醫師';
-        return `${doctorName}: 次數 ${data.count.toLocaleString()}，收入 $${data.revenue.toLocaleString()}`;
+        return `${doctorName}: 次數 ${d.count.toLocaleString()}，收入 $${d.revenue.toLocaleString()}`;
     }).join('\n');
-    const serviceLines = Object.values(stats.serviceStats).map(item => {
-        return `${item.name}: 次數 ${item.count.toLocaleString()}，收入 $${item.revenue.toLocaleString()}`;
-    }).join('\n');
+    const serviceLines = Object.values(stats.serviceStats).map(item => `${item.name}: 次數 ${item.count.toLocaleString()}，收入 $${item.revenue.toLocaleString()}`).join('\n');
     const dailyLines = Object.keys(stats.dailyStats).map(dateKey => {
-        const data = stats.dailyStats[dateKey];
-        return `${dateKey}: 次數 ${data.count.toLocaleString()}，收入 $${data.revenue.toLocaleString()}`;
+        const d = stats.dailyStats[dateKey];
+        return `${dateKey}: 次數 ${d.count.toLocaleString()}，收入 $${d.revenue.toLocaleString()}`;
     }).join('\n');
-    // 組合文字報表
     let textReport = '';
-    if (doctorFilter) {
-        textReport += `選擇醫師: ${doctorFilter}\n`;
-    }
-    if (clinicFilter) {
-        const clinicOpt = (Array.isArray(clinicsList) ? clinicsList.find(c => String(c.id) === String(clinicFilter)) : null);
-        const clinicName = clinicOpt ? (clinicOpt.chineseName || clinicOpt.englishName || clinicOpt.id) : clinicFilter;
-        textReport += `選擇診所: ${clinicName}\n`;
-    }
+    if (doctorFilter) textReport += `選擇醫師: ${doctorFilter}\n`;
+    if (clinicFilter) textReport += `選擇診所: ${clinicName}\n`;
     textReport += `報表標題: 財務報表 - ${reportType}\n`;
     textReport += `期間: ${startDate} 至 ${endDate}\n`;
-    textReport += `生成時間: ${new Date().toLocaleString('zh-TW')}\n`;
+    textReport += `生成時間: ${data.generatedAt}\n`;
     textReport += `總收入(未扣成本): $${stats.totalRevenue.toLocaleString()}\n`;
     textReport += `總成本: $${totalCost.toLocaleString()}\n`;
-    const netRevenue = stats.totalRevenue - totalCost;
-    textReport += `淨收入: $${netRevenue.toLocaleString()}\n`;
+    textReport += `淨收入: $${(stats.totalRevenue - totalCost).toLocaleString()}\n`;
     textReport += `總診症數: ${stats.totalConsultations.toLocaleString()}\n`;
     textReport += `平均收入: $${Math.round(stats.averageRevenue).toLocaleString()}\n`;
     textReport += `有效醫師數: ${stats.activeDoctors.toLocaleString()}\n\n`;
     textReport += `醫師統計:\n${doctorLines || '無資料'}\n\n`;
     textReport += `服務分類統計:\n${serviceLines || '無資料'}\n\n`;
     textReport += `每日統計:\n${dailyLines || '無資料'}\n`;
-    const costLines = Object.keys(byType).map(t => `${t}: $${Number(byType[t]||0).toLocaleString()}`).join('\n');
+    const costLines = Object.keys(byType).map(t => `${t}: $${Number(byType[t] || 0).toLocaleString()}`).join('\n');
     textReport += `\n成本統計:\n${costLines || '無資料'}\n`;
-    // 創建下載為純文字檔案
     const blob = new Blob([textReport], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -19906,7 +19903,83 @@ async function exportFinancialReport() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast('財務報表已匯出！', 'success');
+    showToast('財務報表 TXT 已匯出！', 'success');
+}
+
+async function exportFinancialReportExcel() {
+    const data = await buildFinancialExportPayload();
+    const { startDate, endDate, reportType, doctorFilter, clinicFilter, clinicName, stats, totalCost, byType } = data;
+    const esc = (value) => {
+        const str = String(value == null ? '' : value);
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    };
+    const doctorRows = Object.keys(stats.doctorStats).map(key => {
+        const d = stats.doctorStats[key];
+        return `<tr><td>${esc(key || '未知醫師')}</td><td>${d.count}</td><td>${d.revenue}</td></tr>`;
+    }).join('');
+    const serviceRows = Object.values(stats.serviceStats).map(item => {
+        return `<tr><td>${esc(item.name)}</td><td>${item.count}</td><td>${item.revenue}</td></tr>`;
+    }).join('');
+    const dailyRows = Object.keys(stats.dailyStats).map(dateKey => {
+        const d = stats.dailyStats[dateKey];
+        return `<tr><td>${esc(dateKey)}</td><td>${d.count}</td><td>${d.revenue}</td></tr>`;
+    }).join('');
+    const costRows = Object.keys(byType).map(type => {
+        const amount = Number(byType[type] || 0);
+        return `<tr><td>${esc(type)}</td><td>${amount}</td></tr>`;
+    }).join('');
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; }
+th { background: #f3f4f6; }
+h2, h3 { margin: 8px 0; }
+</style>
+</head>
+<body>
+<h2>財務報表</h2>
+<table>
+<tr><th>欄位</th><th>內容</th></tr>
+<tr><td>報表標題</td><td>${esc(reportType)}</td></tr>
+<tr><td>期間</td><td>${esc(startDate)} 至 ${esc(endDate)}</td></tr>
+<tr><td>生成時間</td><td>${esc(data.generatedAt)}</td></tr>
+<tr><td>選擇醫師</td><td>${esc(doctorFilter || '全部醫師')}</td></tr>
+<tr><td>選擇診所</td><td>${esc(clinicFilter ? clinicName : '全部診所')}</td></tr>
+<tr><td>總收入(未扣成本)</td><td>${stats.totalRevenue}</td></tr>
+<tr><td>總成本</td><td>${totalCost}</td></tr>
+<tr><td>淨收入</td><td>${stats.totalRevenue - totalCost}</td></tr>
+<tr><td>總診症數</td><td>${stats.totalConsultations}</td></tr>
+<tr><td>平均收入</td><td>${Math.round(stats.averageRevenue)}</td></tr>
+<tr><td>有效醫師數</td><td>${stats.activeDoctors}</td></tr>
+</table>
+<h3>醫師統計</h3>
+<table><tr><th>醫師</th><th>次數</th><th>收入</th></tr>${doctorRows || '<tr><td colspan="3">無資料</td></tr>'}</table>
+<h3>服務分類統計</h3>
+<table><tr><th>服務類型</th><th>次數</th><th>收入</th></tr>${serviceRows || '<tr><td colspan="3">無資料</td></tr>'}</table>
+<h3>每日統計</h3>
+<table><tr><th>日期</th><th>次數</th><th>收入</th></tr>${dailyRows || '<tr><td colspan="3">無資料</td></tr>'}</table>
+<h3>成本統計</h3>
+<table><tr><th>成本類型</th><th>金額</th></tr>${costRows || '<tr><td colspan="2">無資料</td></tr>'}</table>
+</body>
+</html>`;
+    const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `財務報表_${startDate}_${endDate}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('財務報表 Excel 已匯出！', 'success');
 }
 
 function monthsInDateRange(startDateStr, endDateStr) {
@@ -25665,7 +25738,10 @@ async function deleteMedicalRecord(recordId) {
   window.closePatientMedicalHistoryModal = closePatientMedicalHistoryModal;
   window.closeRegistrationModal = closeRegistrationModal;
   window.confirmRegistration = confirmRegistration;
-  window.exportFinancialReport = exportFinancialReport;
+  window.exportFinancialReportTxt = exportFinancialReportTxt;
+  window.exportFinancialReportExcel = exportFinancialReportExcel;
+  // 向下相容：舊呼叫仍預設匯出 TXT
+  window.exportFinancialReport = exportFinancialReportTxt;
   window.exportClinicBackup = exportClinicBackup;
   window.triggerBackupImport = triggerBackupImport;
   window.handleBackupFile = handleBackupFile;
