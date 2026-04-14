@@ -5,6 +5,28 @@ let personalAcupointChartInstance = null;
 let personalStatsCurrentMonth = null;
 let personalStatsCurrentClinic = 'ALL';
 let personalStatsSelectedClinicName = '';
+let personalStatsLoading = false;
+
+function setPersonalStatisticsLoading(loading) {
+    personalStatsLoading = !!loading;
+    const listIds = ['personalFormulaList', 'personalHerbList', 'personalAcupointList'];
+    if (personalStatsLoading) {
+        const loadingHtml = `
+            <li class="py-6 text-center text-gray-500">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                <div class="mt-2">載入中...</div>
+            </li>
+        `;
+        listIds.forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = loadingHtml;
+        });
+    }
+    const clinicSel = document.getElementById('personalStatsClinicSelect');
+    const monthSel = document.getElementById('personalStatsMonthSelect');
+    if (clinicSel) clinicSel.disabled = personalStatsLoading;
+    if (monthSel) monthSel.disabled = personalStatsLoading;
+}
 
 function psReadCache(doctor) {
     try {
@@ -473,6 +495,8 @@ function populateClinicSelect(initialClinicId) {
 }
 
 async function loadPersonalStatistics() {
+    setPersonalStatisticsLoading(true);
+    try {
     const doctor = currentUser;
     const cached = psReadCache(doctor);
     if (cached && cached.stats) {
@@ -556,4 +580,7 @@ async function loadPersonalStatistics() {
     const entry = { stats, lastSyncAt: lastSyncAt.toISOString(), list: summaries, fullFetched: true };
     psWriteCache(doctor, entry);
     renderPersonalStatistics(stats);
+    } finally {
+        setPersonalStatisticsLoading(false);
+    }
 }

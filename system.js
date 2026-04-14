@@ -19047,6 +19047,25 @@ async function deleteUser(id) {
         const FINANCIAL_REPORT_MIN_REFRESH_MS = 15000;
         let financialReportLastRunAt = 0;
         let financialReportLastKey = '';
+
+        function setFinancialReportLoadingState() {
+            const loadingRow = (colspan) => `
+                <tr>
+                    <td colspan="${colspan}" class="px-4 py-8 text-center text-gray-500">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                        <div class="mt-2">載入中...</div>
+                    </td>
+                </tr>
+            `;
+            const summaryBody = document.getElementById('financialSummaryTableBody');
+            const dailyBody = document.getElementById('financialDailyTableBody');
+            const doctorBody = document.getElementById('financialDoctorTableBody');
+            const serviceBody = document.getElementById('financialServiceTableBody');
+            if (summaryBody) summaryBody.innerHTML = loadingRow(4);
+            if (dailyBody) dailyBody.innerHTML = loadingRow(5);
+            if (doctorBody) doctorBody.innerHTML = loadingRow(5);
+            if (serviceBody) serviceBody.innerHTML = loadingRow(5);
+        }
         
         // 載入財務報表頁面
         async function loadFinancialReports() {
@@ -19063,6 +19082,7 @@ async function deleteUser(id) {
                 await loadUsersForFinancial();
             }
             if (typeof loadConsultationsForFinancial === 'function') {
+                setFinancialReportLoadingState();
                 await loadConsultationsForFinancial();
             }
             // 載入醫師選項
@@ -19156,6 +19176,7 @@ async function deleteUser(id) {
                 return;
             }
             try {
+                setFinancialReportLoadingState();
                 const startEl = document.getElementById('startDate');
                 const endEl = document.getElementById('endDate');
                 const doctorEl = document.getElementById('doctorFilter');
@@ -19371,6 +19392,8 @@ async function deleteUser(id) {
                 showToast('請選擇日期範圍！', 'error');
                 return;
             }
+
+            setFinancialReportLoadingState();
 
             const cacheKey = `${startDate}|${endDate}|${doctorFilter||''}|${clinicFilter||''}`;
             const existing = financialReportCache[cacheKey] || readCache('financialReportCache', cacheKey);
