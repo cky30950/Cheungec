@@ -5307,6 +5307,21 @@
   "englishName": "FuShen",
   "createdAt": "2025-08-12T10:24:05.533Z",
   "updatedAt": "2025-08-12T10:24:05.533Z"
+},
+{
+  "id": 1755100003016,
+  "name": "夏枯草",
+  "alias": "夏枯花、大頭花",
+  "nature": "辛、苦，寒",
+  "meridian": "肝、膽經",
+  "effects": "清肝瀉火，明目，散結消腫",
+  "indications": "目赤腫痛，頭痛眩暈，瘰癧，癭瘤，乳癰腫痛",
+  "dosage": "9-15g",
+  "cautions": "脾胃虛寒者慎用",
+  "type": "herb",
+  "englishName": "XiaKuCao",
+  "createdAt": "2025-08-12T10:24:05.533Z",
+  "updatedAt": "2025-08-12T10:24:05.533Z"
 }
   ]
 }
