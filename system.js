@@ -8380,9 +8380,13 @@ function getOperationButtons(appointment, patient = null) {
         currentUserData.position === '醫師' && 
         appointment.appointmentDoctor === currentUserData.username;
     
+    // 檢查當前用戶是否為管理員
+    const isAdminUser = currentUserData && currentUserData.position === '診所管理';
     // 檢查當前用戶是否為管理員或護理師（可以進行管理操作）
-    const canManage = currentUserData && 
-        (currentUserData.position === '診所管理' || currentUserData.position === '護理師');
+    const canManage = currentUserData &&
+        (isAdminUser || currentUserData.position === '護理師');
+    // 管理員或該掛號醫師可修改病歷
+    const canEditMedicalRecord = isAppointmentDoctor || isAdminUser;
     
     // 檢查當前用戶是否可以確認到達（管理員、護理師或該掛號的醫師）
     const canConfirmArrival = canManage || isAppointmentDoctor;
@@ -8455,14 +8459,14 @@ function getOperationButtons(appointment, patient = null) {
             buttons.push(`<button onclick="printSickLeaveFromAppointment(${appointment.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">病假證明</button>`);
             
             if (isDisabled) {
-                if (isAppointmentDoctor) {
+                if (canEditMedicalRecord) {
                     buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs whitespace-nowrap cursor-not-allowed" ${disabledTooltip}>修改病歷</span>`);
                 }
                 if (canManage) {
                     buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs whitespace-nowrap cursor-not-allowed" ${disabledTooltip}>撤回診症</span>`);
                 }
             } else {
-                if (isAppointmentDoctor) {
+                if (canEditMedicalRecord) {
                     buttons.push(`<button onclick="editMedicalRecord(${appointment.id})" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">修改病歷</button>`);
                 }
                 if (canManage) {
@@ -13567,6 +13571,15 @@ async function editMedicalRecord(appointmentId) {
         const appointment = appointments.find(apt => apt && String(apt.id) === String(appointmentId));
         if (!appointment) {
             showToast('找不到掛號記錄！', 'error');
+            return;
+        }
+        const isAdminUser = currentUserData && currentUserData.position === '診所管理';
+        const isAppointmentDoctor = currentUserData &&
+            currentUserData.position === '醫師' &&
+            appointment.appointmentDoctor === currentUserData.username;
+        const canEditMedicalRecord = isAdminUser || isAppointmentDoctor;
+        if (!canEditMedicalRecord) {
+            showToast('您沒有修改病歷的權限！', 'error');
             return;
         }
         // 使用 forceRefresh=true 以確保跨裝置同步取得最新病人資料
