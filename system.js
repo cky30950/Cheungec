@@ -1922,6 +1922,8 @@ async function fetchUsers(forceRefresh = false) {
                         document.getElementById('clinicBusinessHours').value = clinicSettings.businessHours || '';
                         document.getElementById('clinicPhone').value = clinicSettings.phone || '';
                         document.getElementById('clinicAddress').value = clinicSettings.address || '';
+                        const thankYouInput = document.getElementById('clinicReceiptThankYouText');
+                        if (thankYouInput) thankYouInput.value = clinicSettings.receiptThankYouText || '';
                         updateClinicSettingsDisplay();
                         updateCurrentClinicDisplay();
                     });
@@ -5475,6 +5477,10 @@ async function logout() {
                 loadBillingManagement();
             } else if (sectionId === 'financialReports') {
                 loadFinancialReports();
+            } else if (sectionId === 'systemManagement') {
+                try {
+                    updateClinicSettingsDisplay();
+                } catch (_eUpdateClinicSettingsDisplay) {}
             } else if (sectionId === 'userManagement') {
                 loadUserManagement();
             } else if (sectionId === 'personalStatistics') {
@@ -11379,6 +11385,8 @@ async function printConsultationRecord(consultationId, consultationData = null) 
             contactCounter: isEnglish ? 'If you have any questions, please contact the counter' : '如有疑問請洽櫃檯'
         };
         const clinicPrint = await resolveClinicSettingsByConsultation(consultation);
+        const receiptVisibility = mergeReceiptVisibilitySettings(clinicPrint && clinicPrint.receiptFieldVisibility).receipt;
+        const customThankYouText = (clinicPrint && clinicPrint.receiptThankYouText) ? String(clinicPrint.receiptThankYouText).trim() : '';
         // Construct receipt HTML with localized labels
         const printContent = `
             <!DOCTYPE html>
@@ -11551,22 +11559,29 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                     
                     <!-- Basic Information -->
                     <div class="receipt-info">
+                        ${receiptVisibility.receiptNo ? `
                         <div class="info-row">
                             <span class="info-label">${TR.receiptNo}${colon}</span>
                             <span>R${consultation.id.toString().padStart(6, '0')}</span>
                         </div>
+                        ` : ''}
                         <div class="info-row">
                             <span class="info-label">${TR.patientName}${colon}</span>
                             <span>${patient.name}</span>
                         </div>
+                        ${receiptVisibility.medicalRecordNo ? `
                         <div class="info-row">
                             <span class="info-label">${TR.medicalRecordNo}${colon}</span>
                             <span>${consultation.medicalRecordNumber || consultation.id}</span>
                         </div>
+                        ` : ''}
+                        ${receiptVisibility.patientNumber ? `
                         <div class="info-row">
                             <span class="info-label">${TR.patientNumber}${colon}</span>
-                            <span>${patient.patientNumber}</span>
+                            <span>${patient.patientNumber || '-'}</span>
                         </div>
+                        ` : ''}
+                        ${receiptVisibility.consultationDate ? `
                         <div class="info-row">
                             <span class="info-label">${TR.consultationDate}${colon}</span>
                             <span>${consultationDate.toLocaleDateString(dateLocale, {
@@ -11575,6 +11590,8 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                                 day: '2-digit'
                             })}</span>
                         </div>
+                        ` : ''}
+                        ${receiptVisibility.consultationTime ? `
                         <div class="info-row">
                             <span class="info-label">${TR.consultationTime}${colon}</span>
                             <span>${consultationDate.toLocaleTimeString(dateLocale, {
@@ -11582,6 +11599,7 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                                 minute: '2-digit'
                             })}</span>
                         </div>
+                        ` : ''}
                         <div class="info-row">
                             <span class="info-label">${TR.doctorName}${colon}</span>
                             <span>${getDoctorDisplayName(consultation.doctor)}</span>
@@ -11780,7 +11798,7 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                     
                     <!-- Thank You -->
                     <div class="thank-you">
-                        ${TR.thankYou}
+                        ${customThankYouText || TR.thankYou}
                     </div>
                     
                     <!-- Footer -->
@@ -13053,6 +13071,7 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
             contact: isEnglish ? 'If you have any questions, please contact the front desk.' : '如有疑問請洽櫃檯'
         };
         const clinicPrint = await resolveClinicSettingsByConsultation(consultation);
+        const prescriptionVisibility = mergeReceiptVisibilitySettings(clinicPrint && clinicPrint.receiptFieldVisibility).prescription;
         // 構建列印內容
         const printContent = `
             <!DOCTYPE html>
@@ -13175,10 +13194,10 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                     <div class="advice-title">${PI.title}</div>
                     <div class="patient-info">
                         <div class="info-row"><span class="info-label">${PI.patientName}${colon}</span><span>${patient.name}</span></div>
-                        <div class="info-row"><span class="info-label">${PI.medicalRecordNo}${colon}</span><span>${consultation.medicalRecordNumber || consultation.id}</span></div>
-                        ${patient.patientNumber ? `<div class="info-row"><span class="info-label">${PI.patientNo}${colon}</span><span>${patient.patientNumber}</span></div>` : ''}
-                        <div class="info-row"><span class="info-label">${PI.consultationDate}${colon}</span><span>${consultationDate.toLocaleDateString(dateLocale, { year: 'numeric', month: '2-digit', day: '2-digit' })}</span></div>
-                        <div class="info-row"><span class="info-label">${PI.consultationTime}${colon}</span><span>${consultationDate.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}</span></div>
+                        ${prescriptionVisibility.medicalRecordNo ? `<div class="info-row"><span class="info-label">${PI.medicalRecordNo}${colon}</span><span>${consultation.medicalRecordNumber || consultation.id}</span></div>` : ''}
+                        ${prescriptionVisibility.patientNumber ? `<div class="info-row"><span class="info-label">${PI.patientNo}${colon}</span><span>${patient.patientNumber || '-'}</span></div>` : ''}
+                        ${prescriptionVisibility.consultationDate ? `<div class="info-row"><span class="info-label">${PI.consultationDate}${colon}</span><span>${consultationDate.toLocaleDateString(dateLocale, { year: 'numeric', month: '2-digit', day: '2-digit' })}</span></div>` : ''}
+                        ${prescriptionVisibility.consultationTime ? `<div class="info-row"><span class="info-label">${PI.consultationTime}${colon}</span><span>${consultationDate.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}</span></div>` : ''}
                         <div class="info-row"><span class="info-label">${PI.doctor}${colon}</span><span>${getDoctorDisplayName(consultation.doctor)}</span></div>
                         ${(() => {
                             const regNumber = getDoctorRegistrationNumber(consultation.doctor);
@@ -14293,6 +14312,79 @@ async function initializeSystemAfterLogin() {
 
 
         // 診所設定管理功能
+        const RECEIPT_CUSTOM_FIELDS = ['receiptNo', 'medicalRecordNo', 'patientNumber', 'consultationDate', 'consultationTime'];
+        const PRESCRIPTION_CUSTOM_FIELDS = ['medicalRecordNo', 'patientNumber', 'consultationDate', 'consultationTime'];
+
+        function getDefaultReceiptVisibilitySettings() {
+            return {
+                receipt: {
+                    receiptNo: true,
+                    medicalRecordNo: true,
+                    patientNumber: true,
+                    consultationDate: true,
+                    consultationTime: true
+                },
+                prescription: {
+                    receiptNo: false,
+                    medicalRecordNo: true,
+                    patientNumber: true,
+                    consultationDate: true,
+                    consultationTime: true
+                }
+            };
+        }
+
+        function mergeReceiptVisibilitySettings(rawSettings) {
+            const defaults = getDefaultReceiptVisibilitySettings();
+            const merged = {
+                receipt: { ...defaults.receipt },
+                prescription: { ...defaults.prescription }
+            };
+            const receiptSource = rawSettings && rawSettings.receipt;
+            if (receiptSource && typeof receiptSource === 'object') {
+                RECEIPT_CUSTOM_FIELDS.forEach((field) => {
+                    if (typeof receiptSource[field] === 'boolean') merged.receipt[field] = receiptSource[field];
+                });
+            }
+            const prescriptionSource = rawSettings && rawSettings.prescription;
+            if (prescriptionSource && typeof prescriptionSource === 'object') {
+                PRESCRIPTION_CUSTOM_FIELDS.forEach((field) => {
+                    if (typeof prescriptionSource[field] === 'boolean') merged.prescription[field] = prescriptionSource[field];
+                });
+            }
+            return merged;
+        }
+
+        function getClinicReceiptVisibilitySettings() {
+            return mergeReceiptVisibilitySettings(clinicSettings && clinicSettings.receiptFieldVisibility);
+        }
+
+        function applyReceiptCustomizationUI() {
+            const settings = getClinicReceiptVisibilitySettings();
+            RECEIPT_CUSTOM_FIELDS.forEach((field) => {
+                const receiptEl = document.getElementById(`receiptField_${field}`);
+                if (receiptEl) receiptEl.checked = !!settings.receipt[field];
+            });
+            PRESCRIPTION_CUSTOM_FIELDS.forEach((field) => {
+                const prescriptionEl = document.getElementById(`prescriptionField_${field}`);
+                if (prescriptionEl) prescriptionEl.checked = !!settings.prescription[field];
+            });
+        }
+
+        function collectReceiptCustomizationUI() {
+            const settings = { receipt: {}, prescription: {} };
+            RECEIPT_CUSTOM_FIELDS.forEach((field) => {
+                const receiptEl = document.getElementById(`receiptField_${field}`);
+                settings.receipt[field] = !!(receiptEl && receiptEl.checked);
+            });
+            PRESCRIPTION_CUSTOM_FIELDS.forEach((field) => {
+                const prescriptionEl = document.getElementById(`prescriptionField_${field}`);
+                settings.prescription[field] = !!(prescriptionEl && prescriptionEl.checked);
+            });
+            settings.prescription.receiptNo = false;
+            return settings;
+        }
+
         function showClinicSettingsModal() {
             // 載入現有設定
             document.getElementById('clinicChineseName').value = clinicSettings.chineseName || '';
@@ -14300,6 +14392,8 @@ async function initializeSystemAfterLogin() {
             document.getElementById('clinicBusinessHours').value = clinicSettings.businessHours || '';
             document.getElementById('clinicPhone').value = clinicSettings.phone || '';
             document.getElementById('clinicAddress').value = clinicSettings.address || '';
+            const thankYouInput = document.getElementById('clinicReceiptThankYouText');
+            if (thankYouInput) thankYouInput.value = clinicSettings.receiptThankYouText || '';
             
             try { populateClinicSelectors(); } catch (_e) {}
             document.getElementById('clinicSettingsModal').classList.remove('hidden');
@@ -14315,6 +14409,8 @@ async function initializeSystemAfterLogin() {
             const businessHours = document.getElementById('clinicBusinessHours').value.trim();
             const phone = document.getElementById('clinicPhone').value.trim();
             const address = document.getElementById('clinicAddress').value.trim();
+            const thankYouInput = document.getElementById('clinicReceiptThankYouText');
+            const receiptThankYouText = thankYouInput ? thankYouInput.value.trim() : '';
             
             if (!chineseName) {
                 showToast('請輸入診所中文名稱！', 'error');
@@ -14326,10 +14422,19 @@ async function initializeSystemAfterLogin() {
             clinicSettings.businessHours = businessHours;
             clinicSettings.phone = phone;
             clinicSettings.address = address;
+            clinicSettings.receiptThankYouText = receiptThankYouText;
             clinicSettings.updatedAt = new Date().toISOString();
             try {
                 if (currentClinicId) {
-                    await window.firebaseDataManager.updateClinic(currentClinicId, clinicSettings);
+                    await window.firebaseDataManager.updateClinic(currentClinicId, {
+                        chineseName,
+                        englishName,
+                        businessHours,
+                        phone,
+                        address,
+                        receiptThankYouText,
+                        updatedAt: clinicSettings.updatedAt
+                    });
                     const listRes = await window.firebaseDataManager.getClinics();
                     clinicsList = listRes && listRes.success && Array.isArray(listRes.data) ? listRes.data : clinicsList;
                     updateClinicSettingsDisplay();
@@ -14385,6 +14490,28 @@ async function initializeSystemAfterLogin() {
             }
             if (welcomeEnglishTitle) {
                 welcomeEnglishTitle.textContent = `Welcome to ${clinicSettings.englishName || 'Dr.Great Clinic'}`;
+            }
+            applyReceiptCustomizationUI();
+        }
+
+        async function saveReceiptCustomizationSettings() {
+            if (!currentClinicId) {
+                showToast('未選擇診所', 'error');
+                return;
+            }
+            try {
+                clinicSettings.receiptFieldVisibility = collectReceiptCustomizationUI();
+                clinicSettings.updatedAt = new Date().toISOString();
+                await window.firebaseDataManager.updateClinic(currentClinicId, {
+                    receiptFieldVisibility: clinicSettings.receiptFieldVisibility,
+                    updatedAt: clinicSettings.updatedAt
+                });
+                const listRes = await window.firebaseDataManager.getClinics();
+                clinicsList = listRes && listRes.success && Array.isArray(listRes.data) ? listRes.data : clinicsList;
+                showToast('收據自定義設定已儲存', 'success');
+            } catch (e) {
+                console.error('儲存收據自定義設定失敗:', e);
+                showToast('儲存收據自定義設定失敗', 'error');
             }
         }
 
@@ -22269,13 +22396,17 @@ class FirebaseDataManager {
             } catch (_e) {
                 dataToWrite = clinicData;
             }
-            await window.firebase.updateDoc(
-                window.firebase.doc(window.firebase.db, 'clinics', id),
-                {
-                    ...dataToWrite,
-                    updatedAt: new Date()
-                }
-            );
+            const clinicDocRef = window.firebase.doc(window.firebase.db, 'clinics', id);
+            const payload = {
+                ...dataToWrite,
+                updatedAt: new Date()
+            };
+            try {
+                await window.firebase.updateDoc(clinicDocRef, payload);
+            } catch (_updateErr) {
+                // 若文件尚未建立（例如 local-default 初始診所），改用 merge upsert。
+                await window.firebase.setDoc(clinicDocRef, payload, { merge: true });
+            }
             return { success: true };
         } catch (err) {
             return { success: false, error: err && err.message ? err.message : String(err) };
@@ -22760,33 +22891,44 @@ class FirebaseDataManager {
             start.setHours(0, 0, 0, 0);
             end.setHours(23, 59, 59, 999);
             const pageSize = 100;
-            const parts = [];
-            if (completedOnly) parts.push(window.firebase.where('status', '==', 'completed'));
-            if (doctorFilter) parts.push(window.firebase.where('doctor', '==', doctorFilter));
-            if (clinicFilter) parts.push(window.firebase.where('clinicId', '==', clinicFilter));
-            parts.push(window.firebase.orderBy('date', 'asc'));
-            parts.push(window.firebase.where('date', '>=', start));
-            parts.push(window.firebase.where('date', '<=', end));
-            parts.push(window.firebase.limit(pageSize));
-            let q = window.firebase.firestoreQuery(colRef, ...parts);
-            let snap = await window.firebase.getDocs(q);
-            const list = [];
-            snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-            let lastVisible = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
-            while (snap.docs.length === pageSize && lastVisible) {
-                const nextParts = [];
-                if (completedOnly) nextParts.push(window.firebase.where('status', '==', 'completed'));
-                if (doctorFilter) nextParts.push(window.firebase.where('doctor', '==', doctorFilter));
-                if (clinicFilter) nextParts.push(window.firebase.where('clinicId', '==', clinicFilter));
-                nextParts.push(window.firebase.orderBy('date', 'asc'));
-                nextParts.push(window.firebase.where('date', '>=', start));
-                nextParts.push(window.firebase.where('date', '<=', end));
-                nextParts.push(window.firebase.startAfter(lastVisible));
-                nextParts.push(window.firebase.limit(pageSize));
-                q = window.firebase.firestoreQuery(colRef, ...nextParts);
-                snap = await window.firebase.getDocs(q);
+            const baseParts = [];
+            if (completedOnly) baseParts.push(window.firebase.where('status', '==', 'completed'));
+            if (doctorFilter) baseParts.push(window.firebase.where('doctor', '==', doctorFilter));
+            if (clinicFilter) baseParts.push(window.firebase.where('clinicId', '==', clinicFilter));
+            const runRangeQuery = async (fieldName, startValue, endValue) => {
+                const list = [];
+                let q = window.firebase.firestoreQuery(
+                    colRef,
+                    ...baseParts,
+                    window.firebase.orderBy(fieldName, 'asc'),
+                    window.firebase.where(fieldName, '>=', startValue),
+                    window.firebase.where(fieldName, '<=', endValue),
+                    window.firebase.limit(pageSize)
+                );
+                let snap = await window.firebase.getDocs(q);
                 snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-                lastVisible = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+                let lastVisible = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+                while (snap.docs.length === pageSize && lastVisible) {
+                    q = window.firebase.firestoreQuery(
+                        colRef,
+                        ...baseParts,
+                        window.firebase.orderBy(fieldName, 'asc'),
+                        window.firebase.where(fieldName, '>=', startValue),
+                        window.firebase.where(fieldName, '<=', endValue),
+                        window.firebase.startAfter(lastVisible),
+                        window.firebase.limit(pageSize)
+                    );
+                    snap = await window.firebase.getDocs(q);
+                    snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+                    lastVisible = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+                }
+                return list;
+            };
+            // 先以 date 查詢；若為 0 筆，可能是歷史資料 date 型別不一致，改用 createdAt 範圍補抓
+            // （仍維持條件查詢，不做全量掃描）
+            let list = await runRangeQuery('date', start, end);
+            if (list.length === 0) {
+                list = await runRangeQuery('createdAt', start, end);
             }
             return { success: true, data: list };
         } catch (error) {
@@ -25804,6 +25946,7 @@ async function deleteMedicalRecord(recordId) {
   window.deletePatientPackageRecord = deletePatientPackageRecord;
   window.saveBillingItem = saveBillingItem;
   window.saveClinicSettings = saveClinicSettings;
+  window.saveReceiptCustomizationSettings = saveReceiptCustomizationSettings;
   window.saveConsultation = saveConsultation;
   window.saveFormula = saveFormula;
   window.saveHerb = saveHerb;

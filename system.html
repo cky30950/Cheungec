@@ -2051,6 +2051,34 @@
                             </div>
                         </div>
                     </div>
+                    <div class="bg-gray-50 rounded-lg p-6 md:col-span-2">
+                        <h3 class="text-lg font-semibold mb-4">收據自定義設定</h3>
+                        <p class="text-sm text-gray-600 mb-4">以下設定會套用到目前選擇的診所，可分別控制「列印收據」與「藥單醫囑」欄位顯示。</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-white border border-gray-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-800 mb-3">列印收據</h4>
+                                <div class="space-y-2 text-sm">
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="receiptField_receiptNo" class="rounded border-gray-300">收據編號</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="receiptField_medicalRecordNo" class="rounded border-gray-300">病歷編號</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="receiptField_patientNumber" class="rounded border-gray-300">病人號碼</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="receiptField_consultationDate" class="rounded border-gray-300">診療日期</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="receiptField_consultationTime" class="rounded border-gray-300">診療時間</label>
+                                </div>
+                            </div>
+                            <div class="bg-white border border-gray-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-800 mb-3">藥單醫囑</h4>
+                                <div class="space-y-2 text-sm">
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="prescriptionField_medicalRecordNo" class="rounded border-gray-300">病歷編號</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="prescriptionField_patientNumber" class="rounded border-gray-300">病人號碼</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="prescriptionField_consultationDate" class="rounded border-gray-300">診療日期</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="prescriptionField_consultationTime" class="rounded border-gray-300">診療時間</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex justify-end mt-4">
+                            <button onclick="saveReceiptCustomizationSettings()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-200">儲存收據自定義設定</button>
+                        </div>
+                    </div>
 
                     <div class="bg-gray-50 rounded-lg p-6 md:col-span-2">
                         <h3 class="text-lg font-semibold mb-4">舊資料轉移系統</h3>
@@ -2614,6 +2642,10 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">診所地址</label>
                         <textarea id="clinicAddress" placeholder="請輸入診所完整地址" rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">收據感謝語（列印收據底部）</label>
+                        <textarea id="clinicReceiptThankYouText" placeholder="預設：謝謝您的光臨，祝您身體健康！" rows="2" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
                     </div>
                 </div>
                 

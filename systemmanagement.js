@@ -9,6 +9,8 @@ function showClinicSettingsModal() {
     document.getElementById('clinicBusinessHours').value = clinicSettings.businessHours || '';
     document.getElementById('clinicPhone').value = clinicSettings.phone || '';
     document.getElementById('clinicAddress').value = clinicSettings.address || '';
+    const thankYouInput = document.getElementById('clinicReceiptThankYouText');
+    if (thankYouInput) thankYouInput.value = clinicSettings.receiptThankYouText || '';
     
     try { populateClinicSelectors(); } catch (_e) {}
     document.getElementById('clinicSettingsModal').classList.remove('hidden');
@@ -24,6 +26,8 @@ async function saveClinicSettings() {
     const businessHours = document.getElementById('clinicBusinessHours').value.trim();
     const phone = document.getElementById('clinicPhone').value.trim();
     const address = document.getElementById('clinicAddress').value.trim();
+    const thankYouInput = document.getElementById('clinicReceiptThankYouText');
+    const receiptThankYouText = thankYouInput ? thankYouInput.value.trim() : '';
     
     if (!chineseName) {
         showToast('請輸入診所中文名稱！', 'error');
@@ -35,6 +39,7 @@ async function saveClinicSettings() {
     clinicSettings.businessHours = businessHours;
     clinicSettings.phone = phone;
     clinicSettings.address = address;
+    clinicSettings.receiptThankYouText = receiptThankYouText;
     clinicSettings.updatedAt = new Date().toISOString();
     try {
         if (typeof currentClinicId !== 'undefined' && currentClinicId) {
@@ -100,6 +105,11 @@ function updateClinicSettingsDisplay() {
     if (welcomeEnglishTitle) {
         welcomeEnglishTitle.textContent = `Welcome to ${clinicSettings.englishName || 'Dr.Great Clinic'}`;
     }
+    try {
+        if (typeof applyReceiptCustomizationUI === 'function') {
+            applyReceiptCustomizationUI();
+        }
+    } catch (_eApplyReceiptUI) {}
 }
 
 
