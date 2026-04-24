@@ -22924,13 +22924,18 @@ class FirebaseDataManager {
                 }
                 return list;
             };
-            // 先以 date 查詢；若為 0 筆，可能是歷史資料 date 型別不一致，改用 createdAt 範圍補抓
-            // （仍維持條件查詢，不做全量掃描）
-            let list = await runRangeQuery('date', start, end);
-            if (list.length === 0) {
-                list = await runRangeQuery('createdAt', start, end);
-            }
-            return { success: true, data: list };
+            // 同時以 date 與 createdAt 範圍查詢並合併：
+            // 歷史資料可能存在欄位型別不一致（例如 date 為字串或缺失），
+            // 若僅在 date 為 0 筆才回退，會出現「只看到今天」的斷層。
+            // 這裡維持條件查詢（不做全量掃描），再以 id 去重。
+            const listByDate = await runRangeQuery('date', start, end);
+            const listByCreatedAt = await runRangeQuery('createdAt', start, end);
+            const mergedMap = new Map();
+            [...listByDate, ...listByCreatedAt].forEach(item => {
+                if (!item || item.id === undefined || item.id === null) return;
+                mergedMap.set(String(item.id), item);
+            });
+            return { success: true, data: Array.from(mergedMap.values()) };
         } catch (error) {
             console.warn('目標條件查詢失敗（已停用全量回退）:', error);
             return { success: false, data: [], error: 'targeted-query-failed' };
