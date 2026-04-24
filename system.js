@@ -19343,7 +19343,7 @@ async function deleteUser(id) {
                                     dateStr = item.createdAt;
                                 }
                             }
-                            return { id: item.id, date: dateStr, doctor: item.doctor, status: item.status, billingItems: item.billingItems, clinicId: item.clinicId || null, clinicName: item.clinicName || '', prescription: item.prescription, acupunctureNotes: item.acupunctureNotes, createdAt: item.createdAt, updatedAt: item.updatedAt };
+                            return { id: item.id, date: dateStr, doctor: item.doctor, status: item.status, billingItems: item.billingItems, billingItemsStructured: item.billingItemsStructured || '[]', clinicId: item.clinicId || null, clinicName: item.clinicName || '', prescription: item.prescription, acupunctureNotes: item.acupunctureNotes, createdAt: item.createdAt, updatedAt: item.updatedAt };
                         });
                         return;
                     }
@@ -19451,12 +19451,55 @@ async function deleteUser(id) {
             }
         }
 
-        // 解析收費項目文本
-        function parseFinancialBillingItems(billingText) {
+        // 標準化財務類別代碼
+        function normalizeFinancialCategory(category) {
+            const raw = String(category || '').trim();
+            if (!raw) return '';
+            const key = raw.toLowerCase();
+            const map = {
+                consultation: 'consultation',
+                medicine: 'medicine',
+                treatment: 'treatment',
+                other: 'other',
+                discount: 'discount',
+                package: 'package',
+                packageuse: 'packageUse',
+                package_use: 'packageUse'
+            };
+            return map[key] || '';
+        }
+
+        // 解析收費項目文本（優先使用結構化 category，金額仍以文字明細為準）
+        function parseFinancialBillingItems(consultationData) {
             const items = [];
-            const lines = billingText.split('\n');
+            const consultationObj = consultationData && typeof consultationData === 'object' ? consultationData : null;
+            const billingText = consultationObj ? (consultationObj.billingItems || '') : (consultationData || '');
+            const lines = String(billingText || '').split('\n');
             let totalAmount = 0;
             let totalAmountSum = 0;
+            const categoryQueueByName = {};
+
+            // 先從結構化資料建立「同名項目依序取用」的類別映射，避免名稱關鍵字誤判。
+            try {
+                const structuredRaw = consultationObj ? consultationObj.billingItemsStructured : null;
+                const structuredItems = typeof structuredRaw === 'string'
+                    ? JSON.parse(structuredRaw || '[]')
+                    : (Array.isArray(structuredRaw) ? structuredRaw : []);
+                if (Array.isArray(structuredItems)) {
+                    structuredItems.forEach(rawItem => {
+                        if (!rawItem) return;
+                        const itemName = rawItem.name ? String(rawItem.name).trim() : '';
+                        if (!itemName) return;
+                        const normalizedCategory = normalizeFinancialCategory(rawItem.category) || getFinancialCategoryFromItemName(itemName);
+                        if (!categoryQueueByName[itemName]) {
+                            categoryQueueByName[itemName] = [];
+                        }
+                        categoryQueueByName[itemName].push(normalizedCategory);
+                    });
+                }
+            } catch (_e) {
+                // 若結構化資料格式異常，沿用名稱推斷作為回退。
+            }
 
             lines.forEach(line => {
                 line = line.trim();
@@ -19479,13 +19522,17 @@ async function deleteUser(id) {
                     const rawAmount = (itemMatch[3] || '').trim();
                     const amountNumber = parseInt(rawAmount.replace(/[^\d]/g, ''), 10) || 0;
                     const signedAmount = rawAmount.includes('-') ? -amountNumber : amountNumber;
+                    const mappedQueue = categoryQueueByName[itemName];
+                    const mappedCategory = Array.isArray(mappedQueue) && mappedQueue.length > 0
+                        ? mappedQueue.shift()
+                        : '';
 
                     items.push({
                         name: itemName,
                         quantity: quantity,
                         unitPrice: quantity ? Math.abs(signedAmount / quantity) : 0,
                         totalAmount: signedAmount,
-                        category: getFinancialCategoryFromItemName(itemName)
+                        category: mappedCategory || getFinancialCategoryFromItemName(itemName)
                     });
                     totalAmountSum += signedAmount;
                 }
@@ -19576,7 +19623,7 @@ async function deleteUser(id) {
                                         dateStr = item.createdAt;
                                     }
                                 }
-                                return { id: item.id, date: dateStr, doctor: item.doctor, status: item.status, billingItems: item.billingItems, clinicId: item.clinicId || null, clinicName: item.clinicName || '', createdAt: item.createdAt, updatedAt: item.updatedAt };
+                                return { id: item.id, date: dateStr, doctor: item.doctor, status: item.status, billingItems: item.billingItems, billingItemsStructured: item.billingItemsStructured || '[]', clinicId: item.clinicId || null, clinicName: item.clinicName || '', createdAt: item.createdAt, updatedAt: item.updatedAt };
                             };
                             const deltas = deltaRes.data.map(normalize);
                             const start = new Date(startDate);
@@ -19693,7 +19740,7 @@ async function deleteUser(id) {
             const dailyStats = {};
 
             consultations.forEach(consultation => {
-                const parsed = parseFinancialBillingItems(consultation.billingItems || '');
+                const parsed = parseFinancialBillingItems(consultation);
                 const consultationRevenue = parsed.totalAmount;
                 totalRevenue += consultationRevenue;
 
@@ -19793,6 +19840,7 @@ async function deleteUser(id) {
                 { item: '治療費收入', amount: 0, category: 'treatment' },
                 { item: '其他收入', amount: 0, category: 'other' },
                 { item: '套票收入', amount: 0, category: 'package' },
+                { item: '套票扣減', amount: 0, category: 'packageUse' },
                 { item: '折扣/優惠', amount: 0, category: 'discount' }
             ];
 
