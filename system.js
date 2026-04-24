@@ -27082,7 +27082,7 @@ function _oldSelectPrescriptionTemplate(id) {
           let categories = {
             herbs: ['感冒類', '消化系統', '婦科調理', '補益類', '清熱類'],
             acupoints: ['頭面部', '胸腹部', '四肢部', '背腰部', '內科疾病', '婦科疾病'],
-            prescriptions: ['用藥指導', '生活調理', '飲食建議', '運動指導', '復診提醒', '慢性病管理', '婦科調理'],
+            prescriptions: ['用藥指導', '生活調理', '飲食建議', '運動指導', '慢性病管理', '婦科調理'],
             diagnosis: ['內科', '婦科', '兒科', '皮膚科', '骨傷科']
           };
 
