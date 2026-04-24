@@ -26200,26 +26200,59 @@ async function deleteMedicalRecord(recordId) {
       const modal = document.getElementById('diagnosisTemplateModal');
       const listEl = document.getElementById('diagnosisTemplateList');
       if (!modal || !listEl) return;
-      // 在列表上方放置搜尋欄，若尚未存在則建立
+      // 在列表上方放置搜尋欄與分類欄，若尚未存在則建立
+      let filterBar = modal.querySelector('#diagnosisTemplateFilterBar');
       let searchInput = modal.querySelector('#diagnosisTemplateSearch');
-      if (!searchInput) {
+      let categorySelect = modal.querySelector('#diagnosisTemplateModalCategoryFilter');
+      if (!filterBar) {
+        filterBar = document.createElement('div');
+        filterBar.id = 'diagnosisTemplateFilterBar';
+        filterBar.className = 'mb-3 flex items-center gap-2';
         searchInput = document.createElement('input');
         searchInput.id = 'diagnosisTemplateSearch';
         searchInput.type = 'text';
         searchInput.placeholder = '搜尋診斷模板...';
-        searchInput.className = 'w-full mb-3 px-3 py-2 border border-gray-300 rounded';
-        // 插入至列表容器之前
-        listEl.parentNode.insertBefore(searchInput, listEl);
-        // 在輸入時重新渲染列表
+        searchInput.className = 'flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded';
+        categorySelect = document.createElement('select');
+        categorySelect.id = 'diagnosisTemplateModalCategoryFilter';
+        categorySelect.className = 'w-36 px-3 py-2 border border-gray-300 rounded bg-white';
+        filterBar.appendChild(searchInput);
+        filterBar.appendChild(categorySelect);
+        listEl.parentNode.insertBefore(filterBar, listEl);
         searchInput.addEventListener('input', function() {
+          showDiagnosisTemplateModal();
+        });
+        categorySelect.addEventListener('change', function() {
           showDiagnosisTemplateModal();
         });
       }
       // 取得搜尋字串並轉成小寫以便比對
       const keyword = searchInput.value ? String(searchInput.value).trim().toLowerCase() : '';
-      listEl.innerHTML = '';
-      // 取得模板列表
       const templates = Array.isArray(diagnosisTemplates) ? diagnosisTemplates : [];
+      // 分類選單取自診斷模板本身 category
+      const selectedCategory = categorySelect && categorySelect.value ? String(categorySelect.value) : '全部分類';
+      if (categorySelect) {
+        const categories = Array.from(new Set(
+          templates
+            .map(t => (t && t.category ? String(t.category).trim() : ''))
+            .filter(Boolean)
+        )).sort((a, b) => a.localeCompare(b, 'zh-Hant', { sensitivity: 'base' }));
+        const prev = selectedCategory || '全部分類';
+        categorySelect.innerHTML = '';
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '全部分類';
+        defaultOpt.textContent = '全部分類';
+        categorySelect.appendChild(defaultOpt);
+        categories.forEach(cat => {
+          const opt = document.createElement('option');
+          opt.value = cat;
+          opt.textContent = cat;
+          categorySelect.appendChild(opt);
+        });
+        categorySelect.value = Array.from(categorySelect.options).some(opt => opt.value === prev) ? prev : '全部分類';
+      }
+      const activeCategory = categorySelect && categorySelect.value ? String(categorySelect.value) : '全部分類';
+      listEl.innerHTML = '';
       // 根據關鍵字過濾
       let filtered = templates;
       if (keyword) {
@@ -26230,6 +26263,9 @@ async function deleteMedicalRecord(recordId) {
           const content = (t.content || '').toLowerCase();
           return name.includes(keyword) || category.includes(keyword) || content.includes(keyword);
         });
+      }
+      if (activeCategory && activeCategory !== '全部分類') {
+        filtered = filtered.filter(t => String((t && t.category) || '') === activeCategory);
       }
       // 依名稱排序，改善搜尋體驗
       const sorted = filtered.slice().sort((a, b) => {
@@ -26445,22 +26481,56 @@ async function deleteMedicalRecord(recordId) {
           }
         }
       }
-      // 在列表上方放置搜尋欄，若尚未存在則建立
+      const templates = Array.isArray(prescriptionTemplates) ? prescriptionTemplates : [];
+      // 在列表上方放置搜尋欄與分類欄，若尚未存在則建立
+      let filterBar = modal.querySelector('#prescriptionTemplateFilterBar');
       let searchInput = modal.querySelector('#prescriptionTemplateSearch');
-      if (!searchInput) {
+      let categorySelect = modal.querySelector('#prescriptionTemplateModalCategoryFilter');
+      if (!filterBar) {
+        filterBar = document.createElement('div');
+        filterBar.id = 'prescriptionTemplateFilterBar';
+        filterBar.className = 'mb-3 flex items-center gap-2';
         searchInput = document.createElement('input');
         searchInput.id = 'prescriptionTemplateSearch';
         searchInput.type = 'text';
         searchInput.placeholder = '搜尋醫囑模板...';
-        searchInput.className = 'w-full mb-3 px-3 py-2 border border-gray-300 rounded';
-        listEl.parentNode.insertBefore(searchInput, listEl);
+        searchInput.className = 'flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded';
+        categorySelect = document.createElement('select');
+        categorySelect.id = 'prescriptionTemplateModalCategoryFilter';
+        categorySelect.className = 'w-36 px-3 py-2 border border-gray-300 rounded bg-white';
+        filterBar.appendChild(searchInput);
+        filterBar.appendChild(categorySelect);
+        listEl.parentNode.insertBefore(filterBar, listEl);
         searchInput.addEventListener('input', function() {
-          // 重新渲染列表
+          showPrescriptionTemplateModal();
+        });
+        categorySelect.addEventListener('change', function() {
           showPrescriptionTemplateModal();
         });
       }
+      const selectedCategory = categorySelect && categorySelect.value ? String(categorySelect.value) : '全部分類';
+      if (categorySelect) {
+        const categories = Array.from(new Set(
+          templates
+            .map(t => (t && t.category ? String(t.category).trim() : ''))
+            .filter(Boolean)
+        )).sort((a, b) => a.localeCompare(b, 'zh-Hant', { sensitivity: 'base' }));
+        const prev = selectedCategory || '全部分類';
+        categorySelect.innerHTML = '';
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '全部分類';
+        defaultOpt.textContent = '全部分類';
+        categorySelect.appendChild(defaultOpt);
+        categories.forEach(cat => {
+          const opt = document.createElement('option');
+          opt.value = cat;
+          opt.textContent = cat;
+          categorySelect.appendChild(opt);
+        });
+        categorySelect.value = Array.from(categorySelect.options).some(opt => opt.value === prev) ? prev : '全部分類';
+      }
+      const activeCategory = categorySelect && categorySelect.value ? String(categorySelect.value) : '全部分類';
       listEl.innerHTML = '';
-      const templates = Array.isArray(prescriptionTemplates) ? prescriptionTemplates : [];
       // 取得搜尋字串
       const keyword = searchInput.value ? String(searchInput.value).trim().toLowerCase() : '';
       if (!templates || templates.length === 0) {
@@ -26479,6 +26549,9 @@ async function deleteMedicalRecord(recordId) {
             const content = (t.content || '').toLowerCase();
             return name.includes(keyword) || category.includes(keyword) || content.includes(keyword);
           });
+        }
+        if (activeCategory && activeCategory !== '全部分類') {
+          filtered = filtered.filter(t => String((t && t.category) || '') === activeCategory);
         }
         // 依名稱排序
         const sorted = filtered.slice().sort((a, b) => {
@@ -27954,17 +28027,30 @@ async function deleteAcupointCombination(id) {
               const modal = document.getElementById('herbComboModal');
               const listContainer = document.getElementById('herbComboList');
               if (!modal || !listContainer) return;
-              // 在列表上方放置搜尋欄，若尚未存在則建立
+              // 在列表上方放置搜尋欄與分類欄，若尚未存在則建立
+              let filterBar = modal.querySelector('#herbComboFilterBar');
               let searchInput = modal.querySelector('#herbComboSearch');
-              if (!searchInput) {
+              let categorySelect = modal.querySelector('#herbComboModalCategoryFilter');
+              if (!filterBar) {
+                filterBar = document.createElement('div');
+                filterBar.id = 'herbComboFilterBar';
+                filterBar.className = 'mb-3 flex items-center gap-2';
                 searchInput = document.createElement('input');
                 searchInput.id = 'herbComboSearch';
                 searchInput.type = 'text';
                 searchInput.placeholder = '搜尋常用藥方...';
-                searchInput.className = 'w-full mb-3 px-3 py-2 border border-gray-300 rounded';
-                listContainer.parentNode.insertBefore(searchInput, listContainer);
+                searchInput.className = 'flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded';
+                categorySelect = document.createElement('select');
+                categorySelect.id = 'herbComboModalCategoryFilter';
+                categorySelect.className = 'w-36 px-3 py-2 border border-gray-300 rounded bg-white';
+                filterBar.appendChild(searchInput);
+                filterBar.appendChild(categorySelect);
+                listContainer.parentNode.insertBefore(filterBar, listContainer);
                 searchInput.addEventListener('input', function() {
                   // 重新渲染列表
+                  showHerbComboModal();
+                });
+                categorySelect.addEventListener('change', function() {
                   showHerbComboModal();
                 });
               }
@@ -27973,8 +28059,26 @@ async function deleteAcupointCombination(id) {
               let combos = Array.isArray(herbCombinations)
                 ? herbCombinations.filter(c => c && c.name && String(c.name).trim() !== '')
                 : [];
+              // 分類來源：個人設置的 herbComboCategories
+              if (categorySelect) {
+                const selectedCategory = categorySelect.value || '全部分類';
+                const categorySource = Array.isArray(herbComboCategories) ? herbComboCategories.filter(Boolean) : [];
+                categorySelect.innerHTML = '';
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '全部分類';
+                defaultOpt.textContent = '全部分類';
+                categorySelect.appendChild(defaultOpt);
+                categorySource.forEach(cat => {
+                  const opt = document.createElement('option');
+                  opt.value = String(cat);
+                  opt.textContent = String(cat);
+                  categorySelect.appendChild(opt);
+                });
+                categorySelect.value = Array.from(categorySelect.options).some(opt => opt.value === selectedCategory) ? selectedCategory : '全部分類';
+              }
               // 取得搜尋關鍵字
               const herbKeyword = searchInput.value ? String(searchInput.value).trim().toLowerCase() : '';
+              const activeCategory = categorySelect && categorySelect.value ? String(categorySelect.value) : '全部分類';
               if (herbKeyword) {
                 combos = combos.filter(combo => {
                   const nameStr = combo.name ? combo.name.toLowerCase() : '';
@@ -27985,6 +28089,9 @@ async function deleteAcupointCombination(id) {
                   }
                   return nameStr.includes(herbKeyword) || ingredientsStr.includes(herbKeyword);
                 });
+              }
+              if (activeCategory && activeCategory !== '全部分類') {
+                combos = combos.filter(combo => String((combo && combo.category) || '') === activeCategory);
               }
               if (combos.length === 0) {
                 listContainer.innerHTML = '<div class="text-center text-gray-500">尚未設定常用藥方組合</div>';
@@ -28083,16 +28190,29 @@ async function deleteAcupointCombination(id) {
               const modal = document.getElementById('acupointComboModal');
               const listContainer = document.getElementById('acupointComboList');
               if (!modal || !listContainer) return;
-              // 在列表上方放置搜尋欄，若尚未存在則建立
+              // 在列表上方放置搜尋欄與分類欄，若尚未存在則建立
+              let filterBar = modal.querySelector('#acupointComboFilterBar');
               let searchInput = modal.querySelector('#acupointComboSearch');
-              if (!searchInput) {
+              let categorySelect = modal.querySelector('#acupointComboModalCategoryFilter');
+              if (!filterBar) {
+                filterBar = document.createElement('div');
+                filterBar.id = 'acupointComboFilterBar';
+                filterBar.className = 'mb-3 flex items-center gap-2';
                 searchInput = document.createElement('input');
                 searchInput.id = 'acupointComboSearch';
                 searchInput.type = 'text';
                 searchInput.placeholder = '搜尋常用穴位...';
-                searchInput.className = 'w-full mb-3 px-3 py-2 border border-gray-300 rounded';
-                listContainer.parentNode.insertBefore(searchInput, listContainer);
+                searchInput.className = 'flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded';
+                categorySelect = document.createElement('select');
+                categorySelect.id = 'acupointComboModalCategoryFilter';
+                categorySelect.className = 'w-36 px-3 py-2 border border-gray-300 rounded bg-white';
+                filterBar.appendChild(searchInput);
+                filterBar.appendChild(categorySelect);
+                listContainer.parentNode.insertBefore(filterBar, listContainer);
                 searchInput.addEventListener('input', function() {
+                  showAcupointComboModal();
+                });
+                categorySelect.addEventListener('change', function() {
                   showAcupointComboModal();
                 });
               }
@@ -28100,8 +28220,26 @@ async function deleteAcupointCombination(id) {
               let combos = Array.isArray(acupointCombinations)
                 ? acupointCombinations.filter(c => c && c.name && String(c.name).trim() !== '')
                 : [];
+              // 分類來源：個人設置的 acupointComboCategories
+              if (categorySelect) {
+                const selectedCategory = categorySelect.value || '全部分類';
+                const categorySource = Array.isArray(acupointComboCategories) ? acupointComboCategories.filter(Boolean) : [];
+                categorySelect.innerHTML = '';
+                const defaultOpt = document.createElement('option');
+                defaultOpt.value = '全部分類';
+                defaultOpt.textContent = '全部分類';
+                categorySelect.appendChild(defaultOpt);
+                categorySource.forEach(cat => {
+                  const opt = document.createElement('option');
+                  opt.value = String(cat);
+                  opt.textContent = String(cat);
+                  categorySelect.appendChild(opt);
+                });
+                categorySelect.value = Array.from(categorySelect.options).some(opt => opt.value === selectedCategory) ? selectedCategory : '全部分類';
+              }
               // 搜尋關鍵字
               const acuKeyword = searchInput.value ? String(searchInput.value).trim().toLowerCase() : '';
+              const activeCategory = categorySelect && categorySelect.value ? String(categorySelect.value) : '全部分類';
               if (acuKeyword) {
                 combos = combos.filter(combo => {
                   const nameStr = combo.name ? combo.name.toLowerCase() : '';
@@ -28115,6 +28253,9 @@ async function deleteAcupointCombination(id) {
                   const techniqueStr = combo.technique ? String(combo.technique).toLowerCase() : '';
                   return nameStr.includes(acuKeyword) || pointsStr.includes(acuKeyword) || techniqueStr.includes(acuKeyword);
                 });
+              }
+              if (activeCategory && activeCategory !== '全部分類') {
+                combos = combos.filter(combo => String((combo && combo.category) || '') === activeCategory);
               }
               if (combos.length === 0) {
                 listContainer.innerHTML = '<div class="text-center text-gray-500">尚未設定常用穴位組合</div>';
