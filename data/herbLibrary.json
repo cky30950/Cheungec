@@ -5322,6 +5322,21 @@
   "englishName": "XiaKuCao",
   "createdAt": "2025-08-12T10:24:05.533Z",
   "updatedAt": "2025-08-12T10:24:05.533Z"
+},
+{
+  "id": 1755100003017,
+  "name": "千里光",
+  "alias": "九里明、眼明草",
+  "nature": "苦，寒",
+  "meridian": "肺、肝、大腸經",
+  "effects": "清熱解毒，明目退翳，燥濕殺蟲",
+  "indications": "目赤腫痛，翳障，濕熱瀉痢，癰腫瘡毒，濕疹，疥癬",
+  "dosage": "9-15g；外用適量",
+  "cautions": "脾胃虛寒者慎用",
+  "type": "herb",
+  "englishName": "QianLiGuang",
+  "createdAt": "2025-08-12T10:24:05.999Z",
+  "updatedAt": "2025-08-12T10:24:05.999Z"
 }
   ]
 }
