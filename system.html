@@ -2045,6 +2045,51 @@
                             </div>
                         </div>
                     </div>
+                    <div id="permissionManagementPanel" class="bg-gray-50 rounded-lg p-6 md:col-span-2 hidden">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                            <h3 class="text-lg font-semibold">權限管理</h3>
+                            <div class="text-sm text-gray-600">可設定各職位的功能顯示與細節操作權限</div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">選擇職位</label>
+                                <select id="permissionPositionSelect" onchange="onPermissionPositionChanged()" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                    <option value="">請先選擇職位</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2 flex items-end">
+                                <div id="permissionPositionHint" class="text-sm text-gray-600">請先選擇要設定權限的職位</div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-white border border-gray-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-800 mb-3">功能顯示權限</h4>
+                                <div class="space-y-2 text-sm">
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="permSection_patientManagement" class="rounded border-gray-300">病人資料管理</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="permSection_medicalRecordManagement" class="rounded border-gray-300">病歷管理</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="permSection_scheduleManagement" class="rounded border-gray-300">醫療排班</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="permSection_billingManagement" class="rounded border-gray-300">收費項目管理</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="permSection_herbLibrary" class="rounded border-gray-300">中藥庫</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="permSection_acupointLibrary" class="rounded border-gray-300">穴位庫</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="permSection_templateLibrary" class="rounded border-gray-300">模板庫</label>
+                                </div>
+                            </div>
+                            <div class="bg-white border border-gray-200 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-800 mb-3">細節操作權限</h4>
+                                <div class="space-y-2 text-sm">
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="permAction_patientCreate" class="rounded border-gray-300">病人資料管理：新增病人</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="permAction_patientEdit" class="rounded border-gray-300">病人資料管理：編輯病人</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="permAction_patientDelete" class="rounded border-gray-300">病人資料管理：刪除病人</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="permAction_medicalRecordDelete" class="rounded border-gray-300">病歷管理：刪除病歷</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="permAction_herbInventoryEdit" class="rounded border-gray-300">中藥庫：編輯庫存</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" id="permAction_herbBatchInventory" class="rounded border-gray-300">中藥庫：批量入庫</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex justify-end mt-4">
+                            <button onclick="saveSelectedPositionPermissions()" class="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition duration-200">儲存權限設定</button>
+                        </div>
+                    </div>
                     <div class="bg-gray-50 rounded-lg p-6 md:col-span-2">
                         <h3 class="text-lg font-semibold mb-4">收據自定義設定</h3>
                         <p class="text-sm text-gray-600 mb-4">以下設定會套用到目前選擇的診所，可分別控制「列印收據」與「藥單醫囑」欄位顯示。</p>

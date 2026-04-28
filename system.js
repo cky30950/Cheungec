@@ -595,6 +595,96 @@ const ROLE_PERMISSIONS = {
   '用戶': ['patientManagement', 'consultationSystem', 'templateLibrary', 'accountSecurity']
 };
 
+const CLINIC_SECTION_PERMISSION_OPTIONS = [
+  { key: 'patientManagement', label: '病人資料管理' },
+  { key: 'medicalRecordManagement', label: '病歷管理' },
+  { key: 'scheduleManagement', label: '醫療排班' },
+  { key: 'billingManagement', label: '收費項目管理' },
+  { key: 'herbLibrary', label: '中藥庫' },
+  { key: 'acupointLibrary', label: '穴位庫' },
+  { key: 'templateLibrary', label: '模板庫' }
+];
+
+const CLINIC_ACTION_PERMISSION_OPTIONS = [
+  { key: 'patientCreate', label: '病人資料管理：新增病人' },
+  { key: 'patientEdit', label: '病人資料管理：編輯病人' },
+  { key: 'patientDelete', label: '病人資料管理：刪除病人' },
+  { key: 'medicalRecordDelete', label: '病歷管理：刪除病歷' },
+  { key: 'herbInventoryEdit', label: '中藥庫：編輯庫存' },
+  { key: 'herbBatchInventory', label: '中藥庫：批量入庫' }
+];
+
+const CLINIC_PERMISSION_POSITIONS = ['醫師', '護理師', '用戶'];
+
+function getDefaultSectionPermissionMap(position) {
+  const pos = position && position.trim ? position.trim() : (position || '');
+  const roleList = ROLE_PERMISSIONS[pos] || [];
+  const map = {};
+  CLINIC_SECTION_PERMISSION_OPTIONS.forEach(item => {
+    map[item.key] = roleList.includes(item.key);
+  });
+  return map;
+}
+
+function getDefaultActionPermissionMap(position) {
+  const pos = position && position.trim ? position.trim() : (position || '');
+  const roleList = ROLE_PERMISSIONS[pos] || [];
+  const sectionDefaults = getDefaultSectionPermissionMap(pos);
+  return {
+    patientCreate: !!sectionDefaults.patientManagement,
+    patientEdit: !!sectionDefaults.patientManagement,
+    patientDelete: !!(pos === '診所管理' || pos === '護理師' || pos === '醫師'),
+    medicalRecordDelete: !!(roleList.includes('medicalRecordManagement') && (pos === '診所管理' || pos === '護理師' || pos === '醫師')),
+    herbInventoryEdit: !!sectionDefaults.herbLibrary,
+    herbBatchInventory: !!sectionDefaults.herbLibrary
+  };
+}
+
+function getClinicPositionPermissionSettingsMap() {
+  const raw = clinicSettings && clinicSettings.positionPermissionSettings;
+  return raw && typeof raw === 'object' ? raw : {};
+}
+
+function getEffectivePermissionSettingsForPosition(position) {
+  const pos = position ? String(position).trim() : '';
+  const sectionDefaults = getDefaultSectionPermissionMap(pos);
+  const actionDefaults = getDefaultActionPermissionMap(pos);
+  const allOverrides = getClinicPositionPermissionSettingsMap();
+  const posOverride = allOverrides[pos] && typeof allOverrides[pos] === 'object' ? allOverrides[pos] : {};
+  const storedSections = posOverride.sections && typeof posOverride.sections === 'object' ? posOverride.sections : {};
+  const storedActions = posOverride.actions && typeof posOverride.actions === 'object' ? posOverride.actions : {};
+  const sections = {};
+  const actions = {};
+  CLINIC_SECTION_PERMISSION_OPTIONS.forEach(item => {
+    if (typeof storedSections[item.key] === 'boolean') sections[item.key] = storedSections[item.key];
+    else sections[item.key] = !!sectionDefaults[item.key];
+  });
+  CLINIC_ACTION_PERMISSION_OPTIONS.forEach(item => {
+    if (typeof storedActions[item.key] === 'boolean') actions[item.key] = storedActions[item.key];
+    else actions[item.key] = !!actionDefaults[item.key];
+  });
+  return { sections, actions };
+}
+
+function getOrderedMenuPermissions(menuItems) {
+  const userPosition = (currentUserData && currentUserData.position) || '';
+  const roleOrdered = ROLE_PERMISSIONS[userPosition] || [];
+  const ordered = roleOrdered.filter(id => !!menuItems[id] && hasAccessToSection(id));
+  const extras = Object.keys(menuItems).filter(id => !ordered.includes(id) && hasAccessToSection(id));
+  return ordered.concat(extras);
+}
+
+function getEffectivePermissionSettingsForUser(user) {
+  const position = user && user.position ? user.position : '';
+  return getEffectivePermissionSettingsForPosition(position);
+}
+
+function hasActionPermission(actionKey) {
+  if (!currentUserData) return false;
+  const settings = getEffectivePermissionSettingsForUser(currentUserData);
+  return !!(settings && settings.actions && settings.actions[actionKey]);
+}
+
 
 function hasAccessToSection(sectionId) {
   
@@ -628,11 +718,12 @@ function hasAccessToSection(sectionId) {
   }
 
   
-  if (sectionId === 'billingManagement') {
-    return pos === '診所管理' || pos === '醫師';
+  const clinicSectionKeys = CLINIC_SECTION_PERMISSION_OPTIONS.map(item => item.key);
+  if (clinicSectionKeys.includes(sectionId)) {
+    const effective = getEffectivePermissionSettingsForUser(currentUserData);
+    return !!(effective && effective.sections && effective.sections[sectionId]);
   }
 
-  
   const allowed = ROLE_PERMISSIONS[pos] || [];
   return allowed.includes(sectionId);
 }
@@ -3313,6 +3404,10 @@ let currentInventoryItemId = null;
 
 
 async function openInventoryModal(itemId) {
+    if (!hasActionPermission('herbInventoryEdit')) {
+        showToast('權限不足，無法編輯中藥庫存', 'error');
+        return;
+    }
     try {
         currentInventoryItemId = itemId;
         try { await ensureInventoryCacheForMode(currentHerbLibraryViewMode); } catch (_e) {}
@@ -3533,6 +3628,10 @@ function hideInventoryModal() {
 
 
 async function saveInventoryChanges() {
+    if (!hasActionPermission('herbInventoryEdit')) {
+        showToast('權限不足，無法編輯中藥庫存', 'error');
+        return;
+    }
     
     const saveBtn = getLoadingButtonFromEvent('button[onclick="saveInventoryChanges()"]');
     setButtonLoading(saveBtn);
@@ -3614,6 +3713,10 @@ async function saveInventoryChanges() {
     }
         
         function openBatchInventoryModal() {
+            if (!hasActionPermission('herbBatchInventory')) {
+                showToast('權限不足，無法使用中藥批量入庫', 'error');
+                return;
+            }
             try {
                 
                 if (typeof initHerbLibrary === 'function' && !herbLibraryLoaded) {
@@ -3916,6 +4019,10 @@ async function saveInventoryChanges() {
         }
 
         async function saveBatchInventory() {
+            if (!hasActionPermission('herbBatchInventory')) {
+                showToast('權限不足，無法使用中藥批量入庫', 'error');
+                return;
+            }
             
             const saveBtn = getLoadingButtonFromEvent('#batchInventoryModal button[onclick="saveBatchInventory()"]');
             setButtonLoading(saveBtn);
@@ -5384,8 +5491,7 @@ async function logout() {
             };
 
             
-            const userPosition = (currentUserData && currentUserData.position) || '';
-            const permissions = ROLE_PERMISSIONS[userPosition] || [];
+            const permissions = getOrderedMenuPermissions(menuItems);
 
             
             permissions.forEach(permission => {
@@ -5481,6 +5587,9 @@ async function logout() {
                 try {
                     updateClinicSettingsDisplay();
                 } catch (_eUpdateClinicSettingsDisplay) {}
+                try {
+                    loadPermissionManagementPanel();
+                } catch (_eLoadPermissionPanel) {}
             } else if (sectionId === 'userManagement') {
                 loadUserManagement();
             } else if (sectionId === 'personalStatistics') {
@@ -5596,6 +5705,10 @@ async function logout() {
         }
 
         function showAddPatientForm() {
+            if (!hasActionPermission('patientCreate')) {
+                showToast('權限不足，無法新增病人', 'error');
+                return;
+            }
             editingPatientId = null;
             document.getElementById('formTitle').textContent = '新增病人資料';
             document.getElementById('saveButtonText').textContent = '儲存';
@@ -5616,6 +5729,14 @@ async function logout() {
         }
 
 async function savePatient() {
+    if (editingPatientId && !hasActionPermission('patientEdit')) {
+        showToast('權限不足，無法編輯病人資料', 'error');
+        return;
+    }
+    if (!editingPatientId && !hasActionPermission('patientCreate')) {
+        showToast('權限不足，無法新增病人', 'error');
+        return;
+    }
     const patient = {
         name: document.getElementById('patientName').value.trim(),
         age: document.getElementById('patientAge').value,
@@ -5886,7 +6007,8 @@ function renderPatientListTable(pageChange = false) {
     tbody.innerHTML = '';
     
     
-    const showDelete = currentUserData && currentUserData.position && ['診所管理', '護理師', '醫師'].includes(currentUserData.position.trim());
+    const showDelete = hasActionPermission('patientDelete');
+    const showEdit = hasActionPermission('patientEdit');
     
     pageItems.forEach(patient => {
         const row = document.createElement('tr');
@@ -5922,8 +6044,12 @@ function renderPatientListTable(pageChange = false) {
         let actions = `
                 <button onclick="handleViewPatient(event, '${patient.id}')" class="text-blue-600 hover:text-blue-800 bg-blue-50 w-14 px-2 py-1 rounded text-xs transition duration-200">查看</button>
                 <button onclick="handleShowMedicalHistory(event, '${patient.id}')" class="text-purple-600 hover:text-purple-800 bg-purple-50 w-14 px-2 py-1 rounded text-xs transition duration-200">病歷</button>
-                <button onclick="handleEditPatient(event, '${patient.id}')" class="text-green-600 hover:text-green-800 bg-green-50 w-14 px-2 py-1 rounded text-xs transition duration-200">編輯</button>
         `;
+        if (showEdit) {
+            actions += `
+                <button onclick="handleEditPatient(event, '${patient.id}')" class="text-green-600 hover:text-green-800 bg-green-50 w-14 px-2 py-1 rounded text-xs transition duration-200">編輯</button>
+            `;
+        }
         if (showDelete) {
             
             actions += `
@@ -5983,7 +6109,8 @@ function renderPatientListPage(pageItems, totalItems, currentPage) {
     tbody.innerHTML = '';
     
     
-    const showDelete = currentUserData && currentUserData.position && ['診所管理', '護理師', '醫師'].includes(currentUserData.position.trim());
+    const showDelete = hasActionPermission('patientDelete');
+    const showEdit = hasActionPermission('patientEdit');
     
     let sortedPageItems;
     if (Array.isArray(pageItems) && pageItems.length > 1) {
@@ -6036,8 +6163,12 @@ function renderPatientListPage(pageItems, totalItems, currentPage) {
         let actions = `
                 <button onclick="handleViewPatient(event, '${patient.id}')" class="text-blue-600 hover:text-blue-800 bg-blue-50 w-14 px-2 py-1 rounded text-xs transition duration-200">查看</button>
                 <button onclick="handleShowMedicalHistory(event, '${patient.id}')" class="text-purple-600 hover:text-purple-800 bg-purple-50 w-14 px-2 py-1 rounded text-xs transition duration-200">病歷</button>
-                <button onclick="handleEditPatient(event, '${patient.id}')" class="text-green-600 hover:text-green-800 bg-green-50 w-14 px-2 py-1 rounded text-xs transition duration-200">編輯</button>
         `;
+        if (showEdit) {
+            actions += `
+                <button onclick="handleEditPatient(event, '${patient.id}')" class="text-green-600 hover:text-green-800 bg-green-50 w-14 px-2 py-1 rounded text-xs transition duration-200">編輯</button>
+            `;
+        }
         if (showDelete) {
             
             actions += `
@@ -6075,6 +6206,10 @@ function renderPatientListPage(pageItems, totalItems, currentPage) {
 
         
 async function editPatient(id) {
+    if (!hasActionPermission('patientEdit')) {
+        showToast('權限不足，無法編輯病人資料', 'error');
+        return;
+    }
     try {
         
         const patient = await getPatientByIdWithRefresh(id);
@@ -6109,9 +6244,8 @@ async function editPatient(id) {
 }
 async function deletePatient(id) {
     try {
-        
-        if (!currentUserData || !currentUserData.position || !['診所管理', '護理師', '醫師'].includes(currentUserData.position.trim())) {
-            showToast('只有管理員、護理師或醫師可以刪除病人', 'error');
+        if (!hasActionPermission('patientDelete')) {
+            showToast('權限不足，無法刪除病人資料', 'error');
             return;
         }
 
@@ -18455,6 +18589,123 @@ async function loadUserManagement() {
     }
 }
 
+async function loadPermissionManagementPanel() {
+    const panel = document.getElementById('permissionManagementPanel');
+    const positionSelect = document.getElementById('permissionPositionSelect');
+    const hint = document.getElementById('permissionPositionHint');
+    if (!panel || !positionSelect) return;
+    if (!hasAccessToSection('userManagement')) {
+        panel.classList.add('hidden');
+        return;
+    }
+    panel.classList.remove('hidden');
+    const currentPos = positionSelect.value || '';
+    positionSelect.innerHTML = '<option value="">請選擇職位</option>';
+    CLINIC_PERMISSION_POSITIONS.forEach(pos => {
+        const option = document.createElement('option');
+        option.value = pos;
+        option.textContent = pos;
+        positionSelect.appendChild(option);
+    });
+    if (currentPos && CLINIC_PERMISSION_POSITIONS.includes(currentPos)) {
+        positionSelect.value = currentPos;
+    }
+    if (!positionSelect.value && CLINIC_PERMISSION_POSITIONS.length > 0) {
+        positionSelect.value = CLINIC_PERMISSION_POSITIONS[0];
+    }
+    if (hint) hint.textContent = '請選擇要設定權限的職位';
+    onPermissionPositionChanged();
+}
+
+function onPermissionPositionChanged() {
+    const positionSelect = document.getElementById('permissionPositionSelect');
+    const hint = document.getElementById('permissionPositionHint');
+    if (!positionSelect) return;
+    const position = positionSelect.value ? String(positionSelect.value) : '';
+    if (!position) {
+        if (hint) hint.textContent = '請先選擇要設定權限的職位';
+        CLINIC_SECTION_PERMISSION_OPTIONS.forEach(item => {
+            const cb = document.getElementById(`permSection_${item.key}`);
+            if (cb) cb.checked = false;
+        });
+        CLINIC_ACTION_PERMISSION_OPTIONS.forEach(item => {
+            const cb = document.getElementById(`permAction_${item.key}`);
+            if (cb) cb.checked = false;
+        });
+        return;
+    }
+    const settings = getEffectivePermissionSettingsForPosition(position);
+    CLINIC_SECTION_PERMISSION_OPTIONS.forEach(item => {
+        const cb = document.getElementById(`permSection_${item.key}`);
+        if (cb) cb.checked = !!settings.sections[item.key];
+    });
+    CLINIC_ACTION_PERMISSION_OPTIONS.forEach(item => {
+        const cb = document.getElementById(`permAction_${item.key}`);
+        if (cb) cb.checked = !!settings.actions[item.key];
+    });
+    if (hint) hint.textContent = `目前設定職位：${position}`;
+}
+
+async function saveSelectedPositionPermissions() {
+    if (!hasAccessToSection('userManagement')) {
+        showToast('權限不足，無法執行此操作', 'error');
+        return;
+    }
+    if (!currentClinicId) {
+        showToast('未選擇診所', 'error');
+        return;
+    }
+    const positionSelect = document.getElementById('permissionPositionSelect');
+    if (!positionSelect || !positionSelect.value) {
+        showToast('請先選擇要設定的職位', 'error');
+        return;
+    }
+    const position = String(positionSelect.value);
+    const sections = {};
+    const actions = {};
+    CLINIC_SECTION_PERMISSION_OPTIONS.forEach(item => {
+        const cb = document.getElementById(`permSection_${item.key}`);
+        sections[item.key] = !!(cb && cb.checked);
+    });
+    CLINIC_ACTION_PERMISSION_OPTIONS.forEach(item => {
+        const cb = document.getElementById(`permAction_${item.key}`);
+        actions[item.key] = !!(cb && cb.checked);
+    });
+    try {
+        const currentMap = getClinicPositionPermissionSettingsMap();
+        const nextMap = {
+            ...currentMap,
+            [position]: {
+                sections,
+                actions
+            }
+        };
+        const payload = {
+            positionPermissionSettings: nextMap,
+            updatedAt: new Date().toISOString()
+        };
+        const result = await window.firebaseDataManager.updateClinic(currentClinicId, payload);
+        if (!result || !result.success) {
+            showToast('儲存權限設定失敗，請稍後再試', 'error');
+            return;
+        }
+        clinicSettings.positionPermissionSettings = nextMap;
+        clinicSettings.updatedAt = payload.updatedAt;
+        if (Array.isArray(clinicsList)) {
+            clinicsList = clinicsList.map(c => (String(c.id) === String(currentClinicId) ? { ...c, ...payload } : c));
+            try { localStorage.setItem('clinics', JSON.stringify(clinicsList)); } catch (_e) {}
+        }
+        if (currentUserData && String(currentUserData.position || '') === position) {
+            generateSidebarMenu();
+            updateWelcomeCards();
+        }
+        showToast('權限設定已儲存', 'success');
+    } catch (error) {
+        console.error('儲存權限設定失敗:', error);
+        showToast('儲存權限設定失敗，請稍後再試', 'error');
+    }
+}
+
 // 從 Firebase 載入用戶數據
 async function loadUsersFromFirebase() {
     // 在載入用戶資料前先確保 Firebase DataManager 已就緒，避免尚未初始化造成讀取失敗
@@ -18874,6 +19125,7 @@ async function saveUser() {
 
     try {
         if (editingUserId) {
+            const existingUserRecord = (usersFromFirebase.length > 0 ? usersFromFirebase : users).find(u => u && String(u.id) === String(editingUserId));
             // 更新現有用戶
             const userData = {
                 name: name,
@@ -18883,7 +19135,8 @@ async function saveUser() {
                 phone: phone,
                 uid: uid || '',
                 active: active,
-                clinicId: clinicIdForLimit
+                clinicId: clinicIdForLimit,
+                permissionSettings: (existingUserRecord && existingUserRecord.permissionSettings) ? existingUserRecord.permissionSettings : undefined
             };
 
             const result = await window.firebaseDataManager.updateUser(editingUserId, userData);
@@ -25025,6 +25278,10 @@ async function displayMedicalRecords(pageChange = false) {
                     complaintDisplay = complaintDisplay.substring(0, 8) + '...';
                 }
             }
+            const canDeleteMedicalRecord = hasActionPermission('medicalRecordDelete');
+            const deleteButtonHtml = canDeleteMedicalRecord
+                ? `<button class="text-red-600 hover:underline" onclick="confirmDeleteMedicalRecord('${recordId}', '${patientName}')">${window.escapeHtml(deleteLabel)}</button>`
+                : '';
             tbody.innerHTML += `
                 <tr>
                     <td class="px-4 py-2 whitespace-nowrap">${window.escapeHtml(recordNumDisplay)}</td>
@@ -25035,7 +25292,7 @@ async function displayMedicalRecords(pageChange = false) {
                     <td class="px-4 py-2 whitespace-nowrap">${window.escapeHtml(dateStr)}</td>
                     <td class="px-4 py-2 whitespace-nowrap">
                         <button class="text-blue-600 hover:underline mr-2" onclick="viewMedicalRecord('${recordId}', '${rec.patientId}')">${window.escapeHtml(viewLabel)}</button>
-                        <button class="text-red-600 hover:underline" onclick="confirmDeleteMedicalRecord('${recordId}', '${patientName}')">${window.escapeHtml(deleteLabel)}</button>
+                        ${deleteButtonHtml}
                     </td>
                 </tr>
             `;
@@ -25829,6 +26086,10 @@ function closeMedicalRecordDetail() {
  * @param {string} patientName - 病人名稱，用於提示中顯示
  */
 async function confirmDeleteMedicalRecord(recordId, patientName) {
+    if (!hasActionPermission('medicalRecordDelete')) {
+        showToast('權限不足，無法刪除病歷', 'error');
+        return;
+    }
     try {
         const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
         let message;
@@ -25856,6 +26117,10 @@ async function confirmDeleteMedicalRecord(recordId, patientName) {
  * @param {string} recordId - 要刪除的病歷記錄 ID
  */
 async function deleteMedicalRecord(recordId) {
+    if (!hasActionPermission('medicalRecordDelete')) {
+        showToast('權限不足，無法刪除病歷', 'error');
+        return;
+    }
     try {
         // 如果 firebaseDataManager 提供刪除診症紀錄的方法，優先使用
         let deleted = false;
@@ -26004,6 +26269,7 @@ async function deleteMedicalRecord(recordId) {
   window.saveFormula = saveFormula;
   window.saveHerb = saveHerb;
   window.savePatient = savePatient;
+  window.saveSelectedPositionPermissions = saveSelectedPositionPermissions;
   window.saveUser = saveUser;
   window.searchBillingForConsultation = searchBillingForConsultation;
   window.searchHerbsForPrescription = searchHerbsForPrescription;
@@ -26015,6 +26281,7 @@ async function deleteMedicalRecord(recordId) {
   window.showAddPatientForm = showAddPatientForm;
   window.showAddUserForm = showAddUserForm;
   window.showClinicSettingsModal = showClinicSettingsModal;
+  window.onPermissionPositionChanged = onPermissionPositionChanged;
   window.switchFinancialTab = switchFinancialTab;
   window.toggleRegistrationNumberField = toggleRegistrationNumberField;
   window.toggleSidebar = toggleSidebar;
