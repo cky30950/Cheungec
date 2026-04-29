@@ -16666,6 +16666,38 @@ async function initializeSystemAfterLogin() {
             const containerAll = document.getElementById('prescriptionsContainer');
             const hiddenTextarea = document.getElementById('formPrescription');
             if (!containerAll) return;
+            const formatPrescriptionNumber = (num) => {
+                const n = Number(num);
+                if (!Number.isFinite(n)) return '0';
+                return parseFloat(n.toFixed(2)).toString();
+            };
+            const normalizeCompositionText = (text) => {
+                return String(text || '')
+                    .replace(/[（(][^）)]*[）)]/g, ' ')
+                    .replace(/\d+(?:\.\d+)?\s*(?:g|克|mg|kg|ml|錢|兩|斤|包|丸|片|顆|匙|袋|份)?/gi, ' ')
+                    .replace(/[：:]/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            };
+            const parseFormulaIngredientCount = (formulaItem, fullItem) => {
+                const raw = (formulaItem && formulaItem.composition) || (fullItem && fullItem.composition) || '';
+                if (!raw) return 1;
+                const extractedByDose = [];
+                const doseRegex = /([^、，,\n;；]+?)\s*\d+(?:\.\d+)?\s*(?:g|克|mg|kg|ml|錢|兩|斤|包|丸|片|顆|匙|袋|份)?/gi;
+                let match;
+                while ((match = doseRegex.exec(String(raw))) !== null) {
+                    const name = normalizeCompositionText(match[1]);
+                    if (name) extractedByDose.push(name);
+                }
+                if (extractedByDose.length > 0) {
+                    return extractedByDose.length;
+                }
+                const parts = String(raw)
+                    .split(/[、，,\n;；]/)
+                    .map(part => normalizeCompositionText(part))
+                    .filter(Boolean);
+                return parts.length > 0 ? parts.length : 1;
+            };
             const allSectionsHtml = prescriptions.map((section, sIdx) => {
                 const isSingle = prescriptions.length === 1;
                 const leftControls = `
@@ -16712,6 +16744,20 @@ async function initializeSystemAfterLogin() {
                     </div>
                 `;
                 const itemsArray = Array.isArray(section.items) ? section.items : [];
+                const sectionStats = itemsArray.reduce((acc, item) => {
+                    const fullItemForStats = (Array.isArray(herbLibrary) ? herbLibrary : []).find(h => h && h.id === item.id);
+                    if (item && item.type === 'formula') {
+                        acc.totalSingleHerbCount += parseFormulaIngredientCount(item, fullItemForStats);
+                    } else {
+                        acc.totalSingleHerbCount += 1;
+                    }
+                    const dosageRaw = item && (item.customDosage || item.dosage || (item.type === 'formula' ? '5' : '1'));
+                    const dosageNum = parseFloat(dosageRaw);
+                    if (Number.isFinite(dosageNum) && dosageNum > 0) {
+                        acc.totalGrams += dosageNum;
+                    }
+                    return acc;
+                }, { totalSingleHerbCount: 0, totalGrams: 0 });
         const itemsHtml = itemsArray.length === 0
             ? `<div class="text-sm text-gray-500 text-center py-4">此處方尚未添加項目，請使用上方搜索功能</div>`
             : itemsArray.map((item, index) => {
@@ -16833,7 +16879,11 @@ async function initializeSystemAfterLogin() {
                         <div class="space-y-3">
                             ${itemsHtml}
                         </div>
-                        ${''}
+                        ${itemsArray.length > 0 ? `
+                        <div class="flex items-center justify-between text-xs text-gray-600 pt-1">
+                            <span>總藥數：${sectionStats.totalSingleHerbCount} 味</span>
+                            <span>總克數：${formatPrescriptionNumber(sectionStats.totalGrams)} 克</span>
+                        </div>` : ''}
                     </div>
                 `;
                 return sectionContainer;
