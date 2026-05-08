@@ -1158,14 +1158,46 @@
                         </div>
                         
                         
-                        <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+                        <div class="mt-6 pt-4 border-t border-gray-200 space-y-3">
+                            <div id="auditReasonContainer" class="hidden">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">病歷修改原因（編輯時必填）</label>
+                                <textarea
+                                    id="formAuditReason"
+                                    rows="2"
+                                    placeholder="例如：補充望聞問切資料、修正誤填處方、更新病人回報症狀"
+                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                                ></textarea>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <button
+                                    type="button"
+                                    id="viewConsultationAuditTrailBtn"
+                                    onclick="openConsultationAuditTrail()"
+                                    class="hidden bg-amber-100 hover:bg-amber-200 text-amber-800 px-4 py-2 rounded-lg text-sm transition duration-200"
+                                >
+                                    審核追蹤
+                                </button>
+                                <div class="flex justify-end space-x-3">
                             <button onclick="cancelConsultation()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition duration-200">
                                 取消診症
                             </button>
                             <button onclick="saveConsultation()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition duration-200">
                                 <span id="consultationSaveButtonText">保存病歷</span>
                             </button>
+                                </div>
+                            </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+            <div id="consultationAuditTrailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1000] items-center justify-center p-4">
+                <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden">
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-800">病歷審核追蹤</h3>
+                        <button type="button" onclick="closeConsultationAuditTrail()" class="text-gray-500 hover:text-gray-700 text-xl leading-none">×</button>
+                    </div>
+                    <div id="consultationAuditTrailList" class="p-6 overflow-y-auto max-h-[70vh]">
+                        <div class="text-sm text-gray-500">載入中...</div>
                     </div>
                 </div>
             </div>
