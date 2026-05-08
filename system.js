@@ -4535,6 +4535,11 @@ async function recordInventoryHistory(type, entries, extra = {}) {
 
         
         let billingItems = [];
+        let billingItemsGlobalUnsubscribe = null;
+        let billingItemsClinicUnsubscribe = null;
+        let billingItemsRealtimeClinicId = null;
+        let billingItemsGlobalMap = new Map();
+        let billingItemsClinicMap = new Map();
         
         function getClinicScopedStorageKey(base) {
             try {
@@ -4550,9 +4555,83 @@ async function recordInventoryHistory(type, entries, extra = {}) {
                 return `${base}_local-default`;
             }
         }
+        function stopBillingItemsRealtimeSync() {
+            try {
+                if (typeof billingItemsGlobalUnsubscribe === 'function') {
+                    billingItemsGlobalUnsubscribe();
+                }
+            } catch (_e) {}
+            try {
+                if (typeof billingItemsClinicUnsubscribe === 'function') {
+                    billingItemsClinicUnsubscribe();
+                }
+            } catch (_e) {}
+            billingItemsGlobalUnsubscribe = null;
+            billingItemsClinicUnsubscribe = null;
+            billingItemsRealtimeClinicId = null;
+            billingItemsGlobalMap = new Map();
+            billingItemsClinicMap = new Map();
+        }
+        function mergeBillingItemsFromRealtime() {
+            const byId = new Map();
+            billingItemsGlobalMap.forEach((value, key) => byId.set(String(key), value));
+            billingItemsClinicMap.forEach((value, key) => byId.set(String(key), value));
+            billingItems = Array.from(byId.values());
+            billingItemsLoaded = true;
+            try {
+                localStorage.setItem(getClinicScopedStorageKey('billingItems'), JSON.stringify(billingItems));
+            } catch (_e) {}
+        }
+        async function ensureBillingItemsRealtimeSync() {
+            await waitForFirebaseDb();
+            const clinicId = localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+            if (
+                billingItemsRealtimeClinicId &&
+                String(billingItemsRealtimeClinicId) === String(clinicId) &&
+                typeof billingItemsGlobalUnsubscribe === 'function' &&
+                typeof billingItemsClinicUnsubscribe === 'function'
+            ) {
+                return;
+            }
+            stopBillingItemsRealtimeSync();
+            billingItemsRealtimeClinicId = clinicId;
+            billingItemsGlobalUnsubscribe = window.firebase.onSnapshot(
+                window.firebase.collection(window.firebase.db, 'globalBillingItems'),
+                (snap) => {
+                    const next = new Map();
+                    snap.forEach((docSnap) => {
+                        const data = { id: docSnap.id, ...docSnap.data(), shared: true };
+                        next.set(String(data.id), data);
+                    });
+                    billingItemsGlobalMap = next;
+                    mergeBillingItemsFromRealtime();
+                },
+                (error) => {
+                    console.error('監聽全域收費項目失敗:', error);
+                }
+            );
+            billingItemsClinicUnsubscribe = window.firebase.onSnapshot(
+                window.firebase.collection(window.firebase.db, 'clinics', clinicId, 'billingItems'),
+                (snap) => {
+                    const next = new Map();
+                    snap.forEach((docSnap) => {
+                        const data = { id: docSnap.id, ...docSnap.data(), shared: !!docSnap.data().shared };
+                        next.set(String(data.id), data);
+                    });
+                    billingItemsClinicMap = next;
+                    mergeBillingItemsFromRealtime();
+                },
+                (error) => {
+                    console.error('監聽診所收費項目失敗:', error);
+                }
+            );
+        }
         async function initBillingItems(forceRefresh = false) {
             
             if (billingItemsLoaded && !forceRefresh) {
+                try {
+                    await ensureBillingItemsRealtimeSync();
+                } catch (_syncErr) {}
                 return;
             }
             
@@ -4564,6 +4643,9 @@ async function recordInventoryHistory(type, entries, extra = {}) {
                         if (Array.isArray(localData)) {
                             billingItems = localData;
                             billingItemsLoaded = true;
+                            try {
+                                await ensureBillingItemsRealtimeSync();
+                            } catch (_syncErr) {}
                             return;
                         }
                     }
@@ -4574,6 +4656,7 @@ async function recordInventoryHistory(type, entries, extra = {}) {
             
             await waitForFirebaseDb();
             try {
+                await ensureBillingItemsRealtimeSync();
                 
                 const clinicId = localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
                 const clinicSnap = await window.firebase.getDocs(
