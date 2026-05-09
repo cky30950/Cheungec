@@ -8378,10 +8378,6 @@ async function loadConsultationForEdit(consultationId) {
             if (reasonContainer) {
                 reasonContainer.classList.remove('hidden');
             }
-            const auditBtn = document.getElementById('viewConsultationAuditTrailBtn');
-            if (auditBtn) {
-                auditBtn.classList.remove('hidden');
-            }
         } else {
             showToast('找不到診症記錄，將使用空白表單', 'warning');
             clearConsultationForm();
@@ -9437,10 +9433,6 @@ async function showConsultationForm(appointment) {
             if (reasonContainer) {
                 reasonContainer.classList.add('hidden');
             }
-            const auditBtn = document.getElementById('viewConsultationAuditTrailBtn');
-            if (auditBtn) {
-                auditBtn.classList.add('hidden');
-            }
             
             // 設置預設值
             const now = new Date();
@@ -9646,23 +9638,23 @@ async function showConsultationForm(appointment) {
             selectedBillingItems = [];
             updateBillingDisplay();
             clearBillingSearch();
-            const auditBtn = document.getElementById('viewConsultationAuditTrailBtn');
-            if (auditBtn) {
-                auditBtn.classList.add('hidden');
-            }
             const reasonContainer = document.getElementById('auditReasonContainer');
             if (reasonContainer) {
                 reasonContainer.classList.add('hidden');
             }
         }
 
-        async function openConsultationAuditTrail() {
+        async function openConsultationAuditTrail(targetConsultationId = '') {
             try {
-                const appointment = Array.isArray(appointments)
-                    ? appointments.find(apt => apt && String(apt.id) === String(currentConsultingAppointmentId))
-                    : null;
-                const consultationId = appointment && appointment.consultationId ? String(appointment.consultationId) : '';
-                if (!consultationId) {
+                const consultationId = String(targetConsultationId || '').trim();
+                const consultationIdFromCurrent = (() => {
+                    const appointment = Array.isArray(appointments)
+                        ? appointments.find(apt => apt && String(apt.id) === String(currentConsultingAppointmentId))
+                        : null;
+                    return appointment && appointment.consultationId ? String(appointment.consultationId) : '';
+                })();
+                const finalConsultationId = consultationId || consultationIdFromCurrent;
+                if (!finalConsultationId) {
                     showToast('目前沒有可查看的病歷審核追蹤。', 'warning');
                     return;
                 }
@@ -9676,7 +9668,7 @@ async function showConsultationForm(appointment) {
                 modal.classList.remove('hidden');
                 modal.classList.add('flex');
 
-                const result = await window.firebaseDataManager.getConsultationAuditLogs(consultationId, 200);
+                const result = await window.firebaseDataManager.getConsultationAuditLogs(finalConsultationId, 200);
                 if (!result || !result.success) {
                     listEl.innerHTML = '<div class="text-sm text-red-500">讀取審核追蹤失敗，請稍後再試。</div>';
                     return;
@@ -9747,6 +9739,7 @@ async function showConsultationForm(appointment) {
                     updatedAt: '更新時間',
                     updatedBy: '更新者'
                 };
+                const hiddenAuditFields = new Set(['billingItemsStructured', 'updatedAt']);
 
                 const formatValue = (val) => {
                     if (val === null || val === undefined || val === '') return '（空白）';
@@ -9778,12 +9771,13 @@ async function showConsultationForm(appointment) {
                 };
 
                 const buildDiffRows = (beforeData, afterData, changedFields) => {
-                    const fields = Array.isArray(changedFields) && changedFields.length
+                    const fields = (Array.isArray(changedFields) && changedFields.length
                         ? changedFields
                         : Array.from(new Set([
                             ...Object.keys(beforeData || {}),
                             ...Object.keys(afterData || {})
-                        ])).filter((key) => JSON.stringify((beforeData || {})[key]) !== JSON.stringify((afterData || {})[key]));
+                        ])).filter((key) => JSON.stringify((beforeData || {})[key]) !== JSON.stringify((afterData || {})[key])))
+                        .filter((field) => !hiddenAuditFields.has(String(field)));
                     if (!fields.length) {
                         return '<div class="text-xs text-gray-500">無可顯示的變更內容</div>';
                     }
@@ -9804,13 +9798,15 @@ async function showConsultationForm(appointment) {
                 listEl.innerHTML = logs.map((log, index) => {
                     const beforeData = log && log.beforeData ? log.beforeData : {};
                     const afterData = log && log.afterData ? log.afterData : {};
-                    const changedFields = Array.isArray(log.changedFields) && log.changedFields.length
-                        ? log.changedFields.map(f => {
+                    const visibleChangedFields = (Array.isArray(log.changedFields) ? log.changedFields : [])
+                        .filter((field) => !hiddenAuditFields.has(String(field)));
+                    const changedFields = visibleChangedFields.length
+                        ? visibleChangedFields.map(f => {
                             const label = fieldLabelMap[f] || f;
                             return `<span class="inline-block bg-gray-100 text-gray-700 rounded px-2 py-0.5 text-xs mr-1 mb-1">${escape(label)}</span>`;
                         }).join('')
-                        : '<span class="text-xs text-gray-500">未提供欄位差異</span>';
-                    const detailRows = buildDiffRows(beforeData, afterData, log && log.changedFields ? log.changedFields : []);
+                        : '<span class="text-xs text-gray-500">無可顯示欄位差異</span>';
+                    const detailRows = buildDiffRows(beforeData, afterData, visibleChangedFields);
                     const collapseId = `auditCollapse${index}`;
                     const displayUser = getDisplayUserName(log && log.editedBy ? log.editedBy : '');
                     return `
@@ -10869,6 +10865,12 @@ if (!patient) {
                                 })()}
                             </div>
                             <div class="flex flex-wrap justify-end gap-1">
+                                ${consultation.updatedAt ? `
+                                <button onclick="openConsultationAuditTrail('${consultation.id}', '${consultation.patientId || ''}')"
+                                        class="text-amber-700 hover:text-amber-900 text-sm font-medium bg-amber-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
+                                    審核追蹤
+                                </button>
+                                ` : ''}
                                 <button onclick="printConsultationRecord('${consultation.id}')" 
                                         class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
                                     列印收據
@@ -11321,6 +11323,12 @@ function displayConsultationMedicalHistoryPage() {
                         })()}
                     </div>
                     <div class="flex flex-wrap justify-end gap-1">
+                        ${consultation.updatedAt ? `
+                        <button onclick="openConsultationAuditTrail('${consultation.id}', '${consultation.patientId || ''}')"
+                                class="text-amber-700 hover:text-amber-900 text-sm font-medium bg-amber-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
+                            審核追蹤
+                        </button>
+                        ` : ''}
                         <button onclick="printConsultationRecord('${consultation.id}')" 
                                 class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
                             列印收據
@@ -26376,6 +26384,9 @@ function viewMedicalRecord(recordId, patientId) {
         detailHtml += '</div>'; // 關閉左側信息（兩行）
         // 右側按鈕
         detailHtml += '<div class="flex flex-wrap justify-end gap-1">';
+        if (rec.updatedAt) {
+            detailHtml += `<button onclick="openConsultationAuditTrail('${rec.id}', '${rec.patientId || patientId || ''}')" class="text-amber-700 hover:text-amber-900 text-sm font-medium bg-amber-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">審核追蹤</button>`;
+        }
         detailHtml += `<button onclick="printConsultationRecord('${rec.id}')" class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">列印收據</button>`;
         detailHtml += `<button onclick="printPrescriptionInstructions('${rec.id}')" class="text-yellow-600 hover:text-yellow-800 text-sm font-medium bg-yellow-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">藥單醫囑</button>`;
         detailHtml += `<button onclick="printAttendanceCertificate('${rec.id}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">到診證明</button>`;
