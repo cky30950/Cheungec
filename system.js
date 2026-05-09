@@ -7013,15 +7013,13 @@ async function loadInquiryOptions(patient) {
                 if (!picker) return;
                 
                 const now = new Date();
-                const minDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-                const localMin = new Date(minDate.getTime() - minDate.getTimezoneOffset() * 60000)
-                    .toISOString()
-                    .slice(0, 10);
-                picker.min = localMin;
                 const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                 const localToday = new Date(startOfToday.getTime() - startOfToday.getTimezoneOffset() * 60000)
                     .toISOString()
                     .slice(0, 10);
+                // 掛號列表日期回復為僅限當日
+                picker.min = localToday;
+                picker.max = localToday;
                 // 每次進入診症系統都預設跳回今天
                 picker.value = localToday;
                 
@@ -7649,25 +7647,23 @@ async function selectPatientForRegistration(patientId) {
             async function clearOldAppointments() {
                 /**
                  * 從 Firebase Realtime Database 讀取所有掛號記錄，
-                 * 將掛號時間早於「昨日 00:00:00」的記錄刪除。
+                 * 將掛號時間早於「今日 00:00:00」的記錄刪除。
                  *
                  * 判斷邏輯：
-                 *  - 取得昨天的開始時間（本地時間）
+                 *  - 取得今天的開始時間（本地時間）
                  *  - 對每筆掛號紀錄解析其 appointmentTime
                  *  - 若該時間早於昨天，則將這筆資料從 Realtime Database 刪除
                  *
                  * 此函式會同步更新本地的 appointments 陣列與 localStorage。
                  */
                 try {
-                    // 計算昨天凌晨時間（本地時區）
+                    // 計算今天凌晨時間（本地時區）
                     const now = new Date();
                     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                    const startOfYesterday = new Date(startOfToday);
-                    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
 
-                    // 使用查詢僅讀取過期掛號資料，以 appointmentTime 排序並設定結束條件為昨天凌晨
+                    // 使用查詢僅讀取過期掛號資料，以 appointmentTime 排序並設定結束條件為今天凌晨
                     // 轉換為 ISO 字串，方便與 Firebase 資料庫中的 ISO 格式日期比較
-                    const startIso = startOfYesterday.toISOString();
+                    const startIso = startOfToday.toISOString();
                     const expiredQuery = window.firebase.query(
                         window.firebase.ref(window.firebase.rtdb, 'appointments'),
                         window.firebase.orderByChild('appointmentTime'),
@@ -7694,8 +7690,8 @@ async function selectPatientForRegistration(patientId) {
                             idsToRemove.push(id);
                             continue;
                         }
-                        // 如果掛號時間在昨天凌晨之前（前天或更早），則刪除
-                        if (aptDate < startOfYesterday) {
+                        // 如果掛號時間在今天凌晨之前（昨天或更早），則刪除
+                        if (aptDate < startOfToday) {
                             idsToRemove.push(id);
                         }
                     }
