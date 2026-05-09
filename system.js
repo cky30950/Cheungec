@@ -7017,9 +7017,8 @@ async function loadInquiryOptions(patient) {
                 const localToday = new Date(startOfToday.getTime() - startOfToday.getTimezoneOffset() * 60000)
                     .toISOString()
                     .slice(0, 10);
-                // 掛號列表日期回復為僅限當日
+                // 掛號列表日期限制為當日及未來
                 picker.min = localToday;
-                picker.max = localToday;
                 // 每次進入診症系統都預設跳回今天
                 picker.value = localToday;
                 
