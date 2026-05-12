@@ -68,12 +68,29 @@ function updateClinicSettingsDisplay() {
     
     const chineseNameSpan = document.getElementById('displayChineseName');
     const englishNameSpan = document.getElementById('displayEnglishName');
+    const activeClinicName = (typeof getClinicDisplayName === 'function' ? getClinicDisplayName(clinicSettings || {}) : (clinicSettings.chineseName || clinicSettings.englishName || '名醫診所系統')) || '名醫診所系統';
+    const systemManagementClinicNameEl = document.getElementById('systemManagementClinicName');
+    const herbClinicNameEl = document.getElementById('systemManagementHerbClinicName');
+    const permissionClinicNameEl = document.getElementById('permissionClinicName');
+    const receiptClinicNameEl = document.getElementById('receiptCustomizationClinicName');
     
     if (chineseNameSpan) {
         chineseNameSpan.textContent = clinicSettings.chineseName || '名醫診所系統';
     }
     if (englishNameSpan) {
         englishNameSpan.textContent = clinicSettings.englishName || 'Dr.Great Clinic';
+    }
+    if (systemManagementClinicNameEl) {
+        systemManagementClinicNameEl.textContent = activeClinicName;
+    }
+    if (herbClinicNameEl) {
+        herbClinicNameEl.textContent = activeClinicName;
+    }
+    if (permissionClinicNameEl) {
+        permissionClinicNameEl.textContent = activeClinicName;
+    }
+    if (receiptClinicNameEl) {
+        receiptClinicNameEl.textContent = activeClinicName;
     }
     
     
@@ -110,6 +127,26 @@ function updateClinicSettingsDisplay() {
             applyReceiptCustomizationUI();
         }
     } catch (_eApplyReceiptUI) {}
+    try {
+        if (typeof applyClinicHerbInventoryToggleUI === 'function') {
+            applyClinicHerbInventoryToggleUI();
+        }
+    } catch (_eApplyHerbToggle) {}
+    try {
+        if (typeof loadPermissionManagementPanel === 'function') {
+            loadPermissionManagementPanel();
+        }
+    } catch (_eLoadPermissionPanel) {}
+    try {
+        if (typeof updatePrescriptionDisplay === 'function') {
+            updatePrescriptionDisplay();
+        }
+    } catch (_eUpdatePrescriptionDisplay) {}
+    try {
+        if (typeof searchHerbsForPrescription === 'function') {
+            searchHerbsForPrescription();
+        }
+    } catch (_eSearchHerbs) {}
 }
 
 
