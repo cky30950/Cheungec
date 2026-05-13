@@ -6024,6 +6024,7 @@ async function logout() {
                 if (typeof loadMedicalRecordManagement === 'function') {
                     loadMedicalRecordManagement();
                 }
+                attachMedicalRecordListListener();
             } else if (sectionId === 'billingManagement') {
                 loadBillingManagement();
             } else if (sectionId === 'financialReports') {
@@ -6092,6 +6093,13 @@ async function logout() {
                         detachPatientListListener();
                     } catch (err) {
                         console.error('離開病人管理時取消病人監聽失敗:', err);
+                    }
+                }
+                if (id === 'medicalRecordManagement') {
+                    try {
+                        detachMedicalRecordListListener();
+                    } catch (err) {
+                        console.error('離開病歷管理時取消病歷監聽失敗:', err);
                     }
                 }
                 const el = document.getElementById(id);
@@ -26435,6 +26443,100 @@ let medicalRecordPageCache = {};   // { pageNumber: Array<consultation> }
 let medicalRecordSearchCache = {}; // { term: Array<consultation> }
 let medicalRecordAscPageCursors = {}; // { ascIndex: lastDocSnapshot }
 let medicalRecordAscPageCache = {};   // { ascIndex: Array<consultation> }
+let medicalRecordListListenerAttached = false;
+let medicalRecordListUnsubscribe = null;
+let medicalRecordRefreshInFlight = null;
+
+function resetMedicalRecordManagementCaches() {
+    medicalRecordPageCursors = {};
+    medicalRecordPageCache = {};
+    medicalRecordSearchCache = {};
+    medicalRecordAscPageCursors = {};
+    medicalRecordAscPageCache = {};
+}
+
+function updateMedicalRecordPatientLookup(patients) {
+    medicalRecordPatients = {};
+    (Array.isArray(patients) ? patients : []).forEach(p => {
+        const name = p.name || p.patientName || p.fullName || p.displayName || p.chineseName || p.englishName || '';
+        medicalRecordPatients[String(p.id).trim()] = name;
+    });
+}
+
+async function refreshMedicalRecordManagementData(preservePage = true) {
+    if (medicalRecordRefreshInFlight) {
+        return medicalRecordRefreshInFlight;
+    }
+    medicalRecordRefreshInFlight = (async () => {
+        resetMedicalRecordManagementCaches();
+        try {
+            if (window.firebaseDataManager && typeof window.firebaseDataManager.consultationsCache !== 'undefined') {
+                window.firebaseDataManager.consultationsCache = null;
+            }
+        } catch (_cacheErr) {}
+        try {
+            localStorage.removeItem('consultations');
+        } catch (_lsErr) {}
+        const [countRes, patientsRes] = await Promise.all([
+            getConsultationsCount(),
+            safeGetPatients(true)
+        ]);
+        medicalRecordTotalCount = (countRes && typeof countRes.count === 'number') ? countRes.count : 0;
+        updateMedicalRecordPatientLookup((patientsRes && patientsRes.success && Array.isArray(patientsRes.data)) ? patientsRes.data : []);
+        await displayMedicalRecords(preservePage);
+    })();
+    try {
+        await medicalRecordRefreshInFlight;
+    } finally {
+        medicalRecordRefreshInFlight = null;
+    }
+}
+
+async function attachMedicalRecordListListener() {
+    try {
+        await waitForFirebaseDb();
+        if (medicalRecordListListenerAttached) return;
+        const colRef = window.firebase.collection(window.firebase.db, 'consultations');
+        let q;
+        try {
+            q = window.firebase.firestoreQuery(colRef, window.firebase.orderBy('date', 'desc'));
+        } catch (_e) {
+            q = colRef;
+        }
+        medicalRecordListUnsubscribe = window.firebase.onSnapshot(q, () => {
+            try {
+                const sectionEl = document.getElementById('medicalRecordManagement');
+                if (sectionEl && !sectionEl.classList.contains('hidden')) {
+                    refreshMedicalRecordManagementData(true).catch((err) => {
+                        console.error('病歷管理即時更新處理失敗:', err);
+                    });
+                }
+            } catch (innerErr) {
+                console.error('病歷管理即時更新處理失敗:', innerErr);
+            }
+        }, (err) => {
+            console.error('監聽病歷管理資料失敗:', err);
+        });
+        medicalRecordListListenerAttached = true;
+    } catch (outerErr) {
+        console.error('附加病歷管理監聽失敗:', outerErr);
+    }
+}
+
+function detachMedicalRecordListListener() {
+    if (medicalRecordListListenerAttached) {
+        try {
+            if (typeof medicalRecordListUnsubscribe === 'function') {
+                medicalRecordListUnsubscribe();
+            }
+        } catch (err) {
+            console.error('取消病歷管理監聽失敗:', err);
+        }
+        medicalRecordListListenerAttached = false;
+        medicalRecordListUnsubscribe = null;
+    }
+}
+
 /**
  * 載入病歷管理頁面：重置搜尋欄、讀取診症記錄與病人資料，並綁定搜尋事件。
  */
@@ -26446,10 +26548,7 @@ async function loadMedicalRecordManagement() {
         }
         paginationSettings.medicalRecordList.currentPage = 1;
         paginationSettings.medicalRecordList.itemsPerPage = 10;
-        // 初始化分頁狀態
-        medicalRecordPageCursors = {};
-        medicalRecordPageCache = {};
-        medicalRecordSearchCache = {};
+        resetMedicalRecordManagementCaches();
         const searchInput = document.getElementById('searchMedicalRecord');
         if (searchInput) {
             searchInput.value = '';
@@ -26470,12 +26569,7 @@ async function loadMedicalRecordManagement() {
             safeGetPatients(true)
         ]);
         medicalRecordTotalCount = (countRes && typeof countRes.count === 'number') ? countRes.count : 0;
-        const patients = (patientsRes && patientsRes.success && Array.isArray(patientsRes.data)) ? patientsRes.data : [];
-        medicalRecordPatients = {};
-        patients.forEach(p => {
-            const name = p.name || p.patientName || p.fullName || p.displayName || p.chineseName || p.englishName || '';
-            medicalRecordPatients[String(p.id).trim()] = name;
-        });
+        updateMedicalRecordPatientLookup((patientsRes && patientsRes.success && Array.isArray(patientsRes.data)) ? patientsRes.data : []);
         await displayMedicalRecords(false);
     } catch (error) {
         console.error('初始化病歷管理時發生錯誤:', error);
