@@ -15825,6 +15825,8 @@ async function initializeSystemAfterLogin() {
             const chineseNameSpan = document.getElementById('displayChineseName');
             const englishNameSpan = document.getElementById('displayEnglishName');
             const activeClinicName = getClinicDisplayName(clinicSettings || {}) || '名醫診所系統';
+            const showSystemManagementClinicName = Array.isArray(clinicsList) && clinicsList.length > 1;
+            const systemManagementClinicNameRowEl = document.getElementById('systemManagementClinicNameRow');
             const systemManagementClinicNameEl = document.getElementById('systemManagementClinicName');
             const herbClinicNameEl = document.getElementById('systemManagementHerbClinicName');
             const permissionClinicNameEl = document.getElementById('permissionClinicName');
@@ -15835,6 +15837,9 @@ async function initializeSystemAfterLogin() {
             }
             if (englishNameSpan) {
                 englishNameSpan.textContent = clinicSettings.englishName || 'Dr.Great Clinic';
+            }
+            if (systemManagementClinicNameRowEl) {
+                systemManagementClinicNameRowEl.classList.toggle('hidden', !showSystemManagementClinicName);
             }
             if (systemManagementClinicNameEl) {
                 systemManagementClinicNameEl.textContent = activeClinicName;
