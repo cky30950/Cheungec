@@ -11366,6 +11366,95 @@ if (!patient) {
     }
         }
         
+        function getMedicalHistoryActionButtonClasses(variant, disabled = false) {
+            const baseClasses = 'inline-flex items-center justify-center rounded-xl border px-3 py-2 text-sm font-semibold leading-none whitespace-nowrap transition-all duration-200';
+            if (disabled) {
+                return `${baseClasses} border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed`;
+            }
+
+            const variantClasses = {
+                edit: 'border-orange-500 bg-orange-500 text-white shadow-sm hover:-translate-y-0.5 hover:border-orange-600 hover:bg-orange-600 hover:shadow-md',
+                audit: 'border-amber-200 bg-amber-50 text-amber-700 shadow-sm hover:-translate-y-0.5 hover:border-amber-300 hover:bg-amber-100 hover:shadow-md',
+                receipt: 'border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-100 hover:shadow-md',
+                prescription: 'border-yellow-200 bg-yellow-50 text-yellow-700 shadow-sm hover:-translate-y-0.5 hover:border-yellow-300 hover:bg-yellow-100 hover:shadow-md',
+                attendance: 'border-sky-200 bg-sky-50 text-sky-700 shadow-sm hover:-translate-y-0.5 hover:border-sky-300 hover:bg-sky-100 hover:shadow-md',
+                sickLeave: 'border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-100 hover:shadow-md',
+                load: 'border-blue-200 bg-blue-50 text-blue-700 shadow-sm hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-100 hover:shadow-md'
+            };
+
+            return `${baseClasses} ${variantClasses[variant] || 'border-gray-200 bg-white text-gray-700 shadow-sm hover:-translate-y-0.5 hover:bg-gray-50 hover:shadow-md'}`;
+        }
+
+        function renderMedicalHistoryActionButton({ label, onclick, variant, disabled = false, title = '' }) {
+            const buttonClasses = getMedicalHistoryActionButtonClasses(variant, disabled);
+            if (disabled) {
+                return `<span class="${buttonClasses}"${title ? ` title="${title}"` : ''}>${label}</span>`;
+            }
+
+            return `<button type="button" onclick="${onclick}" class="${buttonClasses}">${label}</button>`;
+        }
+
+        function renderMedicalHistoryActionButtons(consultation, options = {}) {
+            const { includeSickLeave = false } = options;
+            const buttons = [];
+
+            if (canCurrentUserEditMedicalRecordEntry(consultation, null)) {
+                const editWindowStatus = getMedicalRecordEditWindowStatus(consultation, null);
+                buttons.push(renderMedicalHistoryActionButton({
+                    label: '修改病歷',
+                    onclick: `editMedicalRecordByConsultationId('${consultation.id}')`,
+                    variant: 'edit',
+                    disabled: !editWindowStatus.allowed,
+                    title: editWindowStatus.allowed ? '' : editWindowStatus.reason
+                }));
+            }
+
+            if (consultation.updatedAt) {
+                buttons.push(renderMedicalHistoryActionButton({
+                    label: '審核追蹤',
+                    onclick: `openConsultationAuditTrail('${consultation.id}', '${consultation.patientId || ''}')`,
+                    variant: 'audit'
+                }));
+            }
+
+            buttons.push(renderMedicalHistoryActionButton({
+                label: '列印收據',
+                onclick: `printConsultationRecord('${consultation.id}')`,
+                variant: 'receipt'
+            }));
+            buttons.push(renderMedicalHistoryActionButton({
+                label: '藥單醫囑',
+                onclick: `printPrescriptionInstructions('${consultation.id}')`,
+                variant: 'prescription'
+            }));
+            buttons.push(renderMedicalHistoryActionButton({
+                label: '到診證明',
+                onclick: `printAttendanceCertificate('${consultation.id}')`,
+                variant: 'attendance'
+            }));
+
+            if (includeSickLeave) {
+                buttons.push(renderMedicalHistoryActionButton({
+                    label: '病假證明',
+                    onclick: `printSickLeave('${consultation.id}')`,
+                    variant: 'sickLeave'
+                }));
+            }
+
+            if (currentConsultingAppointmentId) {
+                const currentAppointment = appointments.find(apt => apt && String(apt.id) === String(currentConsultingAppointmentId));
+                if (currentAppointment && String(currentAppointment.patientId) === String(consultation.patientId)) {
+                    buttons.push(renderMedicalHistoryActionButton({
+                        label: '載入病歷',
+                        onclick: `loadMedicalRecordToCurrentConsultation('${consultation.id}')`,
+                        variant: 'load'
+                    }));
+                }
+            }
+
+            return buttons.join('');
+        }
+
         function displayPatientMedicalHistoryPage() {
             const contentDiv = document.getElementById('patientMedicalHistoryContent');
 
@@ -11459,8 +11548,8 @@ if (!patient) {
                 <!-- 當前病歷記錄 -->
                 <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
                     <div class="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-4 border-b border-gray-200">
-                        <div class="flex justify-between items-center">
-                            <div class="flex flex-col space-y-1">
+                        <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                            <div class="flex flex-col space-y-2">
                                 <span class="font-semibold text-gray-900 text-lg">
                                     ${(() => {
                                         const parsedDate = parseConsultationDate(consultation.date);
@@ -11487,71 +11576,26 @@ if (!patient) {
                                 clinicName = '';
                             }
                             return `
-                            <div class="flex items-center space-x-2">
-                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
                                     ${doctorLabel}${getDoctorDisplayName(consultation.doctor)}
-                                        </span>
-                                        <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
+                                </span>
+                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
                                             ${recordNumberLabel}${consultation.medicalRecordNumber || consultation.id}
-                                        </span>
-                                        <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
+                                </span>
+                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
                                             ${clinicLabel}${window.escapeHtml(clinicName || '未設定')}
-                                        </span>
-                                        ${consultation.updatedAt ? `
-                                            <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                                                已修改
-                                            </span>
-                                        ` : ''}
-                                    </div>`;
+                                </span>
+                                ${consultation.updatedAt ? `
+                                    <span class="text-xs text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100">
+                                        已修改
+                                    </span>
+                                ` : ''}
+                            </div>`;
                                 })()}
                             </div>
-                            <div class="flex flex-wrap justify-end gap-1">
-                                ${(() => {
-                                    if (!canCurrentUserEditMedicalRecordEntry(consultation, null)) return '';
-                                    const editWindowStatus = getMedicalRecordEditWindowStatus(consultation, null);
-                                    if (editWindowStatus.allowed) {
-                                        return `<button onclick="editMedicalRecordByConsultationId('${consultation.id}')" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded text-sm font-medium" style="transform: scale(0.75); transform-origin: left;">修改病歷</button>`;
-                                    }
-                                    return `<span class="bg-gray-300 text-gray-500 px-3 py-2 rounded text-sm font-medium cursor-not-allowed" title="${editWindowStatus.reason}" style="transform: scale(0.75); transform-origin: left;">修改病歷</span>`;
-                                })()}
-                                ${consultation.updatedAt ? `
-                                <button onclick="openConsultationAuditTrail('${consultation.id}', '${consultation.patientId || ''}')"
-                                        class="text-amber-700 hover:text-amber-900 text-sm font-medium bg-amber-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
-                                    審核追蹤
-                                </button>
-                                ` : ''}
-                                <button onclick="printConsultationRecord('${consultation.id}')" 
-                                        class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
-                                    列印收據
-                                </button>
-                                <!-- 新增藥單醫囑列印按鈕，放在收據右側 -->
-                                <button onclick="printPrescriptionInstructions('${consultation.id}')" 
-                                        class="text-yellow-600 hover:text-yellow-800 text-sm font-medium bg-yellow-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
-                                    藥單醫囑
-                                </button>
-                                <button onclick="printAttendanceCertificate('${consultation.id}')" 
-                                        class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
-                                    到診證明
-                                </button>
-                                <button onclick="printSickLeave('${consultation.id}')"
-                                        class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
-                                    病假證明
-                                </button>
-                                ${(() => {
-                                    // 檢查是否正在診症且為相同病人
-                                    if (currentConsultingAppointmentId) {
-                                        const currentAppointment = appointments.find(apt => apt && String(apt.id) === String(currentConsultingAppointmentId));
-                                        if (currentAppointment && String(currentAppointment.patientId) === String(consultation.patientId)) {
-                                            return `
-                                                <button onclick="loadMedicalRecordToCurrentConsultation('${consultation.id}')" 
-                                                        class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
-                                                    載入病歷
-                                                </button>
-                                            `;
-                                        }
-                                    }
-                                    return '';
-                                })()}
+                            <div class="flex flex-wrap gap-2 xl:justify-end">
+                                ${renderMedicalHistoryActionButtons(consultation, { includeSickLeave: true })}
                             </div>
                         </div>
                     </div>
@@ -11934,8 +11978,8 @@ function displayConsultationMedicalHistoryPage() {
         <!-- 當前病歷記錄 -->
         <div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
             <div class="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-4 border-b border-gray-200">
-                <div class="flex justify-between items-center">
-                    <div class="flex flex-col space-y-1">
+                <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div class="flex flex-col space-y-2">
                         <span class="font-semibold text-gray-900 text-lg">
                             ${formatConsultationDateTime(consultation.date)}
                         </span>
@@ -11953,67 +11997,26 @@ function displayConsultationMedicalHistoryPage() {
                                 clinicName = '';
                             }
                             return `
-                            <div class="flex items-center space-x-2">
-                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
                                     ${doctorLabel}${getDoctorDisplayName(consultation.doctor)}
                                 </span>
-                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
+                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
                                     ${recordNumberLabel}${consultation.medicalRecordNumber || consultation.id}
                                 </span>
-                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">
+                                <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
                                     ${clinicLabel}${window.escapeHtml(clinicName || '未設定')}
                                 </span>
                                 ${consultation.updatedAt ? `
-                                    <span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                                    <span class="text-xs text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100">
                                         已修改
                                     </span>
                                 ` : ''}
                             </div>`;
                         })()}
                     </div>
-                    <div class="flex flex-wrap justify-end gap-1">
-                        ${(() => {
-                            if (!canCurrentUserEditMedicalRecordEntry(consultation, null)) return '';
-                            const editWindowStatus = getMedicalRecordEditWindowStatus(consultation, null);
-                            if (editWindowStatus.allowed) {
-                                return `<button onclick="editMedicalRecordByConsultationId('${consultation.id}')" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded text-sm font-medium" style="transform: scale(0.75); transform-origin: left;">修改病歷</button>`;
-                            }
-                            return `<span class="bg-gray-300 text-gray-500 px-3 py-2 rounded text-sm font-medium cursor-not-allowed" title="${editWindowStatus.reason}" style="transform: scale(0.75); transform-origin: left;">修改病歷</span>`;
-                        })()}
-                        ${consultation.updatedAt ? `
-                        <button onclick="openConsultationAuditTrail('${consultation.id}', '${consultation.patientId || ''}')"
-                                class="text-amber-700 hover:text-amber-900 text-sm font-medium bg-amber-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
-                            審核追蹤
-                        </button>
-                        ` : ''}
-                        <button onclick="printConsultationRecord('${consultation.id}')" 
-                                class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
-                            列印收據
-                        </button>
-                        <!-- 新增藥單醫囑列印按鈕，放在收據右側 -->
-                        <button onclick="printPrescriptionInstructions('${consultation.id}')" 
-                                class="text-yellow-600 hover:text-yellow-800 text-sm font-medium bg-yellow-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
-                            藥單醫囑
-                        </button>
-                        <button onclick="printAttendanceCertificate('${consultation.id}')" 
-                                class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
-                            到診證明
-                        </button>
-                        ${(() => {
-                            // 檢查是否正在診症且為相同病人
-                            if (currentConsultingAppointmentId) {
-                                const currentAppointment = appointments.find(apt => apt && String(apt.id) === String(currentConsultingAppointmentId));
-                                if (currentAppointment && String(currentAppointment.patientId) === String(consultation.patientId)) {
-                                    return `
-                                        <button onclick="loadMedicalRecordToCurrentConsultation('${consultation.id}')" 
-                                                class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">
-                                            載入病歷
-                                        </button>
-                                    `;
-                                }
-                            }
-                            return '';
-                        })()}
+                    <div class="flex flex-wrap gap-2 xl:justify-end">
+                        ${renderMedicalHistoryActionButtons(consultation, { includeSickLeave: true })}
                     </div>
                 </div>
             </div>
@@ -27268,7 +27271,7 @@ async function searchMedicalRecords(term, limitCount = 50) {
  * @param {string} recordId 病歷檔案編號
  * @param {string} patientId 病人編號，用於查詢病人姓名
  */
-function viewMedicalRecord(recordId, patientId) {
+function viewMedicalRecord(recordId) {
     try {
         // 取得對應病歷紀錄
         const rec = medicalRecords.find(r => String(r.id) === String(recordId));
@@ -27313,24 +27316,14 @@ function viewMedicalRecord(recordId, patientId) {
         const doctorLabel = dict['醫師：'] || '醫師：';
         const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
         const clinicLabel = dict['診所：'] || '診所：';
-        // 構建可選擇載入病歷按鈕的 HTML
-        let loadButtonHtml = '';
-        try {
-            if (typeof currentConsultingAppointmentId !== 'undefined' && currentConsultingAppointmentId) {
-                const currentAppointment = appointments && Array.isArray(appointments) ? appointments.find(apt => apt && String(apt.id) === String(currentConsultingAppointmentId)) : null;
-                if (currentAppointment && String(currentAppointment.patientId) === String(rec.patientId)) {
-                    loadButtonHtml = `<button onclick="loadMedicalRecordToCurrentConsultation('${rec.id}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">載入病歷</button>`;
-                }
-            }
-        } catch (_e) {}
         // 組合詳細內容的 HTML，使用與病人病歷查看一致的卡片樣式
         let detailHtml = '';
         detailHtml += '<div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">';
         // Header 區塊
         detailHtml += '<div class="bg-gradient-to-r from-gray-50 to-blue-50 px-6 py-4 border-b border-gray-200">';
-        detailHtml += '<div class="flex justify-between items-center">';
+        detailHtml += '<div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">';
         // 左側日期與表列（分兩行）
-        detailHtml += '<div class="flex flex-col space-y-1">';
+        detailHtml += '<div class="flex flex-col space-y-2">';
         detailHtml += `<span class="font-semibold text-gray-900 text-lg">${window.escapeHtml(dateTimeStr)}</span>`;
             // 第二行表列包含醫師、病歷編號與診所
             (function () {
@@ -27349,34 +27342,19 @@ function viewMedicalRecord(recordId, patientId) {
                     clinicName = '';
                 }
                 const row = [
-                    `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">${window.escapeHtml(doctorLabel)}${window.escapeHtml(doctorName)}</span>`,
-                    `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">${window.escapeHtml(recordNumberLabel)}${window.escapeHtml(rec.medicalRecordNumber || rec.id)}</span>`,
-                    `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded">${window.escapeHtml(clinicLabel)}${window.escapeHtml(clinicName || '未設定')}</span>`
+                    `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">${window.escapeHtml(doctorLabel)}${window.escapeHtml(doctorName)}</span>`,
+                    `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">${window.escapeHtml(recordNumberLabel)}${window.escapeHtml(rec.medicalRecordNumber || rec.id)}</span>`,
+                    `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">${window.escapeHtml(clinicLabel)}${window.escapeHtml(clinicName || '未設定')}</span>`
                 ].join('');
-                detailHtml += `<div class="flex items-center space-x-2">${row}</div>`;
+                detailHtml += `<div class="flex flex-wrap items-center gap-2">${row}</div>`;
             })();
         if (rec.updatedAt) {
-            detailHtml += '<span class="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">已修改</span>';
+            detailHtml += '<span class="self-start inline-flex text-xs text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100">已修改</span>';
         }
         detailHtml += '</div>'; // 關閉左側信息（兩行）
         // 右側按鈕
-        detailHtml += '<div class="flex flex-wrap justify-end gap-1">';
-        if (canCurrentUserEditMedicalRecordEntry(rec, null)) {
-            const editWindowStatus = getMedicalRecordEditWindowStatus(rec, null);
-            if (editWindowStatus.allowed) {
-                detailHtml += `<button onclick="editMedicalRecordByConsultationId('${rec.id}')" class="bg-orange-500 hover:bg-orange-600 text-white px-3 py-2 rounded text-sm font-medium" style="transform: scale(0.75); transform-origin: left;">修改病歷</button>`;
-            } else {
-                detailHtml += `<span class="bg-gray-300 text-gray-500 px-3 py-2 rounded text-sm font-medium cursor-not-allowed" title="${window.escapeHtml(editWindowStatus.reason)}" style="transform: scale(0.75); transform-origin: left;">修改病歷</span>`;
-            }
-        }
-        if (rec.updatedAt) {
-            detailHtml += `<button onclick="openConsultationAuditTrail('${rec.id}', '${rec.patientId || patientId || ''}')" class="text-amber-700 hover:text-amber-900 text-sm font-medium bg-amber-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">審核追蹤</button>`;
-        }
-        detailHtml += `<button onclick="printConsultationRecord('${rec.id}')" class="text-green-600 hover:text-green-800 text-sm font-medium bg-green-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">列印收據</button>`;
-        detailHtml += `<button onclick="printPrescriptionInstructions('${rec.id}')" class="text-yellow-600 hover:text-yellow-800 text-sm font-medium bg-yellow-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">藥單醫囑</button>`;
-        detailHtml += `<button onclick="printAttendanceCertificate('${rec.id}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">到診證明</button>`;
-        detailHtml += `<button onclick="printSickLeave('${rec.id}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium bg-blue-50 px-3 py-2 rounded" style="transform: scale(0.75); transform-origin: left;">病假證明</button>`;
-        detailHtml += loadButtonHtml;
+        detailHtml += '<div class="flex flex-wrap gap-2 xl:justify-end">';
+        detailHtml += renderMedicalHistoryActionButtons(rec, { includeSickLeave: true });
         detailHtml += '</div>'; // 按鈕區塊結束
         detailHtml += '</div>'; // flex 容器結束
         detailHtml += '</div>'; // header 結束
