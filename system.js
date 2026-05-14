@@ -2430,8 +2430,25 @@ async function fetchUsers(forceRefresh = false) {
                             showToast('至少保留一間診所，無法刪除', 'error');
                             return;
                         }
-                        const ok = window.confirm('確定要刪除目前選擇的診所嗎？刪除後不可恢復。');
-                        if (!ok) return;
+                        const lang = localStorage.getItem('lang') || 'zh';
+                        const currentClinic = Array.isArray(clinicsList)
+                            ? clinicsList.find(c => c && String(c.id) === String(currentClinicId))
+                            : null;
+                        const clinicDisplayName = currentClinic
+                            ? getClinicDisplayName(currentClinic)
+                            : '目前診所';
+
+                        const firstConfirmMessage = lang === 'en'
+                            ? `Are you sure you want to delete clinic "${clinicDisplayName}"?\n\nThis action cannot be undone.`
+                            : `確定要刪除診所「${clinicDisplayName}」嗎？\n\n此操作無法復原。`;
+                        const firstConfirmed = await showConfirmation(firstConfirmMessage, 'warning');
+                        if (!firstConfirmed) return;
+
+                        const secondConfirmMessage = lang === 'en'
+                            ? `Final warning: permanently delete clinic "${clinicDisplayName}"?\n\nThis action cannot be undone.\nAll clinic settings and related clinic data will be removed.`
+                            : `最後警告：真的要永久刪除診所「${clinicDisplayName}」嗎？\n\n此操作不可復原。\n該診所設定及相關診所資料將被移除。`;
+                        const secondConfirmed = await showConfirmation(secondConfirmMessage, 'warning');
+                        if (!secondConfirmed) return;
                         try {
                             const res = await window.firebaseDataManager.deleteClinic(currentClinicId);
                             if (res && res.success) {
@@ -7172,7 +7189,57 @@ function canCurrentUserEditMedicalRecordEntry(consultation = null, appointment =
     return !!(isAdminUser || isDoctorOwner);
 }
 
+function isMedicalRecordInCurrentClinic(consultation = null, appointment = null) {
+    const activeClinicId = (() => {
+        try {
+            return localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : '');
+        } catch (_e) {
+            return (typeof currentClinicId !== 'undefined' ? currentClinicId : '') || '';
+        }
+    })();
+
+    if (!activeClinicId || activeClinicId === 'local-default') {
+        return true;
+    }
+
+    const recordClinicId = consultation && consultation.clinicId
+        ? String(consultation.clinicId)
+        : (appointment && appointment.clinicId ? String(appointment.clinicId) : '');
+    if (recordClinicId) {
+        return String(recordClinicId) === String(activeClinicId);
+    }
+
+    const recordClinicName = (
+        (consultation && consultation.clinicName) ||
+        (appointment && appointment.clinicName) ||
+        ''
+    ).trim().toLowerCase();
+    if (!recordClinicName) {
+        return true;
+    }
+
+    const currentClinic = Array.isArray(clinicsList)
+        ? clinicsList.find(c => c && String(c.id) === String(activeClinicId))
+        : null;
+    const currentClinicNames = [
+        currentClinic && currentClinic.chineseName ? String(currentClinic.chineseName).trim().toLowerCase() : '',
+        currentClinic && currentClinic.englishName ? String(currentClinic.englishName).trim().toLowerCase() : '',
+        clinicSettings && clinicSettings.chineseName ? String(clinicSettings.chineseName).trim().toLowerCase() : '',
+        clinicSettings && clinicSettings.englishName ? String(clinicSettings.englishName).trim().toLowerCase() : ''
+    ].filter(Boolean);
+
+    return currentClinicNames.includes(recordClinicName);
+}
+
 function getMedicalRecordEditWindowStatus(consultation = null, appointment = null) {
+    if (!isMedicalRecordInCurrentClinic(consultation, appointment)) {
+        return {
+            allowed: false,
+            deadline: null,
+            reason: '不可在不同診所修改病歷'
+        };
+    }
+
     const baseRaw = (consultation && (consultation.date || consultation.createdAt)) ||
         (appointment && (appointment.completedAt || appointment.appointmentTime)) ||
         (consultation && consultation.updatedAt) ||
@@ -27344,13 +27411,11 @@ function viewMedicalRecord(recordId) {
                 const row = [
                     `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">${window.escapeHtml(doctorLabel)}${window.escapeHtml(doctorName)}</span>`,
                     `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">${window.escapeHtml(recordNumberLabel)}${window.escapeHtml(rec.medicalRecordNumber || rec.id)}</span>`,
-                    `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">${window.escapeHtml(clinicLabel)}${window.escapeHtml(clinicName || '未設定')}</span>`
+                    `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">${window.escapeHtml(clinicLabel)}${window.escapeHtml(clinicName || '未設定')}</span>`,
+                    rec.updatedAt ? '<span class="text-xs text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100">已修改</span>' : ''
                 ].join('');
                 detailHtml += `<div class="flex flex-wrap items-center gap-2">${row}</div>`;
             })();
-        if (rec.updatedAt) {
-            detailHtml += '<span class="self-start inline-flex text-xs text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100">已修改</span>';
-        }
         detailHtml += '</div>'; // 關閉左側信息（兩行）
         // 右側按鈕
         detailHtml += '<div class="flex flex-wrap gap-2 xl:justify-end">';
