@@ -576,87 +576,226 @@
                                         <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
                                             <div class="flex flex-col gap-1 mb-3">
                                                 <span class="font-medium text-gray-800">1. 疾病史 (Medical Conditions)</span>
-                                                <span class="text-xs text-gray-500">請以剔選方式標記患者既往或目前的重要疾病史</span>
+                                                <span class="text-xs text-gray-500">請剔選患者既往疾病史；如有其他情況或補充說明，請在下方備註填寫</span>
                                             </div>
-                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                                 <label class="flex items-center gap-2 text-sm text-gray-700">
-                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medicalConditions" value="chronicDiseases">
-                                                    <span>慢性疾病</span>
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medicalConditions" value="hypertension">
+                                                    <span>高血壓</span>
                                                 </label>
                                                 <label class="flex items-center gap-2 text-sm text-gray-700">
-                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medicalConditions" value="infectiousDiseases">
-                                                    <span>傳染病史</span>
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medicalConditions" value="diabetes">
+                                                    <span>糖尿病</span>
                                                 </label>
                                                 <label class="flex items-center gap-2 text-sm text-gray-700">
-                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medicalConditions" value="majorIllnesses">
-                                                    <span>重大病史</span>
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medicalConditions" value="hyperlipidemia">
+                                                    <span>高脂血症</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medicalConditions" value="asthma">
+                                                    <span>哮喘</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medicalConditions" value="chronicKidneyDisease">
+                                                    <span>慢性腎病</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medicalConditions" value="hepatitis">
+                                                    <span>肝炎</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medicalConditions" value="tuberculosis">
+                                                    <span>肺結核</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medicalConditions" value="cancer">
+                                                    <span>癌症</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medicalConditions" value="stroke">
+                                                    <span>中風</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medicalConditions" value="myocardialInfarction">
+                                                    <span>心肌梗塞</span>
                                                 </label>
                                             </div>
-                                            <textarea id="patientMedicalConditionsNotes" placeholder="其他或備註，例如：高血壓、糖尿病、2020 年中風" rows="2" class="mt-3 w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent break-all"></textarea>
+                                            <textarea id="patientMedicalConditionsNotes" placeholder="其他或備註，例如：確診年份、目前控制情況、其他未列出的疾病" rows="2" class="mt-3 w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent break-all"></textarea>
                                         </div>
                                         <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
                                             <div class="flex flex-col gap-1 mb-3">
-                                                <span class="font-medium text-gray-800">2. 手術與住院史 (Surgical &amp; Hospitalization History)</span>
-                                                <span class="text-xs text-gray-500">如有相關紀錄請剔選，並可在下方補充手術名稱、日期或住院原因</span>
+                                                <span class="font-medium text-gray-800">2. 手術與外傷史 (Surgical &amp; Trauma History)</span>
+                                                <span class="text-xs text-gray-500">請剔選曾接受的手術或重大外傷；如需補充年份、部位、後遺症或其他情況，請在下方備註填寫</span>
                                             </div>
-                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                                 <label class="flex items-center gap-2 text-sm text-gray-700">
-                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="surgicalHistory" value="surgeries">
-                                                    <span>手術項目</span>
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="surgicalHistory" value="pacemakerImplantation">
+                                                    <span>心律調節器植入手術</span>
                                                 </label>
                                                 <label class="flex items-center gap-2 text-sm text-gray-700">
-                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="surgicalHistory" value="hospitalizations">
-                                                    <span>住院記錄</span>
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="surgicalHistory" value="cardiacStentProcedure">
+                                                    <span>心臟金屬支架手術</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="surgicalHistory" value="polypectomy">
+                                                    <span>息肉切除術</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="surgicalHistory" value="jointReplacement">
+                                                    <span>人工關節手術</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="surgicalHistory" value="endoscopicHemostasis">
+                                                    <span>內視鏡止血術</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="surgicalHistory" value="dialysisFistulaAngioplasty">
+                                                    <span>洗腎瘻管成形術</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="surgicalHistory" value="endovascularThrombectomy">
+                                                    <span>血管內取栓術</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="surgicalHistory" value="vascularEmbolization">
+                                                    <span>血管栓塞術</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="surgicalHistory" value="fracture">
+                                                    <span>骨折</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="surgicalHistory" value="headTrauma">
+                                                    <span>頭部創傷</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="surgicalHistory" value="trafficAccident">
+                                                    <span>車禍</span>
                                                 </label>
                                             </div>
-                                            <textarea id="patientSurgicalHistoryNotes" placeholder="其他或備註，例如：2015 年闌尾切除術；曾因嚴重肺炎住院" rows="2" class="mt-3 w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent break-all"></textarea>
+                                            <textarea id="patientSurgicalHistoryNotes" placeholder="其他或備註，例如：手術或受傷年份、受傷部位、是否有後遺症、其他未列出的手術或外傷" rows="2" class="mt-3 w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent break-all"></textarea>
                                         </div>
                                         <div class="border border-red-200 rounded-xl p-4 bg-red-50">
                                             <div class="flex flex-col gap-1 mb-3">
                                                 <span class="font-medium text-red-700">3. 過敏史 (Allergies)</span>
-                                                <span class="text-xs text-red-500">醫療安全重點，請剔選並於下方註明具體藥物、食物、環境因子及反應</span>
+                                                <span class="text-xs text-red-500">請剔選已知過敏項目；如有反應詳情或其他未列出的過敏原，請在下方備註填寫</span>
                                             </div>
-                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                                 <label class="flex items-center gap-2 text-sm text-red-700">
-                                                    <input type="checkbox" class="rounded border-red-300 text-red-600 focus:ring-red-500 patient-history-checkbox" data-section="allergies" value="drugAllergies">
-                                                    <span>藥物過敏</span>
+                                                    <input type="checkbox" class="rounded border-red-300 text-red-600 focus:ring-red-500 patient-history-checkbox" data-section="allergies" value="g6pdDeficiency">
+                                                    <span>蠶豆症（G6PD 缺乏症）</span>
                                                 </label>
                                                 <label class="flex items-center gap-2 text-sm text-red-700">
-                                                    <input type="checkbox" class="rounded border-red-300 text-red-600 focus:ring-red-500 patient-history-checkbox" data-section="allergies" value="foodEnvironmentalAllergies">
-                                                    <span>食物及環境過敏</span>
+                                                    <input type="checkbox" class="rounded border-red-300 text-red-600 focus:ring-red-500 patient-history-checkbox" data-section="allergies" value="seafoodAllergy">
+                                                    <span>海鮮過敏</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-red-700">
+                                                    <input type="checkbox" class="rounded border-red-300 text-red-600 focus:ring-red-500 patient-history-checkbox" data-section="allergies" value="nutsAllergy">
+                                                    <span>堅果</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-red-700">
+                                                    <input type="checkbox" class="rounded border-red-300 text-red-600 focus:ring-red-500 patient-history-checkbox" data-section="allergies" value="eggProteinAllergy">
+                                                    <span>蛋白質</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-red-700">
+                                                    <input type="checkbox" class="rounded border-red-300 text-red-600 focus:ring-red-500 patient-history-checkbox" data-section="allergies" value="glutenAllergy">
+                                                    <span>麩質</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-red-700">
+                                                    <input type="checkbox" class="rounded border-red-300 text-red-600 focus:ring-red-500 patient-history-checkbox" data-section="allergies" value="soyAllergy">
+                                                    <span>大豆</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-red-700">
+                                                    <input type="checkbox" class="rounded border-red-300 text-red-600 focus:ring-red-500 patient-history-checkbox" data-section="allergies" value="mangoAllergy">
+                                                    <span>芒果</span>
                                                 </label>
                                             </div>
-                                            <textarea id="patientAllergyNotes" placeholder="其他或備註，例如：青黴素過敏，會出現皮疹；G6PD 缺乏症；對海鮮過敏" rows="2" class="mt-3 w-full border border-red-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent break-all"></textarea>
+                                            <textarea id="patientAllergyNotes" placeholder="其他或備註，例如：過敏反應表現、嚴重程度、其他未列出的過敏原" rows="2" class="mt-3 w-full border border-red-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent break-all"></textarea>
                                         </div>
                                         <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
                                             <div class="flex flex-col gap-1 mb-3">
                                                 <span class="font-medium text-gray-800">4. 用藥史 (Medications)</span>
-                                                <span class="text-xs text-gray-500">請剔選現時或長期用藥類型，並於下方補充名稱、劑量及頻率</span>
+                                                <span class="text-xs text-gray-500">請剔選現時或長期服用藥物類別；劑量、服用頻率或其他補充請在下方備註填寫</span>
                                             </div>
-                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                                 <label class="flex items-center gap-2 text-sm text-gray-700">
-                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="longTermMedications">
-                                                    <span>長期服用的藥物</span>
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="antihypertensives">
+                                                    <span>降血壓藥</span>
                                                 </label>
                                                 <label class="flex items-center gap-2 text-sm text-gray-700">
-                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="supplementsOtc">
-                                                    <span>非處方藥與補充劑</span>
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="lipidLoweringAgents">
+                                                    <span>降血脂藥</span>
                                                 </label>
-                                            </div>
-                                            <textarea id="patientMedicationNotes" placeholder="其他或備註，例如：Amlodipine 5mg 每日一次；維他命 D；中草藥" rows="2" class="mt-3 w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent break-all"></textarea>
-                                        </div>
-                                        <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
-                                            <div class="flex flex-col gap-1 mb-3">
-                                                <span class="font-medium text-gray-800">5. 外傷史 (Trauma History)</span>
-                                                <span class="text-xs text-gray-500">如曾有重大外傷請剔選，並可於下方補充受傷年份、部位及後遺症</span>
-                                            </div>
-                                            <div class="grid grid-cols-1 gap-3">
                                                 <label class="flex items-center gap-2 text-sm text-gray-700">
-                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="traumaHistory" value="majorTrauma">
-                                                    <span>重大外傷</span>
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="antidiabeticAgents">
+                                                    <span>降血糖藥</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="anticoagulants">
+                                                    <span>抗凝血藥物</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="asthmaCopdMedications">
+                                                    <span>氣喘/COPD 藥物</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="antihistamines">
+                                                    <span>抗組織胺藥物</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="antidepressantsAnxiolytics">
+                                                    <span>抗抑鬱/焦慮藥</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="sleepingPills">
+                                                    <span>安眠藥</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="antiepileptics">
+                                                    <span>抗癲癇藥</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="parkinsonMedications">
+                                                    <span>帕金森氏症藥物</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="thyroidMedications">
+                                                    <span>甲狀腺藥物</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="osteoporosisMedications">
+                                                    <span>骨質疏鬆藥</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="goutPreventiveMedications">
+                                                    <span>痛風預防藥</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="gastricMedications">
+                                                    <span>胃藥</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="hormonalMedications">
+                                                    <span>荷爾蒙類藥物</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="immunosuppressants">
+                                                    <span>免疫抑制劑藥物</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="vitamins">
+                                                    <span>維他命</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="healthSupplements">
+                                                    <span>健康食品</span>
+                                                </label>
+                                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-green-600 focus:ring-green-500 patient-history-checkbox" data-section="medications" value="chinesePatentMedicines">
+                                                    <span>中成藥</span>
                                                 </label>
                                             </div>
-                                            <textarea id="patientTraumaHistoryNotes" placeholder="其他或備註，例如：曾骨折、頭部創傷或車禍，並註明是否有後遺症" rows="2" class="mt-3 w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent break-all"></textarea>
+                                            <textarea id="patientMedicationNotes" placeholder="備註：劑量與服用頻率或其他補充" rows="2" class="mt-3 w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent break-all"></textarea>
                                         </div>
                                     </div>
                                 </div>

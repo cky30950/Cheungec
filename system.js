@@ -6166,18 +6166,34 @@ async function logout() {
                 title: '疾病史',
                 noteId: 'patientMedicalConditionsNotes',
                 options: [
-                    { key: 'chronicDiseases', label: '慢性疾病' },
-                    { key: 'infectiousDiseases', label: '傳染病史' },
-                    { key: 'majorIllnesses', label: '重大病史' }
+                    { key: 'hypertension', label: '高血壓' },
+                    { key: 'diabetes', label: '糖尿病' },
+                    { key: 'hyperlipidemia', label: '高脂血症' },
+                    { key: 'asthma', label: '哮喘' },
+                    { key: 'chronicKidneyDisease', label: '慢性腎病' },
+                    { key: 'hepatitis', label: '肝炎' },
+                    { key: 'tuberculosis', label: '肺結核' },
+                    { key: 'cancer', label: '癌症' },
+                    { key: 'stroke', label: '中風' },
+                    { key: 'myocardialInfarction', label: '心肌梗塞' }
                 ]
             },
             {
                 key: 'surgicalHistory',
-                title: '手術與住院史',
+                title: '手術與外傷史',
                 noteId: 'patientSurgicalHistoryNotes',
                 options: [
-                    { key: 'surgeries', label: '手術項目' },
-                    { key: 'hospitalizations', label: '住院記錄' }
+                    { key: 'pacemakerImplantation', label: '心律調節器植入手術' },
+                    { key: 'cardiacStentProcedure', label: '心臟金屬支架手術' },
+                    { key: 'polypectomy', label: '息肉切除術' },
+                    { key: 'jointReplacement', label: '人工關節手術' },
+                    { key: 'endoscopicHemostasis', label: '內視鏡止血術' },
+                    { key: 'dialysisFistulaAngioplasty', label: '洗腎瘻管成形術' },
+                    { key: 'endovascularThrombectomy', label: '血管內取栓術' },
+                    { key: 'vascularEmbolization', label: '血管栓塞術' },
+                    { key: 'fracture', label: '骨折' },
+                    { key: 'headTrauma', label: '頭部創傷' },
+                    { key: 'trafficAccident', label: '車禍' }
                 ]
             },
             {
@@ -6185,8 +6201,13 @@ async function logout() {
                 title: '過敏史',
                 noteId: 'patientAllergyNotes',
                 options: [
-                    { key: 'drugAllergies', label: '藥物過敏' },
-                    { key: 'foodEnvironmentalAllergies', label: '食物及環境過敏' }
+                    { key: 'g6pdDeficiency', label: '蠶豆症（G6PD 缺乏症）' },
+                    { key: 'seafoodAllergy', label: '海鮮過敏' },
+                    { key: 'nutsAllergy', label: '堅果' },
+                    { key: 'eggProteinAllergy', label: '蛋白質' },
+                    { key: 'glutenAllergy', label: '麩質' },
+                    { key: 'soyAllergy', label: '大豆' },
+                    { key: 'mangoAllergy', label: '芒果' }
                 ]
             },
             {
@@ -6194,30 +6215,47 @@ async function logout() {
                 title: '用藥史',
                 noteId: 'patientMedicationNotes',
                 options: [
-                    { key: 'longTermMedications', label: '長期服用的藥物' },
-                    { key: 'supplementsOtc', label: '非處方藥與補充劑' }
-                ]
-            },
-            {
-                key: 'traumaHistory',
-                title: '外傷史',
-                noteId: 'patientTraumaHistoryNotes',
-                options: [
-                    { key: 'majorTrauma', label: '重大外傷' }
+                    { key: 'antihypertensives', label: '降血壓藥' },
+                    { key: 'lipidLoweringAgents', label: '降血脂藥' },
+                    { key: 'antidiabeticAgents', label: '降血糖藥' },
+                    { key: 'anticoagulants', label: '抗凝血藥物' },
+                    { key: 'asthmaCopdMedications', label: '氣喘/COPD 藥物' },
+                    { key: 'antihistamines', label: '抗組織胺藥物' },
+                    { key: 'antidepressantsAnxiolytics', label: '抗抑鬱/焦慮藥' },
+                    { key: 'sleepingPills', label: '安眠藥' },
+                    { key: 'antiepileptics', label: '抗癲癇藥' },
+                    { key: 'parkinsonMedications', label: '帕金森氏症藥物' },
+                    { key: 'thyroidMedications', label: '甲狀腺藥物' },
+                    { key: 'osteoporosisMedications', label: '骨質疏鬆藥' },
+                    { key: 'goutPreventiveMedications', label: '痛風預防藥' },
+                    { key: 'gastricMedications', label: '胃藥' },
+                    { key: 'hormonalMedications', label: '荷爾蒙類藥物' },
+                    { key: 'immunosuppressants', label: '免疫抑制劑藥物' },
+                    { key: 'vitamins', label: '維他命' },
+                    { key: 'healthSupplements', label: '健康食品' },
+                    { key: 'chinesePatentMedicines', label: '中成藥' }
                 ]
             }
         ];
 
         function normalizePatientMedicalProfile(profile) {
             const normalized = {};
+            const legacyTraumaSection = profile && typeof profile === 'object' ? profile.traumaHistory : null;
             PATIENT_MEDICAL_PROFILE_SECTIONS.forEach(section => {
                 const sourceSection = profile && typeof profile === 'object' ? profile[section.key] : null;
                 const selected = Array.isArray(sourceSection && sourceSection.selected)
                     ? sourceSection.selected.map(item => String(item))
                     : [];
+                let note = sourceSection && typeof sourceSection.note === 'string' ? sourceSection.note.trim() : '';
+                if (section.key === 'surgicalHistory' && legacyTraumaSection && typeof legacyTraumaSection === 'object') {
+                    const legacyTraumaNote = typeof legacyTraumaSection.note === 'string' ? legacyTraumaSection.note.trim() : '';
+                    if (legacyTraumaNote) {
+                        note = note ? `${note}；外傷備註：${legacyTraumaNote}` : `外傷備註：${legacyTraumaNote}`;
+                    }
+                }
                 normalized[section.key] = {
                     selected: selected.filter(key => section.options.some(option => option.key === key)),
-                    note: sourceSection && typeof sourceSection.note === 'string' ? sourceSection.note.trim() : ''
+                    note
                 };
             });
             return normalized;
@@ -8732,32 +8770,28 @@ async function loadConsultationForEdit(consultationId) {
     // 清除上一個診症操作遺留的套票變更記錄。
     pendingPackageChanges = [];
     try {
-        // 先嘗試從本地找
-        let consultation = null;
+        // 優先從當前記憶體中的單筆資料命中，避免為了編輯一筆病歷先讀整批列表。
+        let consultation = Array.isArray(consultations)
+            ? (consultations.find(c => String(c.id) === String(consultationId)) || null)
+            : null;
         try {
-            const consultationResult = await window.firebaseDataManager.getConsultations();
-            if (consultationResult.success) {
-                // 更新全域診症快取
-                consultations = consultationResult.data;
-                consultation = consultationResult.data.find(c => String(c.id) === String(consultationId));
+            if (!consultation) {
+                const consultationResult = await window.firebaseDataManager.getConsultationById(String(consultationId));
+                if (consultationResult && consultationResult.success && consultationResult.data) {
+                    consultation = consultationResult.data;
+                    if (!Array.isArray(consultations)) {
+                        consultations = [];
+                    }
+                    const existingIndex = consultations.findIndex(c => String(c.id) === String(consultationId));
+                    if (existingIndex >= 0) {
+                        consultations[existingIndex] = consultation;
+                    } else {
+                        consultations.push(consultation);
+                    }
+                }
             }
         } catch (error) {
             console.error('讀取診療記錄錯誤:', error);
-        }
-        // 如果本地找不到，嘗試直接從 Firestore 讀取指定 ID 的診症記錄
-        if (!consultation) {
-            try {
-                const docRef = window.firebase.doc(window.firebase.db, 'consultations', String(consultationId));
-                const docSnap = await window.firebase.getDoc(docRef);
-                if (docSnap && docSnap.exists()) {
-                    consultation = { id: docSnap.id, ...docSnap.data() };
-                    // 加入本地快取
-                    consultations.push(consultation);
-                    localStorage.setItem('consultations', JSON.stringify(consultations));
-                }
-            } catch (err) {
-                console.error('直接讀取診療記錄失敗:', err);
-            }
         }
         if (consultation) {
             // 載入診症記錄內容
@@ -10926,11 +10960,18 @@ async function saveConsultation() {
             // 嘗試在本地緩存中尋找對應的診症紀錄，使用字串比對避免類型不一致
             let existing = consultations.find(c => String(c.id) === String(appointment.consultationId));
             if (!existing) {
-                const consResult = await window.firebaseDataManager.getConsultations();
-                if (consResult && consResult.success) {
-                    // 更新全域診症快取
-                    consultations = consResult.data;
-                    existing = consResult.data.find(c => String(c.id) === String(appointment.consultationId));
+                const consResult = await window.firebaseDataManager.getConsultationById(String(appointment.consultationId));
+                if (consResult && consResult.success && consResult.data) {
+                    existing = consResult.data;
+                    if (!Array.isArray(consultations)) {
+                        consultations = [];
+                    }
+                    const existingIndex = consultations.findIndex(c => String(c.id) === String(appointment.consultationId));
+                    if (existingIndex >= 0) {
+                        consultations[existingIndex] = existing;
+                    } else {
+                        consultations.push(existing);
+                    }
                 }
             }
             consultationData.date = existing && existing.date ? existing.date : new Date();
