@@ -26401,6 +26401,7 @@ async function attachMedicalRecordListListener() {
         await waitForFirebaseDb();
         if (medicalRecordListListenerAttached) return;
         const colRef = window.firebase.collection(window.firebase.db, 'consultations');
+        let isInitialSnapshot = true;
         let q;
         try {
             q = window.firebase.firestoreQuery(colRef, window.firebase.orderBy('date', 'desc'));
@@ -26409,6 +26410,10 @@ async function attachMedicalRecordListListener() {
         }
         medicalRecordListUnsubscribe = window.firebase.onSnapshot(q, () => {
             try {
+                if (isInitialSnapshot) {
+                    isInitialSnapshot = false;
+                    return;
+                }
                 const sectionEl = document.getElementById('medicalRecordManagement');
                 if (sectionEl && !sectionEl.classList.contains('hidden')) {
                     refreshMedicalRecordManagementData(true).catch((err) => {
