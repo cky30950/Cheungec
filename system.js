@@ -5301,7 +5301,7 @@ async function safeGetPatients(_forceRefresh = false) {
       return { success: false, data: [] };
     }
     
-    const result = await window.firebaseDataManager.getPatients();
+    const result = await window.firebaseDataManager.getPatients(!!_forceRefresh);
     
     if (result && typeof result.success === 'boolean' && Array.isArray(result.data)) {
       return result;
@@ -8539,40 +8539,48 @@ async function loadTodayAppointments() {
     }
     
     try {
-        // 優先使用快取的病人資料來避免重複從 Firebase 讀取。
-        const patientsData = await fetchPatients();
+        // 掛號列表只補當前列表涉及的病人，避免切診所時全量讀取 patients 集合。
+        const patientLookup = new Map();
+        const uniquePatientIds = Array.from(new Set(
+            todayAppointments
+                .map(appointment => appointment && appointment.patientId)
+                .filter(patientId => patientId !== undefined && patientId !== null && String(patientId).trim() !== '')
+                .map(patientId => String(patientId))
+        ));
+
+        await Promise.all(uniquePatientIds.map(async (patientId) => {
+            let patient = null;
+            try {
+                if (Array.isArray(patients)) {
+                    patient = patients.find(p => p && String(p.id) === patientId) || null;
+                }
+                if (!patient) {
+                    patient = await getPatientByIdWithRefresh(patientId);
+                }
+            } catch (_e) {
+                patient = null;
+            }
+            if (patient) {
+                patientLookup.set(patientId, patient);
+            }
+        }));
 
         // 對於每一筆掛號資料，直接使用該次掛號的主訴，不再從病歷回填主訴。
         const rows = await Promise.all(todayAppointments.map(async (appointment, index) => {
-            // 從資料集中尋找對應病人
-            let patient = patientsData.find(p => p && p.id === appointment.patientId);
-            // 若無對應病人資料，嘗試刷新後取得
-            if (!patient) {
-                try {
-                    patient = await getPatientByIdWithRefresh(appointment.patientId);
-                } catch (_e) {
-                    patient = null;
-                }
+            const patientId = String(appointment.patientId || '');
+            const patient = patientLookup.get(patientId);
+            if (patient) {
+                return createAppointmentRow(appointment, patient, index);
             }
-            // 若仍無病人資料，嘗試從全域 patients 變數尋找（向後兼容）
-            if (!patient) {
-                const localPatient = Array.isArray(patients) ? patients.find(p => p && p.id === appointment.patientId) : null;
-                if (localPatient) {
-                    // 使用本地病人資料
-                    return createAppointmentRow(appointment, localPatient, index);
-                }
-                // 最終仍無病人資料時，使用掛號物件中的病人姓名作為後備顯示，避免顯示錯誤行。
-                // 由於此情況通常發生於其他使用者剛新增病人後立即掛號，本地快取尚未更新。
-                // 此處以 appointment.patientName 作為名稱，病歷號碼暫留空。
-                const fallbackPatient = {
-                    id: appointment.patientId,
-                    name: appointment.patientName || (window.t ? window.t('未知病人') : '未知病人'),
-                    patientNumber: ''
-                };
-                return createAppointmentRow(appointment, fallbackPatient, index);
-            }
-            // 使用找到的病人資料建立掛號列
-            return createAppointmentRow(appointment, patient, index);
+            // 最終仍無病人資料時，使用掛號物件中的病人姓名作為後備顯示，避免顯示錯誤行。
+            // 由於此情況通常發生於其他使用者剛新增病人後立即掛號，本地快取尚未更新。
+            // 此處以 appointment.patientName 作為名稱，病歷號碼暫留空。
+            const fallbackPatient = {
+                id: appointment.patientId,
+                name: appointment.patientName || (window.t ? window.t('未知病人') : '未知病人'),
+                patientNumber: ''
+            };
+            return createAppointmentRow(appointment, fallbackPatient, index);
         }));
 
         tbody.innerHTML = rows.join('');
