@@ -16,6 +16,7 @@ import {
   getCountFromServer,
   startAfter,
   getDoc,
+  runTransaction,
   
   initializeFirestore,
   persistentLocalCache,
@@ -99,6 +100,7 @@ setPersistence(auth, browserSessionPersistence).catch((error) => {
         startAfter,   
         getDoc,       
         getCountFromServer,
+        runTransaction,
         
         onSnapshot,
         
