@@ -11301,14 +11301,13 @@ async function saveConsultation() {
                 }
                 const patientId = getHistoryCalendarContextPatientId(contextKey);
                 if (!patientId) return;
-                const year = Number(st.year);
-                const month = Number(st.month);
-                const ok = await consultationHistoryPager.ensureMonthDateIndex(patientId, year, month);
+                openHistoryCalendarAtCurrentMonth(contextKey);
+                const ok = await consultationHistoryPager.ensureMonthDateIndex(patientId, st.year, st.month);
                 if (!ok) {
+                    st.open = false;
                     showToast('無法建立病歷日曆索引', 'error');
                     return;
                 }
-                openHistoryCalendarAtCurrentMonth(contextKey);
                 renderHistoryCalendar(contextKey);
             } finally {
                 if (btn) clearButtonLoading(btn);
