@@ -10452,7 +10452,7 @@ async function showConsultationForm(appointment) {
                     updatedAt: '更新時間',
                     updatedBy: '更新者'
                 };
-                const hiddenAuditFields = new Set(['billingItemsStructured', 'updatedAt']);
+                const hiddenAuditFields = new Set(['billingItemsStructured', 'updatedAt', 'updatedBy', 'sortDate']);
 
                 const formatValue = (val) => {
                     if (val === null || val === undefined || val === '') return '（空白）';
