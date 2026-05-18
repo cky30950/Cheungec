@@ -1150,8 +1150,8 @@ const consultationHistoryPager = {
     normalizeAndSortConsultations(list) {
         const arr = Array.isArray(list) ? list.slice() : [];
         return arr.sort((a, b) => {
-            const dateA = parseConsultationDate(a && (a.date || a.createdAt || a.updatedAt));
-            const dateB = parseConsultationDate(b && (b.date || b.createdAt || b.updatedAt));
+            const dateA = getConsultationEffectiveDate(a);
+            const dateB = getConsultationEffectiveDate(b);
             if (!dateA || isNaN(dateA.getTime())) return 1;
             if (!dateB || isNaN(dateB.getTime())) return -1;
             return dateA - dateB;
@@ -1223,9 +1223,27 @@ const consultationHistoryPager = {
             state.totalCount = state.recordsByIndex.length;
             return { success: true, state };
         }
-        // Patient history must tolerate records missing `date`, so always load
-        // the patient's full list and sort locally by date/createdAt/updatedAt.
-        return await this.loadFullModeFallback(pid);
+        try {
+            if (window.firebaseDataManager && typeof window.firebaseDataManager.ensurePatientConsultationSortDates === 'function') {
+                const backfillResult = await window.firebaseDataManager.ensurePatientConsultationSortDates(pid);
+                if (!backfillResult || !backfillResult.success) {
+                    throw new Error((backfillResult && backfillResult.error) || 'sortDate backfill failed');
+                }
+            }
+            await waitForFirebaseDb();
+            const colRef = window.firebase.collection(window.firebase.db, 'consultations');
+            const q = window.firebase.firestoreQuery(colRef, window.firebase.where('patientId', '==', pid));
+            const countSnap = await window.firebase.getCountFromServer(q);
+            const total = Number(countSnap && countSnap.data && countSnap.data().count) || 0;
+            state.totalCount = total;
+            state.recordsByIndex = new Array(total);
+            state.mode = 'paged';
+            state.allLoaded = false;
+            return { success: true, state };
+        } catch (error) {
+            console.warn('病歷分頁初始化失敗，改用全量讀取模式:', error);
+            return await this.loadFullModeFallback(pid);
+        }
     },
     async loadFullModeFallback(patientId) {
         const pid = String(patientId || '');
@@ -1259,7 +1277,7 @@ const consultationHistoryPager = {
                 if (state.descPageCache[i]) continue;
                 const queryParts = [
                     window.firebase.where('patientId', '==', pid),
-                    window.firebase.orderBy('date', 'desc'),
+                    window.firebase.orderBy('sortDate', 'desc'),
                     window.firebase.limit(1)
                 ];
                 if (i > 1 && state.descPageCursors[i - 1]) {
@@ -1301,7 +1319,7 @@ const consultationHistoryPager = {
                 if (Object.prototype.hasOwnProperty.call(state.ascPageCache, i)) continue;
                 const queryParts = [
                     window.firebase.where('patientId', '==', pid),
-                    window.firebase.orderBy('date', 'asc'),
+                    window.firebase.orderBy('sortDate', 'asc'),
                     window.firebase.limit(1)
                 ];
                 if (i > 1 && state.ascPageCursors[i - 1]) {
@@ -1383,16 +1401,16 @@ const consultationHistoryPager = {
             const countQuery = window.firebase.firestoreQuery(
                 colRef,
                 window.firebase.where('patientId', '==', pid),
-                window.firebase.where('date', '<', monthStart)
+                window.firebase.where('sortDate', '<', monthStart)
             );
             const countSnap = await window.firebase.getCountFromServer(countQuery);
             let ascOffset = Number(countSnap && countSnap.data && countSnap.data().count) || 0;
             const monthQuery = window.firebase.firestoreQuery(
                 colRef,
                 window.firebase.where('patientId', '==', pid),
-                window.firebase.where('date', '>=', monthStart),
-                window.firebase.where('date', '<', nextMonthStart),
-                window.firebase.orderBy('date', 'asc')
+                window.firebase.where('sortDate', '>=', monthStart),
+                window.firebase.where('sortDate', '<', nextMonthStart),
+                window.firebase.orderBy('sortDate', 'asc')
             );
             const monthSnap = await window.firebase.getDocs(monthQuery);
             const monthMap = {};
@@ -1444,7 +1462,7 @@ const consultationHistoryPager = {
             const q = window.firebase.firestoreQuery(
                 colRef,
                 window.firebase.where('patientId', '==', pid),
-                window.firebase.orderBy('date', 'desc')
+                window.firebase.orderBy('sortDate', 'desc')
             );
             const snapshot = await window.firebase.getDocs(q);
             const map = {};
@@ -1539,16 +1557,16 @@ const consultationHistoryPager = {
             const countQuery = window.firebase.firestoreQuery(
                 colRef,
                 window.firebase.where('patientId', '==', pid),
-                window.firebase.where('date', '<', dayStart)
+                window.firebase.where('sortDate', '<', dayStart)
             );
             const countSnap = await window.firebase.getCountFromServer(countQuery);
             let ascOffset = Number(countSnap && countSnap.data && countSnap.data().count) || 0;
             const dayQuery = window.firebase.firestoreQuery(
                 colRef,
                 window.firebase.where('patientId', '==', pid),
-                window.firebase.where('date', '>=', dayStart),
-                window.firebase.where('date', '<', nextDayStart),
-                window.firebase.orderBy('date', 'asc')
+                window.firebase.where('sortDate', '>=', dayStart),
+                window.firebase.where('sortDate', '<', nextDayStart),
+                window.firebase.orderBy('sortDate', 'asc')
             );
             const daySnap = await window.firebase.getDocs(dayQuery);
             const loadedIndices = [];
@@ -1600,7 +1618,7 @@ const consultationHistoryPager = {
             if (!currentLoaded) return false;
         }
         const currentRecord = state.recordsByIndex[fromIndex];
-        const currentDate = parseConsultationDate(currentRecord && (currentRecord.date || currentRecord.createdAt || currentRecord.updatedAt));
+        const currentDate = getConsultationEffectiveDate(currentRecord);
         if (!currentDate || isNaN(currentDate.getTime())) {
             return false;
         }
@@ -1611,11 +1629,11 @@ const consultationHistoryPager = {
                 window.firebase.where('patientId', '==', pid)
             ];
             if (step < 0) {
-                queryParts.push(window.firebase.where('date', '<', currentDate));
-                queryParts.push(window.firebase.orderBy('date', 'desc'));
+                queryParts.push(window.firebase.where('sortDate', '<', currentDate));
+                queryParts.push(window.firebase.orderBy('sortDate', 'desc'));
             } else {
-                queryParts.push(window.firebase.where('date', '>', currentDate));
-                queryParts.push(window.firebase.orderBy('date', 'asc'));
+                queryParts.push(window.firebase.where('sortDate', '>', currentDate));
+                queryParts.push(window.firebase.orderBy('sortDate', 'asc'));
             }
             queryParts.push(window.firebase.limit(1));
             const q = window.firebase.firestoreQuery(colRef, ...queryParts);
@@ -3223,11 +3241,7 @@ async function attachPatientConsultationsListener(patientId) {
             const list = [];
             snapshot.forEach((d) => list.push({ id: d.id, ...d.data() }));
             list.sort((a, b) => {
-                const da = parseConsultationDate(a && (a.date || a.createdAt || a.updatedAt));
-                const db = parseConsultationDate(b && (b.date || b.createdAt || b.updatedAt));
-                const timeA = da && !isNaN(da.getTime()) ? da.getTime() : 0;
-                const timeB = db && !isNaN(db.getTime()) ? db.getTime() : 0;
-                return timeB - timeA;
+                return getConsultationEffectiveTimestamp(b) - getConsultationEffectiveTimestamp(a);
             });
             patientConsultationsCache[pid] = list;
             try {
@@ -9130,6 +9144,22 @@ function parseConsultationDate(dateInput) {
         return null;
     }
 }
+
+function getConsultationEffectiveDate(record, fallbackDate = null) {
+    const raw = record && typeof record === 'object'
+        ? (record.date || record.createdAt || record.updatedAt || record.sortDate || fallbackDate || null)
+        : (fallbackDate || null);
+    const parsed = parseConsultationDate(raw);
+    if (parsed && !isNaN(parsed.getTime())) {
+        return parsed;
+    }
+    return null;
+}
+
+function getConsultationEffectiveTimestamp(record, fallbackDate = null) {
+    const parsed = getConsultationEffectiveDate(record, fallbackDate);
+    return parsed && !isNaN(parsed.getTime()) ? parsed.getTime() : 0;
+}
 // 修復格式化診症日期顯示
 
 function formatConsultationDateTime(dateInput) {
@@ -10962,11 +10992,13 @@ async function saveConsultation() {
             const updateResult = await window.firebaseDataManager.updateConsultation(String(appointment.consultationId), consultationData);
             if (updateResult && updateResult.success) {
                 operationSuccess = true;
+                const updatedAt = new Date();
                 const updatedSnapshot = {
                     ...(existing || {}),
                     ...consultationData,
-                    updatedAt: new Date(),
-                    updatedBy: currentUser
+                    updatedAt,
+                    updatedBy: currentUser,
+                    sortDate: getConsultationEffectiveDate({ ...(existing || {}), ...consultationData, updatedAt }, updatedAt) || updatedAt
                 };
                 try {
                     await window.firebaseDataManager.addConsultationAuditLog({
@@ -11052,7 +11084,16 @@ async function saveConsultation() {
                 // 將新增的診症記錄加入本地 consultations 陣列並更新快取
                 try {
                     // 組合新的診症記錄物件（含 ID），並合併 consultationData
-                    const newRecord = { id: result.id, ...consultationData, createdAt: new Date(), updatedAt: new Date(), updatedBy: currentUser };
+                    const createdAt = new Date();
+                    const updatedAt = new Date();
+                    const newRecord = {
+                        id: result.id,
+                        ...consultationData,
+                        createdAt,
+                        updatedAt,
+                        updatedBy: currentUser,
+                        sortDate: getConsultationEffectiveDate({ ...consultationData, createdAt, updatedAt }, createdAt) || createdAt
+                    };
                     // 若 consultations 為陣列則新增至結尾
                     if (Array.isArray(consultations)) {
                         consultations.push(newRecord);
@@ -11634,7 +11675,7 @@ if (!patient) {
                             <div class="flex flex-col space-y-2">
                                 <span class="font-semibold text-gray-900 text-lg">
                                     ${(() => {
-                                        const parsedDate = parseConsultationDate(consultation.date || consultation.createdAt || consultation.updatedAt);
+                                        const parsedDate = getConsultationEffectiveDate(consultation);
                                         if (!parsedDate || isNaN(parsedDate.getTime())) {
                                             return '日期未知';
                                         }
@@ -22174,6 +22215,12 @@ async function importClinicBackup(data) {
                     } catch (_omitErr) {
                         dataToWrite = item;
                     }
+                    if (collectionName === 'consultations') {
+                        const sortDate = getConsultationEffectiveDate(dataToWrite, new Date(0));
+                        if (sortDate && !isNaN(sortDate.getTime())) {
+                            dataToWrite.sortDate = sortDate;
+                        }
+                    }
                     batch.set(docRef, dataToWrite);
                     opCount++;
                     if (opCount >= 500) {
@@ -23789,6 +23836,8 @@ class FirebaseDataManager {
         this.consultationsCache = null;
         this.consultationsLastVisible = null;
         this.consultationsHasMore = false;
+        this.consultationSortDateReadyPatients = {};
+        this.consultationSortDatePromises = {};
         // 用於緩存用戶列表與其分頁資訊
         this.usersCache = null;
         this.usersLastVisible = null;
@@ -24166,11 +24215,14 @@ class FirebaseDataManager {
             } catch (_omitErr) {
                 dataToWrite = consultationData;
             }
+            const createdAt = new Date();
+            const sortDate = getConsultationEffectiveDate({ ...dataToWrite, createdAt }, createdAt);
             const docRef = await window.firebase.addDoc(
                 window.firebase.collection(window.firebase.db, 'consultations'),
                 {
                     ...dataToWrite,
-                    createdAt: new Date(),
+                    createdAt,
+                    sortDate: sortDate || createdAt,
                     createdBy: currentUser
                 }
             );
@@ -24218,6 +24270,66 @@ class FirebaseDataManager {
             showToast('保存診症記錄失敗', 'error');
             return { success: false, error: error.message };
         }
+    }
+
+    async ensurePatientConsultationSortDates(patientId, forceRefresh = false) {
+        if (!this.isReady) return { success: false, error: 'not_ready' };
+        const pid = String(patientId || '');
+        if (!pid) return { success: false, error: 'missing_patient_id' };
+        if (!forceRefresh && this.consultationSortDateReadyPatients[pid]) {
+            return { success: true, updatedCount: 0 };
+        }
+        if (!forceRefresh && this.consultationSortDatePromises[pid]) {
+            return await this.consultationSortDatePromises[pid];
+        }
+        const task = (async () => {
+            try {
+                await waitForFirebaseDb();
+                const colRef = window.firebase.collection(window.firebase.db, 'consultations');
+                const q = window.firebase.firestoreQuery(colRef, window.firebase.where('patientId', '==', pid));
+                const snapshot = await window.firebase.getDocs(q);
+                let batch = window.firebase.writeBatch(window.firebase.db);
+                let opCount = 0;
+                let updatedCount = 0;
+                const commitBatch = async () => {
+                    if (opCount > 0) {
+                        await batch.commit();
+                        batch = window.firebase.writeBatch(window.firebase.db);
+                        opCount = 0;
+                    }
+                };
+                const docs = snapshot && Array.isArray(snapshot.docs) ? snapshot.docs : [];
+                for (const docSnap of docs) {
+                    const data = docSnap.data() || {};
+                    const computedSortDate = getConsultationEffectiveDate(data, new Date(0));
+                    const existingSortDate = parseConsultationDate(data.sortDate || null);
+                    const computedTime = computedSortDate && !isNaN(computedSortDate.getTime()) ? computedSortDate.getTime() : NaN;
+                    const existingTime = existingSortDate && !isNaN(existingSortDate.getTime()) ? existingSortDate.getTime() : NaN;
+                    if (!Number.isFinite(computedTime) || existingTime === computedTime) {
+                        continue;
+                    }
+                    batch.update(
+                        window.firebase.doc(window.firebase.db, 'consultations', docSnap.id),
+                        { sortDate: computedSortDate }
+                    );
+                    updatedCount += 1;
+                    opCount += 1;
+                    if (opCount >= 400) {
+                        await commitBatch();
+                    }
+                }
+                await commitBatch();
+                this.consultationSortDateReadyPatients[pid] = true;
+                return { success: true, updatedCount };
+            } catch (error) {
+                console.error('回填病歷 sortDate 失敗:', error);
+                return { success: false, error: error && error.message ? error.message : String(error) };
+            } finally {
+                delete this.consultationSortDatePromises[pid];
+            }
+        })();
+        this.consultationSortDatePromises[pid] = task;
+        return await task;
     }
 
     /**
@@ -24731,11 +24843,23 @@ class FirebaseDataManager {
             } catch (_omitErr) {
                 dataToWrite = consultationData;
             }
+            const updatedAt = new Date();
+            let temporalBase = { ...dataToWrite, updatedAt };
+            if (!temporalBase.date && !temporalBase.createdAt && !temporalBase.sortDate) {
+                try {
+                    const existingDoc = await window.firebase.getDoc(window.firebase.doc(window.firebase.db, 'consultations', consultationId));
+                    if (existingDoc && existingDoc.exists()) {
+                        temporalBase = { ...existingDoc.data(), ...temporalBase };
+                    }
+                } catch (_existingErr) {}
+            }
+            const sortDate = getConsultationEffectiveDate(temporalBase, updatedAt);
             await window.firebase.updateDoc(
                 window.firebase.doc(window.firebase.db, 'consultations', consultationId),
                 {
                     ...dataToWrite,
-                    updatedAt: new Date(),
+                    updatedAt,
+                    sortDate: sortDate || updatedAt,
                     updatedBy: currentUser
                 }
             );
@@ -24890,11 +25014,7 @@ class FirebaseDataManager {
             });
             // 以 date/createdAt/updatedAt 做容錯排序，避免缺少 date 的病歷錯位。
             patientConsultations.sort((a, b) => {
-                const dateA = parseConsultationDate(a && (a.date || a.createdAt || a.updatedAt));
-                const dateB = parseConsultationDate(b && (b.date || b.createdAt || b.updatedAt));
-                const timeA = dateA && !isNaN(dateA.getTime()) ? dateA.getTime() : 0;
-                const timeB = dateB && !isNaN(dateB.getTime()) ? dateB.getTime() : 0;
-                return timeB - timeA;
+                return getConsultationEffectiveTimestamp(b) - getConsultationEffectiveTimestamp(a);
             });
             // 儲存至快取以供後續使用
             patientConsultationsCache[patientId] = patientConsultations;
