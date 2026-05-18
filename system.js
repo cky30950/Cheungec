@@ -1150,8 +1150,8 @@ const consultationHistoryPager = {
     normalizeAndSortConsultations(list) {
         const arr = Array.isArray(list) ? list.slice() : [];
         return arr.sort((a, b) => {
-            const dateA = parseConsultationDate(a.date);
-            const dateB = parseConsultationDate(b.date);
+            const dateA = parseConsultationDate(a && (a.date || a.createdAt || a.updatedAt));
+            const dateB = parseConsultationDate(b && (b.date || b.createdAt || b.updatedAt));
             if (!dateA || isNaN(dateA.getTime())) return 1;
             if (!dateB || isNaN(dateB.getTime())) return -1;
             return dateA - dateB;
@@ -1223,19 +1223,9 @@ const consultationHistoryPager = {
             state.totalCount = state.recordsByIndex.length;
             return { success: true, state };
         }
-        try {
-            await waitForFirebaseDb();
-            const colRef = window.firebase.collection(window.firebase.db, 'consultations');
-            const q = window.firebase.firestoreQuery(colRef, window.firebase.where('patientId', '==', pid));
-            const countSnap = await window.firebase.getCountFromServer(q);
-            const total = Number(countSnap && countSnap.data && countSnap.data().count) || 0;
-            state.totalCount = total;
-            state.recordsByIndex = new Array(total);
-            return { success: true, state };
-        } catch (error) {
-            console.warn('病歷分頁計數失敗，改用全量讀取模式:', error);
-            return await this.loadFullModeFallback(pid);
-        }
+        // Patient history must tolerate records missing `date`, so always load
+        // the patient's full list and sort locally by date/createdAt/updatedAt.
+        return await this.loadFullModeFallback(pid);
     },
     async loadFullModeFallback(patientId) {
         const pid = String(patientId || '');
@@ -3233,9 +3223,11 @@ async function attachPatientConsultationsListener(patientId) {
             const list = [];
             snapshot.forEach((d) => list.push({ id: d.id, ...d.data() }));
             list.sort((a, b) => {
-                const da = a.date ? (a.date.seconds ? new Date(a.date.seconds * 1000) : new Date(a.date)) : (a.createdAt && a.createdAt.seconds ? new Date(a.createdAt.seconds * 1000) : new Date(a.createdAt));
-                const db = b.date ? (b.date.seconds ? new Date(b.date.seconds * 1000) : new Date(b.date)) : (b.createdAt && b.createdAt.seconds ? new Date(b.createdAt.seconds * 1000) : new Date(b.createdAt));
-                return db - da;
+                const da = parseConsultationDate(a && (a.date || a.createdAt || a.updatedAt));
+                const db = parseConsultationDate(b && (b.date || b.createdAt || b.updatedAt));
+                const timeA = da && !isNaN(da.getTime()) ? da.getTime() : 0;
+                const timeB = db && !isNaN(db.getTime()) ? db.getTime() : 0;
+                return timeB - timeA;
             });
             patientConsultationsCache[pid] = list;
             try {
@@ -11642,7 +11634,7 @@ if (!patient) {
                             <div class="flex flex-col space-y-2">
                                 <span class="font-semibold text-gray-900 text-lg">
                                     ${(() => {
-                                        const parsedDate = parseConsultationDate(consultation.date);
+                                        const parsedDate = parseConsultationDate(consultation.date || consultation.createdAt || consultation.updatedAt);
                                         if (!parsedDate || isNaN(parsedDate.getTime())) {
                                             return '日期未知';
                                         }
@@ -24896,15 +24888,13 @@ class FirebaseDataManager {
             querySnapshot.forEach((docSnap) => {
                 patientConsultations.push({ id: docSnap.id, ...docSnap.data() });
             });
-            // 按日期（若有 date 欄位）或 createdAt 排序，最新在前
+            // 以 date/createdAt/updatedAt 做容錯排序，避免缺少 date 的病歷錯位。
             patientConsultations.sort((a, b) => {
-                const dateA = a.date
-                    ? (a.date.seconds ? new Date(a.date.seconds * 1000) : new Date(a.date))
-                    : (a.createdAt && a.createdAt.seconds ? new Date(a.createdAt.seconds * 1000) : new Date(a.createdAt));
-                const dateB = b.date
-                    ? (b.date.seconds ? new Date(b.date.seconds * 1000) : new Date(b.date))
-                    : (b.createdAt && b.createdAt.seconds ? new Date(b.createdAt.seconds * 1000) : new Date(b.createdAt));
-                return dateB - dateA;
+                const dateA = parseConsultationDate(a && (a.date || a.createdAt || a.updatedAt));
+                const dateB = parseConsultationDate(b && (b.date || b.createdAt || b.updatedAt));
+                const timeA = dateA && !isNaN(dateA.getTime()) ? dateA.getTime() : 0;
+                const timeB = dateB && !isNaN(dateB.getTime()) ? dateB.getTime() : 0;
+                return timeB - timeA;
             });
             // 儲存至快取以供後續使用
             patientConsultationsCache[patientId] = patientConsultations;
