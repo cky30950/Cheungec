@@ -2984,25 +2984,21 @@ function generateMedicalRecordNumber() {
             
             
             
-            if (!button.dataset.originalDisplay) {
-                button.dataset.originalDisplay = button.style.display || '';
-                button.dataset.originalAlignItems = button.style.alignItems || '';
-                button.dataset.originalJustifyContent = button.style.justifyContent || '';
+            if (!button.dataset.originalPosition) {
+                button.dataset.originalPosition = button.style.position || '';
+                button.dataset.originalOverflow = button.style.overflow || '';
             }
             
-            button.style.display = 'flex';
-            button.style.alignItems = 'center';
-            button.style.justifyContent = 'center';
+            button.style.position = 'relative';
+            button.style.overflow = 'hidden';
             
-            
-            
-            
-            
-            
-            
-            
-            
-            button.innerHTML = `<div class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent"></div>`;
+            const originalHtml = button.dataset.originalHtml || button.innerHTML;
+            button.innerHTML = `
+                <span class="invisible pointer-events-none">${originalHtml}</span>
+                <span class="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
+                    <span class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent"></span>
+                </span>
+            `;
         }
 
         
@@ -3026,17 +3022,13 @@ function generateMedicalRecordNumber() {
                 delete button.dataset.originalHeight;
             }
             
-            if (button.dataset.originalDisplay !== undefined) {
-                button.style.display = button.dataset.originalDisplay;
-                delete button.dataset.originalDisplay;
+            if (button.dataset.originalPosition !== undefined) {
+                button.style.position = button.dataset.originalPosition;
+                delete button.dataset.originalPosition;
             }
-            if (button.dataset.originalAlignItems !== undefined) {
-                button.style.alignItems = button.dataset.originalAlignItems;
-                delete button.dataset.originalAlignItems;
-            }
-            if (button.dataset.originalJustifyContent !== undefined) {
-                button.style.justifyContent = button.dataset.originalJustifyContent;
-                delete button.dataset.originalJustifyContent;
+            if (button.dataset.originalOverflow !== undefined) {
+                button.style.overflow = button.dataset.originalOverflow;
+                delete button.dataset.originalOverflow;
             }
             
             button.disabled = false;
@@ -11477,7 +11469,8 @@ if (!patient) {
                 prescription: 'border-yellow-200 bg-yellow-50 text-yellow-700 shadow-sm hover:-translate-y-0.5 hover:border-yellow-300 hover:bg-yellow-100 hover:shadow-md',
                 attendance: 'border-sky-200 bg-sky-50 text-sky-700 shadow-sm hover:-translate-y-0.5 hover:border-sky-300 hover:bg-sky-100 hover:shadow-md',
                 sickLeave: 'border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-100 hover:shadow-md',
-                load: 'border-blue-200 bg-blue-50 text-blue-700 shadow-sm hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-100 hover:shadow-md'
+                load: 'border-blue-200 bg-blue-50 text-blue-700 shadow-sm hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-100 hover:shadow-md',
+                delete: 'border-red-200 bg-red-50 text-red-700 shadow-sm hover:-translate-y-0.5 hover:border-red-300 hover:bg-red-100 hover:shadow-md'
             };
 
             return `${baseClasses} ${variantClasses[variant] || 'border-gray-200 bg-white text-gray-700 shadow-sm hover:-translate-y-0.5 hover:bg-gray-50 hover:shadow-md'}`;
@@ -26336,6 +26329,7 @@ let medicalRecordAscPageCache = {};   // { ascIndex: Array<consultation> }
 let medicalRecordListListenerAttached = false;
 let medicalRecordListUnsubscribe = null;
 let medicalRecordRefreshInFlight = null;
+let medicalRecordListenerDebounceTimer = null;
 
 function resetMedicalRecordManagementCaches() {
     medicalRecordPageCursors = {};
@@ -26371,11 +26365,22 @@ async function ensureMedicalRecordPatientLookupForRecords(records) {
     updateMedicalRecordPatientLookup(loadedPatients.filter(Boolean));
 }
 
-async function refreshMedicalRecordManagementData(preservePage = true) {
+function isMedicalRecordManagementVisible() {
+    const sectionEl = document.getElementById('medicalRecordManagement');
+    return !!(sectionEl && !sectionEl.classList.contains('hidden'));
+}
+
+function hasMedicalRecordSearchTerm() {
+    const searchInput = document.getElementById('searchMedicalRecord');
+    return !!(searchInput && searchInput.value && searchInput.value.trim());
+}
+
+async function refreshMedicalRecordManagementData(preservePage = true, options = {}) {
     if (medicalRecordRefreshInFlight) {
         return medicalRecordRefreshInFlight;
     }
     medicalRecordRefreshInFlight = (async () => {
+        const refreshCount = options.refreshCount !== false;
         resetMedicalRecordManagementCaches();
         try {
             if (window.firebaseDataManager && typeof window.firebaseDataManager.consultationsCache !== 'undefined') {
@@ -26385,8 +26390,10 @@ async function refreshMedicalRecordManagementData(preservePage = true) {
         try {
             localStorage.removeItem('consultations');
         } catch (_lsErr) {}
-        const countRes = await getConsultationsCount();
-        medicalRecordTotalCount = (countRes && typeof countRes.count === 'number') ? countRes.count : 0;
+        if (refreshCount) {
+            const countRes = await getConsultationsCount();
+            medicalRecordTotalCount = (countRes && typeof countRes.count === 'number') ? countRes.count : 0;
+        }
         await displayMedicalRecords(preservePage);
     })();
     try {
@@ -26404,22 +26411,56 @@ async function attachMedicalRecordListListener() {
         let isInitialSnapshot = true;
         let q;
         try {
-            q = window.firebase.firestoreQuery(colRef, window.firebase.orderBy('date', 'desc'));
+            q = window.firebase.firestoreQuery(
+                colRef,
+                window.firebase.orderBy('createdAt', 'desc'),
+                window.firebase.limit(1)
+            );
         } catch (_e) {
-            q = colRef;
+            try {
+                q = window.firebase.firestoreQuery(
+                    colRef,
+                    window.firebase.orderBy('date', 'desc'),
+                    window.firebase.limit(1)
+                );
+            } catch (_fallbackErr) {
+                q = colRef;
+            }
         }
-        medicalRecordListUnsubscribe = window.firebase.onSnapshot(q, () => {
+        medicalRecordListUnsubscribe = window.firebase.onSnapshot(q, (snapshot) => {
             try {
                 if (isInitialSnapshot) {
                     isInitialSnapshot = false;
                     return;
                 }
-                const sectionEl = document.getElementById('medicalRecordManagement');
-                if (sectionEl && !sectionEl.classList.contains('hidden')) {
-                    refreshMedicalRecordManagementData(true).catch((err) => {
+                const addedChanges = snapshot && typeof snapshot.docChanges === 'function'
+                    ? snapshot.docChanges().filter(change => change && change.type === 'added')
+                    : [];
+                if (!addedChanges.length) {
+                    return;
+                }
+                resetMedicalRecordManagementCaches();
+                if (typeof medicalRecordTotalCount === 'number' && medicalRecordTotalCount >= 0) {
+                    medicalRecordTotalCount += addedChanges.length;
+                }
+                if (!isMedicalRecordManagementVisible() || hasMedicalRecordSearchTerm()) {
+                    return;
+                }
+                const currentPage = paginationSettings.medicalRecordList && paginationSettings.medicalRecordList.currentPage
+                    ? paginationSettings.medicalRecordList.currentPage
+                    : 1;
+                if (currentPage !== 1) {
+                    return;
+                }
+                if (medicalRecordListenerDebounceTimer) {
+                    clearTimeout(medicalRecordListenerDebounceTimer);
+                }
+                medicalRecordListenerDebounceTimer = setTimeout(() => {
+                    medicalRecordListenerDebounceTimer = null;
+                    refreshMedicalRecordManagementData(true, { refreshCount: false }).catch((err) => {
                         console.error('病歷管理即時更新處理失敗:', err);
                     });
-                }
+                }, 400);
             } catch (innerErr) {
                 console.error('病歷管理即時更新處理失敗:', innerErr);
             }
@@ -26443,6 +26484,10 @@ function detachMedicalRecordListListener() {
         }
         medicalRecordListListenerAttached = false;
         medicalRecordListUnsubscribe = null;
+    }
+    if (medicalRecordListenerDebounceTimer) {
+        clearTimeout(medicalRecordListenerDebounceTimer);
+        medicalRecordListenerDebounceTimer = null;
     }
 }
 
@@ -26664,8 +26709,10 @@ async function displayMedicalRecords(pageChange = false) {
                 }
             }
             const canDeleteMedicalRecord = hasActionPermission('medicalRecordDelete');
+            const viewButtonClasses = `${getMedicalHistoryActionButtonClasses('load')} mr-2`;
+            const deleteButtonClasses = getMedicalHistoryActionButtonClasses('delete');
             const deleteButtonHtml = canDeleteMedicalRecord
-                ? `<button class="text-red-600 hover:underline" onclick="confirmDeleteMedicalRecord('${recordId}', '${patientName}')">${window.escapeHtml(deleteLabel)}</button>`
+                ? `<button type="button" class="${deleteButtonClasses}" onclick='confirmDeleteMedicalRecord(${JSON.stringify(recordId)}, ${JSON.stringify(patientName)}, this)'>${window.escapeHtml(deleteLabel)}</button>`
                 : '';
             tbody.innerHTML += `
                 <tr>
@@ -26676,7 +26723,7 @@ async function displayMedicalRecords(pageChange = false) {
                     <td class="px-4 py-2 whitespace-nowrap">${window.escapeHtml(doctorName)}</td>
                     <td class="px-4 py-2 whitespace-nowrap">${window.escapeHtml(dateStr)}</td>
                     <td class="px-4 py-2 whitespace-nowrap">
-                        <button class="text-blue-600 hover:underline mr-2" onclick="viewMedicalRecord('${recordId}', '${rec.patientId}')">${window.escapeHtml(viewLabel)}</button>
+                        <button type="button" class="${viewButtonClasses}" onclick='viewMedicalRecord(${JSON.stringify(recordId)}, this)'>${window.escapeHtml(viewLabel)}</button>
                         ${deleteButtonHtml}
                     </td>
                 </tr>
@@ -26756,45 +26803,6 @@ async function fetchMedicalRecordPage(page = 1, pageSize = 10) {
             const arr = [];
             snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
             try {
-                let needsRefetch = false;
-                for (const r of arr) {
-                    if (r && typeof r.date === 'string') {
-                        const parsed = parseConsultationDate(r.date);
-                        if (parsed && !isNaN(parsed.getTime())) {
-                            try {
-                                await window.firebase.updateDoc(
-                                    window.firebase.doc(window.firebase.db, 'consultations', r.id),
-                                    { date: parsed }
-                                );
-                                r.date = parsed;
-                                needsRefetch = true;
-                            } catch (_udErr) {}
-                        }
-                    }
-                }
-                if (needsRefetch) {
-                    const snapNew = await window.firebase.getDocs(window.firebase.firestoreQuery(
-                        colRef,
-                        window.firebase.orderBy('date', 'desc'),
-                        window.firebase.limit(pageSize)
-                    ));
-                    const refreshed = [];
-                    snapNew.forEach(d => refreshed.push({ id: d.id, ...d.data() }));
-                    medicalRecordPageCache[1] = refreshed;
-                    medicalRecordPageCursors[1] = snapNew.docs.length ? snapNew.docs[snapNew.docs.length - 1] : null;
-                    try {
-                        refreshed.sort((a, b) => {
-                            const A = parseConsultationDate(a.date || a.createdAt || a.updatedAt || null);
-                            const B = parseConsultationDate(b.date || b.createdAt || b.updatedAt || null);
-                            const tA = (A && !isNaN(A.getTime())) ? A.getTime() : 0;
-                            const tB = (B && !isNaN(B.getTime())) ? B.getTime() : 0;
-                            return tB - tA;
-                        });
-                    } catch (_e2) {}
-                    return refreshed;
-                }
-            } catch (_normErr) {}
-            try {
                 arr.sort((a, b) => {
                     const A = parseConsultationDate(a.date || a.createdAt || a.updatedAt || null);
                     const B = parseConsultationDate(b.date || b.createdAt || b.updatedAt || null);
@@ -26831,22 +26839,6 @@ async function fetchMedicalRecordPage(page = 1, pageSize = 10) {
         const arr2 = [];
         snap2.forEach(d => arr2.push({ id: d.id, ...d.data() }));
         try {
-            for (const r of arr2) {
-                if (r && typeof r.date === 'string') {
-                    const parsed = parseConsultationDate(r.date);
-                    if (parsed && !isNaN(parsed.getTime())) {
-                        try {
-                            await window.firebase.updateDoc(
-                                window.firebase.doc(window.firebase.db, 'consultations', r.id),
-                                { date: parsed }
-                            );
-                            r.date = parsed;
-                        } catch (_udErr2) {}
-                    }
-                }
-            }
-        } catch (_normErr2) {}
-        try {
             arr2.sort((a, b) => {
                 const A = parseConsultationDate(a.date || a.createdAt || a.updatedAt || null);
                 const B = parseConsultationDate(b.date || b.createdAt || b.updatedAt || null);
@@ -26880,22 +26872,6 @@ async function fetchMedicalRecordPageAsc(ascIndex = 1, pageSize = 10) {
             const snap = await window.firebase.getDocs(q);
             const arr = [];
             snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
-            try {
-                for (const r of arr) {
-                    if (r && typeof r.date === 'string') {
-                        const parsed = parseConsultationDate(r.date);
-                        if (parsed && !isNaN(parsed.getTime())) {
-                            try {
-                                await window.firebase.updateDoc(
-                                    window.firebase.doc(window.firebase.db, 'consultations', r.id),
-                                    { date: parsed }
-                                );
-                                r.date = parsed;
-                            } catch (_udErr3) {}
-                        }
-                    }
-                }
-            } catch (_normErr3) {}
             try {
                 arr.sort((a, b) => {
                     const A = parseConsultationDate(a.date || a.createdAt || a.updatedAt || null);
@@ -26931,22 +26907,6 @@ async function fetchMedicalRecordPageAsc(ascIndex = 1, pageSize = 10) {
         const snap2 = await window.firebase.getDocs(q);
         const arr2 = [];
         snap2.forEach(d => arr2.push({ id: d.id, ...d.data() }));
-        try {
-            for (const r of arr2) {
-                if (r && typeof r.date === 'string') {
-                    const parsed = parseConsultationDate(r.date);
-                    if (parsed && !isNaN(parsed.getTime())) {
-                        try {
-                            await window.firebase.updateDoc(
-                                window.firebase.doc(window.firebase.db, 'consultations', r.id),
-                                { date: parsed }
-                            );
-                            r.date = parsed;
-                        } catch (_udErr4) {}
-                    }
-                }
-            }
-        } catch (_normErr4) {}
         try {
             arr2.sort((a, b) => {
                 const A = parseConsultationDate(a.date || a.createdAt || a.updatedAt || null);
@@ -27173,16 +27133,32 @@ async function searchMedicalRecords(term, limitCount = 50) {
 /**
  * 檢視單筆病歷記錄，顯示於彈窗中。
  * @param {string} recordId 病歷檔案編號
- * @param {string} patientId 病人編號，用於查詢病人姓名
+ * @param {HTMLButtonElement|null} buttonEl 觸發按鈕
  */
-function viewMedicalRecord(recordId) {
+async function viewMedicalRecord(recordId, buttonEl = null) {
+    const loadingButton = buttonEl || null;
     try {
-        // 取得對應病歷紀錄
-        const rec = medicalRecords.find(r => String(r.id) === String(recordId));
+        if (loadingButton) {
+            setButtonLoading(loadingButton, '讀取中...');
+        }
+        let rec = null;
+        if (window.firebaseDataManager && typeof window.firebaseDataManager.getConsultationById === 'function') {
+            const singleRes = await window.firebaseDataManager.getConsultationById(String(recordId), true);
+            if (singleRes && singleRes.success && singleRes.data) {
+                rec = singleRes.data;
+            }
+        }
         if (!rec) {
             showToast('找不到病歷記錄', 'error');
             return;
         }
+        try {
+            const patientId = rec && rec.patientId !== undefined && rec.patientId !== null ? String(rec.patientId).trim() : '';
+            const patientName = rec && rec.patientName ? String(rec.patientName).trim() : '';
+            if (patientId && patientName && !medicalRecordPatients[patientId]) {
+                medicalRecordPatients[patientId] = patientName;
+            }
+        } catch (_lookupErr) {}
         // 取得語言與地區設定，預設為中文
         const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
         const locale = lang === 'en' ? 'en-US' : 'zh-TW';
@@ -27435,6 +27411,11 @@ function viewMedicalRecord(recordId) {
         }
     } catch (error) {
         console.error('檢視病歷記錄錯誤:', error);
+        showToast('讀取病歷失敗', 'error');
+    } finally {
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
 }
 
@@ -27453,13 +27434,18 @@ function closeMedicalRecordDetail() {
  * 將提示訊息根據當前語言翻譯，避免使用者誤操作。
  * @param {string} recordId - 要刪除的病歷記錄 ID
  * @param {string} patientName - 病人名稱，用於提示中顯示
+ * @param {HTMLButtonElement|null} buttonEl - 觸發按鈕
  */
-async function confirmDeleteMedicalRecord(recordId, patientName) {
+async function confirmDeleteMedicalRecord(recordId, patientName, buttonEl = null) {
     if (!hasActionPermission('medicalRecordDelete')) {
         showToast('權限不足，無法刪除病歷', 'error');
         return;
     }
+    const loadingButton = buttonEl || null;
     try {
+        if (loadingButton) {
+            setButtonLoading(loadingButton, '刪除中...');
+        }
         const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
         let message;
         if (lang === 'en') {
@@ -27470,12 +27456,20 @@ async function confirmDeleteMedicalRecord(recordId, patientName) {
         }
         const confirmed = await showConfirmation(message, 'warning');
         if (!confirmed) {
+            if (loadingButton) {
+                clearButtonLoading(loadingButton);
+            }
             return;
         }
-        deleteMedicalRecord(recordId);
+        await deleteMedicalRecord(recordId, loadingButton);
     } catch (_err) {
-        // 若出現意外錯誤，直接呼叫刪除以確保流程不中斷
-        deleteMedicalRecord(recordId);
+        try {
+            await deleteMedicalRecord(recordId, loadingButton);
+        } catch (_deleteErr) {
+            if (loadingButton) {
+                clearButtonLoading(loadingButton);
+            }
+        }
     }
 }
 
@@ -27484,13 +27478,18 @@ async function confirmDeleteMedicalRecord(recordId, patientName) {
  * 如 Firebase DataManager 提供 deleteConsultation 功能，則優先使用；
  * 若無則直接調用 firebase.deleteDoc。
  * @param {string} recordId - 要刪除的病歷記錄 ID
+ * @param {HTMLButtonElement|null} buttonEl - 觸發按鈕
  */
-async function deleteMedicalRecord(recordId) {
+async function deleteMedicalRecord(recordId, buttonEl = null) {
     if (!hasActionPermission('medicalRecordDelete')) {
         showToast('權限不足，無法刪除病歷', 'error');
         return;
     }
+    const loadingButton = buttonEl || null;
     try {
+        if (loadingButton && !loadingButton.disabled) {
+            setButtonLoading(loadingButton, '刪除中...');
+        }
         // 如果 firebaseDataManager 提供刪除診症紀錄的方法，優先使用
         let deleted = false;
         if (window.firebaseDataManager && typeof window.firebaseDataManager.deleteConsultation === 'function') {
@@ -27550,10 +27549,9 @@ async function deleteMedicalRecord(recordId) {
         medicalRecordPageCache = {};
         medicalRecordPageCursors = {};
         medicalRecordSearchCache = {};
-        try {
-            const countRes = await getConsultationsCount();
-            medicalRecordTotalCount = (countRes && typeof countRes.count === 'number') ? countRes.count : medicalRecordTotalCount;
-        } catch (_e) {}
+        if (typeof medicalRecordTotalCount === 'number' && medicalRecordTotalCount > 0) {
+            medicalRecordTotalCount -= 1;
+        }
         await displayMedicalRecords(false);
         // 顯示提示
         const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
@@ -27562,6 +27560,10 @@ async function deleteMedicalRecord(recordId) {
         console.error('刪除病歷記錄失敗:', error);
         const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
         showToast(lang === 'en' ? 'Failed to delete record' : '刪除病歷失敗', 'error');
+    } finally {
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
 }
 
