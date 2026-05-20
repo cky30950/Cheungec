@@ -2530,7 +2530,7 @@
             
             
             <div class="mb-6">
-              <div class="flex border-b border-gray-200">
+              <div class="flex flex-wrap border-b border-gray-200">
                 <button class="px-6 py-3 text-amber-700 border-b-2 border-amber-500 font-medium" onclick="switchPersonalTab('herbs')" id="herbsTab">
                   🌿 慣用中藥組合
                   
@@ -2540,6 +2540,9 @@
                   📍 慣用穴位組合
                   
                   <span id="acupointCount" class="ml-2 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full px-2 py-0.5"></span>
+                </button>
+                <button class="px-6 py-3 text-gray-500 hover:text-amber-700 font-medium" onclick="switchPersonalTab('diagnosisSettings')" id="diagnosisSettingsTab">
+                  🩺 診症設定
                 </button>
               </div>
             </div>
@@ -2601,6 +2604,77 @@
               </div>
               <div class="grid md:grid-cols-2 gap-6" id="acupointCombinationsContainer">
                 
+              </div>
+            </div>
+
+            <div id="diagnosisSettingsContent" class="personal-tab-content hidden">
+              <div class="space-y-6">
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-900">
+                  <div class="font-medium">目前套用診所：<span id="diagnosisSettingsClinicName">載入中...</span></div>
+                  <div class="mt-1">以下設定會隨目前所在診所切換，並套用到新開的診症表單，包括處方預設值、複診時間及預設收費項目。</div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div class="bg-gray-50 rounded-xl border border-gray-200 p-5 space-y-4">
+                    <h3 class="text-lg font-semibold text-gray-800">處方預設</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label for="diagnosisDefaultDays" class="block text-sm font-medium text-gray-700 mb-1">預設天數</label>
+                        <input type="number" id="diagnosisDefaultDays" min="1" max="90" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                      </div>
+                      <div>
+                        <label for="diagnosisDefaultFrequency" class="block text-sm font-medium text-gray-700 mb-1">預設次數</label>
+                        <input type="number" id="diagnosisDefaultFrequency" min="1" max="10" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                      </div>
+                    </div>
+                    <div>
+                      <label for="diagnosisDefaultUsage" class="block text-sm font-medium text-gray-700 mb-1">預設中藥服用方法</label>
+                      <textarea id="diagnosisDefaultUsage" rows="3" placeholder="例如：溫水化開，飯後服" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-amber-500 focus:border-transparent"></textarea>
+                    </div>
+                    <div>
+                      <label for="diagnosisDefaultTreatmentCourse" class="block text-sm font-medium text-gray-700 mb-1">預設療程</label>
+                      <input type="text" id="diagnosisDefaultTreatmentCourse" placeholder="例如：一周" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                    </div>
+                  </div>
+
+                  <div class="bg-gray-50 rounded-xl border border-gray-200 p-5 space-y-4">
+                    <h3 class="text-lg font-semibold text-gray-800">複診與醫囑</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label for="diagnosisDefaultFollowUpDays" class="block text-sm font-medium text-gray-700 mb-1">預設複診相隔日數</label>
+                        <input type="number" id="diagnosisDefaultFollowUpDays" min="0" max="365" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                      </div>
+                      <div>
+                        <label for="diagnosisDefaultFollowUpTime" class="block text-sm font-medium text-gray-700 mb-1">預設複診時間</label>
+                        <input type="time" id="diagnosisDefaultFollowUpTime" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                      </div>
+                    </div>
+                    <div>
+                      <label for="diagnosisDefaultInstructions" class="block text-sm font-medium text-gray-700 mb-1">預設醫囑及注意事項</label>
+                      <textarea id="diagnosisDefaultInstructions" rows="5" placeholder="例如：注意休息，飲食清淡" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-amber-500 focus:border-transparent"></textarea>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="bg-gray-50 rounded-xl border border-gray-200 p-5 space-y-4">
+                  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                      <h3 class="text-lg font-semibold text-gray-800">預設收費項目</h3>
+                      <p class="text-sm text-gray-500">可選擇多個收費項目，於新開診症時自動加入。</p>
+                    </div>
+                    <input type="text" id="diagnosisBillingItemSearch" placeholder="搜尋收費項目名稱..." oninput="renderDiagnosisSettingsForm()" class="w-full md:w-72 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+                  </div>
+                  <div id="diagnosisDefaultBillingItems" class="max-h-80 overflow-y-auto border border-gray-200 rounded-lg bg-white p-3 space-y-3">
+                  </div>
+                  <div id="diagnosisSelectedBillingItems" class="border border-gray-200 rounded-lg bg-white p-3 space-y-3">
+                  </div>
+                </div>
+
+                <div class="flex justify-end">
+                  <button onclick="saveDiagnosisSettings()" class="bg-amber-600 text-white px-6 py-2.5 rounded-lg hover:bg-amber-700 transition-colors">
+                    保存診症設定
+                  </button>
+                </div>
               </div>
             </div>
             </div>

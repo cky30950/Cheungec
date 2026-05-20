@@ -2583,6 +2583,11 @@ async function fetchUsers(forceRefresh = false) {
             try { if (typeof computeGlobalUsageCounts === 'function') await computeGlobalUsageCounts(); } catch (_eUsage) {}
             try { if (typeof displayHerbLibrary === 'function') displayHerbLibrary(); } catch (_eDisp) {}
             try { if (typeof displayBillingItems === 'function') displayBillingItems(); } catch (_e6) {}
+            try {
+                if (typeof renderDiagnosisSettingsForm === 'function') {
+                    renderDiagnosisSettingsForm(true);
+                }
+            } catch (_eDiagnosisSettings) {}
             advanceGlobalLoading();
             try {
                 const modal = document.getElementById('inventoryHistoryModal');
@@ -6065,6 +6070,10 @@ async function logout() {
                 } catch (_eLoadPermissionPanel) {}
             } else if (sectionId === 'userManagement') {
                 loadUserManagement();
+            } else if (sectionId === 'personalSettings') {
+                if (typeof renderDiagnosisSettingsForm === 'function') {
+                    renderDiagnosisSettingsForm(true);
+                }
             } else if (sectionId === 'personalStatistics') {
                 
                 if (typeof loadPersonalStatistics === 'function') {
@@ -10170,16 +10179,12 @@ async function showConsultationForm(appointment) {
             document.getElementById('formRestEndDate').value = endDateStr;
             updateRestPeriod();
 
-            // 設置預設複診時間為診症當天的 7 天後，時間保持與到診時間一致
+            // 依個人診症設定填入預設複診時間
             try {
-                const followUp = new Date(now);
-                followUp.setDate(followUp.getDate() + 7);
-                const fYear = followUp.getFullYear();
-                const fMonth = String(followUp.getMonth() + 1).padStart(2, '0');
-                const fDay = String(followUp.getDate()).padStart(2, '0');
-                const fHours = String(followUp.getHours()).padStart(2, '0');
-                const fMinutes = String(followUp.getMinutes()).padStart(2, '0');
-                document.getElementById('formFollowUpDate').value = `${fYear}-${fMonth}-${fDay}T${fHours}:${fMinutes}`;
+                const defaultFollowUpValue = buildDefaultFollowUpDate(now);
+                if (defaultFollowUpValue) {
+                    document.getElementById('formFollowUpDate').value = defaultFollowUpValue;
+                }
             } catch (_e) {
                 console.warn('無法設定預設複診時間', _e);
             }
@@ -10320,11 +10325,18 @@ async function showConsultationForm(appointment) {
             });
             
             // 重置多處方狀態與每日次數為預設值
-            prescriptions = [{ name: '處方', items: [], days: 5, freq: 2, mode: (currentInventoryMode === 'slice' ? 'slice' : 'granule') }];
+            const diagnosisDefaults = getEffectiveDiagnosisSettings();
+            prescriptions = [{
+                name: '處方',
+                items: [],
+                days: diagnosisDefaults.defaultPrescriptionDays,
+                freq: diagnosisDefaults.defaultPrescriptionFrequency,
+                mode: (currentInventoryMode === 'slice' ? 'slice' : 'granule')
+            }];
             activePrescriptionIndex = 0;
             selectedPrescriptionItems = prescriptions[0].items;
             const freqEl = document.getElementById('medicationFrequency');
-            if (freqEl) freqEl.value = '2';
+            if (freqEl) freqEl.value = String(diagnosisDefaults.defaultPrescriptionFrequency);
             
             // 重置休息期間顯示
             const restEl = document.getElementById('restPeriodDisplay');
@@ -10334,13 +10346,12 @@ async function showConsultationForm(appointment) {
             }
             
             // 設置預設值
-            // 將預設服用方法由「早晚一次，飯後服」改為「溫水化開，飯後服」
             const usageEl = document.getElementById('formUsage');
-            if (usageEl) usageEl.value = '溫水化開，飯後服';
+            if (usageEl) usageEl.value = diagnosisDefaults.defaultUsage;
             const instrEl = document.getElementById('formInstructions');
-            if (instrEl) instrEl.value = '注意休息，飲食清淡';
+            if (instrEl) instrEl.value = diagnosisDefaults.defaultInstructions;
             const courseEl = document.getElementById('formTreatmentCourse');
-            if (courseEl) courseEl.value = '一周';
+            if (courseEl) courseEl.value = diagnosisDefaults.defaultTreatmentCourse;
             
             // 清空處方項目
             clearActivePrescriptionItems();
@@ -19000,6 +19011,32 @@ async function searchBillingForConsultation() {
         
         // 自動添加預設診金收費
         function addDefaultConsultationFee(patient) {
+            const diagnosisDefaults = getEffectiveDiagnosisSettings();
+            const defaultBillingItemIds = Array.isArray(diagnosisDefaults.defaultBillingItemIds)
+                ? diagnosisDefaults.defaultBillingItemIds.map(id => String(id))
+                : [];
+            if (defaultBillingItemIds.length > 0 && Array.isArray(billingItems) && billingItems.length > 0) {
+                const configuredBillingItems = defaultBillingItemIds
+                    .map(itemId => billingItems.find(item => item && item.active && String(item.id) === itemId))
+                    .filter(Boolean)
+                    .map(item => ({
+                        id: item.id,
+                        name: item.name,
+                        category: item.category,
+                        price: item.price,
+                        unit: item.unit,
+                        description: item.description,
+                        quantity: 1,
+                        includedInDiscount: item.category !== 'discount' && item.category !== 'packageUse'
+                    }));
+                if (configuredBillingItems.length > 0) {
+                    selectedBillingItems = configuredBillingItems;
+                    const defaultDaysFromSettings = diagnosisDefaults.defaultPrescriptionDays;
+                    updateMedicineFeeByDays(defaultDaysFromSettings);
+                    updateBillingDisplay();
+                    return;
+                }
+            }
             // 尋找診金收費項目（優先尋找名稱包含「診金」的項目）
             let consultationFeeItem = billingItems.find(item => 
                 item.active && 
@@ -19033,8 +19070,8 @@ async function searchBillingForConsultation() {
                 };
                 selectedBillingItems.push(billingItem);
                 
-                // 自動添加預設藥費（根據預設5天）
-                const defaultDays = 5;
+                // 自動添加預設藥費（根據個人設定的預設天數）
+                const defaultDays = diagnosisDefaults.defaultPrescriptionDays;
                 updateMedicineFeeByDays(defaultDays);
                 
                 // 更新顯示
@@ -27791,6 +27828,10 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
   // 將個人設置與慣用組合相關函式掛載至全域，讓 HTML 按鈕可以直接調用。
   window.loadPersonalSettings = loadPersonalSettings;
   window.updatePersonalSettings = updatePersonalSettings;
+  window.renderDiagnosisSettingsForm = renderDiagnosisSettingsForm;
+  window.saveDiagnosisSettings = saveDiagnosisSettings;
+  window.addDiagnosisDefaultBillingItem = addDiagnosisDefaultBillingItem;
+  window.removeDiagnosisDefaultBillingItem = removeDiagnosisDefaultBillingItem;
   window.showHerbComboModal = showHerbComboModal;
   window.hideHerbComboModal = hideHerbComboModal;
   window.selectHerbCombo = selectHerbCombo;
@@ -28855,6 +28896,358 @@ function _oldSelectPrescriptionTemplate(id) {
           let acupointComboCategories = Array.isArray(categories.acupoints) ? [...categories.acupoints] : [];
           window.herbComboCategories = herbComboCategories;
           window.acupointComboCategories = acupointComboCategories;
+          function getDefaultDiagnosisSettings() {
+            return {
+              defaultPrescriptionDays: 5,
+              defaultPrescriptionFrequency: 2,
+              defaultFollowUpOffsetDays: 7,
+              defaultFollowUpTime: '',
+              defaultUsage: '溫水化開，飯後服',
+              defaultTreatmentCourse: '一周',
+              defaultInstructions: '注意休息，飲食清淡',
+              defaultBillingItemIds: []
+            };
+          }
+
+          function normalizeDiagnosisSettings(raw) {
+            const defaults = getDefaultDiagnosisSettings();
+            const source = raw && typeof raw === 'object' ? raw : {};
+            const parseIntWithBounds = function(value, fallback, min, max) {
+              const parsed = parseInt(value, 10);
+              if (Number.isNaN(parsed)) return fallback;
+              return Math.min(max, Math.max(min, parsed));
+            };
+            const followUpTime = typeof source.defaultFollowUpTime === 'string' && /^\d{2}:\d{2}$/.test(source.defaultFollowUpTime.trim())
+              ? source.defaultFollowUpTime.trim()
+              : defaults.defaultFollowUpTime;
+            const billingIds = Array.isArray(source.defaultBillingItemIds)
+              ? Array.from(new Set(source.defaultBillingItemIds
+                  .map(id => String(id || '').trim())
+                  .filter(Boolean)))
+              : defaults.defaultBillingItemIds.slice();
+            return {
+              defaultPrescriptionDays: parseIntWithBounds(source.defaultPrescriptionDays, defaults.defaultPrescriptionDays, 1, 90),
+              defaultPrescriptionFrequency: parseIntWithBounds(source.defaultPrescriptionFrequency, defaults.defaultPrescriptionFrequency, 1, 10),
+              defaultFollowUpOffsetDays: parseIntWithBounds(source.defaultFollowUpOffsetDays, defaults.defaultFollowUpOffsetDays, 0, 365),
+              defaultFollowUpTime: followUpTime,
+              defaultUsage: typeof source.defaultUsage === 'string' ? source.defaultUsage : defaults.defaultUsage,
+              defaultTreatmentCourse: typeof source.defaultTreatmentCourse === 'string' ? source.defaultTreatmentCourse : defaults.defaultTreatmentCourse,
+              defaultInstructions: typeof source.defaultInstructions === 'string' ? source.defaultInstructions : defaults.defaultInstructions,
+              defaultBillingItemIds: billingIds
+            };
+          }
+
+          function normalizeDiagnosisSettingsMap(rawMap) {
+            const source = rawMap && typeof rawMap === 'object' ? rawMap : {};
+            const normalized = {};
+            Object.keys(source).forEach(key => {
+              const clinicKey = String(key || '').trim();
+              if (!clinicKey) return;
+              normalized[clinicKey] = normalizeDiagnosisSettings(source[key]);
+            });
+            return normalized;
+          }
+
+          function getDiagnosisSettingsClinicKey(clinicId) {
+            const rawClinicId = clinicId !== undefined && clinicId !== null
+              ? clinicId
+              : (typeof currentClinicId !== 'undefined' ? currentClinicId : null);
+            return String(rawClinicId || 'local-default');
+          }
+
+          function getCurrentClinicDisplayNameForDiagnosisSettings() {
+            try {
+              const fromCurrent = getClinicDisplayName(clinicSettings);
+              if (fromCurrent) return fromCurrent;
+            } catch (_e) {}
+            try {
+              if (Array.isArray(clinicsList)) {
+                const matchedClinic = clinicsList.find(c => String(c && c.id) === getDiagnosisSettingsClinicKey());
+                const fromList = getClinicDisplayName(matchedClinic || {});
+                if (fromList) return fromList;
+              }
+            } catch (_e2) {}
+            return '未命名診所';
+          }
+
+          let diagnosisSettingsByClinic = {};
+          let diagnosisSettings = getDefaultDiagnosisSettings();
+          window.diagnosisSettingsByClinic = diagnosisSettingsByClinic;
+          window.diagnosisSettings = diagnosisSettings;
+
+          function getEffectiveDiagnosisSettings() {
+            const clinicKey = getDiagnosisSettingsClinicKey();
+            diagnosisSettingsByClinic = normalizeDiagnosisSettingsMap(diagnosisSettingsByClinic);
+            diagnosisSettings = normalizeDiagnosisSettings(diagnosisSettingsByClinic[clinicKey]);
+            diagnosisSettingsByClinic[clinicKey] = diagnosisSettings;
+            window.diagnosisSettingsByClinic = diagnosisSettingsByClinic;
+            window.diagnosisSettings = diagnosisSettings;
+            return diagnosisSettings;
+          }
+
+          function formatDateTimeLocalValue(date) {
+            if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+          }
+
+          function buildDefaultFollowUpDate(baseDate) {
+            const settings = getEffectiveDiagnosisSettings();
+            const followUp = baseDate instanceof Date ? new Date(baseDate) : new Date();
+            if (Number.isNaN(followUp.getTime())) return '';
+            followUp.setDate(followUp.getDate() + settings.defaultFollowUpOffsetDays);
+            if (settings.defaultFollowUpTime) {
+              const timeParts = settings.defaultFollowUpTime.split(':');
+              const hours = parseInt(timeParts[0], 10);
+              const minutes = parseInt(timeParts[1], 10);
+              if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
+                followUp.setHours(hours, minutes, 0, 0);
+              }
+            }
+            return formatDateTimeLocalValue(followUp);
+          }
+
+          function getDiagnosisSettingsFromForm() {
+            const current = getEffectiveDiagnosisSettings();
+            const daysEl = document.getElementById('diagnosisDefaultDays');
+            const freqEl = document.getElementById('diagnosisDefaultFrequency');
+            const followUpDaysEl = document.getElementById('diagnosisDefaultFollowUpDays');
+            const followUpTimeEl = document.getElementById('diagnosisDefaultFollowUpTime');
+            const usageEl = document.getElementById('diagnosisDefaultUsage');
+            const courseEl = document.getElementById('diagnosisDefaultTreatmentCourse');
+            const instructionsEl = document.getElementById('diagnosisDefaultInstructions');
+            return normalizeDiagnosisSettings({
+              defaultPrescriptionDays: daysEl ? daysEl.value : current.defaultPrescriptionDays,
+              defaultPrescriptionFrequency: freqEl ? freqEl.value : current.defaultPrescriptionFrequency,
+              defaultFollowUpOffsetDays: followUpDaysEl ? followUpDaysEl.value : current.defaultFollowUpOffsetDays,
+              defaultFollowUpTime: followUpTimeEl ? followUpTimeEl.value : current.defaultFollowUpTime,
+              defaultUsage: usageEl ? usageEl.value : current.defaultUsage,
+              defaultTreatmentCourse: courseEl ? courseEl.value : current.defaultTreatmentCourse,
+              defaultInstructions: instructionsEl ? instructionsEl.value : current.defaultInstructions,
+              defaultBillingItemIds: current.defaultBillingItemIds
+            });
+          }
+
+          function addDiagnosisDefaultBillingItem(itemId) {
+            const clinicKey = getDiagnosisSettingsClinicKey();
+            const itemIdStr = String(itemId || '').trim();
+            if (!itemIdStr) return;
+            diagnosisSettingsByClinic = normalizeDiagnosisSettingsMap(diagnosisSettingsByClinic);
+            const current = getDiagnosisSettingsFromForm();
+            const nextIds = current.defaultBillingItemIds.slice();
+            if (!nextIds.includes(itemIdStr)) {
+              nextIds.push(itemIdStr);
+            }
+            diagnosisSettings = normalizeDiagnosisSettings({
+              ...current,
+              defaultBillingItemIds: nextIds
+            });
+            diagnosisSettingsByClinic[clinicKey] = diagnosisSettings;
+            window.diagnosisSettingsByClinic = diagnosisSettingsByClinic;
+            window.diagnosisSettings = diagnosisSettings;
+            renderDiagnosisSettingsForm(true);
+          }
+
+          function removeDiagnosisDefaultBillingItem(itemId) {
+            const clinicKey = getDiagnosisSettingsClinicKey();
+            const itemIdStr = String(itemId || '').trim();
+            if (!itemIdStr) return;
+            diagnosisSettingsByClinic = normalizeDiagnosisSettingsMap(diagnosisSettingsByClinic);
+            const current = getDiagnosisSettingsFromForm();
+            diagnosisSettings = normalizeDiagnosisSettings({
+              ...current,
+              defaultBillingItemIds: current.defaultBillingItemIds.filter(id => String(id) !== itemIdStr)
+            });
+            diagnosisSettingsByClinic[clinicKey] = diagnosisSettings;
+            window.diagnosisSettingsByClinic = diagnosisSettingsByClinic;
+            window.diagnosisSettings = diagnosisSettings;
+            renderDiagnosisSettingsForm(true);
+          }
+
+          function renderDiagnosisSettingsForm(forceReloadFromClinic = false) {
+            const clinicKey = getDiagnosisSettingsClinicKey();
+            const panel = document.getElementById('diagnosisSettingsContent');
+            const clinicNameEl = document.getElementById('diagnosisSettingsClinicName');
+            if (clinicNameEl) {
+              clinicNameEl.textContent = getCurrentClinicDisplayNameForDiagnosisSettings();
+            }
+            const canReuseFormState = !forceReloadFromClinic && panel && panel.dataset.clinicKey === clinicKey;
+            if (canReuseFormState) {
+              try {
+                diagnosisSettings = getDiagnosisSettingsFromForm();
+                diagnosisSettingsByClinic = normalizeDiagnosisSettingsMap(diagnosisSettingsByClinic);
+                diagnosisSettingsByClinic[clinicKey] = diagnosisSettings;
+              } catch (_e) {
+                diagnosisSettings = getEffectiveDiagnosisSettings();
+              }
+            } else {
+              diagnosisSettings = getEffectiveDiagnosisSettings();
+            }
+            if (panel) panel.dataset.clinicKey = clinicKey;
+            window.diagnosisSettingsByClinic = diagnosisSettingsByClinic;
+            window.diagnosisSettings = diagnosisSettings;
+            const settings = diagnosisSettings;
+            const daysEl = document.getElementById('diagnosisDefaultDays');
+            const freqEl = document.getElementById('diagnosisDefaultFrequency');
+            const followUpDaysEl = document.getElementById('diagnosisDefaultFollowUpDays');
+            const followUpTimeEl = document.getElementById('diagnosisDefaultFollowUpTime');
+            const usageEl = document.getElementById('diagnosisDefaultUsage');
+            const courseEl = document.getElementById('diagnosisDefaultTreatmentCourse');
+            const instructionsEl = document.getElementById('diagnosisDefaultInstructions');
+            const searchEl = document.getElementById('diagnosisBillingItemSearch');
+            const selectedContainer = document.getElementById('diagnosisSelectedBillingItems');
+            const container = document.getElementById('diagnosisDefaultBillingItems');
+            if (daysEl) daysEl.value = settings.defaultPrescriptionDays;
+            if (freqEl) freqEl.value = settings.defaultPrescriptionFrequency;
+            if (followUpDaysEl) followUpDaysEl.value = settings.defaultFollowUpOffsetDays;
+            if (followUpTimeEl) followUpTimeEl.value = settings.defaultFollowUpTime;
+            if (usageEl) usageEl.value = settings.defaultUsage;
+            if (courseEl) courseEl.value = settings.defaultTreatmentCourse;
+            if (instructionsEl) instructionsEl.value = settings.defaultInstructions;
+            if (!container || !selectedContainer) return;
+            const keyword = searchEl && searchEl.value ? String(searchEl.value).trim().toLowerCase() : '';
+            const availableBillingItems = (typeof billingItems !== 'undefined' && Array.isArray(billingItems))
+              ? billingItems.filter(item => item && item.active)
+              : [];
+            if (availableBillingItems.length === 0) {
+              selectedContainer.innerHTML = '<div class="text-sm text-gray-500 text-center py-4">尚未選擇預設收費項目</div>';
+              container.innerHTML = '<div class="text-sm text-gray-500 text-center py-6">未找到可用的收費項目</div>';
+              return;
+            }
+            const categoryLabels = {
+              consultation: '診療費',
+              medicine: '藥費',
+              treatment: '治療費',
+              other: '其他',
+              discount: '折扣項目',
+              package: '套票項目',
+              packageUse: '套票使用'
+            };
+            const selectedIds = settings.defaultBillingItemIds.map(id => String(id));
+            const selectedIdSet = new Set(selectedIds);
+            const selectedItems = selectedIds
+              .map(id => availableBillingItems.find(item => String(item.id) === id))
+              .filter(Boolean);
+            const makeItemMeta = function(item) {
+              const categoryLabel = categoryLabels[item.category] || '未分類';
+              const safeCategory = window.escapeHtml ? window.escapeHtml(categoryLabel) : categoryLabel;
+              const unitText = item.unit ? ` / ${window.escapeHtml ? window.escapeHtml(String(item.unit)) : String(item.unit)}` : '';
+              const priceText = item.category === 'discount' ? '折扣項目' : `$${Number(item.price) || 0}`;
+              return { safeCategory, unitText, priceText };
+            };
+            if (selectedItems.length === 0) {
+              selectedContainer.innerHTML = `
+                <div class="flex items-center justify-between gap-3">
+                  <div class="text-sm font-medium text-gray-700">已選擇項目</div>
+                  <div class="text-xs text-gray-500">0 項</div>
+                </div>
+                <div class="text-sm text-gray-500 text-center py-4 border border-dashed border-gray-200 rounded-lg">尚未選擇預設收費項目</div>
+              `;
+            } else {
+              const selectedHtml = selectedItems.map(item => {
+                const itemId = String(item.id);
+                const safeName = window.escapeHtml ? window.escapeHtml(String(item.name || '')) : String(item.name || '');
+                const safeDescription = window.escapeHtml ? window.escapeHtml(String(item.description || '')) : String(item.description || '');
+                const meta = makeItemMeta(item);
+                return `
+                  <div class="flex items-start justify-between gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50">
+                    <div class="min-w-0 flex-1">
+                      <div class="font-medium text-gray-800">${safeName}</div>
+                      <div class="text-xs text-gray-500 mt-1">${meta.safeCategory}${meta.unitText}</div>
+                      ${safeDescription ? `<div class="text-xs text-gray-500 mt-1">${safeDescription}</div>` : ''}
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                      <span class="text-sm font-semibold text-amber-700">${meta.priceText}</span>
+                      <button type="button" onclick="removeDiagnosisDefaultBillingItem('${itemId}')" class="px-3 py-1.5 text-sm rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors">移除</button>
+                    </div>
+                  </div>
+                `;
+              }).join('');
+              selectedContainer.innerHTML = `
+                <div class="flex items-center justify-between gap-3">
+                  <div class="text-sm font-medium text-gray-700">已選擇項目</div>
+                  <div class="text-xs text-gray-500">${selectedItems.length} 項</div>
+                </div>
+                ${selectedHtml}
+              `;
+            }
+            const filteredItems = availableBillingItems
+              .filter(item => !selectedIdSet.has(String(item.id)))
+              .filter(item => {
+                if (!keyword) return false;
+                const name = item.name ? String(item.name).toLowerCase() : '';
+                const description = item.description ? String(item.description).toLowerCase() : '';
+                return name.includes(keyword) || description.includes(keyword);
+              })
+              .sort((a, b) => {
+                const aName = a && a.name ? String(a.name) : '';
+                const bName = b && b.name ? String(b.name) : '';
+                return aName.localeCompare(bName, 'zh-Hant-HK', { sensitivity: 'base' });
+              });
+            if (!keyword) {
+              container.innerHTML = `
+                <div class="flex items-center justify-between gap-3">
+                  <div class="text-sm font-medium text-gray-700">搜索結果</div>
+                  <div class="text-xs text-gray-500">未開始搜尋</div>
+                </div>
+                <div class="text-sm text-gray-500 text-center py-6 border border-dashed border-gray-200 rounded-lg">請先輸入收費項目名稱或描述進行搜尋</div>
+              `;
+              return;
+            }
+            if (filteredItems.length === 0) {
+              container.innerHTML = `
+                <div class="flex items-center justify-between gap-3">
+                  <div class="text-sm font-medium text-gray-700">搜索結果</div>
+                  <div class="text-xs text-gray-500">0 項</div>
+                </div>
+                <div class="text-sm text-gray-500 text-center py-6 border border-dashed border-gray-200 rounded-lg">找不到符合條件的收費項目</div>
+              `;
+              return;
+            }
+            const itemsHtml = filteredItems.map(item => {
+              const itemId = String(item.id);
+              const safeName = window.escapeHtml ? window.escapeHtml(String(item.name || '')) : String(item.name || '');
+              const safeDescription = window.escapeHtml ? window.escapeHtml(String(item.description || '')) : String(item.description || '');
+              const meta = makeItemMeta(item);
+              const descriptionText = safeDescription ? `<div class="text-xs text-gray-500 mt-1">${safeDescription}</div>` : '';
+              return `
+                <div class="flex items-start justify-between gap-3 p-3 rounded-lg border border-gray-200 hover:border-amber-300 hover:bg-amber-50 transition-colors">
+                  <div class="flex-1 min-w-0">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <span class="font-medium text-gray-800">${safeName}</span>
+                      <span class="text-sm font-semibold text-amber-700">${meta.priceText}</span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">${meta.safeCategory}${meta.unitText}</div>
+                    ${descriptionText}
+                  </div>
+                  <button type="button" onclick="addDiagnosisDefaultBillingItem('${itemId}')" class="px-3 py-1.5 text-sm rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors shrink-0">加入</button>
+                </div>
+              `;
+            }).join('');
+            container.innerHTML = `
+              <div class="flex items-center justify-between gap-3 px-1 pb-2">
+                <div class="text-sm font-medium text-gray-700">搜索結果</div>
+                <div class="text-xs text-gray-500">${filteredItems.length} 項</div>
+              </div>
+              ${itemsHtml}
+            `;
+          }
+
+          async function saveDiagnosisSettings() {
+            const clinicKey = getDiagnosisSettingsClinicKey();
+            diagnosisSettingsByClinic = normalizeDiagnosisSettingsMap(diagnosisSettingsByClinic);
+            diagnosisSettings = getDiagnosisSettingsFromForm();
+            diagnosisSettingsByClinic[clinicKey] = diagnosisSettings;
+            window.diagnosisSettingsByClinic = diagnosisSettingsByClinic;
+            window.diagnosisSettings = diagnosisSettings;
+            await updatePersonalSettings();
+            renderDiagnosisSettingsForm(true);
+            showToast(`診症設定已保存至「${getCurrentClinicDisplayNameForDiagnosisSettings()}」`, 'success');
+          }
 
         /**
          * 同步個人慣用組合分類與全域分類。
@@ -29713,6 +30106,15 @@ async function deleteAcupointCombination(id) {
                   acupointComboCategories = [];
                   window.acupointComboCategories = [];
                 }
+                diagnosisSettingsByClinic = normalizeDiagnosisSettingsMap(personal.diagnosisSettingsByClinic);
+                if ((!diagnosisSettingsByClinic || Object.keys(diagnosisSettingsByClinic).length === 0) && personal.diagnosisSettings) {
+                  diagnosisSettingsByClinic = {
+                    [getDiagnosisSettingsClinicKey()]: normalizeDiagnosisSettings(personal.diagnosisSettings)
+                  };
+                }
+                diagnosisSettings = normalizeDiagnosisSettings(diagnosisSettingsByClinic[getDiagnosisSettingsClinicKey()]);
+                window.diagnosisSettingsByClinic = diagnosisSettingsByClinic;
+                window.diagnosisSettings = diagnosisSettings;
               } else {
                 // 如果找不到用戶記錄或用戶沒有個人設置，則將相關資料清空
                 herbCombinations = [];
@@ -29721,6 +30123,10 @@ async function deleteAcupointCombination(id) {
                 acupointComboCategories = [];
                 window.herbComboCategories = [];
                 window.acupointComboCategories = [];
+                diagnosisSettingsByClinic = {};
+                window.diagnosisSettingsByClinic = diagnosisSettingsByClinic;
+                diagnosisSettings = getDefaultDiagnosisSettings();
+                window.diagnosisSettings = diagnosisSettings;
               }
             } catch (error) {
               console.error('讀取個人設置失敗:', error);
@@ -29739,6 +30145,11 @@ async function deleteAcupointCombination(id) {
                     setupPersonalComboSearchAndFilter();
                   } catch (_e) {}
                 }
+                if (typeof renderDiagnosisSettingsForm === 'function') {
+                  try {
+                    renderDiagnosisSettingsForm(true);
+                  } catch (_e) {}
+                }
               } catch (e) {
                 console.error('渲染個人設置失敗:', e);
               }
@@ -29747,7 +30158,7 @@ async function deleteAcupointCombination(id) {
 
           /**
            * 將當前的個人設置保存至 Firestore。
-           * 包含慣用中藥組合和慣用穴位組合。
+           * 包含慣用中藥組合、穴位組合及診症預設設定。
            */
           async function updatePersonalSettings() {
             try {
@@ -29763,7 +30174,9 @@ async function deleteAcupointCombination(id) {
                     acupointCombinations: Array.isArray(acupointCombinations) ? acupointCombinations : [],
                     // 保存個人分類：中藥組合分類與穴位組合分類
                     herbComboCategories: Array.isArray(herbComboCategories) ? herbComboCategories : [],
-                    acupointComboCategories: Array.isArray(acupointComboCategories) ? acupointComboCategories : []
+                    acupointComboCategories: Array.isArray(acupointComboCategories) ? acupointComboCategories : [],
+                    diagnosisSettingsByClinic: normalizeDiagnosisSettingsMap(diagnosisSettingsByClinic),
+                    diagnosisSettings: normalizeDiagnosisSettings(diagnosisSettings)
                   },
                   updatedAt: new Date(),
                   updatedBy: currentUser || 'system'
@@ -30435,8 +30848,13 @@ async function deleteAcupointCombination(id) {
               document.getElementById('herbsContent').classList.remove('hidden');
             } else if (tabId === 'acupoints') {
               document.getElementById('acupointsContent').classList.remove('hidden');
+            } else if (tabId === 'diagnosisSettings') {
+              document.getElementById('diagnosisSettingsContent').classList.remove('hidden');
+              if (typeof renderDiagnosisSettingsForm === 'function') {
+                renderDiagnosisSettingsForm(true);
+              }
             }
-            const tabButtons = ['herbsTab', 'acupointsTab'];
+            const tabButtons = ['herbsTab', 'acupointsTab', 'diagnosisSettingsTab'];
             tabButtons.forEach(buttonId => {
               const button = document.getElementById(buttonId);
               if (buttonId === tabId + 'Tab') {
