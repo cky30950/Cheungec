@@ -1046,6 +1046,31 @@
                         </div>
                     </div>
                 </div>
+
+                <div id="consultationMedicalHistoryEditorModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+                    <div class="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+                        <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-xl">
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">修改既住史</h3>
+                                <p id="consultationMedicalHistoryEditorSubtitle" class="text-sm text-gray-500 mt-1"></p>
+                            </div>
+                            <button type="button" onclick="closeConsultationMedicalHistoryEditor()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+                        </div>
+
+                        <div class="p-6">
+                            <div id="consultationMedicalHistoryEditorContent" class="space-y-4"></div>
+
+                            <div class="flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-200">
+                                <button type="button" onclick="closeConsultationMedicalHistoryEditor()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition duration-200">
+                                    取消
+                                </button>
+                                <button type="button" id="saveConsultationMedicalHistoryButton" onclick="saveConsultationMedicalHistory()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition duration-200">
+                                    儲存既住史
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
                 <div id="consultationForm" class="hidden bg-white border border-gray-200 rounded-lg mt-6">
                     <div class="bg-green-600 text-white px-6 py-4 rounded-t-lg">
@@ -1080,9 +1105,18 @@
                                 </div>
                                 
                                 <div id="allergiesContainer" class="md:col-span-1 lg:col-span-2" style="display: none;">
-                                    <span class="font-medium text-red-600">過敏史：</span>
                                     <span id="formPatientAllergies" class="medical-field text-red-700 bg-red-50 px-2 py-1 rounded"></span>
                                 </div>
+                            </div>
+                            <div class="flex justify-end mt-3">
+                                <button
+                                    type="button"
+                                    id="editConsultationMedicalHistoryButton"
+                                    onclick="openConsultationMedicalHistoryEditor(event)"
+                                    class="text-xs bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 px-3 py-1 rounded transition duration-200"
+                                >
+                                    📝 修改既住史
+                                </button>
                             </div>
                         </div>
                         

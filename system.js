@@ -6375,6 +6375,326 @@ async function logout() {
                 : '';
             return { history, allergies };
         }
+
+        function invalidatePatientCaches() {
+            patientCache = null;
+            if (typeof patientPagesCache === 'object') {
+                patientPagesCache = {};
+            }
+            if (typeof patientPageCursors === 'object') {
+                patientPageCursors = {};
+            }
+            if (typeof patientAscPagesCache === 'object') {
+                patientAscPagesCache = {};
+            }
+            if (typeof patientAscPageCursors === 'object') {
+                patientAscPageCursors = {};
+            }
+            patientsCountCache = null;
+        }
+
+        function renderConsultationPatientMedicalInfo(patient) {
+            const historyContainer = document.getElementById('historyContainer');
+            const historyEl = document.getElementById('formPatientHistory');
+            if (historyContainer && historyEl) {
+                if (patient && patient.history) {
+                    historyEl.textContent = patient.history;
+                    historyContainer.style.display = '';
+                } else {
+                    historyEl.textContent = '';
+                    historyContainer.style.display = 'none';
+                }
+            }
+
+            const allergiesContainer = document.getElementById('allergiesContainer');
+            const allergiesEl = document.getElementById('formPatientAllergies');
+            if (allergiesContainer && allergiesEl) {
+                if (patient && patient.allergies) {
+                    allergiesEl.textContent = patient.allergies;
+                    allergiesContainer.style.display = '';
+                } else {
+                    allergiesEl.textContent = '';
+                    allergiesContainer.style.display = 'none';
+                }
+            }
+        }
+
+        function getPatientMedicalProfileEditorTheme(sectionKey) {
+            if (sectionKey === 'allergies') {
+                return {
+                    cardClass: 'border border-red-200 rounded-xl p-4 bg-red-50',
+                    titleClass: 'font-medium text-red-700',
+                    noteClass: 'text-xs text-red-500',
+                    labelClass: 'flex items-center gap-2 text-sm text-red-700',
+                    checkboxClass: 'rounded border-red-300 text-red-600 focus:ring-red-500',
+                    textareaClass: 'mt-3 w-full border border-red-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent break-all'
+                };
+            }
+            return {
+                cardClass: 'border border-gray-200 rounded-xl p-4 bg-gray-50',
+                titleClass: 'font-medium text-gray-800',
+                noteClass: 'text-xs text-gray-500',
+                labelClass: 'flex items-center gap-2 text-sm text-gray-700',
+                checkboxClass: 'rounded border-gray-300 text-green-600 focus:ring-green-500',
+                textareaClass: 'mt-3 w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent break-all'
+            };
+        }
+
+        function getPatientMedicalProfileSectionDescription(sectionKey) {
+            switch (sectionKey) {
+                case 'medicalConditions':
+                    return '請剔選患者既往疾病史；如有其他情況或補充說明，請在下方備註填寫';
+                case 'surgicalHistory':
+                    return '請剔選曾接受的手術或重大外傷；如需補充年份、部位、後遺症或其他情況，請在下方備註填寫';
+                case 'allergies':
+                    return '請剔選已知過敏項目；如有反應詳情或其他未列出的過敏原，請在下方備註填寫';
+                case 'medications':
+                    return '請剔選現時或長期服用藥物類別；劑量、服用頻率或其他補充請在下方備註填寫';
+                default:
+                    return '';
+            }
+        }
+
+        function getPatientMedicalProfileSectionEnglishTitle(sectionKey) {
+            switch (sectionKey) {
+                case 'medicalConditions':
+                    return 'Medical Conditions';
+                case 'surgicalHistory':
+                    return 'Surgical & Trauma History';
+                case 'allergies':
+                    return 'Allergies';
+                case 'medications':
+                    return 'Medications';
+                default:
+                    return '';
+            }
+        }
+
+        function getPatientMedicalProfileSectionNotePlaceholder(sectionKey) {
+            switch (sectionKey) {
+                case 'medicalConditions':
+                    return '其他或備註，例如：確診年份、目前控制情況、其他未列出的疾病';
+                case 'surgicalHistory':
+                    return '其他或備註，例如：手術或受傷年份、受傷部位、是否有後遺症、其他未列出的手術或外傷';
+                case 'allergies':
+                    return '其他或備註，例如：過敏反應表現、嚴重程度、其他未列出的過敏原';
+                case 'medications':
+                    return '備註：劑量與服用頻率或其他補充';
+                default:
+                    return '其他或備註';
+            }
+        }
+
+        function ensureConsultationMedicalHistoryEditorContent() {
+            const container = document.getElementById('consultationMedicalHistoryEditorContent');
+            if (!container || container.dataset.initialized === 'true') {
+                return;
+            }
+
+            container.innerHTML = PATIENT_MEDICAL_PROFILE_SECTIONS.map((section, index) => {
+                const theme = getPatientMedicalProfileEditorTheme(section.key);
+                const englishTitle = getPatientMedicalProfileSectionEnglishTitle(section.key);
+                const description = getPatientMedicalProfileSectionDescription(section.key);
+                const optionsHtml = section.options.map(option => `
+                    <label class="${theme.labelClass}">
+                        <input
+                            type="checkbox"
+                            class="${theme.checkboxClass} consultation-history-checkbox"
+                            data-section="${window.escapeHtml(section.key)}"
+                            value="${window.escapeHtml(option.key)}"
+                        >
+                        <span>${window.escapeHtml(option.label)}</span>
+                    </label>
+                `).join('');
+                const titleSuffix = englishTitle ? ` (${window.escapeHtml(englishTitle)})` : '';
+                return `
+                    <div class="${theme.cardClass}">
+                        <div class="flex flex-col gap-1 mb-3">
+                            <span class="${theme.titleClass}">${index + 1}. ${window.escapeHtml(section.title)}${titleSuffix}</span>
+                            <span class="${theme.noteClass}">${window.escapeHtml(description)}</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            ${optionsHtml}
+                        </div>
+                        <textarea
+                            id="consultationHistoryEditor-${window.escapeHtml(section.key)}-note"
+                            placeholder="${window.escapeHtml(getPatientMedicalProfileSectionNotePlaceholder(section.key))}"
+                            rows="2"
+                            class="${theme.textareaClass}"
+                        ></textarea>
+                    </div>
+                `;
+            }).join('');
+            container.dataset.initialized = 'true';
+        }
+
+        function clearConsultationMedicalHistoryEditorForm() {
+            const modal = document.getElementById('consultationMedicalHistoryEditorModal');
+            if (!modal) return;
+            modal.querySelectorAll('.consultation-history-checkbox').forEach(checkbox => {
+                checkbox.checked = false;
+            });
+            PATIENT_MEDICAL_PROFILE_SECTIONS.forEach(section => {
+                const noteInput = document.getElementById(`consultationHistoryEditor-${section.key}-note`);
+                if (noteInput) {
+                    noteInput.value = '';
+                }
+            });
+        }
+
+        function populateConsultationMedicalHistoryEditorForm(profile, fallbackPatient = {}) {
+            clearConsultationMedicalHistoryEditorForm();
+            const normalizedProfile = normalizePatientMedicalProfile(profile);
+
+            PATIENT_MEDICAL_PROFILE_SECTIONS.forEach(section => {
+                const current = normalizedProfile[section.key];
+                const selectedSet = new Set(current.selected);
+                document.querySelectorAll(`.consultation-history-checkbox[data-section="${section.key}"]`).forEach(checkbox => {
+                    checkbox.checked = selectedSet.has(checkbox.value);
+                });
+                const noteInput = document.getElementById(`consultationHistoryEditor-${section.key}-note`);
+                if (noteInput) {
+                    noteInput.value = current.note || '';
+                }
+            });
+
+            if (hasPatientMedicalProfileContent(normalizedProfile)) {
+                return;
+            }
+
+            const allergyNotesInput = document.getElementById('consultationHistoryEditor-allergies-note');
+            if (allergyNotesInput && fallbackPatient && fallbackPatient.allergies) {
+                allergyNotesInput.value = fallbackPatient.allergies;
+            }
+            const medicalConditionsNotesInput = document.getElementById('consultationHistoryEditor-medicalConditions-note');
+            if (medicalConditionsNotesInput && fallbackPatient && fallbackPatient.history) {
+                medicalConditionsNotesInput.value = fallbackPatient.history;
+            }
+        }
+
+        function collectConsultationMedicalHistoryEditorForm() {
+            const profile = {};
+            PATIENT_MEDICAL_PROFILE_SECTIONS.forEach(section => {
+                const selected = Array.from(
+                    document.querySelectorAll(`.consultation-history-checkbox[data-section="${section.key}"]:checked`)
+                ).map(checkbox => checkbox.value);
+                const noteInput = document.getElementById(`consultationHistoryEditor-${section.key}-note`);
+                profile[section.key] = {
+                    selected,
+                    note: noteInput ? noteInput.value.trim() : ''
+                };
+            });
+            return normalizePatientMedicalProfile(profile);
+        }
+
+        function getCurrentConsultationPatientId() {
+            if (currentConsultationEditContext && currentConsultationEditContext.patientId) {
+                return currentConsultationEditContext.patientId;
+            }
+            if (!currentConsultingAppointmentId || !Array.isArray(appointments)) {
+                return null;
+            }
+            const currentAppointment = appointments.find(apt => apt && String(apt.id) === String(currentConsultingAppointmentId));
+            return currentAppointment && currentAppointment.patientId ? currentAppointment.patientId : null;
+        }
+
+        async function openConsultationMedicalHistoryEditor(event) {
+            const triggerButton = event && event.currentTarget ? event.currentTarget : document.getElementById('editConsultationMedicalHistoryButton');
+            const patientId = getCurrentConsultationPatientId();
+            if (!patientId) {
+                showToast('找不到當前病人資料', 'error');
+                return;
+            }
+
+            try {
+                if (triggerButton) {
+                    setButtonLoading(triggerButton, '載入中...');
+                }
+                const patient = await getPatientByIdWithRefresh(patientId);
+                if (!patient) {
+                    showToast('找不到病人資料！', 'error');
+                    return;
+                }
+
+                ensureConsultationMedicalHistoryEditorContent();
+                populateConsultationMedicalHistoryEditorForm(patient.medicalProfile, patient);
+
+                const subtitleEl = document.getElementById('consultationMedicalHistoryEditorSubtitle');
+                if (subtitleEl) {
+                    subtitleEl.textContent = `${patient.name || '病人'} (${patient.patientNumber || '未有編號'})`;
+                }
+
+                const modal = document.getElementById('consultationMedicalHistoryEditorModal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('開啟診症既住史編輯器失敗:', error);
+                showToast('開啟既住史編輯器失敗', 'error');
+            } finally {
+                if (triggerButton) {
+                    clearButtonLoading(triggerButton);
+                }
+            }
+        }
+
+        function closeConsultationMedicalHistoryEditor() {
+            const modal = document.getElementById('consultationMedicalHistoryEditorModal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
+        async function saveConsultationMedicalHistory() {
+            const patientId = getCurrentConsultationPatientId();
+            if (!patientId) {
+                showToast('找不到當前病人資料', 'error');
+                return;
+            }
+
+            const saveButton = document.getElementById('saveConsultationMedicalHistoryButton');
+            try {
+                if (saveButton) {
+                    setButtonLoading(saveButton, '儲存中...');
+                }
+
+                const patient = await getPatientByIdWithRefresh(patientId);
+                if (!patient) {
+                    showToast('找不到病人資料！', 'error');
+                    return;
+                }
+
+                const medicalProfile = collectConsultationMedicalHistoryEditorForm();
+                const medicalProfileSummary = buildPatientMedicalProfileLegacySummary(medicalProfile);
+                const updatePayload = {
+                    medicalProfile,
+                    history: medicalProfileSummary.history,
+                    allergies: medicalProfileSummary.allergies
+                };
+
+                const result = await window.firebaseDataManager.updatePatient(patientId, updatePayload);
+                if (!result || !result.success) {
+                    showToast('儲存既住史失敗，請稍後再試', 'error');
+                    return;
+                }
+
+                invalidatePatientCaches();
+                const refreshedPatient = await getPatientByIdWithRefresh(patientId) || {
+                    ...patient,
+                    ...updatePayload
+                };
+                renderConsultationPatientMedicalInfo(refreshedPatient);
+                closeConsultationMedicalHistoryEditor();
+                showToast('病人既住史已更新', 'success');
+            } catch (error) {
+                console.error('儲存診症既住史失敗:', error);
+                showToast('儲存既住史時發生錯誤', 'error');
+            } finally {
+                if (saveButton) {
+                    clearButtonLoading(saveButton);
+                }
+            }
+        }
         
         
         function updatePatientAge() {
@@ -10115,30 +10435,7 @@ async function showConsultationForm(appointment) {
         if (genderEl) {
             genderEl.textContent = patient.gender || '未知';
         }
-        // 顯示過敏史，如果有資料則填入並顯示容器，否則隱藏容器
-        const allergiesContainer = document.getElementById('allergiesContainer');
-        const allergiesEl = document.getElementById('formPatientAllergies');
-        if (allergiesContainer && allergiesEl) {
-            if (patient.allergies) {
-                allergiesEl.textContent = patient.allergies;
-                allergiesContainer.style.display = '';
-            } else {
-                allergiesEl.textContent = '';
-                allergiesContainer.style.display = 'none';
-            }
-        }
-        // 顯示病史及備註，如果有資料則填入並顯示容器，否則隱藏容器
-        const historyContainer = document.getElementById('historyContainer');
-        const historyEl = document.getElementById('formPatientHistory');
-        if (historyContainer && historyEl) {
-            if (patient.history) {
-                historyEl.textContent = patient.history;
-                historyContainer.style.display = '';
-            } else {
-                historyEl.textContent = '';
-                historyContainer.style.display = 'none';
-            }
-        }
+        renderConsultationPatientMedicalInfo(patient);
         // 渲染病人療程/套餐資訊
         renderPatientPackages(patient.id);
         
@@ -10588,6 +10885,7 @@ async function showConsultationForm(appointment) {
             // 隱藏診症表單
             document.getElementById('consultationForm').classList.add('hidden');
             closeConsultationAuditTrail();
+            closeConsultationMedicalHistoryEditor();
             
             // 清理全域變數
             currentConsultingAppointmentId = null;
