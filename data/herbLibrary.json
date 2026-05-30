@@ -5337,6 +5337,21 @@
   "englishName": "QianLiGuang",
   "createdAt": "2025-08-12T10:24:05.999Z",
   "updatedAt": "2025-08-12T10:24:05.999Z"
+},
+{
+  "id": 1755100003018,
+  "name": "香薷",
+  "alias": "香茹、香草",
+  "englishName": "XiangRu",
+  "type": "herb",
+  "nature": "辛，微溫",
+  "meridian": "肺、胃經",
+  "effects": "發汗解表，化濕和中，利水消腫",
+  "indications": "暑濕感冒，惡寒發熱，頭痛無汗，腹痛吐瀉，水腫，小便不利",
+  "dosage": "3-9g",
+  "cautions": "暑熱證及陰虛盜汗者忌用；不宜久煎",
+  "createdAt": "2025-08-12T10:24:05.999Z",
+  "updatedAt": "2025-08-12T10:24:05.999Z"
 }
   ]
 }
