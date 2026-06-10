@@ -1161,6 +1161,7 @@ const consultationHistoryPager = {
         return {
             patientId: String(patientId || ''),
             totalCount: 0,
+            countReady: false,
             recordsByIndex: [],
             descPageCache: {},
             descPageCursors: {},
@@ -1216,13 +1217,26 @@ const consultationHistoryPager = {
             state = this.createEmptyPatientState(pid);
             this.patientPagedCache[pid] = state;
         }
-        if (typeof state.totalCount === 'number' && state.totalCount > 0 && !forceRefresh) {
+        if (state.countReady && !forceRefresh) {
             return { success: true, state };
         }
         if (state.mode === 'full' && Array.isArray(state.recordsByIndex) && !forceRefresh) {
             state.totalCount = state.recordsByIndex.length;
+            state.countReady = true;
             return { success: true, state };
         }
+        try {
+            const patient = await getPatientByIdWithRefresh(pid);
+            if (patient && typeof patient.consultationCount === 'number' && patient.consultationCount >= 0) {
+                const total = Math.max(0, Number(patient.consultationCount) || 0);
+                state.totalCount = total;
+                state.countReady = true;
+                state.recordsByIndex = new Array(total);
+                state.mode = 'paged';
+                state.allLoaded = false;
+                return { success: true, state };
+            }
+        } catch (_patientAggregateError) {}
         try {
             if (window.firebaseDataManager && typeof window.firebaseDataManager.ensurePatientConsultationSortDates === 'function') {
                 const backfillResult = await window.firebaseDataManager.ensurePatientConsultationSortDates(pid);
@@ -1236,6 +1250,7 @@ const consultationHistoryPager = {
             const countSnap = await window.firebase.getCountFromServer(q);
             const total = Number(countSnap && countSnap.data && countSnap.data().count) || 0;
             state.totalCount = total;
+            state.countReady = true;
             state.recordsByIndex = new Array(total);
             state.mode = 'paged';
             state.allLoaded = false;
@@ -1257,6 +1272,7 @@ const consultationHistoryPager = {
         state.mode = 'full';
         state.allLoaded = true;
         state.totalCount = sorted.length;
+        state.countReady = true;
         state.recordsByIndex = sorted.slice();
         state.descPageCache = {};
         state.descPageCursors = {};
@@ -15292,22 +15308,54 @@ async function loadPatientConsultationSummary(patientId) {
     }
 
     try {
-        // 始終強制從資料庫取得最新的診症記錄，避免跨裝置快取不一致
-        const result = await window.firebaseDataManager.getPatientConsultations(patientId, true);
-        
-        if (!result.success) {
-            summaryContainer.innerHTML = `
-                <div class="text-center py-8 text-gray-500">
-                    <div class="text-4xl mb-2">❌</div>
-                    <div>無法載入診療記錄</div>
-                </div>
-            `;
-            return;
+        let patient = await getPatientByIdWithRefresh(patientId);
+        if (
+            window.firebaseDataManager &&
+            (
+                !patient ||
+                typeof patient.consultationCount !== 'number' ||
+                (patient.consultationCount > 0 && !patient.latestConsultationAt)
+            ) &&
+            typeof window.firebaseDataManager.syncPatientConsultationAggregate === 'function'
+        ) {
+            const syncResult = await window.firebaseDataManager.syncPatientConsultationAggregate(patientId);
+            if (syncResult && syncResult.success) {
+                patient = {
+                    ...(patient || {}),
+                    consultationCount: syncResult.consultationCount,
+                    latestConsultationAt: syncResult.latestConsultationAt || null
+                };
+            }
         }
 
-        const consultations = result.data;
-        const totalConsultations = consultations.length;
-        const lastConsultation = consultations[0]; // 最新的診療記錄
+        const totalConsultations = patient && typeof patient.consultationCount === 'number'
+            ? Math.max(0, Number(patient.consultationCount) || 0)
+            : 0;
+
+        let latestConsultation = null;
+        if (
+            totalConsultations > 0 &&
+            window.firebaseDataManager &&
+            typeof window.firebaseDataManager.getLatestPatientConsultation === 'function'
+        ) {
+            const latestResult = await window.firebaseDataManager.getLatestPatientConsultation(patientId);
+            if (latestResult && latestResult.success) {
+                latestConsultation = latestResult.data || null;
+            }
+        }
+
+        let lastConsultationDate = '無';
+        const latestConsultationAt = patient && patient.latestConsultationAt
+            ? parseConsultationDate(patient.latestConsultationAt)
+            : null;
+        if (latestConsultationAt && !isNaN(latestConsultationAt.getTime())) {
+            lastConsultationDate = latestConsultationAt.toLocaleDateString('zh-TW');
+        } else if (latestConsultation) {
+            const latestConsultationDate = getConsultationEffectiveDate(latestConsultation);
+            if (latestConsultationDate && !isNaN(latestConsultationDate.getTime())) {
+                lastConsultationDate = latestConsultationDate.toLocaleDateString('zh-TW');
+            }
+        }
 
         // 取得並計算套票狀態
         let packageStatusHtml = '';
@@ -15641,14 +15689,13 @@ async function loadPatientConsultationSummary(patientId) {
             return;
         }
 
-        // 格式化最後診療日期
-        const lastConsultationDate = lastConsultation.date ? 
-            new Date(lastConsultation.date.seconds * 1000).toLocaleDateString('zh-TW') : 
-            new Date(lastConsultation.createdAt.seconds * 1000).toLocaleDateString('zh-TW');
-
         // 格式化下次複診日期
-        const nextFollowUp = lastConsultation.followUpDate ? 
-            new Date(lastConsultation.followUpDate).toLocaleDateString('zh-TW') : '無安排';
+        const nextFollowUpDate = latestConsultation && latestConsultation.followUpDate
+            ? parseConsultationDate(latestConsultation.followUpDate)
+            : null;
+        const nextFollowUp = nextFollowUpDate && !isNaN(nextFollowUpDate.getTime())
+            ? nextFollowUpDate.toLocaleDateString('zh-TW')
+            : '無安排';
 
         // 更新診療摘要：第一行顯示基本統計，第二行顯示套票狀態
         summaryContainer.innerHTML = `
@@ -24293,6 +24340,138 @@ class FirebaseDataManager {
         console.log('Firebase 數據管理器已準備就緒');
     }
 
+    applyPatientAggregateToCaches(patientId, aggregatePatch) {
+        const pid = String(patientId || '');
+        if (!pid || !aggregatePatch || typeof aggregatePatch !== 'object') return;
+
+        const applyPatchToList = (list) => {
+            if (!Array.isArray(list)) return false;
+            let updated = false;
+            for (let i = 0; i < list.length; i++) {
+                const patient = list[i];
+                if (patient && String(patient.id) === pid) {
+                    list[i] = { ...patient, ...aggregatePatch };
+                    updated = true;
+                }
+            }
+            return updated;
+        };
+
+        if (Array.isArray(this.patientsCache)) {
+            applyPatchToList(this.patientsCache);
+        }
+
+        Object.keys(patientPagesCache).forEach((pageKey) => {
+            applyPatchToList(patientPagesCache[pageKey]);
+        });
+        Object.keys(patientAscPagesCache).forEach((pageKey) => {
+            applyPatchToList(patientAscPagesCache[pageKey]);
+        });
+
+        try {
+            const stored = localStorage.getItem('patients');
+            if (stored) {
+                const patients = JSON.parse(stored);
+                if (Array.isArray(patients) && applyPatchToList(patients)) {
+                    localStorage.setItem('patients', JSON.stringify(patients));
+                }
+            }
+        } catch (_lsErr) {}
+    }
+
+    async getLatestPatientConsultation(patientId) {
+        if (!this.isReady) return { success: false, data: null };
+        const pid = String(patientId || '');
+        if (!pid) return { success: false, data: null, error: 'missing_patient_id' };
+
+        try {
+            if (typeof this.ensurePatientConsultationSortDates === 'function') {
+                const backfillResult = await this.ensurePatientConsultationSortDates(pid);
+                if (!backfillResult || !backfillResult.success) {
+                    console.warn('取得最新診症前補 sortDate 失敗:', backfillResult && backfillResult.error);
+                }
+            }
+
+            await waitForFirebaseDb();
+            const colRef = window.firebase.collection(window.firebase.db, 'consultations');
+            const q = window.firebase.firestoreQuery(
+                colRef,
+                window.firebase.where('patientId', '==', pid),
+                window.firebase.orderBy('sortDate', 'desc'),
+                window.firebase.limit(1)
+            );
+            const snapshot = await window.firebase.getDocs(q);
+            if (!snapshot || !snapshot.docs || snapshot.docs.length === 0) {
+                return { success: true, data: null };
+            }
+
+            const latestDoc = snapshot.docs[0];
+            return { success: true, data: { id: latestDoc.id, ...latestDoc.data() } };
+        } catch (error) {
+            console.error('讀取最新病人診症記錄失敗:', error);
+            return { success: false, data: null, error: error.message };
+        }
+    }
+
+    async syncPatientConsultationAggregate(patientId) {
+        if (!this.isReady) return { success: false, error: 'not_ready' };
+        const pid = String(patientId || '');
+        if (!pid) return { success: false, error: 'missing_patient_id' };
+
+        try {
+            if (typeof this.ensurePatientConsultationSortDates === 'function') {
+                const backfillResult = await this.ensurePatientConsultationSortDates(pid);
+                if (!backfillResult || !backfillResult.success) {
+                    console.warn('同步診症彙總前補 sortDate 失敗:', backfillResult && backfillResult.error);
+                }
+            }
+
+            await waitForFirebaseDb();
+            const colRef = window.firebase.collection(window.firebase.db, 'consultations');
+            const countQuery = window.firebase.firestoreQuery(
+                colRef,
+                window.firebase.where('patientId', '==', pid)
+            );
+            const countSnap = await window.firebase.getCountFromServer(countQuery);
+            const consultationCount = Number(countSnap && countSnap.data && countSnap.data().count) || 0;
+
+            let latestConsultationAt = null;
+            if (consultationCount > 0) {
+                const latestQuery = window.firebase.firestoreQuery(
+                    colRef,
+                    window.firebase.where('patientId', '==', pid),
+                    window.firebase.orderBy('sortDate', 'desc'),
+                    window.firebase.limit(1)
+                );
+                const latestSnap = await window.firebase.getDocs(latestQuery);
+                if (latestSnap && latestSnap.docs && latestSnap.docs.length > 0) {
+                    const latestData = latestSnap.docs[0].data() || {};
+                    latestConsultationAt = getConsultationEffectiveDate(latestData) || null;
+                }
+            }
+
+            const aggregatePatch = {
+                consultationCount,
+                latestConsultationAt
+            };
+
+            await window.firebase.updateDoc(
+                window.firebase.doc(window.firebase.db, 'patients', pid),
+                aggregatePatch
+            );
+            this.applyPatientAggregateToCaches(pid, aggregatePatch);
+
+            return {
+                success: true,
+                consultationCount,
+                latestConsultationAt
+            };
+        } catch (error) {
+            console.error('同步病人診症彙總失敗:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     async addClinic(clinicData) {
         if (!this.isReady) return { success: false };
         try {
@@ -24417,6 +24596,8 @@ class FirebaseDataManager {
                     ...dataToWrite,
                     searchKeywords: keywords,
                     // 初始化套票彙總欄位，避免未購買套票時為 undefined
+                    consultationCount: 0,
+                    latestConsultationAt: null,
                     packageActiveCount: 0,
                     packageRemainingUses: 0,
                     createdAt: new Date(),
@@ -24676,6 +24857,11 @@ class FirebaseDataManager {
                 });
             } catch (_summaryErr) {
                 console.warn('新增診症後同步財務摘要失敗:', _summaryErr);
+            }
+            try {
+                await this.syncPatientConsultationAggregate(consultationData && consultationData.patientId);
+            } catch (_aggregateErr) {
+                console.warn('新增診症後同步病人診症彙總失敗:', _aggregateErr);
             }
             
             console.log('診症記錄已添加到 Firebase:', docRef.id);
@@ -25507,6 +25693,18 @@ class FirebaseDataManager {
             } catch (_summaryErr) {
                 console.warn('更新診症後同步財務摘要失敗:', _summaryErr);
             }
+            try {
+                const aggregatePatientIds = Array.from(new Set(
+                    [existingRecord && existingRecord.patientId, consultationData && consultationData.patientId]
+                        .filter((id) => String(id || '').trim() !== '')
+                        .map((id) => String(id))
+                ));
+                for (const pid of aggregatePatientIds) {
+                    await this.syncPatientConsultationAggregate(pid);
+                }
+            } catch (_aggregateErr) {
+                console.warn('更新診症後同步病人診症彙總失敗:', _aggregateErr);
+            }
             // 更新診症後清除全域診症快取並移除本地存檔
             this.consultationsCache = null;
             try {
@@ -25516,15 +25714,21 @@ class FirebaseDataManager {
             }
             // 更新單一病人診症快取或清除全部快取
             try {
-                if (consultationData && consultationData.patientId) {
-                    delete patientConsultationsCache[consultationData.patientId];
-                    try { localStorage.removeItem('patientConsultations:' + String(consultationData.patientId)); } catch (_e) {}
-                    try {
-                        const pid = String(consultationData.patientId || '');
-                        if (pid && consultationHistoryPager && consultationHistoryPager.patientPagedCache) {
-                            delete consultationHistoryPager.patientPagedCache[pid];
-                        }
-                    } catch (_e2) {}
+                const affectedPatientIds = Array.from(new Set(
+                    [existingRecord && existingRecord.patientId, consultationData && consultationData.patientId]
+                        .filter((id) => String(id || '').trim() !== '')
+                        .map((id) => String(id))
+                ));
+                if (affectedPatientIds.length > 0) {
+                    affectedPatientIds.forEach((pid) => {
+                        delete patientConsultationsCache[pid];
+                        try { localStorage.removeItem('patientConsultations:' + pid); } catch (_e) {}
+                        try {
+                            if (consultationHistoryPager && consultationHistoryPager.patientPagedCache) {
+                                delete consultationHistoryPager.patientPagedCache[pid];
+                            }
+                        } catch (_e2) {}
+                    });
                 } else {
                     // 如果無法確定病人 ID，則清除所有病人診症快取
                     patientConsultationsCache = {};
@@ -25573,10 +25777,41 @@ class FirebaseDataManager {
             } catch (_summaryErr) {
                 console.warn('刪除診症後同步財務摘要失敗:', _summaryErr);
             }
+            try {
+                await this.syncPatientConsultationAggregate(existingRecord && existingRecord.patientId);
+            } catch (_aggregateErr) {
+                console.warn('刪除診症後同步病人診症彙總失敗:', _aggregateErr);
+            }
             this.consultationsCache = null;
             try {
                 localStorage.removeItem('consultations');
             } catch (_lsErr) {}
+            try {
+                const pid = String(existingRecord && existingRecord.patientId || '');
+                if (pid) {
+                    delete patientConsultationsCache[pid];
+                    try { localStorage.removeItem('patientConsultations:' + pid); } catch (_e) {}
+                    try {
+                        if (consultationHistoryPager && consultationHistoryPager.patientPagedCache) {
+                            delete consultationHistoryPager.patientPagedCache[pid];
+                        }
+                    } catch (_e2) {}
+                } else {
+                    patientConsultationsCache = {};
+                    try {
+                        if (consultationHistoryPager && consultationHistoryPager.patientPagedCache) {
+                            consultationHistoryPager.patientPagedCache = {};
+                        }
+                    } catch (_e3) {}
+                }
+            } catch (_cacheErr) {
+                patientConsultationsCache = {};
+                try {
+                    if (consultationHistoryPager && consultationHistoryPager.patientPagedCache) {
+                        consultationHistoryPager.patientPagedCache = {};
+                    }
+                } catch (_e4) {}
+            }
             return { success: true };
         } catch (error) {
             console.error('刪除診症記錄失敗:', error);
