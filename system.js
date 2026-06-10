@@ -1297,6 +1297,9 @@ const consultationHistoryPager = {
                 const uiIndex = state.totalCount - i;
                 if (uiIndex >= 0) {
                     state.recordsByIndex[uiIndex] = docs[0];
+                    // #region debug-point B:desc-page-fill
+                    fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"history-first-page-order",runId:"pre-fix",hypothesisId:"B",location:"system.js:fetchDescPage",msg:"[DEBUG] desc page cached",data:{patientId:pid,requestPage:pageNum,filledPage:i,uiIndex,totalCount:state.totalCount,recordId:docs[0]&&docs[0].id||"",sortDate:docs[0]&&docs[0].sortDate&&typeof docs[0].sortDate.toDate==="function"?docs[0].sortDate.toDate().toISOString():docs[0]&&docs[0].sortDate||null,date:docs[0]&&docs[0].date||null},ts:Date.now()})}).catch(()=>{});
+                    // #endregion
                 }
             }
             return { success: true };
@@ -1666,8 +1669,8 @@ const consultationHistoryPager = {
         }
         const state = stateResult.state;
         ctx.setPatientId(String(patientId || ''));
-        ctx.setConsultations(state.recordsByIndex);
         if (state.totalCount <= 0) {
+            ctx.setConsultations(state.recordsByIndex);
             ctx.setCurrentPage(0);
             return { success: true, data: ctx.getConsultations(), totalCount: 0 };
         }
@@ -1677,12 +1680,16 @@ const consultationHistoryPager = {
             return { success: false, data: [] };
         }
         const latestState = this.getCachedPatientState(patientId);
-        if (latestState && Array.isArray(latestState.recordsByIndex)) {
-            // ensure UI context points to the newest cache reference after fallback/rebuild
-            ctx.setConsultations(latestState.recordsByIndex);
+        if (!latestState || !Array.isArray(latestState.recordsByIndex) || !latestState.recordsByIndex[latestPage]) {
+            console.warn('loadForContext: loaded data validation failed');
+            return { success: false, data: [] };
         }
+        // #region debug-point A:load-for-context
+        fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"history-first-page-order",runId:"pre-fix",hypothesisId:"A",location:"system.js:loadForContext",msg:"[DEBUG] context loaded for first page",data:{contextKey,patientId:String(patientId||""),latestPage,totalCount:latestState.totalCount,firstIndexDate:latestState.recordsByIndex[0]&&latestState.recordsByIndex[0].date||null,firstIndexSortDate:latestState.recordsByIndex[0]&&latestState.recordsByIndex[0].sortDate&&typeof latestState.recordsByIndex[0].sortDate.toDate==="function"?latestState.recordsByIndex[0].sortDate.toDate().toISOString():latestState.recordsByIndex[0]&&latestState.recordsByIndex[0].sortDate||null,lastIndexDate:latestState.recordsByIndex[latestPage]&&latestState.recordsByIndex[latestPage].date||null,lastIndexSortDate:latestState.recordsByIndex[latestPage]&&latestState.recordsByIndex[latestPage].sortDate&&typeof latestState.recordsByIndex[latestPage].sortDate.toDate==="function"?latestState.recordsByIndex[latestPage].sortDate.toDate().toISOString():latestState.recordsByIndex[latestPage]&&latestState.recordsByIndex[latestPage].sortDate||null},ts:Date.now()})}).catch(()=>{});
+        // #endregion
+        ctx.setConsultations(latestState.recordsByIndex);
         ctx.setCurrentPage(latestPage);
-        return { success: true, data: ctx.getConsultations(), totalCount: latestState ? latestState.totalCount : state.totalCount };
+        return { success: true, data: ctx.getConsultations(), totalCount: latestState.totalCount };
     },
     applyListenerList(patientId, list) {
         const pid = String(patientId || '');
@@ -1724,9 +1731,11 @@ const consultationHistoryPager = {
         }
         if (!loaded) return false;
         const latestState = this.getCachedPatientState(patientId);
-        if (latestState && Array.isArray(latestState.recordsByIndex)) {
-            ctx.setConsultations(latestState.recordsByIndex);
+        if (!latestState || !Array.isArray(latestState.recordsByIndex) || !latestState.recordsByIndex[newPage]) {
+            console.warn('changePage: loaded data validation failed for index', newPage);
+            return false;
         }
+        ctx.setConsultations(latestState.recordsByIndex);
         ctx.setCurrentPage(newPage);
         return true;
     },
@@ -11924,6 +11933,9 @@ if (!patient) {
                 `;
                 return;
             }
+            // #region debug-point C:patient-render
+            fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"history-first-page-order",runId:"pre-fix",hypothesisId:"C",location:"system.js:displayPatientMedicalHistoryPage",msg:"[DEBUG] patient history page render",data:{patientId:currentPatientHistoryPatientId||"",currentPatientHistoryPage,totalPages,consultationId:consultation&&consultation.id||"",date:consultation&&consultation.date||null,sortDate:consultation&&consultation.sortDate&&typeof consultation.sortDate.toDate==="function"?consultation.sortDate.toDate().toISOString():consultation&&consultation.sortDate||null},ts:Date.now()})}).catch(()=>{});
+            // #endregion
 
             // Prepare dynamic translation segments.  We look up static labels
             // from the dictionary and build English phrases when needed.
@@ -21058,10 +21070,6 @@ async function deleteUser(id) {
             if (typeof loadUsersForFinancial === 'function') {
                 await loadUsersForFinancial();
             }
-            if (typeof loadConsultationsForFinancial === 'function') {
-                setFinancialReportLoadingState();
-                await loadConsultationsForFinancial();
-            }
             // 載入醫師選項
             loadFinancialDoctorOptions();
             try { if (!Array.isArray(clinicsList) || clinicsList.length === 0) await initClinics(); } catch (_e) {}
@@ -21163,34 +21171,46 @@ async function deleteUser(id) {
                     const endVal = endEl.value;
                     const doctorVal = doctorEl ? doctorEl.value : '';
                     const clinicVal = clinicEl ? clinicEl.value : '';
+                    const coverageKey = getFinancialSummaryCoverageKey(startVal, endVal, doctorVal, clinicVal);
+                    const summaryCovered = !!readCache('financialSummaryCoverage', coverageKey);
+                    const canUseSummary = typeof window.firebaseDataManager.getConsultationFinancialSummariesByRangeAndDoctor === 'function';
+
+                    if (canUseSummary && summaryCovered) {
+                        const summaryRes = await window.firebaseDataManager.getConsultationFinancialSummariesByRangeAndDoctor(startVal, endVal, doctorVal || null, true, clinicVal || null);
+                        if (summaryRes && summaryRes.success) {
+                            consultations = summaryRes.data.map(normalizeFinancialRecordForReport).filter(Boolean);
+                            return;
+                        }
+                    }
+
                     const targeted = await window.firebaseDataManager.getConsultationsByRangeAndDoctor(startVal, endVal, doctorVal || null, true, clinicVal || null);
                     if (targeted && targeted.success) {
-                        consultations = targeted.data.map(item => {
-                            let dateStr = null;
-                            if (item.date) {
-                                if (typeof item.date === 'object' && item.date.seconds) {
-                                    dateStr = new Date(item.date.seconds * 1000).toISOString();
-                                } else {
-                                    dateStr = item.date;
-                                }
-                            } else if (item.createdAt) {
-                                if (typeof item.createdAt === 'object' && item.createdAt.seconds) {
-                                    dateStr = new Date(item.createdAt.seconds * 1000).toISOString();
-                                } else {
-                                    dateStr = item.createdAt;
-                                }
+                        consultations = targeted.data.map(normalizeFinancialRecordForReport).filter(Boolean);
+                        if (canUseSummary) {
+                            try {
+                                await window.firebaseDataManager.syncConsultationFinancialSummaries(targeted.data);
+                                writeCache('financialSummaryCoverage', coverageKey, true);
+                            } catch (_syncErr) {
+                                console.warn('財務摘要回填失敗:', _syncErr);
                             }
-                            return { id: item.id, date: dateStr, doctor: item.doctor, status: item.status, billingItems: item.billingItems, billingItemsStructured: item.billingItemsStructured || '[]', clinicId: item.clinicId || null, clinicName: item.clinicName || '', prescription: item.prescription, acupunctureNotes: item.acupunctureNotes, createdAt: item.createdAt, updatedAt: item.updatedAt };
-                        });
+                        }
                         return;
+                    }
+
+                    if (canUseSummary) {
+                        const summaryFallback = await window.firebaseDataManager.getConsultationFinancialSummariesByRangeAndDoctor(startVal, endVal, doctorVal || null, true, clinicVal || null);
+                        if (summaryFallback && summaryFallback.success) {
+                            consultations = summaryFallback.data.map(normalizeFinancialRecordForReport).filter(Boolean);
+                            return;
+                        }
                     }
                 }
                 // 取消全量回退載入：避免財務報表在索引問題時掃描整個 consultations 集合。
                 consultations = [];
-                    } catch (error) {
-                        console.error('載入 Firebase 診症資料失敗:', error);
-                    }
-                }
+            } catch (error) {
+                console.error('載入 Firebase 診症資料失敗:', error);
+            }
+        }
 
         // 快速日期選擇
         function setQuickDate() {
@@ -21381,6 +21401,104 @@ async function deleteUser(id) {
             return { items, totalAmount };
         }
 
+        function cloneFinancialSummaryItems(items) {
+            return (Array.isArray(items) ? items : []).map(item => ({
+                name: item && item.name ? String(item.name) : '',
+                quantity: Math.max(0, Number(item && item.quantity) || 0),
+                unitPrice: Number(item && item.unitPrice) || 0,
+                totalAmount: Number(item && item.totalAmount) || 0,
+                category: normalizeFinancialCategory(item && item.category ? item.category : '') || 'other'
+            })).filter(item => item.name || item.quantity || item.totalAmount);
+        }
+
+        function buildConsultationFinancialSummaryPayload(consultationId, consultationData, options = {}) {
+            const source = consultationData && typeof consultationData === 'object' ? consultationData : {};
+            const now = options && options.now instanceof Date ? options.now : new Date();
+            const effectiveDate = getConsultationEffectiveDate(source, now) || now;
+            const sortDate = parseConsultationDate(source.sortDate || null) || effectiveDate;
+            const createdAt = parseConsultationDate(source.createdAt || null) || sortDate;
+            const updatedAt = parseConsultationDate(source.updatedAt || null) || now;
+            const status = source.status ? String(source.status) : '';
+            const isDeleted = !!(options && options.forceDeleted) || status !== 'completed';
+            const parsed = isDeleted ? { items: [], totalAmount: 0 } : parseFinancialBillingItems(source);
+            const summaryItems = cloneFinancialSummaryItems(parsed.items);
+
+            return {
+                consultationId: String(consultationId || ''),
+                doctor: source.doctor ? String(source.doctor) : '',
+                status: isDeleted ? (status || 'deleted') : 'completed',
+                clinicId: source && source.clinicId !== undefined && source.clinicId !== null ? source.clinicId : null,
+                clinicName: source.clinicName ? String(source.clinicName) : '',
+                patientId: source.patientId ? String(source.patientId) : '',
+                patientName: source.patientName ? String(source.patientName) : '',
+                date: effectiveDate,
+                dateKey: formatFinancialDate(effectiveDate),
+                sortDate,
+                totalAmount: Number(parsed.totalAmount) || 0,
+                summaryItems,
+                summaryItemCount: summaryItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
+                createdAt,
+                updatedAt,
+                syncedAt: now,
+                isDeleted
+            };
+        }
+
+        function normalizeFinancialRecordForReport(item) {
+            if (!item || typeof item !== 'object') return null;
+            const hasSummary = Array.isArray(item.summaryItems);
+            const effectiveDate = getConsultationEffectiveDate(item, new Date());
+            const dateStr = effectiveDate ? effectiveDate.toISOString() : null;
+            if (hasSummary) {
+                return {
+                    id: String(item.consultationId || item.id || ''),
+                    consultationId: String(item.consultationId || item.id || ''),
+                    date: dateStr,
+                    doctor: item.doctor || '',
+                    status: item.status || '',
+                    clinicId: item.clinicId !== undefined ? item.clinicId : null,
+                    clinicName: item.clinicName || '',
+                    financialSummaryItems: cloneFinancialSummaryItems(item.summaryItems),
+                    financialTotalAmount: Number(item.totalAmount) || 0,
+                    createdAt: item.createdAt || null,
+                    updatedAt: item.updatedAt || null,
+                    summarySyncedAt: item.syncedAt || null
+                };
+            }
+            return {
+                id: String(item.id || item.consultationId || ''),
+                consultationId: String(item.id || item.consultationId || ''),
+                date: dateStr,
+                doctor: item.doctor || '',
+                status: item.status || '',
+                billingItems: item.billingItems || '',
+                billingItemsStructured: item.billingItemsStructured || '[]',
+                clinicId: item.clinicId !== undefined ? item.clinicId : null,
+                clinicName: item.clinicName || '',
+                createdAt: item.createdAt || null,
+                updatedAt: item.updatedAt || null,
+                summarySyncedAt: item.syncedAt || null
+            };
+        }
+
+        function getFinancialReportSyncTimestamp(record) {
+            const candidates = [
+                record && record.summarySyncedAt,
+                record && record.updatedAt,
+                record && record.createdAt
+            ];
+            for (const candidate of candidates) {
+                const parsed = parseConsultationDate(candidate);
+                const ts = parsed && !isNaN(parsed.getTime()) ? parsed.getTime() : 0;
+                if (ts) return ts;
+            }
+            return 0;
+        }
+
+        function getFinancialSummaryCoverageKey(startDate, endDate, doctorFilter, clinicFilter) {
+            return `${startDate || ''}|${endDate || ''}|${doctorFilter || ''}|${clinicFilter || ''}`;
+        }
+
         // 根據項目名稱推斷類別
         function getFinancialCategoryFromItemName(itemName) {
             if (itemName.includes('診金') || itemName.includes('診療') || itemName.includes('初診') || itemName.includes('複診')) {
@@ -21433,7 +21551,11 @@ async function deleteUser(id) {
                 try {
                     if (window.firebaseDataManager && typeof window.firebaseDataManager.hasConsultationUpdates === 'function') {
                         const lastSyncAtRef = existing.lastSyncAt ? new Date(existing.lastSyncAt) : null;
-                        const hasUpdates = await window.firebaseDataManager.hasConsultationUpdates(startDate, endDate, doctorFilter || null, lastSyncAtRef, clinicFilter || null);
+                        const useSummaryDelta = typeof window.firebaseDataManager.hasConsultationFinancialSummaryUpdates === 'function'
+                            && typeof window.firebaseDataManager.getConsultationFinancialSummariesDeltaByRangeAndDoctor === 'function';
+                        const hasUpdates = useSummaryDelta
+                            ? await window.firebaseDataManager.hasConsultationFinancialSummaryUpdates(startDate, endDate, doctorFilter || null, lastSyncAtRef, clinicFilter || null)
+                            : await window.firebaseDataManager.hasConsultationUpdates(startDate, endDate, doctorFilter || null, lastSyncAtRef, clinicFilter || null);
                         if (!hasUpdates) {
                             updateFinancialKeyMetrics(existing.stats);
                             updateFinancialTables(existing.filteredConsultations, existing.stats);
@@ -21443,26 +21565,11 @@ async function deleteUser(id) {
                             showToast('財務報表已更新（使用快取）！', 'success');
                             return;
                         }
-                        const deltaRes = await window.firebaseDataManager.getConsultationsDeltaByRangeAndDoctor(lastSyncAtRef, doctorFilter || null, true, clinicFilter || null);
+                        const deltaRes = useSummaryDelta
+                            ? await window.firebaseDataManager.getConsultationFinancialSummariesDeltaByRangeAndDoctor(lastSyncAtRef, startDate, endDate, doctorFilter || null, clinicFilter || null)
+                            : await window.firebaseDataManager.getConsultationsDeltaByRangeAndDoctor(lastSyncAtRef, doctorFilter || null, true, clinicFilter || null);
                         if (deltaRes && deltaRes.success) {
-                            const normalize = (item) => {
-                                let dateStr = null;
-                                if (item.date) {
-                                    if (typeof item.date === 'object' && item.date.seconds) {
-                                        dateStr = new Date(item.date.seconds * 1000).toISOString();
-                                    } else {
-                                        dateStr = item.date;
-                                    }
-                                } else if (item.createdAt) {
-                                    if (typeof item.createdAt === 'object' && item.createdAt.seconds) {
-                                        dateStr = new Date(item.createdAt.seconds * 1000).toISOString();
-                                    } else {
-                                        dateStr = item.createdAt;
-                                    }
-                                }
-                                return { id: item.id, date: dateStr, doctor: item.doctor, status: item.status, billingItems: item.billingItems, billingItemsStructured: item.billingItemsStructured || '[]', clinicId: item.clinicId || null, clinicName: item.clinicName || '', createdAt: item.createdAt, updatedAt: item.updatedAt };
-                            };
-                            const deltas = deltaRes.data.map(normalize);
+                            const deltas = deltaRes.data.map(normalizeFinancialRecordForReport).filter(Boolean);
                             const start = new Date(startDate);
                             const end = new Date(endDate + 'T23:59:59.999Z');
                             const mf = (c) => {
@@ -21493,9 +21600,7 @@ async function deleteUser(id) {
                             const lastSyncAt = (() => {
                                 let latest = existing.lastSyncAt ? new Date(existing.lastSyncAt).getTime() : 0;
                                 for (const c of deltas) {
-                                    const u = c && c.updatedAt ? (c.updatedAt.seconds ? c.updatedAt.seconds*1000 : new Date(c.updatedAt).getTime()) : 0;
-                                    const cr = c && c.createdAt ? (c.createdAt.seconds ? c.createdAt.seconds*1000 : new Date(c.createdAt).getTime()) : 0;
-                                    const t = Math.max(u||0, cr||0);
+                                    const t = getFinancialReportSyncTimestamp(c);
                                     if (t && t > latest) latest = t;
                                 }
                                 return latest ? new Date(latest) : new Date();
@@ -21536,9 +21641,7 @@ async function deleteUser(id) {
             const lastSyncAt = (() => {
                 let latest = 0;
                 for (const c of filteredConsultations) {
-                    const u = c && c.updatedAt ? (c.updatedAt.seconds ? c.updatedAt.seconds*1000 : new Date(c.updatedAt).getTime()) : 0;
-                    const cr = c && c.createdAt ? (c.createdAt.seconds ? c.createdAt.seconds*1000 : new Date(c.createdAt).getTime()) : 0;
-                    const t = Math.max(u||0, cr||0);
+                    const t = getFinancialReportSyncTimestamp(c);
                     if (t && t > latest) latest = t;
                 }
                 return latest ? new Date(latest) : new Date();
@@ -21577,8 +21680,13 @@ async function deleteUser(id) {
             const dailyStats = {};
 
             consultations.forEach(consultation => {
-                const parsed = parseFinancialBillingItems(consultation);
-                const consultationRevenue = parsed.totalAmount;
+                const parsed = Array.isArray(consultation && consultation.financialSummaryItems)
+                    ? {
+                        items: cloneFinancialSummaryItems(consultation.financialSummaryItems),
+                        totalAmount: Number(consultation.financialTotalAmount) || 0
+                    }
+                    : parseFinancialBillingItems(consultation);
+                const consultationRevenue = Number(parsed.totalAmount) || 0;
                 totalRevenue += consultationRevenue;
 
                 // 醫師統計
@@ -24559,6 +24667,16 @@ class FirebaseDataManager {
                     createdBy: currentUser
                 }
             );
+            try {
+                await this.syncConsultationFinancialSummary(docRef.id, {
+                    ...dataToWrite,
+                    createdAt,
+                    sortDate: sortDate || createdAt,
+                    createdBy: currentUser
+                });
+            } catch (_summaryErr) {
+                console.warn('新增診症後同步財務摘要失敗:', _summaryErr);
+            }
             
             console.log('診症記錄已添加到 Firebase:', docRef.id);
             // 新增診症後清除全域診症快取並移除本地存檔
@@ -24784,6 +24902,189 @@ class FirebaseDataManager {
         } catch (error) {
             console.error('讀取診症記錄下一頁失敗:', error);
             return { success: false, data: [] };
+        }
+    }
+
+    async syncConsultationFinancialSummary(consultationId, consultationData, options = {}) {
+        if (!this.isReady) return { success: false };
+        try {
+            await waitForFirebaseDb();
+            const idStr = String(consultationId || '');
+            if (!idStr) return { success: false, error: 'missing_consultation_id' };
+            const payload = buildConsultationFinancialSummaryPayload(idStr, consultationData, options);
+            await window.firebase.setDoc(
+                window.firebase.doc(window.firebase.db, 'consultationFinancialSummaries', idStr),
+                payload,
+                { merge: true }
+            );
+            return { success: true, data: payload };
+        } catch (error) {
+            console.error('同步財務摘要失敗:', error);
+            return { success: false, error: error && error.message ? error.message : String(error) };
+        }
+    }
+
+    async syncConsultationFinancialSummaries(records, options = {}) {
+        if (!this.isReady) return { success: false, syncedCount: 0 };
+        try {
+            await waitForFirebaseDb();
+            const list = Array.isArray(records) ? records : [];
+            let batch = window.firebase.writeBatch(window.firebase.db);
+            let opCount = 0;
+            let syncedCount = 0;
+            const commitBatch = async () => {
+                if (opCount > 0) {
+                    await batch.commit();
+                    batch = window.firebase.writeBatch(window.firebase.db);
+                    opCount = 0;
+                }
+            };
+            for (const record of list) {
+                const idStr = String(record && (record.id || record.consultationId) ? (record.id || record.consultationId) : '');
+                if (!idStr) continue;
+                const payload = buildConsultationFinancialSummaryPayload(idStr, record, options);
+                batch.set(
+                    window.firebase.doc(window.firebase.db, 'consultationFinancialSummaries', idStr),
+                    payload,
+                    { merge: true }
+                );
+                syncedCount += 1;
+                opCount += 1;
+                if (opCount >= 400) {
+                    await commitBatch();
+                }
+            }
+            await commitBatch();
+            return { success: true, syncedCount };
+        } catch (error) {
+            console.error('批次同步財務摘要失敗:', error);
+            return { success: false, syncedCount: 0, error: error && error.message ? error.message : String(error) };
+        }
+    }
+
+    async getConsultationFinancialSummariesByRangeAndDoctor(startDateStr, endDateStr, doctorFilter = null, completedOnly = true, clinicFilter = null) {
+        if (!this.isReady) return { success: false, data: [] };
+        try {
+            const colRef = window.firebase.collection(window.firebase.db, 'consultationFinancialSummaries');
+            const parseOrNull = (s) => {
+                if (!s || typeof s !== 'string') return null;
+                const d = new Date(s);
+                return isNaN(d.getTime()) ? null : d;
+            };
+            let start = parseOrNull(startDateStr);
+            let end = parseOrNull(endDateStr);
+            const today = new Date();
+            if (!start && end) start = new Date(end);
+            if (!end && start) end = new Date(start);
+            if (!start && !end) {
+                start = new Date(today);
+                end = new Date(today);
+            }
+            start.setHours(0, 0, 0, 0);
+            end.setHours(23, 59, 59, 999);
+            const pageSize = 100;
+            const baseParts = [];
+            if (completedOnly) baseParts.push(window.firebase.where('status', '==', 'completed'));
+            if (doctorFilter) baseParts.push(window.firebase.where('doctor', '==', doctorFilter));
+            if (clinicFilter) baseParts.push(window.firebase.where('clinicId', '==', clinicFilter));
+            let q = window.firebase.firestoreQuery(
+                colRef,
+                ...baseParts,
+                window.firebase.orderBy('sortDate', 'asc'),
+                window.firebase.where('sortDate', '>=', start),
+                window.firebase.where('sortDate', '<=', end),
+                window.firebase.limit(pageSize)
+            );
+            let snap = await window.firebase.getDocs(q);
+            const list = [];
+            snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+            let lastVisible = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+            while (snap.docs.length === pageSize && lastVisible) {
+                q = window.firebase.firestoreQuery(
+                    colRef,
+                    ...baseParts,
+                    window.firebase.orderBy('sortDate', 'asc'),
+                    window.firebase.where('sortDate', '>=', start),
+                    window.firebase.where('sortDate', '<=', end),
+                    window.firebase.startAfter(lastVisible),
+                    window.firebase.limit(pageSize)
+                );
+                snap = await window.firebase.getDocs(q);
+                snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+                lastVisible = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+            }
+            return { success: true, data: list };
+        } catch (error) {
+            console.warn('財務摘要條件查詢失敗:', error);
+            return { success: false, data: [], error: 'financial-summary-query-failed' };
+        }
+    }
+
+    async getConsultationFinancialSummariesDeltaByRangeAndDoctor(sinceDate, startDateStr, endDateStr, doctorFilter = null, clinicFilter = null) {
+        if (!this.isReady) return { success: false, data: [] };
+        try {
+            const colRef = window.firebase.collection(window.firebase.db, 'consultationFinancialSummaries');
+            const start = new Date(startDateStr);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(endDateStr);
+            end.setHours(23, 59, 59, 999);
+            const pageSize = 100;
+            const parts = [];
+            if (doctorFilter) parts.push(window.firebase.where('doctor', '==', doctorFilter));
+            if (clinicFilter) parts.push(window.firebase.where('clinicId', '==', clinicFilter));
+            parts.push(window.firebase.where('sortDate', '>=', start));
+            parts.push(window.firebase.where('sortDate', '<=', end));
+            parts.push(window.firebase.where('syncedAt', '>', sinceDate));
+            let q = window.firebase.firestoreQuery(
+                colRef,
+                ...parts,
+                window.firebase.orderBy('syncedAt', 'asc'),
+                window.firebase.limit(pageSize)
+            );
+            let snap = await window.firebase.getDocs(q);
+            const list = [];
+            snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+            let lastVisible = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+            while (snap.docs.length === pageSize && lastVisible) {
+                q = window.firebase.firestoreQuery(
+                    colRef,
+                    ...parts,
+                    window.firebase.orderBy('syncedAt', 'asc'),
+                    window.firebase.startAfter(lastVisible),
+                    window.firebase.limit(pageSize)
+                );
+                snap = await window.firebase.getDocs(q);
+                snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+                lastVisible = snap.docs.length ? snap.docs[snap.docs.length - 1] : null;
+            }
+            return { success: true, data: list };
+        } catch (error) {
+            console.warn('財務摘要增量查詢失敗:', error);
+            return { success: false, data: [] };
+        }
+    }
+
+    async hasConsultationFinancialSummaryUpdates(startDateStr, endDateStr, doctorFilter = null, sinceDate, clinicFilter = null) {
+        if (!this.isReady) return false;
+        try {
+            const colRef = window.firebase.collection(window.firebase.db, 'consultationFinancialSummaries');
+            const start = new Date(startDateStr);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(endDateStr);
+            end.setHours(23, 59, 59, 999);
+            const parts = [];
+            if (doctorFilter) parts.push(window.firebase.where('doctor', '==', doctorFilter));
+            if (clinicFilter) parts.push(window.firebase.where('clinicId', '==', clinicFilter));
+            parts.push(window.firebase.where('sortDate', '>=', start));
+            parts.push(window.firebase.where('sortDate', '<=', end));
+            if (sinceDate) parts.push(window.firebase.where('syncedAt', '>', sinceDate));
+            parts.push(window.firebase.orderBy('syncedAt', 'asc'));
+            parts.push(window.firebase.limit(1));
+            const q = window.firebase.firestoreQuery(colRef, ...parts);
+            const snap = await window.firebase.getDocs(q);
+            return !!(snap && snap.size > 0);
+        } catch (error) {
+            return true;
         }
     }
 
@@ -25170,6 +25471,7 @@ class FirebaseDataManager {
         try {
             // 移除 id 屬性，避免將 id 寫入文件內容
             let dataToWrite;
+            let existingRecord = null;
             try {
                 const { id, ...rest } = consultationData || {};
                 dataToWrite = rest;
@@ -25177,15 +25479,13 @@ class FirebaseDataManager {
                 dataToWrite = consultationData;
             }
             const updatedAt = new Date();
-            let temporalBase = { ...dataToWrite, updatedAt };
-            if (!temporalBase.date && !temporalBase.createdAt && !temporalBase.sortDate) {
-                try {
-                    const existingDoc = await window.firebase.getDoc(window.firebase.doc(window.firebase.db, 'consultations', consultationId));
-                    if (existingDoc && existingDoc.exists()) {
-                        temporalBase = { ...existingDoc.data(), ...temporalBase };
-                    }
-                } catch (_existingErr) {}
-            }
+            try {
+                const existingDoc = await window.firebase.getDoc(window.firebase.doc(window.firebase.db, 'consultations', consultationId));
+                if (existingDoc && existingDoc.exists()) {
+                    existingRecord = existingDoc.data() || null;
+                }
+            } catch (_existingErr) {}
+            let temporalBase = { ...(existingRecord || {}), ...dataToWrite, updatedAt };
             const sortDate = getConsultationEffectiveDate(temporalBase, updatedAt);
             await window.firebase.updateDoc(
                 window.firebase.doc(window.firebase.db, 'consultations', consultationId),
@@ -25196,6 +25496,17 @@ class FirebaseDataManager {
                     updatedBy: currentUser
                 }
             );
+            try {
+                await this.syncConsultationFinancialSummary(String(consultationId), {
+                    ...(existingRecord || {}),
+                    ...dataToWrite,
+                    updatedAt,
+                    sortDate: sortDate || updatedAt,
+                    updatedBy: currentUser
+                });
+            } catch (_summaryErr) {
+                console.warn('更新診症後同步財務摘要失敗:', _summaryErr);
+            }
             // 更新診症後清除全域診症快取並移除本地存檔
             this.consultationsCache = null;
             try {
@@ -25234,6 +25545,41 @@ class FirebaseDataManager {
             return { success: true };
         } catch (error) {
             console.error('更新診症記錄失敗:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async deleteConsultation(consultationId) {
+        if (!this.isReady) return { success: false };
+        try {
+            const idStr = String(consultationId || '');
+            if (!idStr) return { success: false, error: 'missing_consultation_id' };
+            let existingRecord = null;
+            try {
+                const existingDoc = await window.firebase.getDoc(window.firebase.doc(window.firebase.db, 'consultations', idStr));
+                if (existingDoc && existingDoc.exists()) {
+                    existingRecord = { id: existingDoc.id, ...existingDoc.data() };
+                }
+            } catch (_getErr) {}
+            await window.firebase.deleteDoc(
+                window.firebase.doc(window.firebase.db, 'consultations', idStr)
+            );
+            try {
+                await this.syncConsultationFinancialSummary(idStr, {
+                    ...(existingRecord || {}),
+                    status: 'deleted',
+                    updatedAt: new Date()
+                }, { forceDeleted: true });
+            } catch (_summaryErr) {
+                console.warn('刪除診症後同步財務摘要失敗:', _summaryErr);
+            }
+            this.consultationsCache = null;
+            try {
+                localStorage.removeItem('consultations');
+            } catch (_lsErr) {}
+            return { success: true };
+        } catch (error) {
+            console.error('刪除診症記錄失敗:', error);
             return { success: false, error: error.message };
         }
     }
@@ -27028,6 +27374,13 @@ async function displayMedicalRecords(pageChange = false) {
     const term = rawTerm.toLowerCase();
     const itemsPerPage = (paginationSettings.medicalRecordList && paginationSettings.medicalRecordList.itemsPerPage) ? paginationSettings.medicalRecordList.itemsPerPage : medicalRecordPageSize;
     let currentPage = (paginationSettings.medicalRecordList && paginationSettings.medicalRecordList.currentPage) ? paginationSettings.medicalRecordList.currentPage : 1;
+    // 非翻頁重繪時，一律先回到第 1 頁，再依該頁碼抓資料，避免誤把舊頁內容顯示成第一頁。
+    if (!pageChange) {
+        currentPage = 1;
+        if (paginationSettings.medicalRecordList) {
+            paginationSettings.medicalRecordList.currentPage = 1;
+        }
+    }
     let filtered = [];
     if (term) {
         let res = medicalRecordSearchCache[term] || null;
@@ -27094,12 +27447,6 @@ async function displayMedicalRecords(pageChange = false) {
         });
     } catch (_sortErr) {
         // 忽略排序失敗
-    }
-    if (!pageChange) {
-        if (paginationSettings.medicalRecordList) {
-            paginationSettings.medicalRecordList.currentPage = 1;
-        }
-        currentPage = 1;
     }
     const totalItems = term ? filtered.length : (typeof medicalRecordTotalCount === 'number' ? medicalRecordTotalCount : filtered.length);
     const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
