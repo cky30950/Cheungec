@@ -18500,7 +18500,7 @@ async function initializeSystemAfterLogin() {
         function addToPrescription(type, itemId) {
             // 取得目標藥材資料
             const item = herbLibrary.find(h => h.id === itemId);
-            if (!item) return;
+            if (!item) return null;
 
             // 不阻止禁忌配伍的藥材加入處方，但稍後會在全局檢查中顯示錯誤提示
             
@@ -18514,7 +18514,7 @@ async function initializeSystemAfterLogin() {
                     const msg = lang === 'en' ? enMsg : zhMsg;
                     showToast(msg, 'warning');
                 }
-                return;
+                return null;
             }
             
             // 添加到已選擇項目
@@ -18571,6 +18571,7 @@ async function initializeSystemAfterLogin() {
                 const msg = lang && lang.toLowerCase().startsWith('en') ? enMsg : zhMsg;
                 showToast(msg, 'success');
             }
+            return prescriptionItem;
         }
         
 
@@ -30153,6 +30154,11 @@ function _oldSelectPrescriptionTemplate(id) {
               if (Number.isNaN(parsed)) return fallback;
               return Math.min(max, Math.max(min, parsed));
             };
+            const getNonEmptyString = function(value, fallback) {
+              if (typeof value !== 'string') return fallback;
+              const trimmed = value.trim();
+              return trimmed !== '' ? trimmed : fallback;
+            };
             const followUpTime = typeof source.defaultFollowUpTime === 'string' && /^\d{2}:\d{2}$/.test(source.defaultFollowUpTime.trim())
               ? source.defaultFollowUpTime.trim()
               : defaults.defaultFollowUpTime;
@@ -30166,9 +30172,9 @@ function _oldSelectPrescriptionTemplate(id) {
               defaultPrescriptionFrequency: parseIntWithBounds(source.defaultPrescriptionFrequency, defaults.defaultPrescriptionFrequency, 1, 10),
               defaultFollowUpOffsetDays: parseIntWithBounds(source.defaultFollowUpOffsetDays, defaults.defaultFollowUpOffsetDays, 0, 365),
               defaultFollowUpTime: followUpTime,
-              defaultUsage: typeof source.defaultUsage === 'string' ? source.defaultUsage : defaults.defaultUsage,
-              defaultTreatmentCourse: typeof source.defaultTreatmentCourse === 'string' ? source.defaultTreatmentCourse : defaults.defaultTreatmentCourse,
-              defaultInstructions: typeof source.defaultInstructions === 'string' ? source.defaultInstructions : defaults.defaultInstructions,
+              defaultUsage: getNonEmptyString(source.defaultUsage, defaults.defaultUsage),
+              defaultTreatmentCourse: getNonEmptyString(source.defaultTreatmentCourse, defaults.defaultTreatmentCourse),
+              defaultInstructions: getNonEmptyString(source.defaultInstructions, defaults.defaultInstructions),
               defaultBillingItemIds: billingIds
             };
           }
@@ -31557,12 +31563,11 @@ async function deleteAcupointCombination(id) {
                 if (!ing || !ing.name) return;
                 const item = herbLibrary.find(h => h.name === ing.name);
                 if (item) {
-                  addToPrescription(item.type, item.id);
+                  const addedItem = addToPrescription(item.type, item.id);
                   try {
-                    const lastIndex = selectedPrescriptionItems.length - 1;
-                    if (lastIndex >= 0 && ing.dosage) {
+                    if (addedItem && ing.dosage) {
                       const numeric = String(ing.dosage).match(/[0-9.]+/);
-                      selectedPrescriptionItems[lastIndex].customDosage = numeric ? numeric[0] : selectedPrescriptionItems[lastIndex].customDosage;
+                      addedItem.customDosage = numeric ? numeric[0] : addedItem.customDosage;
                     }
                   } catch (_e) {}
                 } else {
@@ -32976,6 +32981,19 @@ ${item.points.map(pt => {
           function addHerbToCombo(name, dosage) {
             const container = document.getElementById('herbIngredients');
             if (!container) return;
+            const normalizedName = String(name || '').trim();
+            const isDuplicate = Array.from(container.children).some(row => {
+              const existingName = String(
+                (row.dataset && row.dataset.herbName) ||
+                (row.querySelector('span') ? row.querySelector('span').textContent : '') ||
+                ''
+              ).trim();
+              return existingName !== '' && existingName === normalizedName;
+            });
+            if (isDuplicate) {
+              showToast(`${normalizedName} 已經在此藥方中！`, 'warning');
+              return;
+            }
             // 建立新的一行，並使用綠色背景與邊框樣式
             const div = document.createElement('div');
             div.className = 'flex items-center gap-2 p-2 bg-green-50 hover:bg-green-100 border border-green-200 rounded';
@@ -33006,7 +33024,7 @@ ${item.points.map(pt => {
             // 劑量輸入欄
             const dosageInput = document.createElement('input');
             dosageInput.type = 'number';
-            dosageInput.value = '';
+            dosageInput.value = dosage || '';
             dosageInput.placeholder = '';
             dosageInput.className = 'w-20 px-2 py-1 border border-gray-300 rounded';
             div.appendChild(dosageInput);
