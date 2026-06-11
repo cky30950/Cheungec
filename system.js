@@ -1262,7 +1262,7 @@ const consultationHistoryPager = {
                 if (window.firebaseDataManager && typeof window.firebaseDataManager.applyPatientAggregateToCaches === 'function') {
                     window.firebaseDataManager.applyPatientAggregateToCaches(pid, {
                         consultationCount: total,
-                        ...(total === 0 ? { latestConsultationAt: null } : {})
+                        ...(total === 0 ? { latestConsultationAt: null, latestFollowUpDate: null } : {})
                     });
                 }
             } catch (_aggregateCachePatchErr) {}
@@ -15536,6 +15536,7 @@ async function loadPatientConsultationSummary(patientId) {
         let totalConsultations = patient && typeof patient.consultationCount === 'number'
             ? Math.max(0, Number(patient.consultationCount) || 0)
             : 0;
+        let latestConsultation = null;
         try {
             const stateResult = await consultationHistoryPager.ensurePatientState(patientId, false);
             if (stateResult && stateResult.success && stateResult.state) {
@@ -15544,20 +15545,18 @@ async function loadPatientConsultationSummary(patientId) {
                     ...(patient || {}),
                     consultationCount: totalConsultations
                 };
+                if (totalConsultations > 0) {
+                    const latestIndex = totalConsultations - 1;
+                    const loaded = await consultationHistoryPager.ensureLoadedAtIndex(patientId, latestIndex);
+                    if (loaded) {
+                        const cachedState = consultationHistoryPager.getCachedPatientState(patientId);
+                        if (cachedState && Array.isArray(cachedState.recordsByIndex)) {
+                            latestConsultation = cachedState.recordsByIndex[latestIndex] || null;
+                        }
+                    }
+                }
             }
         } catch (_summaryCountErr) {}
-
-        let latestConsultation = null;
-        if (
-            totalConsultations > 0 &&
-            window.firebaseDataManager &&
-            typeof window.firebaseDataManager.getLatestPatientConsultation === 'function'
-        ) {
-            const latestResult = await window.firebaseDataManager.getLatestPatientConsultation(patientId);
-            if (latestResult && latestResult.success) {
-                latestConsultation = latestResult.data || null;
-            }
-        }
 
         let lastConsultationDate = '無';
         const latestConsultationAt = patient && patient.latestConsultationAt
@@ -15626,9 +15625,11 @@ async function loadPatientConsultationSummary(patientId) {
         }
 
         // 格式化下次複診日期
-        const nextFollowUpDate = latestConsultation && latestConsultation.followUpDate
-            ? parseConsultationDate(latestConsultation.followUpDate)
-            : null;
+        const nextFollowUpDate = patient && patient.latestFollowUpDate
+            ? parseConsultationDate(patient.latestFollowUpDate)
+            : (latestConsultation && latestConsultation.followUpDate
+                ? parseConsultationDate(latestConsultation.followUpDate)
+                : null);
         const nextFollowUp = nextFollowUpDate && !isNaN(nextFollowUpDate.getTime())
             ? nextFollowUpDate.toLocaleDateString('zh-TW')
             : '無安排';
@@ -24506,6 +24507,7 @@ class FirebaseDataManager {
             const consultationCount = Number(countSnap && countSnap.data && countSnap.data().count) || 0;
 
             let latestConsultationAt = null;
+            let latestFollowUpDate = null;
             if (consultationCount > 0) {
                 const latestQuery = window.firebase.firestoreQuery(
                     colRef,
@@ -24517,12 +24519,14 @@ class FirebaseDataManager {
                 if (latestSnap && latestSnap.docs && latestSnap.docs.length > 0) {
                     const latestData = latestSnap.docs[0].data() || {};
                     latestConsultationAt = getConsultationEffectiveDate(latestData) || null;
+                    latestFollowUpDate = parseConsultationDate(latestData.followUpDate) || null;
                 }
             }
 
             const aggregatePatch = {
                 consultationCount,
-                latestConsultationAt
+                latestConsultationAt,
+                latestFollowUpDate
             };
 
             await window.firebase.updateDoc(
@@ -24534,7 +24538,8 @@ class FirebaseDataManager {
             return {
                 success: true,
                 consultationCount,
-                latestConsultationAt
+                latestConsultationAt,
+                latestFollowUpDate
             };
         } catch (error) {
             console.error('同步病人診症彙總失敗:', error);
@@ -24668,6 +24673,7 @@ class FirebaseDataManager {
                     // 初始化套票彙總欄位，避免未購買套票時為 undefined
                     consultationCount: 0,
                     latestConsultationAt: null,
+                    latestFollowUpDate: null,
                     packageActiveCount: 0,
                     packageRemainingUses: 0,
                     createdAt: new Date(),
