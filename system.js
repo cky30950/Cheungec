@@ -1227,8 +1227,12 @@ const consultationHistoryPager = {
         }
         try {
             const patient = await getPatientByIdWithRefresh(pid);
-            if (patient && typeof patient.consultationCount === 'number' && patient.consultationCount >= 0) {
-                const total = Math.max(0, Number(patient.consultationCount) || 0);
+            const aggregateCount = patient && typeof patient.consultationCount === 'number' && patient.consultationCount >= 0
+                ? Math.max(0, Number(patient.consultationCount) || 0)
+                : null;
+            const hasReliableAggregate = aggregateCount !== null && aggregateCount > 0 && !!patient.latestConsultationAt;
+            if (hasReliableAggregate) {
+                const total = aggregateCount;
                 state.totalCount = total;
                 state.countReady = true;
                 state.recordsByIndex = new Array(total);
@@ -1254,6 +1258,14 @@ const consultationHistoryPager = {
             state.recordsByIndex = new Array(total);
             state.mode = 'paged';
             state.allLoaded = false;
+            try {
+                if (window.firebaseDataManager && typeof window.firebaseDataManager.applyPatientAggregateToCaches === 'function') {
+                    window.firebaseDataManager.applyPatientAggregateToCaches(pid, {
+                        consultationCount: total,
+                        ...(total === 0 ? { latestConsultationAt: null } : {})
+                    });
+                }
+            } catch (_aggregateCachePatchErr) {}
             return { success: true, state };
         } catch (error) {
             console.warn('病歷分頁初始化失敗，改用全量讀取模式:', error);
@@ -15521,28 +15533,19 @@ async function loadPatientConsultationSummary(patientId) {
 
     try {
         let patient = await getPatientByIdWithRefresh(patientId);
-        if (
-            window.firebaseDataManager &&
-            (
-                !patient ||
-                typeof patient.consultationCount !== 'number' ||
-                (patient.consultationCount > 0 && !patient.latestConsultationAt)
-            ) &&
-            typeof window.firebaseDataManager.syncPatientConsultationAggregate === 'function'
-        ) {
-            const syncResult = await window.firebaseDataManager.syncPatientConsultationAggregate(patientId);
-            if (syncResult && syncResult.success) {
-                patient = {
-                    ...(patient || {}),
-                    consultationCount: syncResult.consultationCount,
-                    latestConsultationAt: syncResult.latestConsultationAt || null
-                };
-            }
-        }
-
-        const totalConsultations = patient && typeof patient.consultationCount === 'number'
+        let totalConsultations = patient && typeof patient.consultationCount === 'number'
             ? Math.max(0, Number(patient.consultationCount) || 0)
             : 0;
+        try {
+            const stateResult = await consultationHistoryPager.ensurePatientState(patientId, false);
+            if (stateResult && stateResult.success && stateResult.state) {
+                totalConsultations = Math.max(0, Number(stateResult.state.totalCount) || 0);
+                patient = {
+                    ...(patient || {}),
+                    consultationCount: totalConsultations
+                };
+            }
+        } catch (_summaryCountErr) {}
 
         let latestConsultation = null;
         if (
@@ -15569,288 +15572,9 @@ async function loadPatientConsultationSummary(patientId) {
             }
         }
 
-        // 取得並計算套票狀態
-        let packageStatusHtml = '';
-        // 將套票資料保留在外層作用域，以便後續計算 activePkgCount
-        let pkgs;
-        try {
-            // 始終強制重新載入套票，避免跨裝置快取不一致
-            pkgs = await getPatientPackages(patientId, true);
-            // 如果有套票紀錄
-            if (Array.isArray(pkgs) && pkgs.length > 0) {
-                // 只顯示有剩餘次數的套票
-                const activePkgs = pkgs.filter(p => p && p.remainingUses > 0);
-                if (activePkgs.length > 0) {
-                    // 按到期日排序，越早到期越前面顯示
-                    activePkgs.sort((a, b) => new Date(a.expiresAt) - new Date(b.expiresAt));
-                    
-                    packageStatusHtml = `
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            ${activePkgs.map(pkg => {
-                                const status = formatPackageStatus(pkg);
-                                const expiresAt = new Date(pkg.expiresAt);
-                                const now = new Date();
-                                const daysLeft = Math.ceil((expiresAt - now) / (1000*60*60*24));
-                                
-                                
-                                let statusColor = 'bg-green-50 border-green-200 text-green-800';
-                                let iconColor = 'text-green-600';
-                                let progressColor = 'bg-green-500';
-                                
-                                if (daysLeft <= 7) {
-                                    statusColor = 'bg-red-50 border-red-200 text-red-800';
-                                    iconColor = 'text-red-600';
-                                    progressColor = 'bg-red-500';
-                                } else if (daysLeft <= 30) {
-                                    statusColor = 'bg-yellow-50 border-yellow-200 text-yellow-800';
-                                    iconColor = 'text-yellow-600';
-                                    progressColor = 'bg-yellow-500';
-                                }
-                                
-                                
-                                const usagePercentage = ((pkg.totalUses - pkg.remainingUses) / pkg.totalUses) * 100;
-                                
-                                return `
-                                    <div class="relative ${statusColor} border rounded-lg p-3 transition-all duration-200 hover:shadow-md">
-                                        <!-- 套票名稱和圖標 -->
-                                        <div class="flex items-start justify-between mb-2">
-                                            <div class="flex items-center space-x-2">
-                                                <div class="${iconColor}">
-                                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                                    </svg>
-                                                </div>
-                                                <div class="font-medium text-sm truncate">${pkg.name}</div>
-                                            </div>
-                                            <div class="text-xs font-medium px-2 py-1 rounded-full bg-white bg-opacity-70 whitespace-nowrap">
-                                                ${daysLeft <= 0 ? '已到期' : `${daysLeft}天`}
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- 使用次數和進度條 -->
-                                        <div class="space-y-2">
-                                            <div class="flex justify-between items-center text-xs">
-                                                <span>剩餘 ${pkg.remainingUses}/${pkg.totalUses}</span>
-                                                <span>${Math.round(100 - usagePercentage)}%</span>
-                                            </div>
-                                            
-                                            <!-- 進度條 -->
-                                            <div class="w-full bg-white bg-opacity-50 rounded-full h-1.5">
-                                                <div class="${progressColor} h-1.5 rounded-full transition-all duration-300" 
-                                                     style="width: ${usagePercentage}%"></div>
-                                            </div>
-                                            
-                                            <!-- 到期日 -->
-                                            <div class="text-xs opacity-75 truncate">
-                                                ${expiresAt.toLocaleDateString('zh-TW')}
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- 緊急標記 -->
-                                        ${daysLeft <= 7 && daysLeft > 0 ? `
-                                            <div class="absolute -top-1 -right-1">
-                                                <span class="inline-flex items-center justify-center w-4 h-4 text-xs font-bold text-white bg-red-500 rounded-full animate-pulse">
-                                                    !
-                                                </span>
-                                            </div>
-                                        ` : ''}
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>`;
-                } else {
-                    // 有套票記錄但已全數用盡
-                    packageStatusHtml = `
-                        <div class="bg-gray-50 border-gray-200 border rounded-lg p-3 text-center">
-                            <div class="text-gray-400 mb-1">
-                                <svg class="w-6 h-6 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                                </svg>
-                            </div>
-                            <div class="text-sm font-medium text-gray-600">無可用套票</div>
-                            <div class="text-xs text-gray-500 mt-1">所有套票已用完或過期</div>
-                        </div>
-                    `;
-                }
-            } else {
-                // 無套票記錄
-                packageStatusHtml = `
-                    <div class="bg-blue-50 border-blue-200 border rounded-lg p-3 text-center">
-                        <div class="text-blue-400 mb-1">
-                            <svg class="w-6 h-6 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
-                            </svg>
-                        </div>
-                        <div class="text-sm font-medium text-blue-700">尚未購買套票</div>
-                        <div class="text-xs text-blue-600 mt-1">可於診療時購買套票享優惠</div>
-                    </div>
-                `;
-            }
-        } catch (err) {
-            console.error('取得套票資訊失敗:', err);
-            packageStatusHtml = `
-                <div class="bg-red-50 border-red-200 border rounded-lg p-3 text-center">
-                    <div class="text-red-400 mb-1">
-                        <svg class="w-6 h-6 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                        </svg>
-                    </div>
-                    <div class="text-sm font-medium text-red-700">載入失敗</div>
-                    <div class="text-xs text-red-600 mt-1">無法載入套票狀態</div>
-                </div>
-            `;
-        }
-
-        // 計算可用套票數量（activePkgCount）。
-        // 優先使用病人文件中的 packageActiveCount 欄位，若不存在則退回至利用 pkgs 計算。
-        let activePkgCount = 0;
-        try {
-            // 嘗試從快取或讀取所有病人資料中取得指定病人
-            let allPatientsForCount = [];
-            if (Array.isArray(patientCache) && patientCache.length > 0) {
-                allPatientsForCount = patientCache;
-            } else {
-                // 若快取不存在，從 Firebase 讀取
-                allPatientsForCount = await fetchPatients();
-            }
-            const targetPatient = allPatientsForCount.find((p) => String(p.id) === String(patientId));
-            if (targetPatient && typeof targetPatient.packageActiveCount === 'number') {
-                activePkgCount = targetPatient.packageActiveCount;
-            } else {
-                // 若病人資料中無彙總欄位，則使用已載入的 pkgs 計算
-                if (Array.isArray(pkgs)) {
-                    activePkgCount = pkgs.filter(p => p && typeof p.remainingUses === 'number' && p.remainingUses > 0).length;
-                } else {
-                    activePkgCount = 0;
-                }
-            }
-        } catch (activeCountErr) {
-            console.error('取得病人可用套票數量失敗:', activeCountErr);
-            // 作為最後保險，使用 pkgs 計算
-            if (Array.isArray(pkgs)) {
-                try {
-                    activePkgCount = pkgs.filter(p => p && typeof p.remainingUses === 'number' && p.remainingUses > 0).length;
-                } catch (fallbackErr) {
-                    activePkgCount = 0;
-                }
-            } else {
-                activePkgCount = 0;
-            }
-        }
-
-        // 產生「套票情況」區塊的 HTML，用於診療摘要中顯示套票資訊
-        let packageSituationInnerHtml = '';
-        try {
-            if (Array.isArray(pkgs) && pkgs.length > 0) {
-                const nowPs = new Date();
-                const soonThresholdPs = new Date(nowPs.getTime() + 7 * 24 * 60 * 60 * 1000);
-                const validPkgsPs = [];
-                const invalidPkgsPs = [];
-                pkgs.forEach(pkg => {
-                    const expDate = new Date(pkg.expiresAt);
-                    const expired = expDate < nowPs || (typeof pkg.remainingUses === 'number' && pkg.remainingUses <= 0);
-                    if (expired) {
-                        invalidPkgsPs.push(pkg);
-                    } else {
-                        validPkgsPs.push(pkg);
-                    }
-                });
-                const sortedValidPs = validPkgsPs.slice().sort((a, b) => new Date(a.expiresAt) - new Date(b.expiresAt));
-                const sortedInvalidPs = invalidPkgsPs.slice().sort((a, b) => new Date(a.expiresAt) - new Date(b.expiresAt));
-                packageSituationInnerHtml = `
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            ${sortedValidPs.length > 0 ? `<div class="font-medium text-gray-700 mb-2">有效套票</div>` : ''}
-                            <div class="space-y-2">
-                                ${sortedValidPs.map(pkg => {
-                                    const safePkgName = window.escapeHtml(pkg.name || '');
-                                    const statusText = formatPackageStatus(pkg);
-                                    const safeStatusText = window.escapeHtml(statusText || '');
-                                    const remainingUses = typeof pkg.remainingUses === 'number' ? pkg.remainingUses : '';
-                                    const totalUses = typeof pkg.totalUses === 'number' ? pkg.totalUses : '';
-                                    const expDate = new Date(pkg.expiresAt);
-                                    const lowUses = typeof pkg.remainingUses === 'number' && pkg.remainingUses <= 2;
-                                    const highlight = (expDate <= soonThresholdPs) || lowUses;
-                                    const containerClasses = highlight ? 'bg-red-50 border border-red-200' : 'bg-purple-50 border border-purple-200';
-                                    const nameClass = highlight ? 'text-red-700' : 'text-purple-900';
-                                    const statusClass = highlight ? 'text-red-600' : 'text-gray-600';
-                                    const usesClass = highlight ? 'text-red-700' : 'text-gray-800';
-                                    return `
-                                        <div class="flex items-center justify-between ${containerClasses} rounded p-2">
-                                            <div>
-                                                <div class="font-medium ${nameClass}">${safePkgName}</div>
-                                                <div class="text-xs ${statusClass}">${safeStatusText}</div>
-                                            </div>
-                                            <div class="text-sm ${usesClass}">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        </div>
-                        <div>
-                            ${sortedInvalidPs.length > 0 ? `<div class="font-medium text-gray-700 mb-2">失效套票</div>` : ''}
-                            <div class="space-y-2">
-                                ${sortedInvalidPs.map(pkg => {
-                                    const safePkgName = window.escapeHtml(pkg.name || '');
-                                    const statusText = formatPackageStatus(pkg);
-                                    const safeStatusText = window.escapeHtml(statusText || '');
-                                    const remainingUses = typeof pkg.remainingUses === 'number' ? pkg.remainingUses : '';
-                                    const totalUses = typeof pkg.totalUses === 'number' ? pkg.totalUses : '';
-                                    return `
-                                        <div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded p-2">
-                                            <div>
-                                                <div class="font-medium text-gray-500">${safePkgName}</div>
-                                                <div class="text-xs text-gray-400">${safeStatusText}</div>
-                                            </div>
-                                            <div class="text-sm text-gray-500">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } else if (Array.isArray(pkgs) && pkgs.length === 0) {
-                // 無套票記錄
-                packageSituationInnerHtml = `
-                    <div class="bg-blue-50 border-blue-200 border rounded-lg p-3 text-center">
-                        <div class="text-blue-400 mb-1">
-                            <svg class="w-6 h-6 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
-                            </svg>
-                        </div>
-                        <div class="text-sm font-medium text-blue-700">尚未購買套票</div>
-                        <div class="text-xs text-blue-600 mt-1">可於診療時購買套票享優惠</div>
-                    </div>
-                `;
-            } else {
-                // 取得套票資訊失敗
-                packageSituationInnerHtml = `
-                    <div class="bg-red-50 border-red-200 border rounded-lg p-3 text-center">
-                        <div class="text-red-400 mb-1">
-                            <svg class="w-6 h-6 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                            </svg>
-                        </div>
-                        <div class="text-sm font-medium text-red-700">載入失敗</div>
-                        <div class="text-xs text-red-600 mt-1">無法載入套票狀態</div>
-                    </div>
-                `;
-            }
-        } catch (pkgErr) {
-            console.error('產生套票情況失敗:', pkgErr);
-            packageSituationInnerHtml = `
-                <div class="bg-red-50 border-red-200 border rounded-lg p-3 text-center">
-                    <div class="text-red-400 mb-1">
-                        <svg class="w-6 h-6 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                        </svg>
-                    </div>
-                    <div class="text-sm font-medium text-red-700">載入失敗</div>
-                    <div class="text-xs text-red-600 mt-1">無法載入套票狀態</div>
-                </div>
-            `;
-        }
+        const activePkgCount = patient && typeof patient.packageActiveCount === 'number'
+            ? Math.max(0, Number(patient.packageActiveCount) || 0)
+            : 0;
 
         if (totalConsultations === 0) {
             summaryContainer.innerHTML = `
@@ -15881,7 +15605,7 @@ async function loadPatientConsultationSummary(patientId) {
                             <h3 class="text-lg font-semibold text-purple-800">套票情況</h3>
                         </div>
                         <div class="text-xs text-purple-600 bg-white px-2 py-1 rounded-full">
-                            ${activePkgCount} 個可用
+                            <span id="patientPackageActiveCountBadge">${activePkgCount}</span> 個可用
                         </div>
                     </div>
                     <!-- 使用動態渲染的套票區塊，初始顯示載入中動畫 -->
@@ -15938,7 +15662,7 @@ async function loadPatientConsultationSummary(patientId) {
                         <h3 class="text-lg font-semibold text-purple-800">套票情況</h3>
                     </div>
                     <div class="text-xs text-purple-600 bg-white px-2 py-1 rounded-full">
-                        ${activePkgCount} 個可用
+                        <span id="patientPackageActiveCountBadge">${activePkgCount}</span> 個可用
                     </div>
                 </div>
                 <!-- 使用動態渲染的套票區塊，初始顯示載入中動畫 -->
@@ -24111,8 +23835,8 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
         if (!pageChange) {
             paginationSettings.patientPackageStatus.currentPage = 1;
         }
-        // 讀取所有套票（強制刷新以避免跨裝置快取不一致）
-        const pkgs = await getPatientPackages(patientId, true);
+        // 查看詳細資料時優先使用快取，避免每次開啟視窗都重新抓取套票。
+        const pkgs = await getPatientPackages(patientId, false);
         // 若無套票資料，顯示提示文字並隱藏分頁控制
         if (!Array.isArray(pkgs) || pkgs.length === 0) {
             contentEl.innerHTML = `
@@ -24159,6 +23883,10 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
                 validPkgs.push(pkg);
             }
         });
+        const packageCountBadge = document.getElementById('patientPackageActiveCountBadge');
+        if (packageCountBadge) {
+            packageCountBadge.textContent = String(validPkgs.length);
+        }
         // 按到期日排序
         validPkgs.sort((a, b) => new Date(a.expiresAt) - new Date(b.expiresAt));
         invalidPkgs.sort((a, b) => new Date(a.expiresAt) - new Date(b.expiresAt));
