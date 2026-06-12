@@ -3234,6 +3234,11 @@ async function attachPatientListListener() {
                 patientAscPagesCache = {};
                 patientAscPageCursors = {};
                 patientsCountCache = null;
+                if (window.firebaseDataManager) {
+                    window.firebaseDataManager.patientsCache = null;
+                    window.firebaseDataManager.patientsCacheSource = 'none';
+                    window.firebaseDataManager.patientsCacheFetchedAt = 0;
+                }
                 try {
                     
                     localStorage.removeItem('patients');
@@ -22776,6 +22781,12 @@ async function importClinicBackup(data) {
                             dataToWrite.sortDate = sortDate;
                         }
                     }
+                    if (collectionName === 'patients') {
+                        dataToWrite.searchKeywords = generateSearchKeywords({
+                            ...dataToWrite,
+                            patientNumber: dataToWrite.patientNumber
+                        });
+                    }
                     batch.set(docRef, dataToWrite);
                     opCount++;
                     if (opCount >= 500) {
@@ -24391,6 +24402,8 @@ class FirebaseDataManager {
         this.isReady = false;
         // 用於緩存病人列表，避免在同一工作階段重複向 Firestore 讀取整個 patients 集合
         this.patientsCache = null;
+        this.patientsCacheSource = 'none';
+        this.patientsCacheFetchedAt = 0;
         // 用於緩存診症記錄列表與其分頁資訊
         this.consultationsCache = null;
         this.consultationsLastVisible = null;
@@ -24685,6 +24698,8 @@ class FirebaseDataManager {
             console.log('病人數據已添加到 Firebase:', docRef.id);
             // 新增病人後清除緩存並移除本地存檔，讓下一次讀取時重新載入
             this.patientsCache = null;
+            this.patientsCacheSource = 'none';
+            this.patientsCacheFetchedAt = 0;
             try {
                 localStorage.removeItem('patients');
             } catch (_lsErr) {
@@ -24722,6 +24737,8 @@ class FirebaseDataManager {
                         const localData = JSON.parse(stored);
                         if (Array.isArray(localData)) {
                             this.patientsCache = localData;
+                            this.patientsCacheSource = 'localStorage';
+                            this.patientsCacheFetchedAt = Date.now();
                             return { success: true, data: this.patientsCache };
                         }
                     }
@@ -24738,6 +24755,8 @@ class FirebaseDataManager {
             });
             // 將結果寫入快取與 localStorage
             this.patientsCache = patients;
+            this.patientsCacheSource = 'remote';
+            this.patientsCacheFetchedAt = Date.now();
             try {
                 localStorage.setItem('patients', JSON.stringify(patients));
             } catch (lsErr) {
@@ -24777,6 +24796,8 @@ class FirebaseDataManager {
             );
             // 更新病人資料後清除緩存並移除本地存檔，讓下一次讀取時重新載入
             this.patientsCache = null;
+            this.patientsCacheSource = 'none';
+            this.patientsCacheFetchedAt = 0;
             try {
                 localStorage.removeItem('patients');
             } catch (_lsErr) {
@@ -24796,6 +24817,8 @@ class FirebaseDataManager {
             );
             // 刪除病人後清除緩存並移除本地存檔
             this.patientsCache = null;
+            this.patientsCacheSource = 'none';
+            this.patientsCacheFetchedAt = 0;
             try {
                 localStorage.removeItem('patients');
             } catch (_lsErr) {
@@ -24855,13 +24878,17 @@ class FirebaseDataManager {
              */
             let localPatients = [];
             try {
-                // 如果 patientsCache 尚未載入，主動讀取全體病人列表以利搜尋
-                if (!Array.isArray(this.patientsCache)) {
-                    const patientRes = await this.getPatients();
+                // 搜尋時若只有 localStorage 快取，先同步一次遠端清單，避免舊資料漏搜。
+                const shouldRefreshPatients =
+                    !Array.isArray(this.patientsCache)
+                    || this.patientsCacheSource !== 'remote';
+                if (shouldRefreshPatients) {
+                    const patientRes = await this.getPatients(true);
                     if (patientRes && patientRes.success && Array.isArray(patientRes.data)) {
                         localPatients = patientRes.data;
-                        // 更新快取以供下次使用
                         this.patientsCache = patientRes.data;
+                        this.patientsCacheSource = 'remote';
+                        this.patientsCacheFetchedAt = Date.now();
                     }
                 } else {
                     localPatients = this.patientsCache;
