@@ -26775,10 +26775,14 @@ class FirebaseDataManager {
             } catch (_omitErr) {
                 dataToWrite = userData;
             }
+            const sanitizedData = {};
+            Object.entries(dataToWrite || {}).forEach(([key, value]) => {
+                if (value !== undefined) sanitizedData[key] = value;
+            });
             await window.firebase.updateDoc(
                 window.firebase.doc(window.firebase.db, 'users', userId),
                 {
-                    ...dataToWrite,
+                    ...sanitizedData,
                     updatedAt: new Date(),
                     updatedBy: currentUser || 'system'
                 }
