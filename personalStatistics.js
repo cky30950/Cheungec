@@ -361,7 +361,6 @@ async function loadPersonalStatistics() {
             updatePersonalStatisticsView(true);
         } else {
             personalStatsBucketsCache = [];
-            updatePersonalStatisticsView(true);
         }
         try {
             const res = await window.firebaseDataManager.getPersonalStatsMonthlySummaries(doctor);
