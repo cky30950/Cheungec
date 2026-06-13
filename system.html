@@ -1951,6 +1951,12 @@
         <option value="用戶">一般用戶</option>
                                     </select>
                                 </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">主要診所 *</label>
+                                    <select id="userClinicId" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                        <option value="">請選擇主要診所</option>
+                                    </select>
+                                </div>
                                 <div id="registrationNumberField" class="hidden">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">中醫註冊編號 *</label>
                                     <input type="text" id="userRegistrationNumber" placeholder="請輸入中醫註冊編號" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
@@ -1959,16 +1965,11 @@
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">電子郵件 *</label>
                                     <input type="email" id="userEmail" placeholder="請輸入電子郵件" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent" required>
+                                    <p id="userEmailHint" class="text-xs text-gray-500 mt-1">新增用戶時設定登入電子郵件；建立後請透過帳號遷移流程調整。</p>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">電話號碼</label>
                                     <input type="tel" id="userPhone" placeholder="請輸入電話號碼" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                </div>
-                                
-                                <div id="uidField">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Firebase UID</label>
-                                    <input type="text" id="userUID" placeholder="請輸入 Firebase UID（可不填）" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                                    <p class="text-xs text-gray-500 mt-1">對應 Firebase Authentication 帳號的 UID</p>
                                 </div>
 
         
