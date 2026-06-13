@@ -2477,12 +2477,6 @@ async function fetchUsers(forceRefresh = false) {
                 }
             } catch (_e4) {}
             try {
-                const userClinicSel = document.getElementById('userClinicId');
-                if (userClinicSel) {
-                    populateUserClinicOptions(userClinicSel.value || currentClinicId || 'local-default');
-                }
-            } catch (_eUserClinic) {}
-            try {
                 const delBtn = document.getElementById('systemDeleteClinicButton');
                 if (delBtn && !delBtn.dataset.bound) {
                     delBtn.addEventListener('click', async function() {
@@ -20594,7 +20588,6 @@ function showAddUserForm() {
         saveBtnTextEl.textContent = '儲存';
     }
     clearUserForm();
-    populateUserClinicOptions(currentClinicId || 'local-default');
     setUserEmailFieldEditable(true);
     const modalEl = document.getElementById('addUserModal');
     if (modalEl) {
@@ -20621,7 +20614,6 @@ function clearUserForm() {
         if (el) el.value = '';
     });
     document.getElementById('userActive').checked = true;
-    populateUserClinicOptions(currentClinicId || 'local-default');
     setUserEmailFieldEditable(true);
     
     // 隱藏註冊編號欄位
@@ -20641,33 +20633,6 @@ function setUserEmailFieldEditable(isEditable, lockedEmail = '') {
             ? '新增用戶時設定登入電子郵件；建立後請透過帳號遷移流程調整。'
             : `此用戶的登入電子郵件目前不可在此直接修改${lockedEmail ? `：${lockedEmail}` : ''}`;
     }
-}
-
-function populateUserClinicOptions(selectedClinicId = '') {
-    const clinicSelect = document.getElementById('userClinicId');
-    if (!clinicSelect) return;
-    const preferredClinicId = selectedClinicId
-        || clinicSelect.value
-        || (currentClinicId ? String(currentClinicId) : '')
-        || 'local-default';
-    clinicSelect.innerHTML = '';
-    const clinicItems = Array.isArray(clinicsList) && clinicsList.length
-        ? clinicsList
-        : [{
-            id: 'local-default',
-            chineseName: '預設診所',
-            englishName: 'Default Clinic'
-        }];
-    clinicItems.forEach(clinic => {
-        if (!clinic || clinic.id === undefined || clinic.id === null) return;
-        const option = document.createElement('option');
-        option.value = String(clinic.id);
-        option.textContent = getClinicDisplayName(clinic);
-        clinicSelect.appendChild(option);
-    });
-    const hasPreferred = clinicItems.some(clinic => clinic && String(clinic.id) === String(preferredClinicId));
-    if (hasPreferred) clinicSelect.value = String(preferredClinicId);
-    else if (clinicItems[0] && clinicItems[0].id !== undefined && clinicItems[0].id !== null) clinicSelect.value = String(clinicItems[0].id);
 }
 
 // 切換註冊編號欄位顯示
@@ -20719,7 +20684,6 @@ async function editUser(id) {
     const emailEl = document.getElementById('userEmail');
     if (emailEl) emailEl.value = user.email || '';
     setUserEmailFieldEditable(false, user.email || '');
-    populateUserClinicOptions(getClinicIdForUser(user, currentClinicId || 'local-default'));
     const phoneEl = document.getElementById('userPhone');
     if (phoneEl) phoneEl.value = user.phone || '';
     const regNumEl = document.getElementById('userRegistrationNumber');
@@ -20756,10 +20720,6 @@ async function saveUser() {
     const phone = document.getElementById('userPhone').value.trim();
     const registrationNumber = document.getElementById('userRegistrationNumber').value.trim();
     const active = document.getElementById('userActive').checked;
-    const userClinicEl = document.getElementById('userClinicId');
-    const selectedClinicId = userClinicEl && userClinicEl.value
-        ? String(userClinicEl.value)
-        : (currentClinicId ? String(currentClinicId) : 'local-default');
 
     // 取得密碼與確認密碼（可能不存在於編輯模式）
     const password = document.getElementById('userPassword') ? document.getElementById('userPassword').value : '';
@@ -20782,10 +20742,6 @@ async function saveUser() {
     // 驗證必填欄位（姓名與職位）
     if (!name || !position) {
         showToast('請填寫必要資料（姓名、職位）！', 'error');
-        return;
-    }
-    if (!selectedClinicId) {
-        showToast('請選擇主要診所！', 'error');
         return;
     }
 
@@ -20845,7 +20801,15 @@ async function saveUser() {
     }
 
     const currentUsersForLimit = usersFromFirebase.length > 0 ? usersFromFirebase : users;
-    const clinicIdForLimit = selectedClinicId;
+    const clinicIdForLimit = (() => {
+        if (editingUserId) {
+            const existing = currentUsersForLimit.find(u => u && String(u.id) === String(editingUserId));
+            if (existing && existing.clinicId !== undefined && existing.clinicId !== null && String(existing.clinicId)) {
+                return String(existing.clinicId);
+            }
+        }
+        return currentClinicId ? String(currentClinicId) : 'local-default';
+    })();
     const limitCheck = canActivateUserUnderClinicLimit({
         users: currentUsersForLimit,
         clinicId: clinicIdForLimit,
@@ -26775,14 +26739,10 @@ class FirebaseDataManager {
             } catch (_omitErr) {
                 dataToWrite = userData;
             }
-            const sanitizedData = {};
-            Object.entries(dataToWrite || {}).forEach(([key, value]) => {
-                if (value !== undefined) sanitizedData[key] = value;
-            });
             await window.firebase.updateDoc(
                 window.firebase.doc(window.firebase.db, 'users', userId),
                 {
-                    ...sanitizedData,
+                    ...dataToWrite,
                     updatedAt: new Date(),
                     updatedBy: currentUser || 'system'
                 }
