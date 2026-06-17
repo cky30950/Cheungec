@@ -1,7 +1,6 @@
 
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import {
-  getFirestore,
   collection,
   addDoc,
   getDocs,
@@ -31,6 +30,8 @@ import {
 import { getDatabase, ref, set, get, update, remove, onValue, off,
         
         onDisconnect,
+        push,
+        serverTimestamp,
         
         query as rtdbQuery,
         orderByChild,
@@ -113,6 +114,8 @@ setPersistence(auth, browserSessionPersistence).catch((error) => {
         off,
         
         onDisconnect,
+        push,
+        serverTimestamp,
         
         rtdbQuery,
         

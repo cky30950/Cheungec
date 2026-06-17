@@ -90,7 +90,7 @@
             { date: '2026-12-26', name: '聖誕節後第一個周日' }
         ];
 
-        const usHolidays2025 = [
+        const usHolidaysFallback = [
             { date: '2025-01-01', name: 'New Year’s Day' },
             { date: '2025-01-20', name: 'Martin Luther King Jr. Day' },
             { date: '2025-01-20', name: 'Inauguration Day' },
@@ -105,9 +105,24 @@
             { date: '2025-12-25', name: 'Christmas Day' }
         ];
 
-        const HK_HOLIDAY_1823_TC_URL = 'https://www.1823.gov.hk/common/ical/tc.json';
-        const HK_HOLIDAY_CACHE_KEY_TC = 'hk_public_holidays_1823_tc_v1';
+        const HK_HOLIDAY_API_BASE_URL = 'https://date.nager.at/api/v3/PublicHolidays';
+        const HK_HOLIDAY_CACHE_KEY_PREFIX = 'hk_public_holidays_nager_v1_';
         const HK_HOLIDAY_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 30;
+        const US_HOLIDAY_API_BASE_URL = 'https://date.nager.at/api/v3/PublicHolidays';
+        const US_HOLIDAY_CACHE_KEY_PREFIX = 'us_public_holidays_nager_v1_';
+        const US_FEDERAL_HOLIDAY_NAMES = Object.freeze({
+            "New Year's Day": true,
+            'Martin Luther King, Jr. Day': true,
+            'Washington\'s Birthday': true,
+            'Memorial Day': true,
+            'Juneteenth National Independence Day': true,
+            'Independence Day': true,
+            'Labor Day': true,
+            'Columbus Day': true,
+            'Veterans Day': true,
+            'Thanksgiving Day': true,
+            'Christmas Day': true
+        });
 
         function upsertHolidayName(map, date, name) {
             if (!date || !name) return;
@@ -130,23 +145,43 @@
             return map;
         }
 
-        function parse1823HolidayJson(json) {
+        function groupHolidayListByYear(list) {
+            const grouped = Object.create(null);
+            if (!Array.isArray(list)) return grouped;
+            list.forEach(item => {
+                if (!item || typeof item.date !== 'string' || item.date.length < 4) return;
+                const year = item.date.slice(0, 4);
+                if (!grouped[year]) {
+                    grouped[year] = [];
+                }
+                grouped[year].push(item);
+            });
+            return grouped;
+        }
+
+        function buildHolidayMapFromYearGroups(groups) {
+            const map = Object.create(null);
+            if (!groups || typeof groups !== 'object') return map;
+            Object.keys(groups).forEach(year => {
+                const list = groups[year];
+                if (!Array.isArray(list)) return;
+                list.forEach(item => {
+                    if (!item) return;
+                    upsertHolidayName(map, item.date, item.name);
+                });
+            });
+            return map;
+        }
+
+        function parseHkHolidayJson(json) {
             try {
-                const vc = json && Array.isArray(json.vcalendar) ? json.vcalendar[0] : null;
-                const events = vc && Array.isArray(vc.vevent) ? vc.vevent : [];
+                if (!Array.isArray(json)) return [];
                 const out = [];
-                events.forEach(ev => {
-                    if (!ev) return;
-                    const raw = ev.dtstart && Array.isArray(ev.dtstart) ? ev.dtstart[0] : null;
-                    const name = ev.summary || '';
-                    if (!raw || typeof raw !== 'string') return;
-                    if (raw.length !== 8) return;
-                    const yyyy = raw.slice(0, 4);
-                    const mm = raw.slice(4, 6);
-                    const dd = raw.slice(6, 8);
-                    const date = `${yyyy}-${mm}-${dd}`;
+                json.forEach(item => {
+                    if (!item || typeof item.date !== 'string') return;
+                    const name = item.localName || item.name || '';
                     if (!name) return;
-                    out.push({ date, name });
+                    out.push({ date: item.date, name });
                 });
                 return out;
             } catch (_e) {
@@ -154,69 +189,169 @@
             }
         }
 
-        let hkHolidayByDate = buildHolidayMapFromList(hkHolidaysFallback);
-        let usHolidayByDate = buildHolidayMapFromList(usHolidays2025);
-        let hkHolidayRemoteLoadInProgress = false;
-
-        function tryHydrateHkHolidaysFromCache() {
+        function parseUsHolidayJson(json) {
             try {
-                const raw = localStorage.getItem(HK_HOLIDAY_CACHE_KEY_TC);
+                if (!Array.isArray(json)) return [];
+                const out = [];
+                json.forEach(item => {
+                    if (!item || typeof item.date !== 'string') return;
+                    const types = Array.isArray(item.types) ? item.types : [];
+                    const name = item.name || item.localName || '';
+                    if (!types.includes('Public')) return;
+                    if (!US_FEDERAL_HOLIDAY_NAMES[name]) return;
+                    out.push({ date: item.date, name });
+                });
+                return out;
+            } catch (_e) {
+                return [];
+            }
+        }
+
+        function getVisibleHolidayYears() {
+            const years = new Set();
+            const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+            const startDate = new Date(firstDay);
+            startDate.setDate(startDate.getDate() - firstDay.getDay());
+            for (let i = 0; i < 42; i++) {
+                const cellDate = new Date(startDate);
+                cellDate.setDate(startDate.getDate() + i);
+                years.add(String(cellDate.getFullYear()));
+            }
+            return Array.from(years);
+        }
+
+        function getUsHolidayCacheKey(year) {
+            return `${US_HOLIDAY_CACHE_KEY_PREFIX}${year}`;
+        }
+
+        const hkHolidayListsByYear = groupHolidayListByYear(hkHolidaysFallback);
+        let hkHolidayByDate = buildHolidayMapFromYearGroups(hkHolidayListsByYear);
+        const usHolidayListsByYear = groupHolidayListByYear(usHolidaysFallback);
+        let usHolidayByDate = buildHolidayMapFromYearGroups(usHolidayListsByYear);
+        const hkHolidayHydratedYears = new Set();
+        const hkHolidayRemoteLoadInProgressByYear = Object.create(null);
+        const usHolidayHydratedYears = new Set();
+        const usHolidayRemoteLoadInProgressByYear = Object.create(null);
+
+        function getHkHolidayCacheKey(year) {
+            return `${HK_HOLIDAY_CACHE_KEY_PREFIX}${year}`;
+        }
+
+        function tryHydrateHkHolidaysFromCache(year) {
+            try {
+                const raw = localStorage.getItem(getHkHolidayCacheKey(year));
                 if (!raw) return false;
                 const cached = JSON.parse(raw);
                 if (!cached || !Array.isArray(cached.list)) return false;
                 if (cached.fetchedAt && Date.now() - cached.fetchedAt > HK_HOLIDAY_CACHE_MAX_AGE_MS) {
                     return false;
                 }
-                const map = buildHolidayMapFromList(cached.list);
-                if (Object.keys(map).length === 0) return false;
-                hkHolidayByDate = map;
+                const list = cached.list.filter(item => item && typeof item.date === 'string');
+                hkHolidayListsByYear[String(year)] = list;
+                hkHolidayByDate = buildHolidayMapFromYearGroups(hkHolidayListsByYear);
+                hkHolidayHydratedYears.add(String(year));
                 return true;
             } catch (_e) {
                 return false;
             }
         }
 
-        async function refreshHkHolidaysFrom1823({ force = false } = {}) {
-            if (hkHolidayRemoteLoadInProgress) return;
-            if (!force) {
-                try {
-                    const raw = localStorage.getItem(HK_HOLIDAY_CACHE_KEY_TC);
-                    if (raw) {
-                        const cached = JSON.parse(raw);
-                        if (cached && cached.fetchedAt && Date.now() - cached.fetchedAt <= HK_HOLIDAY_CACHE_MAX_AGE_MS) {
-                            return;
-                        }
-                    }
-                } catch (_e) {
-                    
+        function tryHydrateUsHolidaysFromCache(year) {
+            try {
+                const raw = localStorage.getItem(getUsHolidayCacheKey(year));
+                if (!raw) return false;
+                const cached = JSON.parse(raw);
+                if (!cached || !Array.isArray(cached.list)) return false;
+                if (cached.fetchedAt && Date.now() - cached.fetchedAt > HK_HOLIDAY_CACHE_MAX_AGE_MS) {
+                    return false;
                 }
+                const list = cached.list.filter(item => item && typeof item.date === 'string');
+                usHolidayListsByYear[String(year)] = list;
+                usHolidayByDate = buildHolidayMapFromYearGroups(usHolidayListsByYear);
+                usHolidayHydratedYears.add(String(year));
+                return true;
+            } catch (_e) {
+                return false;
             }
+        }
+
+        async function refreshHkHolidaysForYear(year, { force = false } = {}) {
+            const yearKey = String(year);
+            if (hkHolidayRemoteLoadInProgressByYear[yearKey]) return;
+            if (!force && hkHolidayHydratedYears.has(yearKey)) return;
+            if (!force && tryHydrateHkHolidaysFromCache(yearKey)) return;
             if (!window.fetch) return;
-            hkHolidayRemoteLoadInProgress = true;
+            hkHolidayRemoteLoadInProgressByYear[yearKey] = true;
             try {
                 const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
                 const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
-                const res = await fetch(HK_HOLIDAY_1823_TC_URL, { signal: controller ? controller.signal : undefined });
+                const res = await fetch(`${HK_HOLIDAY_API_BASE_URL}/${encodeURIComponent(yearKey)}/HK`, {
+                    signal: controller ? controller.signal : undefined
+                });
                 if (timeoutId) clearTimeout(timeoutId);
                 if (!res || !res.ok) return;
                 const json = await res.json();
-                const list = parse1823HolidayJson(json);
-                const map = buildHolidayMapFromList(list);
-                if (Object.keys(map).length === 0) return;
-                hkHolidayByDate = map;
+                const list = parseHkHolidayJson(json);
+                if (list.length === 0) return;
+                hkHolidayListsByYear[yearKey] = list;
+                hkHolidayByDate = buildHolidayMapFromYearGroups(hkHolidayListsByYear);
+                hkHolidayHydratedYears.add(yearKey);
                 try {
-                    localStorage.setItem(HK_HOLIDAY_CACHE_KEY_TC, JSON.stringify({ fetchedAt: Date.now(), list }));
+                    localStorage.setItem(getHkHolidayCacheKey(yearKey), JSON.stringify({ fetchedAt: Date.now(), list }));
                 } catch (_e) {
                     
                 }
             } catch (_e) {
                 
             } finally {
-                hkHolidayRemoteLoadInProgress = false;
+                hkHolidayRemoteLoadInProgressByYear[yearKey] = false;
             }
         }
 
-        tryHydrateHkHolidaysFromCache();
+        async function refreshUsHolidaysForYear(year, { force = false } = {}) {
+            const yearKey = String(year);
+            if (usHolidayRemoteLoadInProgressByYear[yearKey]) return;
+            if (!force && usHolidayHydratedYears.has(yearKey)) return;
+            if (!force && tryHydrateUsHolidaysFromCache(yearKey)) return;
+            if (!window.fetch) return;
+            usHolidayRemoteLoadInProgressByYear[yearKey] = true;
+            try {
+                const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+                const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
+                const res = await fetch(`${US_HOLIDAY_API_BASE_URL}/${encodeURIComponent(yearKey)}/US`, {
+                    signal: controller ? controller.signal : undefined
+                });
+                if (timeoutId) clearTimeout(timeoutId);
+                if (!res || !res.ok) return;
+                const json = await res.json();
+                const list = parseUsHolidayJson(json);
+                if (list.length === 0) return;
+                usHolidayListsByYear[yearKey] = list;
+                usHolidayByDate = buildHolidayMapFromYearGroups(usHolidayListsByYear);
+                usHolidayHydratedYears.add(yearKey);
+                try {
+                    localStorage.setItem(getUsHolidayCacheKey(yearKey), JSON.stringify({ fetchedAt: Date.now(), list }));
+                } catch (_e) {
+                    
+                }
+            } catch (_e) {
+                
+            } finally {
+                usHolidayRemoteLoadInProgressByYear[yearKey] = false;
+            }
+        }
+
+        async function ensureHolidayDataForCurrentView({ force = false } = {}) {
+            if (selectedHolidayRegion === 'hk') {
+                const years = getVisibleHolidayYears();
+                await Promise.all(years.map(year => refreshHkHolidaysForYear(year, { force })));
+                return;
+            }
+            if (selectedHolidayRegion === 'us') {
+                const years = getVisibleHolidayYears();
+                await Promise.all(years.map(year => refreshUsHolidaysForYear(year, { force })));
+            }
+        }
         
 
         
@@ -241,9 +376,10 @@
             if (typeof renderCalendar === 'function') {
                 renderCalendar();
             }
-            if (selectedHolidayRegion === 'hk') {
-                refreshHkHolidaysFrom1823().then(() => {
-                    if (selectedHolidayRegion === 'hk' && typeof renderCalendar === 'function') {
+            const activeRegion = selectedHolidayRegion;
+            if (activeRegion === 'hk' || activeRegion === 'us') {
+                ensureHolidayDataForCurrentView().then(() => {
+                    if (selectedHolidayRegion === activeRegion && typeof renderCalendar === 'function') {
                         renderCalendar();
                     }
                 }).catch(() => {});
@@ -733,6 +869,14 @@
                 
             }
             renderCalendar();
+            if (selectedHolidayRegion === 'hk' || selectedHolidayRegion === 'us') {
+                const activeRegion = selectedHolidayRegion;
+                ensureHolidayDataForCurrentView().then(() => {
+                    if (selectedHolidayRegion === activeRegion) {
+                        renderCalendar();
+                    }
+                }).catch(() => {});
+            }
         }
 
         
@@ -1469,6 +1613,14 @@
                 
             }
             renderCalendar();
+            if (selectedHolidayRegion === 'hk' || selectedHolidayRegion === 'us') {
+                const activeRegion = selectedHolidayRegion;
+                ensureHolidayDataForCurrentView().then(() => {
+                    if (selectedHolidayRegion === activeRegion) {
+                        renderCalendar();
+                    }
+                }).catch(() => {});
+            }
             updateStats();
         }
 

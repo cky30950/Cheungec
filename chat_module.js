@@ -508,6 +508,7 @@
             
           }
         }
+        this.markCurrentChannelAsRead();
       } else {
         this.chatPopup.classList.add('hidden');
       }
@@ -719,19 +720,7 @@
       this.privateChatId = null;
       this.channelLabel.textContent = '主頻道';
       this.listenToMessages('public');
-
-      
-      
-      
-      const ts = this.lastMessageTime['public'] || Date.now();
-      this.lastSeenTime['public'] = ts;
-      
-      if (typeof this.persistLastSeenTimes === 'function') {
-        this.persistLastSeenTimes();
-      }
-      if (typeof this.updateNewMessageIndicators === 'function') {
-        this.updateNewMessageIndicators();
-      }
+      this.markChannelAsRead('public');
     }
 
     
@@ -747,19 +736,7 @@
       
       this.channelLabel.textContent = userObj.name || userObj.username || '私人聊天';
       this.listenToMessages(chatId);
-
-      
-      
-      
-      const last = this.lastMessageTime[chatId] || Date.now();
-      this.lastSeenTime[chatId] = last;
-      
-      if (typeof this.persistLastSeenTimes === 'function') {
-        this.persistLastSeenTimes();
-      }
-      if (typeof this.updateNewMessageIndicators === 'function') {
-        this.updateNewMessageIndicators();
-      }
+      this.markChannelAsRead(chatId);
     }
 
     
@@ -795,8 +772,8 @@
         const messages = Object.values(data);
         
         messages.sort((a, b) => {
-          const ta = a.timestamp || 0;
-          const tb = b.timestamp || 0;
+          const ta = this.getMessageTimestamp(a);
+          const tb = this.getMessageTimestamp(b);
           return ta - tb;
         });
         
@@ -805,7 +782,7 @@
         let latestTs = 0;
         let latestMsg = null;
         messages.forEach((msg) => {
-          const ts = msg.timestamp || 0;
+          const ts = this.getMessageTimestamp(msg);
           if (ts > latestTs) {
             latestTs = ts;
             latestMsg = msg;
@@ -836,11 +813,7 @@
           
           const popupHidden = (this.chatPopup && this.chatPopup.classList.contains('hidden'));
           if (isCurrent && !popupHidden) {
-            this.lastSeenTime[channelId] = latestTs;
-            
-            if (typeof this.persistLastSeenTimes === 'function') {
-              this.persistLastSeenTimes();
-            }
+            this.markChannelAsRead(channelId);
           }
         } catch (_e) {
           
@@ -892,7 +865,7 @@
           header.appendChild(nameSpan);
         }
         const timeSpan = document.createElement('span');
-        timeSpan.textContent = this.formatTimestamp(msg.timestamp);
+        timeSpan.textContent = this.formatTimestamp(this.getMessageTimestamp(msg));
         header.appendChild(timeSpan);
         
         const bubble = document.createElement('div');
@@ -928,9 +901,131 @@
     }
 
     
+    getNumericTimestamp(value, fallback = 0) {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+      if (typeof value === 'string') {
+        const parsed = parseInt(value, 10);
+        if (!isNaN(parsed)) {
+          return parsed;
+        }
+      }
+      return fallback;
+    }
+
+    
+    getMessageTimestamp(msg) {
+      if (!msg || typeof msg !== 'object') return 0;
+      const serverTimestamp = this.getNumericTimestamp(msg.timestamp, NaN);
+      if (!isNaN(serverTimestamp)) {
+        return serverTimestamp;
+      }
+      return this.getNumericTimestamp(msg.clientTimestamp, 0);
+    }
+
+    
+    getCurrentChannelId() {
+      if (this.currentChannel === 'public') {
+        return 'public';
+      }
+      if (this.currentChannel === 'private' && this.privateChatId) {
+        return this.privateChatId;
+      }
+      return null;
+    }
+
+    
+    getChannelPeerUid(channelId) {
+      if (!channelId || channelId === 'public') return null;
+      const ids = String(channelId).split('_');
+      if (ids.length < 2) return null;
+      return ids.find((id) => String(id) !== String(this.currentUserUid)) || null;
+    }
+
+    
+    buildSummaryPayload(channelId, messageData) {
+      const clientTimestamp = this.getNumericTimestamp(messageData && messageData.clientTimestamp, Date.now());
+      return {
+        channelId: channelId,
+        senderId: messageData && messageData.senderId ? messageData.senderId : null,
+        senderName: messageData && messageData.senderName ? messageData.senderName : '',
+        text: messageData && messageData.text ? messageData.text : '',
+        timestamp: (window.firebase && typeof window.firebase.serverTimestamp === 'function')
+          ? window.firebase.serverTimestamp()
+          : clientTimestamp,
+        clientTimestamp: clientTimestamp,
+        channelType: channelId === 'public' ? 'public' : 'private'
+      };
+    }
+
+    
+    appendSummaryUpdates(updates, channelId, messageData) {
+      if (!updates || !channelId || !messageData) return;
+      const summaryPayload = this.buildSummaryPayload(channelId, messageData);
+      if (channelId === 'public') {
+        updates['chat/summaries/public'] = summaryPayload;
+        return;
+      }
+
+      const peerUid = this.getChannelPeerUid(channelId);
+      if (!peerUid) return;
+      updates[`chat/userSummaries/${this.currentUserUid}/${channelId}`] = {
+        ...summaryPayload,
+        peerUid: peerUid
+      };
+      updates[`chat/userSummaries/${peerUid}/${channelId}`] = {
+        ...summaryPayload,
+        peerUid: this.currentUserUid
+      };
+    }
+
+    
+    applySummaryToChannel(channelId, summary) {
+      if (!channelId || !summary || typeof summary !== 'object') return;
+      const latestTs = this.getMessageTimestamp(summary);
+      if (!latestTs) return;
+      this.lastMessageTime[channelId] = latestTs;
+      this.lastMessageInfo[channelId] = {
+        senderId: summary.senderId || null,
+        senderName: summary.senderName || '',
+        text: summary.text || '',
+        timestamp: latestTs
+      };
+    }
+
+    
+    markChannelAsRead(channelId) {
+      if (!channelId) return;
+      const latestTs = this.lastMessageTime[channelId] || 0;
+      if (!latestTs) {
+        if (typeof this.updateNewMessageIndicators === 'function') {
+          this.updateNewMessageIndicators();
+        }
+        return;
+      }
+      if ((this.lastSeenTime[channelId] || 0) < latestTs) {
+        this.lastSeenTime[channelId] = latestTs;
+        if (typeof this.persistLastSeenTimes === 'function') {
+          this.persistLastSeenTimes();
+        }
+      }
+      if (typeof this.updateNewMessageIndicators === 'function') {
+        this.updateNewMessageIndicators();
+      }
+    }
+
+    
+    markCurrentChannelAsRead() {
+      const channelId = this.getCurrentChannelId();
+      this.markChannelAsRead(channelId);
+    }
+
+    
     formatTimestamp(ts) {
       try {
-        const date = new Date(parseInt(ts, 10));
+        const normalized = this.getNumericTimestamp(ts, NaN);
+        const date = new Date(normalized);
         if (isNaN(date.getTime())) return '';
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -947,13 +1042,16 @@
     sendMessage() {
       const text = (this.messageInput && this.messageInput.value) ? this.messageInput.value.trim() : '';
       if (!text) return;
-      const timestamp = Date.now();
+      const clientTimestamp = Date.now();
       const messageData = {
         senderId: this.currentUserUid,
         
         senderName: (this.currentUser && (this.currentUser.name || this.currentUser.username)) || '',
         text: text,
-        timestamp: timestamp
+        timestamp: (window.firebase && typeof window.firebase.serverTimestamp === 'function')
+          ? window.firebase.serverTimestamp()
+          : clientTimestamp,
+        clientTimestamp: clientTimestamp
       };
       let path;
       if (this.currentChannel === 'public') {
@@ -964,28 +1062,40 @@
         return;
       }
       
-      const msgRef = window.firebase.ref(window.firebase.rtdb, `${path}/${timestamp}`);
-      window.firebase.set(msgRef, messageData).then(() => {
+      const channelId = (this.currentChannel === 'public') ? 'public' : this.privateChatId;
+      const baseRef = window.firebase.ref(window.firebase.rtdb, path);
+      const generatedRef = (window.firebase && typeof window.firebase.push === 'function')
+        ? window.firebase.push(baseRef)
+        : null;
+      const messageKey = generatedRef && generatedRef.key ? generatedRef.key : String(clientTimestamp);
+      const rootRef = window.firebase.ref(window.firebase.rtdb);
+      const updates = {
+        [`${path}/${messageKey}`]: messageData
+      };
+      this.appendSummaryUpdates(updates, channelId, messageData);
+      window.firebase.update(rootRef, updates).then(() => {
         
         this.messageInput.value = '';
         this.charCount.textContent = '0/500';
         this.sendButton.disabled = true;
         
         this.messageInput.style.height = 'auto';
-
-        
-        
-        
-        const channelId = (this.currentChannel === 'public') ? 'public' : this.privateChatId;
         if (channelId) {
-          this.lastSeenTime[channelId] = timestamp;
-          if (typeof this.updateNewMessageIndicators === 'function') {
-            this.updateNewMessageIndicators();
+          this.lastSeenTime[channelId] = clientTimestamp;
+          if ((this.lastMessageTime[channelId] || 0) < clientTimestamp) {
+            this.lastMessageTime[channelId] = clientTimestamp;
           }
-
-          
+          this.lastMessageInfo[channelId] = {
+            senderId: messageData.senderId || null,
+            senderName: messageData.senderName || '',
+            text: messageData.text || '',
+            timestamp: clientTimestamp
+          };
           if (typeof this.persistLastSeenTimes === 'function') {
             this.persistLastSeenTimes();
+          }
+          if (typeof this.updateNewMessageIndicators === 'function') {
+            this.updateNewMessageIndicators();
           }
         }
       }).catch((err) => {
@@ -1011,92 +1121,107 @@
       this.channelListeners = {};
       
       try {
-        const publicRef = window.firebase.ref(window.firebase.rtdb, 'chat/messages/public');
-        
-        const publicQuery = window.firebase.query(publicRef, window.firebase.orderByChild('timestamp'), window.firebase.limitToLast(1));
+        const publicSummaryRef = window.firebase.ref(window.firebase.rtdb, 'chat/summaries/public');
         const publicCallback = (snapshot) => {
-          
-          let latest = 0;
-          let latestMsg = null;
-          snapshot.forEach((child) => {
-            const msg = child.val() || {};
-            const ts = msg.timestamp || 0;
-            if (ts > latest) {
-              latest = ts;
-              latestMsg = msg;
-            }
-          });
-          
-          this.lastMessageTime['public'] = latest;
-          
-          if (latestMsg) {
-            this.lastMessageInfo['public'] = {
-              senderId: latestMsg.senderId || null,
-              senderName: latestMsg.senderName || '',
-              text: latestMsg.text || '',
-              timestamp: latest
-            };
+          const summary = snapshot.val();
+          if (summary) {
+            this.applySummaryToChannel('public', summary);
           }
           if (typeof this.updateUserListOrder === 'function') {
             this.updateUserListOrder();
           }
         };
-        window.firebase.onValue(publicQuery, publicCallback);
-        this.channelListeners['public'] = { ref: publicQuery, callback: publicCallback };
+        window.firebase.onValue(publicSummaryRef, publicCallback);
+        this.channelListeners['public'] = { ref: publicSummaryRef, callback: publicCallback };
       } catch (err) {
-        console.error('ChatModule: Failed to attach last message listener for public', err);
+        console.error('ChatModule: Failed to attach public summary listener', err);
       }
       
       try {
-        const list = Array.isArray(this.usersList) ? this.usersList : [];
-        list.forEach((u) => {
-          if (!u) return;
-          const uid = u.uid || u.id;
-          if (!uid) return;
-          
-          if (String(uid) === String(this.currentUserUid) || String(uid) === String(this.currentUser && this.currentUser.id)) return;
-          const chatId = [String(this.currentUserUid), String(uid)].sort().join('_');
-          const path = `chat/private/${chatId}`;
-          const baseRef = window.firebase.ref(window.firebase.rtdb, path);
-          
-          const q = window.firebase.query(baseRef, window.firebase.orderByChild('timestamp'), window.firebase.limitToLast(1));
-          const cb = (snapshot) => {
-            let latest = 0;
-            let latestMsg = null;
-            snapshot.forEach((child) => {
-              const msg = child.val() || {};
-              const ts = msg.timestamp || 0;
-              if (ts > latest) {
-                latest = ts;
-                latestMsg = msg;
-              }
-            });
-            
-            this.lastMessageTime[chatId] = latest;
-            
-            if (latestMsg) {
-              this.lastMessageInfo[chatId] = {
-                senderId: latestMsg.senderId || null,
-                senderName: latestMsg.senderName || '',
-                text: latestMsg.text || '',
-                timestamp: latest
-              };
-            }
-            if (typeof this.updateUserListOrder === 'function') {
-              this.updateUserListOrder();
-            }
-          };
-          window.firebase.onValue(q, cb);
-          this.channelListeners[chatId] = { ref: q, callback: cb };
-        });
+        const summaryRef = window.firebase.ref(window.firebase.rtdb, `chat/userSummaries/${this.currentUserUid}`);
+        const summaryCallback = (snapshot) => {
+          const summaryMap = snapshot.val() || {};
+          Object.keys(summaryMap).forEach((channelId) => {
+            this.applySummaryToChannel(channelId, summaryMap[channelId]);
+          });
+          this.bootstrapMissingConversationSummaries(summaryMap);
+          if (typeof this.updateUserListOrder === 'function') {
+            this.updateUserListOrder();
+          }
+        };
+        window.firebase.onValue(summaryRef, summaryCallback);
+        this.channelListeners['userSummaries'] = { ref: summaryRef, callback: summaryCallback };
       } catch (err) {
-        console.error('ChatModule: Failed to attach last message listeners for private chats', err);
+        console.error('ChatModule: Failed to attach user summary listener', err);
       }
 
       
       
       if (typeof this.updateNewMessageIndicators === 'function') {
         this.updateNewMessageIndicators();
+      }
+    }
+
+    
+    bootstrapMissingConversationSummaries(summaryMap = {}) {
+      try {
+        const get = window.firebase && window.firebase.get;
+        const ref = window.firebase && window.firebase.ref;
+        const query = window.firebase && window.firebase.query;
+        const orderByChild = window.firebase && window.firebase.orderByChild;
+        const limitToLast = window.firebase && window.firebase.limitToLast;
+        const rtdb = window.firebase && window.firebase.rtdb;
+        if (!get || !ref || !query || !orderByChild || !limitToLast || !rtdb) {
+          return;
+        }
+
+        const tasks = [];
+        if (!summaryMap.public && !this.lastMessageInfo['public']) {
+          const publicRef = ref(rtdb, 'chat/messages/public');
+          const publicQuery = query(publicRef, orderByChild('timestamp'), limitToLast(1));
+          tasks.push(
+            get(publicQuery).then((snapshot) => {
+              snapshot.forEach((child) => {
+                this.applySummaryToChannel('public', child.val() || {});
+              });
+            }).catch((err) => {
+              console.error('ChatModule: Failed to bootstrap public summary', err);
+            })
+          );
+        }
+
+        const list = Array.isArray(this.usersList) ? this.usersList : [];
+        list.forEach((u) => {
+          if (!u) return;
+          const uid = u.uid || u.id;
+          if (!uid) return;
+          if (String(uid) === String(this.currentUserUid) || String(uid) === String(this.currentUser && this.currentUser.id)) return;
+
+          const chatId = [String(this.currentUserUid), String(uid)].sort().join('_');
+          if (summaryMap[chatId] || this.lastMessageInfo[chatId]) return;
+
+          const chatRef = ref(rtdb, `chat/private/${chatId}`);
+          const lastMessageQuery = query(chatRef, orderByChild('timestamp'), limitToLast(1));
+          tasks.push(
+            get(lastMessageQuery).then((snapshot) => {
+              snapshot.forEach((child) => {
+                this.applySummaryToChannel(chatId, child.val() || {});
+              });
+            }).catch((err) => {
+              console.error('ChatModule: Failed to bootstrap private summary', err);
+            })
+          );
+        });
+
+        if (tasks.length > 0) {
+          Promise.allSettled(tasks).then(() => {
+            if (typeof this.updateUserListOrder === 'function') {
+              this.updateUserListOrder();
+            }
+          });
+        }
+      } catch (err) {
+        console.error('ChatModule: Failed to bootstrap conversation summaries', err);
       }
     }
 
@@ -1573,7 +1698,7 @@
      */
     playNotificationSound() {
       try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const AudioContext = window.AudioContext || window['webkitAudioContext'];
         if (!AudioContext) return;
         const ctx = new AudioContext();
         const oscillator = ctx.createOscillator();
