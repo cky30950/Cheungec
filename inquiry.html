@@ -229,7 +229,38 @@
             <p class="text-gray-600 text-sm sm:text-base px-4">請詳細填寫以下預診資料，幫助醫師更好地了解您的狀況</p>
         </div>
 
-        
+        <div id="visitTypeGate" class="section-card bg-white rounded-2xl shadow-xl p-4 sm:p-8 form-container">
+            <div class="max-w-2xl mx-auto">
+                <div class="text-center mb-8">
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-3">開始預診前</h2>
+                    <p class="text-gray-600">請先選擇您今次是否為第一次到診，以便系統安排合適的預診流程。</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                    <label class="radio-item flex items-center justify-center cursor-pointer bg-gray-50 hover:bg-blue-50 border-2 border-gray-200 rounded-xl p-5 transition-all">
+                        <input type="radio" name="visitType" value="first" class="sr-only">
+                        <div class="text-center">
+                            <div class="text-lg font-semibold text-gray-800 mb-1">第一次就診</div>
+                            <div class="text-sm text-gray-500">系統會要求填寫完整病史資料</div>
+                        </div>
+                    </label>
+                    <label class="radio-item flex items-center justify-center cursor-pointer bg-gray-50 hover:bg-blue-50 border-2 border-gray-200 rounded-xl p-5 transition-all">
+                        <input type="radio" name="visitType" value="followup" class="sr-only">
+                        <div class="text-center">
+                            <div class="text-lg font-semibold text-gray-800 mb-1">不是第一次就診</div>
+                            <div class="text-sm text-gray-500">系統會略過後續病史資料頁面</div>
+                        </div>
+                    </label>
+                </div>
+                <div id="visitTypeError" class="hidden text-red-600 text-sm font-medium text-center mb-4">請先選擇是否第一次就診</div>
+                <div class="flex justify-center">
+                    <button type="button" id="startInquiryBtn" class="btn-primary px-8 py-4 text-white rounded-xl font-semibold text-lg">
+                        開始填寫預診
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="inquiryFlow" class="hidden">
         <div class="progress-container mb-6 sm:mb-8">
             <div class="flex items-center justify-between mb-3">
                 <span class="text-sm font-medium text-gray-600">預診進度</span>
@@ -247,7 +278,7 @@
 
         
         
-        <div class="section-card bg-white rounded-2xl shadow-xl p-4 sm:p-8 form-container">
+        <div id="diagnosisFormCard" class="section-card bg-white rounded-2xl shadow-xl p-4 sm:p-8 form-container">
             <form id="diagnosisForm">
                 
                 
@@ -1007,55 +1038,11 @@
                     <div class="form-section">
                         <h2 class="section-title text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
                             <span class="bg-red-100 text-red-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">11</span>
-                            病史
-                            <span class="text-green-600 text-lg ml-2">（選填）</span>
+                            病史資料
+                            <span id="section11Tag" class="text-red-600 text-lg ml-2">（首次就診必填）</span>
                         </h2>
-                        
-                        
-                        <h3 class="text-xl font-bold text-green-600 mb-4 flex items-center">
-                            <span class="text-green-500 mr-2">○</span>選填
-                        </h3>
-                        
-                        <div class="space-y-6">
-                            
-                            <div>
-                                <label class="block text-lg font-medium text-gray-700 mb-3">常見疾病</label>
-                                <div class="grid md:grid-cols-2 gap-4 mb-6">
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="medicalHistory" value="高膽固醇" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>高膽固醇</span>
-                                    </label>
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="medicalHistory" value="高血壓" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>高血壓</span>
-                                    </label>
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="medicalHistory" value="慢性胃炎" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>慢性胃炎</span>
-                                    </label>
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="medicalHistory" value="糖尿病" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>糖尿病</span>
-                                    </label>
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="medicalHistory" value="心臟病" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>心臟病</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            
-                            <div>
-                                <label class="block text-lg font-medium text-gray-700 mb-3">過去的健康狀況</label>
-                                <p class="text-sm text-gray-600 mb-3">請詳細描述您曾經患過的疾病、手術、重大外傷等</p>
-                                <textarea name="detailedMedicalHistory" rows="4" class="input-enhanced w-full p-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg resize-none" placeholder="例如：
-• 2020年膽囊切除手術
-• 小時候曾患肺炎
-• 車禍導致左腿骨折（已康復）
-• 曾有心律不整問題
-• 其他相關病史..."></textarea>
-                            </div>
-                        </div>
+                        <p class="text-sm text-gray-600 mb-6">請按現時診症系統的病史資料格式填寫。若無相關情況，請在備註欄填寫「無」。</p>
+                        <div id="medicalProfileSection11" class="space-y-6"></div>
                     </div>
                 </div>
 
@@ -1065,72 +1052,10 @@
                         <h2 class="section-title text-2xl sm:text-3xl font-bold text-gray-800 mb-6 flex items-center">
                             <span class="bg-teal-100 text-teal-600 rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold mr-3">12</span>
                             用藥及過敏史
-                            <span class="text-green-600 text-lg ml-2">（選填）</span>
+                            <span id="section12Tag" class="text-red-600 text-lg ml-2">（首次就診必填）</span>
                         </h2>
-                        
-                        
-                        <h3 class="text-xl font-bold text-green-600 mb-4 flex items-center">
-                            <span class="text-green-500 mr-2">○</span>選填
-                        </h3>
-                        
-                        <div class="space-y-6">
-                            <div>
-                                <label class="block text-lg font-medium text-gray-700 mb-3">正在服用的西藥</label>
-                                <div class="grid md:grid-cols-2 gap-4 mb-6">
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="currentMeds" value="胃藥" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>胃藥</span>
-                                    </label>
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="currentMeds" value="血壓藥" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>血壓藥</span>
-                                    </label>
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="currentMeds" value="血糖藥" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>血糖藥</span>
-                                    </label>
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="currentMeds" value="降膽固醇藥" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>降膽固醇藥</span>
-                                    </label>
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="currentMeds" value="止痛藥" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>止痛藥</span>
-                                    </label>
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="currentMeds" value="安眠藥" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>安眠藥</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label class="block text-lg font-medium text-gray-700 mb-3">過敏史</label>
-                                <div class="grid md:grid-cols-2 gap-4 mb-6">
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="allergies" value="中藥過敏" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>中藥過敏</span>
-                                    </label>
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="allergies" value="G6PD" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>G6PD</span>
-                                    </label>
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="allergies" value="食物過敏" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>食物過敏</span>
-                                    </label>
-                                    <label class="flex items-center cursor-pointer p-3 rounded-lg hover:bg-blue-50">
-                                        <input type="checkbox" name="allergies" value="藥物過敏" class="mr-3 w-5 h-5 text-blue-600">
-                                        <span>藥物過敏</span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label class="block text-lg font-medium text-gray-700 mb-3">其他過敏或特殊情況</label>
-                                <textarea name="otherAllergies" rows="3" class="input-enhanced w-full p-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg resize-none" placeholder="請詳細描述其他過敏情況或特殊狀況..."></textarea>
-                            </div>
-                        </div>
+                        <p class="text-sm text-gray-600 mb-6">請按現時診症系統的用藥史與過敏史格式填寫。若無相關情況，請在備註欄填寫「無」。</p>
+                        <div id="medicalProfileSection12" class="space-y-6"></div>
                     </div>
                 </div>
 
@@ -1147,6 +1072,7 @@
                     </button>
                 </div>
             </form>
+        </div>
         </div>
 
         
@@ -1175,14 +1101,313 @@
 
     <script>
         let currentSection = 1;
-        const totalSections = 12;
+        let totalSections = 12;
+        let visibleSections = Array.from({ length: 12 }, (_, index) => index + 1);
+        let isFirstVisit = null;
+        const PATIENT_MEDICAL_PROFILE_SECTIONS = [
+            {
+                key: 'medicalConditions',
+                title: '疾病史',
+                noteField: 'medicalConditionsNote',
+                options: [
+                    { key: 'hypertension', label: '高血壓' },
+                    { key: 'diabetes', label: '糖尿病' },
+                    { key: 'hyperlipidemia', label: '高脂血症' },
+                    { key: 'asthma', label: '哮喘' },
+                    { key: 'chronicKidneyDisease', label: '慢性腎病' },
+                    { key: 'hepatitis', label: '肝炎' },
+                    { key: 'tuberculosis', label: '肺結核' },
+                    { key: 'cancer', label: '癌症' },
+                    { key: 'stroke', label: '中風' },
+                    { key: 'myocardialInfarction', label: '心肌梗塞' }
+                ]
+            },
+            {
+                key: 'surgicalHistory',
+                title: '手術與外傷史',
+                noteField: 'surgicalHistoryNote',
+                options: [
+                    { key: 'pacemakerImplantation', label: '心律調節器植入手術' },
+                    { key: 'cardiacStentProcedure', label: '心臟金屬支架手術' },
+                    { key: 'polypectomy', label: '息肉切除術' },
+                    { key: 'jointReplacement', label: '人工關節手術' },
+                    { key: 'endoscopicHemostasis', label: '內視鏡止血術' },
+                    { key: 'dialysisFistulaAngioplasty', label: '洗腎瘻管成形術' },
+                    { key: 'endovascularThrombectomy', label: '血管內取栓術' },
+                    { key: 'vascularEmbolization', label: '血管栓塞術' },
+                    { key: 'fracture', label: '骨折' },
+                    { key: 'headTrauma', label: '頭部創傷' },
+                    { key: 'trafficAccident', label: '車禍' }
+                ]
+            },
+            {
+                key: 'allergies',
+                title: '過敏史',
+                noteField: 'allergiesNote',
+                options: [
+                    { key: 'g6pdDeficiency', label: '蠶豆症（G6PD 缺乏症）' },
+                    { key: 'seafoodAllergy', label: '海鮮過敏' },
+                    { key: 'nutsAllergy', label: '堅果' },
+                    { key: 'eggProteinAllergy', label: '蛋白質' },
+                    { key: 'glutenAllergy', label: '麩質' },
+                    { key: 'soyAllergy', label: '大豆' },
+                    { key: 'mangoAllergy', label: '芒果' }
+                ]
+            },
+            {
+                key: 'medications',
+                title: '用藥史',
+                noteField: 'medicationsNote',
+                options: [
+                    { key: 'antihypertensives', label: '降血壓藥' },
+                    { key: 'lipidLoweringAgents', label: '降血脂藥' },
+                    { key: 'antidiabeticAgents', label: '降血糖藥' },
+                    { key: 'anticoagulants', label: '抗凝血藥物' },
+                    { key: 'asthmaCopdMedications', label: '氣喘/COPD 藥物' },
+                    { key: 'antihistamines', label: '抗組織胺藥物' },
+                    { key: 'antidepressantsAnxiolytics', label: '抗抑鬱/焦慮藥' },
+                    { key: 'sleepingPills', label: '安眠藥' },
+                    { key: 'antiepileptics', label: '抗癲癇藥' },
+                    { key: 'parkinsonMedications', label: '帕金森氏症藥物' },
+                    { key: 'thyroidMedications', label: '甲狀腺藥物' },
+                    { key: 'osteoporosisMedications', label: '骨質疏鬆藥' },
+                    { key: 'goutPreventiveMedications', label: '痛風預防藥' },
+                    { key: 'gastricMedications', label: '胃藥' },
+                    { key: 'hormonalMedications', label: '荷爾蒙類藥物' },
+                    { key: 'immunosuppressants', label: '免疫抑制劑藥物' },
+                    { key: 'vitamins', label: '維他命' },
+                    { key: 'healthSupplements', label: '健康食品' },
+                    { key: 'chinesePatentMedicines', label: '中成藥' }
+                ]
+            }
+        ];
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            showSection(1);
+            setupVisitTypeGate();
+            renderMedicalProfileSections();
             setupColorSelectors();
             setupBodyPartSelector();
             setupInteractiveElements();
+            updateVisibleSections();
         });
+
+        function setupVisitTypeGate() {
+            const startBtn = document.getElementById('startInquiryBtn');
+            if (!startBtn) return;
+            startBtn.addEventListener('click', function() {
+                const selected = document.querySelector('input[name="visitType"]:checked');
+                const errorEl = document.getElementById('visitTypeError');
+                if (!selected) {
+                    if (errorEl) errorEl.classList.remove('hidden');
+                    return;
+                }
+                if (errorEl) errorEl.classList.add('hidden');
+                startInquiryFlow(selected.value === 'first');
+            });
+        }
+
+        function startInquiryFlow(firstVisit) {
+            isFirstVisit = firstVisit;
+            updateVisibleSections();
+            const gate = document.getElementById('visitTypeGate');
+            const flow = document.getElementById('inquiryFlow');
+            if (gate) gate.style.display = 'none';
+            if (flow) flow.classList.remove('hidden');
+            currentSection = visibleSections[0];
+            showSection(currentSection);
+        }
+
+        function updateVisibleSections() {
+            visibleSections = isFirstVisit === false
+                ? Array.from({ length: 10 }, (_, index) => index + 1)
+                : Array.from({ length: 12 }, (_, index) => index + 1);
+            totalSections = visibleSections.length;
+        }
+
+        function renderMedicalProfileSections() {
+            const section11Container = document.getElementById('medicalProfileSection11');
+            const section12Container = document.getElementById('medicalProfileSection12');
+            if (section11Container) {
+                section11Container.innerHTML = [
+                    renderMedicalProfileBlock('medicalConditions'),
+                    renderMedicalProfileBlock('surgicalHistory')
+                ].join('');
+            }
+            if (section12Container) {
+                section12Container.innerHTML = [
+                    renderMedicalProfileBlock('allergies'),
+                    renderMedicalProfileBlock('medications')
+                ].join('');
+            }
+        }
+
+        function renderMedicalProfileBlock(sectionKey) {
+            const section = PATIENT_MEDICAL_PROFILE_SECTIONS.find(item => item.key === sectionKey);
+            if (!section) return '';
+            const isAllergySection = section.key === 'allergies';
+            const cardClass = isAllergySection
+                ? 'border border-red-200 rounded-xl p-4 bg-red-50'
+                : 'border border-gray-200 rounded-xl p-4 bg-gray-50';
+            const titleClass = isAllergySection ? 'font-medium text-red-700' : 'font-medium text-gray-800';
+            const noteClass = isAllergySection ? 'text-xs text-red-500' : 'text-xs text-gray-500';
+            const optionHtml = section.options.map(option => `
+                <label class="checkbox-item flex items-center cursor-pointer p-4 rounded-xl bg-white hover:bg-blue-50 border-2 border-gray-200 transition-all">
+                    <input type="checkbox" class="sr-only inquiry-medical-profile-checkbox" data-section="${section.key}" value="${option.key}">
+                    <div class="flex items-center w-full">
+                        <span class="text-base font-medium">${option.label}</span>
+                        <span class="ml-auto text-blue-500 opacity-0 transition-opacity">✓</span>
+                    </div>
+                </label>
+            `).join('');
+            return `
+                <div class="${cardClass}">
+                    <div class="flex flex-col gap-1 mb-3">
+                        <span class="${titleClass}">${section.title}</span>
+                        <span class="${noteClass}">${getMedicalProfileDescription(section.key)}</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        ${optionHtml}
+                    </div>
+                    <textarea
+                        name="${section.noteField}"
+                        data-medical-profile-note="${section.key}"
+                        rows="2"
+                        class="input-enhanced mt-3 w-full p-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base resize-none"
+                        placeholder="${getMedicalProfileNotePlaceholder(section.key)}"
+                    ></textarea>
+                </div>
+            `;
+        }
+
+        function getMedicalProfileDescription(sectionKey) {
+            switch (sectionKey) {
+                case 'medicalConditions':
+                    return '請剔選患者既往疾病史；如無相關情況，請在備註填寫「無」';
+                case 'surgicalHistory':
+                    return '請剔選曾接受的手術或重大外傷；如無相關情況，請在備註填寫「無」';
+                case 'allergies':
+                    return '請剔選已知過敏項目；如無已知過敏，請在備註填寫「無」';
+                case 'medications':
+                    return '請剔選現時或長期服用藥物類別；如無長期服藥，請在備註填寫「無」';
+                default:
+                    return '';
+            }
+        }
+
+        function getMedicalProfileNotePlaceholder(sectionKey) {
+            switch (sectionKey) {
+                case 'medicalConditions':
+                    return '其他或備註，例如：確診年份、目前控制情況；如無請填「無」';
+                case 'surgicalHistory':
+                    return '其他或備註，例如：手術年份、受傷部位、後遺症；如無請填「無」';
+                case 'allergies':
+                    return '其他或備註，例如：過敏反應表現、嚴重程度；如無請填「無」';
+                case 'medications':
+                    return '備註：劑量與服用頻率或其他補充；如無請填「無」';
+                default:
+                    return '其他或備註';
+            }
+        }
+
+        function normalizeMedicalProfile(profile) {
+            const normalized = {};
+            PATIENT_MEDICAL_PROFILE_SECTIONS.forEach(section => {
+                const source = profile && typeof profile === 'object' ? profile[section.key] : null;
+                const selected = Array.isArray(source && source.selected)
+                    ? source.selected.map(item => String(item))
+                    : [];
+                const note = source && typeof source.note === 'string' ? source.note.trim() : '';
+                normalized[section.key] = {
+                    selected: selected.filter(key => section.options.some(option => option.key === key)),
+                    note
+                };
+            });
+            return normalized;
+        }
+
+        function collectMedicalProfileFromForm() {
+            const profile = {};
+            PATIENT_MEDICAL_PROFILE_SECTIONS.forEach(section => {
+                const selected = Array.from(
+                    document.querySelectorAll(`.inquiry-medical-profile-checkbox[data-section="${section.key}"]:checked`)
+                ).map(checkbox => checkbox.value);
+                const noteInput = document.querySelector(`[data-medical-profile-note="${section.key}"]`);
+                profile[section.key] = {
+                    selected,
+                    note: noteInput ? noteInput.value.trim() : ''
+                };
+            });
+            return normalizeMedicalProfile(profile);
+        }
+
+        function hasMedicalProfileContent(profile) {
+            return PATIENT_MEDICAL_PROFILE_SECTIONS.some(section => {
+                const current = profile && profile[section.key] ? profile[section.key] : {};
+                return (Array.isArray(current.selected) && current.selected.length > 0) || !!(current.note && String(current.note).trim());
+            });
+        }
+
+        function hasMedicalProfileSectionAnswer(sectionKey) {
+            const selectedCount = document.querySelectorAll(`.inquiry-medical-profile-checkbox[data-section="${sectionKey}"]:checked`).length;
+            const noteInput = document.querySelector(`[data-medical-profile-note="${sectionKey}"]`);
+            const noteValue = noteInput ? noteInput.value.trim() : '';
+            return selectedCount > 0 || !!noteValue;
+        }
+
+        function formatMedicalProfileSectionSummary(section, current) {
+            if (!current) return '';
+            const selectedLabels = section.options
+                .filter(option => Array.isArray(current.selected) && current.selected.includes(option.key))
+                .map(option => option.label);
+            const parts = [];
+            if (selectedLabels.length) {
+                parts.push(selectedLabels.join('、'));
+            }
+            if (current.note) {
+                parts.push(`備註：${current.note}`);
+            }
+            if (!parts.length) {
+                return '';
+            }
+            return `${section.title}：${parts.join('；')}`;
+        }
+
+        function buildMedicalProfileLegacySummary(profile) {
+            const normalized = normalizeMedicalProfile(profile);
+            const allergySection = PATIENT_MEDICAL_PROFILE_SECTIONS.find(section => section.key === 'allergies');
+            const historySections = PATIENT_MEDICAL_PROFILE_SECTIONS.filter(section => section.key !== 'allergies');
+            return {
+                history: historySections
+                    .map(section => formatMedicalProfileSectionSummary(section, normalized[section.key]))
+                    .filter(Boolean)
+                    .join('｜'),
+                allergies: allergySection
+                    ? formatMedicalProfileSectionSummary(allergySection, normalized.allergies)
+                    : ''
+            };
+        }
+
+        function mergeMedicalProfiles(existingProfile, incomingProfile) {
+            const base = normalizeMedicalProfile(existingProfile);
+            const incoming = normalizeMedicalProfile(incomingProfile);
+            const merged = {};
+            PATIENT_MEDICAL_PROFILE_SECTIONS.forEach(section => {
+                const selected = Array.from(new Set([
+                    ...(base[section.key] && Array.isArray(base[section.key].selected) ? base[section.key].selected : []),
+                    ...(incoming[section.key] && Array.isArray(incoming[section.key].selected) ? incoming[section.key].selected : [])
+                ]));
+                const notes = [
+                    base[section.key] ? base[section.key].note : '',
+                    incoming[section.key] ? incoming[section.key].note : ''
+                ].map(note => String(note || '').trim()).filter(Boolean);
+                const uniqueNotes = Array.from(new Set(notes));
+                merged[section.key] = {
+                    selected,
+                    note: uniqueNotes.join('；')
+                };
+            });
+            return normalizeMedicalProfile(merged);
+        }
 
         function setupInteractiveElements() {
             // Setup radio buttons
@@ -1236,14 +1461,16 @@
             });
             
             // Show current section with animation
-            const currentSection = document.getElementById(`section${sectionNum}`);
-            currentSection.classList.remove('hidden');
-            currentSection.classList.add('slide-in');
+            const currentSectionEl = document.getElementById(`section${sectionNum}`);
+            if (!currentSectionEl) return;
+            currentSectionEl.classList.remove('hidden');
+            currentSectionEl.classList.add('slide-in');
             
             // Update progress with animation
-            const progress = (sectionNum / totalSections) * 100;
+            const currentIndex = visibleSections.indexOf(sectionNum) + 1;
+            const progress = (currentIndex / totalSections) * 100;
             document.getElementById('progressBar').style.width = progress + '%';
-            document.getElementById('progressText').textContent = `${sectionNum}/${totalSections}`;
+            document.getElementById('progressText').textContent = `${currentIndex}/${totalSections}`;
 
             // Show or hide guidelines based on current section
             const guidelines = document.getElementById('guidelines');
@@ -1262,9 +1489,9 @@
             const nextBtn = document.getElementById('nextBtn');
             const submitBtn = document.getElementById('submitBtn');
             
-            prevBtn.disabled = sectionNum === 1;
+            prevBtn.disabled = currentIndex === 1;
             
-            if (sectionNum === totalSections) {
+            if (currentIndex === totalSections) {
                 nextBtn.style.display = 'none';
                 submitBtn.style.display = 'flex';
                 submitBtn.classList.remove('hidden');
@@ -1634,16 +1861,18 @@
         // Navigation
         document.getElementById('nextBtn').addEventListener('click', function() {
             if (validateCurrentSection()) {
-                if (currentSection < totalSections) {
-                    currentSection++;
+                const currentIndex = visibleSections.indexOf(currentSection);
+                if (currentIndex >= 0 && currentIndex < visibleSections.length - 1) {
+                    currentSection = visibleSections[currentIndex + 1];
                     showSection(currentSection);
                 }
             }
         });
 
         document.getElementById('prevBtn').addEventListener('click', function() {
-            if (currentSection > 1) {
-                currentSection--;
+            const currentIndex = visibleSections.indexOf(currentSection);
+            if (currentIndex > 0) {
+                currentSection = visibleSections[currentIndex - 1];
                 showSection(currentSection);
             }
         });
@@ -1655,6 +1884,8 @@
             // Collect all form data
             const formData = new FormData(this);
             const results = {};
+            results.visitType = isFirstVisit ? '首次就診' : '覆診';
+            results.isFirstVisit = isFirstVisit === true;
             
             // Get sweat areas from text fields
             const sweatAreas = formData.get('sweatAreas');
@@ -1674,13 +1905,21 @@
             }
             
             // Process checkboxes
-            const checkboxGroups = ['relatedSymptoms', 'sweating', 'appetiteSymptoms', 'drinkingHabits', 'urination', 'stoolSymptoms', 'sleep', 'medicalHistory', 'currentMeds', 'allergies'];
+            const checkboxGroups = ['relatedSymptoms', 'sweating', 'appetiteSymptoms', 'drinkingHabits', 'urination', 'stoolSymptoms', 'sleep'];
             checkboxGroups.forEach(group => {
                 const checked = document.querySelectorAll(`input[name="${group}"]:checked`);
                 if (checked.length > 0) {
                     results[group] = Array.from(checked).map(cb => cb.value);
                 }
             });
+
+            if (isFirstVisit) {
+                const medicalProfile = collectMedicalProfileFromForm();
+                const medicalProfileSummary = buildMedicalProfileLegacySummary(medicalProfile);
+                results.medicalProfile = medicalProfile;
+                results.history = medicalProfileSummary.history;
+                results.allergies = medicalProfileSummary.allergies;
+            }
             
             displayResults(results);
         });
@@ -1694,7 +1933,10 @@
             }
 
             // Hide the form container
-            document.querySelector('.section-card').style.display = 'none';
+            const formCard = document.getElementById('diagnosisFormCard');
+            if (formCard) {
+                formCard.style.display = 'none';
+            }
             
             // Hide progress bar
             document.querySelector('.progress-container').style.display = 'none';
@@ -1811,7 +2053,7 @@
 
         function generateDetailedResults(results) {
             const sections = {
-                '基本資料': ['patientName', 'gender', 'bodyPart', 'detailedLocation', 'additionalSymptoms'],
+                '基本資料': ['patientName', 'gender', 'visitType', 'bodyPart', 'detailedLocation', 'additionalSymptoms'],
                 '相關症狀': ['relatedSymptoms'],
                 '汗出情況': ['sweating', '出汗部位'],
                 '寒熱情況': ['temperature', 'coldHands'],
@@ -1819,10 +2061,9 @@
                 '飲水情況': ['drinkingPreference', 'drinkingHabits'],
                 '小便情況': ['urination', 'nightUrination', 'dailyUrination', 'urineColor'],
                 '大便情況': ['stoolForm', 'stoolSymptoms', 'stoolFrequency', 'stoolOdor', 'stoolColor'],
-                '睡眠情況': ['sleep'],
+                '睡眠情況': ['sleepQuality', 'sleep'],
                 '體力精神': ['energy', 'morningEnergy', 'concentration'],
-                '病史': ['medicalHistory', 'detailedMedicalHistory'],
-                '用藥及過敏': ['currentMeds', 'allergies', 'otherAllergies']
+                '病史資料': ['history', 'allergies']
             };
             
             let html = '';
@@ -1839,7 +2080,9 @@
                         hasContent = true;
                         let value = results[field];
                         // 將陣列值合併為逗號分隔的中文陣列
-                        if (Array.isArray(value)) {
+                        if (typeof value === 'boolean') {
+                            value = value ? '是' : '否';
+                        } else if (Array.isArray(value)) {
                             value = value.join('、');
                         } else {
                             // 對於英文代碼的部位及詳細位置轉換為中文顯示
@@ -1865,6 +2108,25 @@
                 sectionHtml += '</div>';
                 html += sectionHtml;
             });
+
+            if (results.medicalProfile && hasMedicalProfileContent(results.medicalProfile)) {
+                const normalized = normalizeMedicalProfile(results.medicalProfile);
+                let medicalHtml = '<div class="border border-gray-200 rounded-lg p-4">';
+                medicalHtml += `<h4 class="font-semibold text-gray-800 mb-3 flex items-center">
+                    <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                    詳細病史資料
+                </h4>`;
+                PATIENT_MEDICAL_PROFILE_SECTIONS.forEach(section => {
+                    const summary = formatMedicalProfileSectionSummary(section, normalized[section.key]);
+                    if (summary) {
+                        medicalHtml += `<div class="mb-2 pl-4 border-l-2 border-gray-100">
+                            <span class="text-sm text-gray-600">${summary}</span>
+                        </div>`;
+                    }
+                });
+                medicalHtml += '</div>';
+                html += medicalHtml;
+            }
             
             return html;
         }
@@ -1885,19 +2147,63 @@
                 // 設置創建和過期時間
                 const timestamp = new Date();
                 const expireAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                const inquiryPayload = {
+                    patientName: results.patientName || '',
+                    firstVisit: results.isFirstVisit === true,
+                    medicalProfile: results.medicalProfile || null,
+                    history: results.history || '',
+                    allergies: results.allergies || '',
+                    data: results,
+                    createdAt: timestamp,
+                    expireAt: expireAt
+                };
                 // 新增至 inquiries 集合
                 await window.firebase.addDoc(
                     window.firebase.collection(window.firebase.db, 'inquiries'),
-                    {
-                        patientName: results.patientName || '',
-                        data: results,
-                        createdAt: timestamp,
-                        expireAt: expireAt
-                    }
+                    inquiryPayload
                 );
+                await syncMedicalProfileToPatient(results);
                 console.log('預診資料已成功儲存');
             } catch (err) {
                 console.error('上傳預診資料發生錯誤:', err);
+            }
+        }
+
+        async function syncMedicalProfileToPatient(results) {
+            try {
+                if (!results || results.isFirstVisit !== true || !results.medicalProfile || !hasMedicalProfileContent(results.medicalProfile)) {
+                    return;
+                }
+                const patientName = String(results.patientName || '').trim();
+                if (!patientName) return;
+                const patientQuery = window.firebase.firestoreQuery(
+                    window.firebase.collection(window.firebase.db, 'patients'),
+                    window.firebase.where('name', '==', patientName)
+                );
+                const snapshot = await window.firebase.getDocs(patientQuery);
+                const matches = [];
+                snapshot.forEach(docSnap => {
+                    matches.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                if (matches.length !== 1) {
+                    console.warn('無法唯一匹配病人資料，暫不自動寫回病史資料', matches.length);
+                    return;
+                }
+                const patient = matches[0];
+                const mergedProfile = mergeMedicalProfiles(patient.medicalProfile, results.medicalProfile);
+                const summary = buildMedicalProfileLegacySummary(mergedProfile);
+                await window.firebase.updateDoc(
+                    window.firebase.doc(window.firebase.db, 'patients', patient.id),
+                    {
+                        medicalProfile: mergedProfile,
+                        history: summary.history,
+                        allergies: summary.allergies,
+                        updatedAt: new Date(),
+                        updatedBy: 'inquiry-system'
+                    }
+                );
+            } catch (error) {
+                console.error('同步預診病史資料到病人檔案失敗:', error);
             }
         }
 
@@ -1905,6 +2211,7 @@
             const labels = {
                 'patientName': '姓名',
                 'gender': '性別',
+                'visitType': '就診類型',
                 'bodyPart': '身體部位',
                 'detailedLocation': '詳細位置',
                 'additionalSymptoms': '補充症狀',
@@ -1927,15 +2234,14 @@
                 'stoolFrequency': '大便情況',
                 'stoolOdor': '大便氣味',
                 'stoolColor': '大便顏色',
+                'sleepQuality': '睡眠品質',
                 'sleep': '睡眠',
                 'energy': '精神狀態',
                 'morningEnergy': '晨起精神',
                 'concentration': '注意力',
-                'medicalHistory': '病史',
-                'detailedMedicalHistory': '詳細病史',
-                'currentMeds': '目前用藥',
+                'history': '病史摘要',
                 'allergies': '過敏史',
-                'otherAllergies': '其他過敏'
+                'medicalProfile': '病史資料'
             };
             return labels[field] || field;
         }
@@ -2076,10 +2382,28 @@
                     }
                     break;
 
-                case 11: // Medical History - Optional, can skip
+                case 11:
+                    if (isFirstVisit) {
+                        const historyContainer = section.querySelector('#medicalProfileSection11');
+                        const medicalConditionsAnswered = hasMedicalProfileSectionAnswer('medicalConditions');
+                        const surgicalHistoryAnswered = hasMedicalProfileSectionAnswer('surgicalHistory');
+                        if (!medicalConditionsAnswered || !surgicalHistoryAnswered) {
+                            showError(historyContainer, '首次就診請完成本頁病史資料；如無相關情況，請在備註填寫「無」');
+                            isValid = false;
+                        }
+                    }
                     break;
 
-                case 12: // Current Medications & Allergies - Optional, can skip
+                case 12:
+                    if (isFirstVisit) {
+                        const medicationContainer = section.querySelector('#medicalProfileSection12');
+                        const allergiesAnswered = hasMedicalProfileSectionAnswer('allergies');
+                        const medicationsAnswered = hasMedicalProfileSectionAnswer('medications');
+                        if (!allergiesAnswered || !medicationsAnswered) {
+                            showError(medicationContainer, '首次就診請完成本頁用藥及過敏史；如無相關情況，請在備註填寫「無」');
+                            isValid = false;
+                        }
+                    }
                     break;
             }
 
@@ -2122,12 +2446,25 @@
             }
             
             // Show form container and progress bar
-            document.querySelector('.section-card').style.display = 'block';
-            document.querySelector('.progress-container').style.display = 'block';
+            const formCard = document.getElementById('diagnosisFormCard');
+            if (formCard) {
+                formCard.style.display = 'block';
+            }
+            const progressContainer = document.querySelector('.progress-container');
+            if (progressContainer) {
+                progressContainer.style.display = 'block';
+            }
+            const gate = document.getElementById('visitTypeGate');
+            const flow = document.getElementById('inquiryFlow');
+            if (gate) gate.style.display = 'block';
+            if (flow) flow.classList.add('hidden');
+            const errorEl = document.getElementById('visitTypeError');
+            if (errorEl) errorEl.classList.add('hidden');
             
             // Reset to first section
             currentSection = 1;
-            showSection(1);
+            isFirstVisit = null;
+            updateVisibleSections();
             
             // Clear color selections
             document.querySelectorAll('.color-option.selected').forEach(option => {
@@ -2143,6 +2480,11 @@
             // Clear symptom options
             document.getElementById('symptomOptions').innerHTML = '';
             document.getElementById('symptomDescription').innerHTML = '<p class="text-blue-800 font-medium">請先在第一步選擇身體部位，然後這裡會顯示相關症狀選項</p>';
+            document.querySelectorAll('.radio-item').forEach(item => {
+                item.classList.remove('checked');
+                item.style.borderColor = '#e5e7eb';
+                item.style.backgroundColor = '#f9fafb';
+            });
             
             // Scroll to top
             window.scrollTo({ top: 0, behavior: 'smooth' });
