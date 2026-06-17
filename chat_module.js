@@ -104,6 +104,7 @@
       
       
       this.previewTimer = null;
+      this.previewDurationMs = 8000;
       this.previewVisibleUntil = 0;
       this.activePreviewTimestamp = 0;
 
@@ -1407,6 +1408,7 @@
       if (!this.chatPreview) return;
       
       const popupHidden = (this.chatPopup && this.chatPopup.classList.contains('hidden'));
+      const now = Date.now();
       if (!popupHidden) {
         
         if (this.previewTimer) {
@@ -1451,6 +1453,12 @@
         });
       } catch (_err) {
         
+      }
+
+      if (this.previewTimer && now < (this.previewVisibleUntil || 0)) {
+        if (!(latestTs > (this.activePreviewTimestamp || 0))) {
+          return;
+        }
       }
       
       
@@ -1503,8 +1511,8 @@
           clearTimeout(this.previewTimer);
         }
         this.activePreviewTimestamp = latestInfo.timestamp || 0;
-        this.previewVisibleUntil = Date.now() + 6000;
-        // Start timer to auto-hide preview after at least 6 seconds
+        this.previewVisibleUntil = now + (this.previewDurationMs || 8000);
+        // Start timer to auto-hide preview after the configured minimum duration
         this.previewTimer = setTimeout(() => {
           // Initiate fade-out
           this.chatPreview.classList.remove('fade-in');
@@ -1517,7 +1525,7 @@
             this.previewVisibleUntil = 0;
             this.activePreviewTimestamp = 0;
           }, 300);
-        }, 6000);
+        }, this.previewDurationMs || 8000);
         // Update the lastPreviewedTimestamp so this message will not
         // trigger another preview. Persist to localStorage.
         this.lastPreviewedTimestamp = latestInfo.timestamp || 0;
@@ -1525,7 +1533,7 @@
           this.persistLastPreviewedTimestamp();
         }
       } else {
-        if (this.previewTimer && Date.now() < (this.previewVisibleUntil || 0)) {
+        if (this.previewTimer && now < (this.previewVisibleUntil || 0)) {
           return;
         }
         // No unread messages or none that qualify; hide preview and clear timer
