@@ -104,6 +104,8 @@
       
       
       this.previewTimer = null;
+      this.previewVisibleUntil = 0;
+      this.activePreviewTimestamp = 0;
 
       
       
@@ -1411,6 +1413,8 @@
           clearTimeout(this.previewTimer);
           this.previewTimer = null;
         }
+        this.previewVisibleUntil = 0;
+        this.activePreviewTimestamp = 0;
         
         if (!this.chatPreview.classList.contains('hidden')) {
           this.chatPreview.classList.remove('fade-in');
@@ -1454,7 +1458,11 @@
       
       if (latestInfo) {
         const latestTsValue = latestInfo.timestamp || 0;
-        if (!(latestTsValue > (this.lastPreviewedTimestamp || 0))) {
+        const previewStillVisible = !!this.previewTimer
+          && !this.chatPreview.classList.contains('hidden')
+          && Date.now() < (this.previewVisibleUntil || 0)
+          && latestTsValue === (this.activePreviewTimestamp || 0);
+        if (!(latestTsValue > (this.lastPreviewedTimestamp || 0)) && !previewStillVisible) {
           
           latestInfo = null;
         }
@@ -1494,7 +1502,9 @@
         if (this.previewTimer) {
           clearTimeout(this.previewTimer);
         }
-        // Start timer to auto-hide preview after 6 seconds
+        this.activePreviewTimestamp = latestInfo.timestamp || 0;
+        this.previewVisibleUntil = Date.now() + 6000;
+        // Start timer to auto-hide preview after at least 6 seconds
         this.previewTimer = setTimeout(() => {
           // Initiate fade-out
           this.chatPreview.classList.remove('fade-in');
@@ -1503,6 +1513,9 @@
           setTimeout(() => {
             this.chatPreview.classList.add('hidden');
             this.chatPreview.classList.remove('fade-out');
+            this.previewTimer = null;
+            this.previewVisibleUntil = 0;
+            this.activePreviewTimestamp = 0;
           }, 300);
         }, 6000);
         // Update the lastPreviewedTimestamp so this message will not
@@ -1512,11 +1525,16 @@
           this.persistLastPreviewedTimestamp();
         }
       } else {
+        if (this.previewTimer && Date.now() < (this.previewVisibleUntil || 0)) {
+          return;
+        }
         // No unread messages or none that qualify; hide preview and clear timer
         if (this.previewTimer) {
           clearTimeout(this.previewTimer);
           this.previewTimer = null;
         }
+        this.previewVisibleUntil = 0;
+        this.activePreviewTimestamp = 0;
         // If preview is visible, fade it out then hide
         if (!this.chatPreview.classList.contains('hidden')) {
           this.chatPreview.classList.remove('fade-in');
