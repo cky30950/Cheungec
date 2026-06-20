@@ -7983,70 +7983,51 @@ function generateSymptomSummaryFromInquiry(data) {
 
 function generateHistorySummaryFromInquiry(data) {
     if (!data) return '';
-    const labels = {
-        visitType: '就診類型',
-        sweating: '汗出情況',
-        '出汗部位': '出汗部位',
-        temperature: '寒熱',
-        coldHands: '手腳冰冷',
-        appetite: '食慾',
-        appetiteSymptoms: '胃口症狀',
-        foodPreference: '食物偏好',
-        drinkingPreference: '飲水偏好',
-        drinkingHabits: '飲水習慣',
-        urination: '小便症狀',
-        nightUrination: '夜尿次數',
-        dailyUrination: '日間小便次數',
-        urineColor: '小便顏色',
-        stoolForm: '大便形狀',
-        stoolSymptoms: '大便症狀',
-        stoolFrequency: '大便頻率',
-        stoolOdor: '大便氣味',
-        stoolColor: '大便顏色',
-        sleepQuality: '睡眠品質',
-        sleep: '睡眠',
-        energy: '精神狀態',
-        morningEnergy: '晨起精神',
-        concentration: '注意力',
-        medicalHistory: '病史',
-        detailedMedicalHistory: '詳細病史',
-        currentMeds: '目前用藥',
-        allergies: '過敏史',
-        otherAllergies: '其他過敏'
-    };
-    const lines = [];
-    Object.keys(labels).forEach(key => {
-        if (data.medicalProfile && key === 'allergies') return;
-        const label = labels[key];
+    function getValue(key) {
         const value = data[key];
-        if (value === undefined || value === null) return;
-        
+        if (value === undefined || value === null) return '';
         if (Array.isArray(value)) {
-            if (value.length === 0) return;
-            const joined = value.join('、');
-            if (joined.trim()) {
-                lines.push(label + '：' + joined.trim());
-            }
-        } else {
-            const valStr = String(value).trim();
-            if (!valStr || valStr === '無') return;
-            lines.push(label + '：' + valStr);
+            const normalized = value.map(item => String(item).trim()).filter(Boolean);
+            return normalized.length ? normalized.join('、') : '';
         }
-    });
-    if (data.medicalProfile) {
-        try {
-            const medicalProfileSummary = buildPatientMedicalProfileLegacySummary(data.medicalProfile);
-            if (medicalProfileSummary.history) {
-                lines.push('病史資料：' + medicalProfileSummary.history);
-            }
-            if (medicalProfileSummary.allergies) {
-                lines.push('過敏史：' + medicalProfileSummary.allergies);
-            }
-        } catch (error) {
-            console.warn('整理問診病史摘要失敗:', error);
-        }
+        const normalized = String(value).trim();
+        return (!normalized || normalized === '無') ? '' : normalized;
     }
-    return lines.join('\n');
+
+    const parts = [];
+    const pushPart = (text) => {
+        const normalized = String(text || '').trim();
+        if (normalized) {
+            parts.push(normalized);
+        }
+    };
+
+    pushPart(getValue('sweating') ? `汗出${getValue('sweating')}` : '');
+    pushPart(getValue('出汗部位') ? `汗位${getValue('出汗部位')}` : '');
+    pushPart(getValue('temperature') ? `寒熱${getValue('temperature')}` : '');
+    pushPart(getValue('coldHands') ? `四肢${getValue('coldHands')}` : '');
+    pushPart(getValue('appetite') ? `納${getValue('appetite')}` : '');
+    pushPart(getValue('appetiteSymptoms'));
+    pushPart(getValue('foodPreference') ? `嗜${getValue('foodPreference')}` : '');
+    pushPart(getValue('drinkingPreference') ? `飲水${getValue('drinkingPreference')}` : '');
+    pushPart(getValue('drinkingHabits'));
+    pushPart(getValue('urination') ? `小便${getValue('urination')}` : '');
+    pushPart(getValue('nightUrination') ? `夜尿${getValue('nightUrination')}` : '');
+    pushPart(getValue('dailyUrination') ? `日尿${getValue('dailyUrination')}` : '');
+    pushPart(getValue('urineColor') ? `尿色${getValue('urineColor')}` : '');
+    pushPart(getValue('stoolForm') ? `大便${getValue('stoolForm')}` : '');
+    pushPart(getValue('stoolSymptoms'));
+    pushPart(getValue('stoolFrequency') ? `便次${getValue('stoolFrequency')}` : '');
+    pushPart(getValue('stoolOdor') ? `便味${getValue('stoolOdor')}` : '');
+    pushPart(getValue('stoolColor') ? `便色${getValue('stoolColor')}` : '');
+    pushPart(getValue('sleepQuality') ? `眠${getValue('sleepQuality')}` : '');
+    pushPart(getValue('sleep') ? `睡眠${getValue('sleep')}` : '');
+    pushPart(getValue('energy') ? `精神${getValue('energy')}` : '');
+    pushPart(getValue('morningEnergy') ? `晨起${getValue('morningEnergy')}` : '');
+    pushPart(getValue('concentration') ? `注意力${getValue('concentration')}` : '');
+
+    if (!parts.length) return '';
+    return '預診現病史：' + parts.join('，') + '。';
 }
 
 
