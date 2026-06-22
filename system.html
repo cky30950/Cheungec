@@ -486,29 +486,106 @@
                 <h2 id="welcomeTitle" class="text-3xl font-bold text-gray-800 mb-2">歡迎使用名醫診所系統</h2>
                 <p id="welcomeEnglishTitle" class="text-lg text-gray-500 mb-4">Welcome to Dr.Great Clinic</p>
                 <p class="text-gray-600 text-lg mb-8">請點擊左上角選單按鈕開始使用系統功能</p>
-                <div class="bg-white rounded-xl shadow-lg p-8 max-w-4xl mx-auto">
-                    <h3 class="text-xl font-semibold mb-4">系統功能概覽</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                        <div class="text-center p-4 bg-green-50 rounded-lg">
-                            <div class="text-2xl mb-2">👥</div>
-                            <div class="font-semibold">病人資料管理</div>
-                            <div class="text-gray-600 mt-1">新增、查看、管理病人資料</div>
+                <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 md:p-8 max-w-5xl mx-auto text-left">
+                    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 mb-8">
+                        <div class="max-w-3xl">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-sm font-medium mb-4">一站式診所工作台</span>
+                            <h3 class="text-2xl font-semibold text-gray-800 mb-3">系統功能概覽</h3>
+                            <p class="text-gray-600 leading-relaxed">
+                                從病人建檔、掛號診症、病歷記錄到權限與營運管理，將診所日常流程集中在同一個平台。
+                            </p>
                         </div>
-                        <div class="text-center p-4 bg-blue-50 rounded-lg">
-                            <div class="text-2xl mb-2">🩺</div>
-                            <div class="font-semibold">診症系統</div>
-                            <div class="text-gray-600 mt-1">記錄症狀、診斷、開立處方</div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full lg:max-w-md">
+                            <div class="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
+                                <div class="text-xs text-gray-500 mb-1">病人檔案</div>
+                                <div class="text-sm font-semibold text-gray-800">資料集中管理</div>
+                            </div>
+                            <div class="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
+                                <div class="text-xs text-gray-500 mb-1">診療流程</div>
+                                <div class="text-sm font-semibold text-gray-800">掛號到處方串連</div>
+                            </div>
+                            <div class="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
+                                <div class="text-xs text-gray-500 mb-1">營運控管</div>
+                                <div class="text-sm font-semibold text-gray-800">權限與備份同步掌握</div>
+                            </div>
                         </div>
-                        <div class="text-center p-4 bg-purple-50 rounded-lg">
-                            
-                            <div class="text-2xl mb-2">👥</div>
-                            <div class="font-semibold">用戶管理</div>
-                            <div class="text-gray-600 mt-1">管理診所用戶權限</div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+                        <div class="bg-green-50 border border-green-100 rounded-2xl p-5 shadow-sm">
+                            <div class="flex items-start justify-between gap-3 mb-4">
+                                <div>
+                                    <div class="text-3xl mb-2">👥</div>
+                                    <div class="text-lg font-semibold text-gray-800">病人資料管理</div>
+                                </div>
+                                <span class="px-3 py-1 rounded-full bg-white text-green-700 text-xs font-medium">資料建檔</span>
+                            </div>
+                            <p class="text-gray-600 leading-relaxed mb-4">建立完整病人檔案，支援基本資料維護與病歷查詢。</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="px-3 py-1 rounded-full bg-white text-gray-700">新增病人資料</span>
+                                <span class="px-3 py-1 rounded-full bg-white text-gray-700">查看及搜尋病歷</span>
+                                <span class="px-3 py-1 rounded-full bg-white text-gray-700">病歷管理</span>
+                            </div>
                         </div>
-                        <div class="text-center p-4 bg-red-50 rounded-lg">
-                            <div class="text-2xl mb-2">⚙️</div>
-                            <div class="font-semibold">系統管理</div>
-                            <div class="text-gray-600 mt-1">統計資料、備份匯出</div>
+                        <div class="bg-blue-50 border border-blue-100 rounded-2xl p-5 shadow-sm">
+                            <div class="flex items-start justify-between gap-3 mb-4">
+                                <div>
+                                    <div class="text-3xl mb-2">🩺</div>
+                                    <div class="text-lg font-semibold text-gray-800">診症系統</div>
+                                </div>
+                                <span class="px-3 py-1 rounded-full bg-white text-blue-700 text-xs font-medium">診療紀錄</span>
+                            </div>
+                            <p class="text-gray-600 leading-relaxed mb-4">串連掛號、主訴、診斷、處方與治療紀錄。</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="px-3 py-1 rounded-full bg-white text-gray-700">掛號診症系統</span>
+                                <span class="px-3 py-1 rounded-full bg-white text-gray-700">保存病歷</span>
+                                <span class="px-3 py-1 rounded-full bg-white text-gray-700">收費項目</span>
+                            </div>
+                        </div>
+                        <div class="bg-purple-50 border border-purple-100 rounded-2xl p-5 shadow-sm">
+                            <div class="flex items-start justify-between gap-3 mb-4">
+                                <div>
+                                    <div class="text-3xl mb-2">🛡️</div>
+                                    <div class="text-lg font-semibold text-gray-800">用戶管理</div>
+                                </div>
+                                <span class="px-3 py-1 rounded-full bg-white text-purple-700 text-xs font-medium">權限控管</span>
+                            </div>
+                            <p class="text-gray-600 leading-relaxed mb-4">依職位分配帳號權限，保持資料安全與操作一致。</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="px-3 py-1 rounded-full bg-white text-gray-700">用戶管理</span>
+                                <span class="px-3 py-1 rounded-full bg-white text-gray-700">診所用戶管理</span>
+                                <span class="px-3 py-1 rounded-full bg-white text-gray-700">管理診所用戶權限</span>
+                            </div>
+                        </div>
+                        <div class="bg-red-50 border border-red-100 rounded-2xl p-5 shadow-sm">
+                            <div class="flex items-start justify-between gap-3 mb-4">
+                                <div>
+                                    <div class="text-3xl mb-2">⚙️</div>
+                                    <div class="text-lg font-semibold text-gray-800">系統管理</div>
+                                </div>
+                                <span class="px-3 py-1 rounded-full bg-white text-red-700 text-xs font-medium">營運支援</span>
+                            </div>
+                            <p class="text-gray-600 leading-relaxed mb-4">彙整統計、備份與匯出作業，方便日常營運管理。</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="px-3 py-1 rounded-full bg-white text-gray-700">統計資料、備份匯出</span>
+                                <span class="px-3 py-1 rounded-full bg-white text-gray-700">收入分析與財務統計</span>
+                                <span class="px-3 py-1 rounded-full bg-white text-gray-700">匯出備份</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 pt-6 border-t border-gray-100">
+                        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                            <div>
+                                <h4 class="text-base font-semibold text-gray-800 mb-1">常用流程</h4>
+                                <p class="text-sm text-gray-500">首次使用可依照以下順序快速開始。</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2 text-sm">
+                                <span class="px-3 py-2 rounded-full bg-gray-100 text-gray-700">1. 新增病人資料</span>
+                                <span class="px-3 py-2 rounded-full bg-gray-100 text-gray-700">2. 掛號診症系統</span>
+                                <span class="px-3 py-2 rounded-full bg-gray-100 text-gray-700">3. 保存病歷</span>
+                                <span class="px-3 py-2 rounded-full bg-gray-100 text-gray-700">4. 匯出備份</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1949,6 +2026,12 @@
                                         <option value="醫師">醫師</option>
                                         <option value="護理師">護理師</option>
         <option value="用戶">一般用戶</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">主要診所 *</label>
+                                    <select id="userClinicId" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                        <option value="">請選擇主要診所</option>
                                     </select>
                                 </div>
                                 <div id="registrationNumberField" class="hidden">
