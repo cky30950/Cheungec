@@ -8296,6 +8296,55 @@ async function loadInquiryOptions(patient) {
                 console.error('初始化日期選擇器失敗：', err);
             }
         }
+
+        function parseAppointmentPickerDate(value) {
+            const raw = String(value || '').trim();
+            const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (!match) return null;
+            const parsed = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+            return isNaN(parsed.getTime()) ? null : parsed;
+        }
+
+        function formatLocalDateTimeInputValue(date) {
+            if (!(date instanceof Date) || isNaN(date.getTime())) return '';
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
+        function getDefaultAppointmentDateTimeValue() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() + 5);
+
+            try {
+                const picker = document.getElementById('appointmentDatePicker');
+                const selectedDate = picker ? parseAppointmentPickerDate(picker.value) : null;
+                if (selectedDate) {
+                    const startOfSelectedDay = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+                    const startOfToday = new Date();
+                    startOfToday.setHours(0, 0, 0, 0);
+
+                    if (startOfSelectedDay.getTime() > startOfToday.getTime()) {
+                        return formatLocalDateTimeInputValue(new Date(
+                            selectedDate.getFullYear(),
+                            selectedDate.getMonth(),
+                            selectedDate.getDate(),
+                            now.getHours(),
+                            now.getMinutes(),
+                            0,
+                            0
+                        ));
+                    }
+                }
+            } catch (_e) {
+                // 回退到目前時間即可
+            }
+
+            return formatLocalDateTimeInputValue(now);
+        }
         
 
 async function searchPatientsForRegistration() {
@@ -8662,19 +8711,9 @@ async function selectPatientForRegistration(patientId) {
             // 載入醫師選項
             loadDoctorOptions();
             
-            // 設置預設掛號時間為當前時間（加5分鐘避免時間過期）
-            const nowForDefault = new Date();
-            nowForDefault.setMinutes(nowForDefault.getMinutes() + 5); // 加5分鐘作為預設值
-            const defYear = nowForDefault.getFullYear();
-            const defMonth = String(nowForDefault.getMonth() + 1).padStart(2, '0');
-            const defDay = String(nowForDefault.getDate()).padStart(2, '0');
-            const defHours = String(nowForDefault.getHours()).padStart(2, '0');
-            const defMinutes = String(nowForDefault.getMinutes()).padStart(2, '0');
-            const localDateTime = `${defYear}-${defMonth}-${defDay}T${defHours}:${defMinutes}`;
-
             // 設置掛號時間輸入欄的預設值
             const appointmentInput = document.getElementById('appointmentDateTime');
-            appointmentInput.value = localDateTime;
+            appointmentInput.value = getDefaultAppointmentDateTimeValue();
 
             // 設置允許選擇的最小日期時間為今日 00:00
             // 依需求，掛號時間只能選擇「今日」或之後的日期
