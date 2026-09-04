@@ -7766,13 +7766,100 @@ async function viewPatient(id) {
         let selectedPatientForRegistration = null;
         let currentConsultingAppointmentId = null;
         let currentConsultationEditContext = null;
+const GENERAL_REGISTRATION_DOCTOR_KEY = '__general_registration__';
+const GENERAL_REGISTRATION_LABEL = '一般掛號';
+
+function isGeneralRegistrationDoctorValue(value) {
+    return String(value || '').trim() === GENERAL_REGISTRATION_DOCTOR_KEY;
+}
+
+function isGeneralRegistrationAppointment(appointment = null) {
+    if (!appointment || typeof appointment !== 'object') return false;
+    return !!appointment.isGeneralRegistration || isGeneralRegistrationDoctorValue(appointment.appointmentDoctor);
+}
+
+function isGeneralRegistrationConsultation(consultation = null) {
+    if (!consultation || typeof consultation !== 'object') return false;
+    return !!consultation.generalRegistration || isGeneralRegistrationDoctorValue(consultation.doctor);
+}
+
+function isGeneralRegistrationContext(consultation = null, appointment = null) {
+    return isGeneralRegistrationConsultation(consultation) || isGeneralRegistrationAppointment(appointment);
+}
+
+function shouldHideGeneralRegistrationDoctorInfo(consultation = null, appointment = null) {
+    return isGeneralRegistrationContext(consultation, appointment);
+}
+
+function canCurrentUserAccessGeneralRegistration(consultation = null, appointment = null) {
+    if (!isGeneralRegistrationContext(consultation, appointment)) {
+        return true;
+    }
+    const position = currentUserData && currentUserData.position ? String(currentUserData.position).trim() : '';
+    return position === '診所管理' || position === '護理師';
+}
+
+function canCurrentUserViewConsultationEntry(consultation = null) {
+    return canCurrentUserAccessGeneralRegistration(consultation, null);
+}
+
+function getAppointmentResponsibleDoctorUsername(appointment = null) {
+    if (!appointment || typeof appointment !== 'object') return '';
+    if (appointment.consultingDoctor) {
+        return String(appointment.consultingDoctor).trim();
+    }
+    if (isGeneralRegistrationAppointment(appointment)) {
+        return '';
+    }
+    return String(appointment.appointmentDoctor || '').trim();
+}
+
+function canDoctorViewAppointment(appointment = null, doctorUsername = '') {
+    const normalizedDoctorUsername = String(doctorUsername || '').trim();
+    if (!normalizedDoctorUsername || !appointment) return false;
+    if (isGeneralRegistrationAppointment(appointment)) return false;
+    return String(appointment.appointmentDoctor || '').trim() === normalizedDoctorUsername;
+}
+
+function getRegistrationDoctorMeta(doctorValue) {
+    if (isGeneralRegistrationDoctorValue(doctorValue)) {
+        return {
+            isGeneralRegistration: true,
+            username: GENERAL_REGISTRATION_DOCTOR_KEY,
+            displayName: GENERAL_REGISTRATION_LABEL,
+            registrationNumber: null,
+            user: null
+        };
+    }
+
+    const doctorUser = users.find(user =>
+        user &&
+        user.username === doctorValue &&
+        user.active &&
+        user.position === '醫師'
+    );
+
+    return {
+        isGeneralRegistration: false,
+        username: doctorUser ? doctorUser.username : String(doctorValue || '').trim(),
+        displayName: doctorUser ? doctorUser.name : String(doctorValue || '').trim(),
+        registrationNumber: doctorUser ? (doctorUser.registrationNumber || null) : null,
+        user: doctorUser || null
+    };
+}
 
 function getConsultationDoctorUsername(consultation = null, appointment = null) {
+    if (appointment && isGeneralRegistrationAppointment(appointment)) {
+        return String(appointment.consultingDoctor || '').trim();
+    }
     if (appointment && appointment.appointmentDoctor) {
         return String(appointment.appointmentDoctor).trim();
     }
     const doctorValue = consultation && consultation.doctor ? consultation.doctor : null;
     if (!doctorValue) return '';
+    if (isGeneralRegistrationConsultation(consultation)) {
+        return String(consultation.consultingDoctor || '').trim();
+    }
     if (typeof doctorValue === 'string') {
         return doctorValue.trim();
     }
@@ -7792,6 +7879,9 @@ function getConsultationDoctorUsername(consultation = null, appointment = null) 
 function canCurrentUserEditMedicalRecordEntry(consultation = null, appointment = null) {
     const isAdminUser = currentUserData && currentUserData.position === '診所管理';
     const isNurseUser = currentUserData && currentUserData.position === '護理師';
+    if (isGeneralRegistrationContext(consultation, appointment)) {
+        return !!(isAdminUser || isNurseUser);
+    }
     const doctorUsername = getConsultationDoctorUsername(consultation, appointment);
     const isDoctorOwner = currentUserData &&
         currentUserData.position === '醫師' &&
@@ -7804,6 +7894,7 @@ function getMedicalRecordEditAccessScope(consultation = null, appointment = null
     if (!currentUserData || !currentUserData.position) return 'none';
     if (currentUserData.position === '診所管理') return 'full';
     if (currentUserData.position === '護理師') return 'billingOnly';
+    if (isGeneralRegistrationContext(consultation, appointment)) return 'none';
 
     const doctorUsername = getConsultationDoctorUsername(consultation, appointment);
     const isDoctorOwner = currentUserData.position === '醫師' &&
@@ -8755,7 +8846,7 @@ async function selectPatientForRegistration(patientId) {
         // 檢查當天是否有同一醫師正在診症
         consultingAppointment = appointments.find(apt =>
             apt.status === 'consulting' &&
-            apt.appointmentDoctor === currentUserData.username &&
+            getAppointmentResponsibleDoctorUsername(apt) === currentUserData.username &&
             new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
         );
     }
@@ -8859,6 +8950,7 @@ async function selectPatientForRegistration(patientId) {
             
             // 清空現有選項（保留預設選項）
             doctorSelect.innerHTML = '<option value="">請選擇醫師</option>';
+            doctorSelect.innerHTML += `<option value="${GENERAL_REGISTRATION_DOCTOR_KEY}">${GENERAL_REGISTRATION_LABEL}</option>`;
     // 取得翻譯函式
     const translate = typeof window.t === 'function' ? window.t : (s) => s;
 
@@ -8954,14 +9046,9 @@ async function selectPatientForRegistration(patientId) {
                 return;
             }
             
-            // 驗證選擇的醫師是否存在且啟用
-            const selectedDoctor = users.find(user => 
-                user.username === appointmentDoctor && 
-                user.active && 
-                user.position === '醫師'
-            );
-            
-            if (!selectedDoctor) {
+            const selectedDoctorMeta = getRegistrationDoctorMeta(appointmentDoctor);
+
+            if (!selectedDoctorMeta.isGeneralRegistration && !selectedDoctorMeta.user) {
                 showToast('選擇的醫師無效，請重新選擇！', 'error');
                 return;
             }
@@ -8992,8 +9079,9 @@ async function selectPatientForRegistration(patientId) {
                 patientName: selectedPatientForRegistration.name,
                 appointmentTime: selectedTime.toISOString(),
                 appointmentDoctor: appointmentDoctor,
+                isGeneralRegistration: selectedDoctorMeta.isGeneralRegistration,
                 // 新增：直接保存醫師姓名，供後續監聽或顯示使用
-                doctorName: selectedDoctor.name,
+                doctorName: selectedDoctorMeta.displayName,
                 chiefComplaint: chiefComplaint || '無特殊主訴',
                 status: 'registered', // registered, waiting, consulting, completed
                 createdAt: new Date().toISOString(),
@@ -9040,8 +9128,13 @@ async function selectPatientForRegistration(patientId) {
                     {
                         // Show registration success message based on language
                         const lang = localStorage.getItem('lang') || 'zh';
-                        const zhMsg = `${selectedPatientForRegistration.name} 已掛號給 ${selectedDoctor.name}醫師！`;
-                        const enMsg = `${selectedPatientForRegistration.name} has been registered to Dr. ${selectedDoctor.name}`;
+                        const zhDoctorText = selectedDoctorMeta.isGeneralRegistration
+                            ? GENERAL_REGISTRATION_LABEL
+                            : `${selectedDoctorMeta.displayName}醫師`;
+                        const zhMsg = `${selectedPatientForRegistration.name} 已掛號給 ${zhDoctorText}！`;
+                        const enMsg = selectedDoctorMeta.isGeneralRegistration
+                            ? `${selectedPatientForRegistration.name} has been registered as general registration`
+                            : `${selectedPatientForRegistration.name} has been registered to Dr. ${selectedDoctorMeta.displayName}`;
                         const msg = lang === 'en' ? enMsg : zhMsg;
                         showToast(msg, 'success');
                     }
@@ -9211,7 +9304,7 @@ async function loadTodayAppointments() {
     // 如果當前用戶是醫師，只顯示掛給自己的病人
     if (currentUserData && currentUserData.position === '醫師') {
         todayAppointments = todayAppointments.filter(apt => 
-            apt.appointmentDoctor === currentUserData.username
+            canDoctorViewAppointment(apt, currentUserData.username)
         );
     }
     
@@ -9370,7 +9463,7 @@ function subscribeToAppointments() {
                 let patientsList = null;
                 for (const apt of toNotify) {
                     // 僅通知該醫師所屬的掛號
-                    if (apt.appointmentDoctor === currentUserData.username) {
+                    if (canDoctorViewAppointment(apt, currentUserData.username)) {
                         // 優先使用掛號物件中的病人姓名
                         let patientName = '';
                         if (apt.patientName) {
@@ -9893,7 +9986,9 @@ function createAppointmentRow(appointment, patient, index) {
     // 獲取掛號醫師資訊，並根據語言翻譯醫師稱謂
     const appointmentDoctor = users.find(u => u.username === appointment.appointmentDoctor);
     let doctorName;
-    if (appointmentDoctor) {
+    if (isGeneralRegistrationAppointment(appointment)) {
+        doctorName = GENERAL_REGISTRATION_LABEL;
+    } else if (appointmentDoctor) {
         // 翻譯「醫師」後綴；非中文時在前面加空格
         const suffix = window.t ? window.t('醫師') : '醫師';
         const needsSpace = suffix && suffix !== '醫師';
@@ -10046,16 +10141,22 @@ function getOperationButtons(appointment, patient = null) {
     // 檢查同一醫師是否有病人在今日診症中
     const isDoctorConsulting = isDoctorUser && appointments.some(apt =>
         apt.status === 'consulting' &&
-        apt.appointmentDoctor === currentUserData.username &&
+        getAppointmentResponsibleDoctorUsername(apt) === currentUserData.username &&
         new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
     );
     
     const isCurrentConsulting = appointment.status === 'consulting';
+    const isGeneralRegistration = isGeneralRegistrationAppointment(appointment);
     
-    // 檢查當前用戶是否為該掛號的醫師
-    const isAppointmentDoctor = currentUserData && 
+    // 檢查當前用戶是否可以開始或繼續該掛號的診症
+    const canStartConsultationForAppointment = currentUserData &&
         currentUserData.position === '醫師' && 
+        !isGeneralRegistration &&
         appointment.appointmentDoctor === currentUserData.username;
+    const canContinueConsultationForAppointment = currentUserData &&
+        currentUserData.position === '醫師' &&
+        !isGeneralRegistration &&
+        getAppointmentResponsibleDoctorUsername(appointment) === currentUserData.username;
     
     // 檢查當前用戶是否為管理員
     const isAdminUser = currentUserData && currentUserData.position === '診所管理';
@@ -10066,7 +10167,7 @@ function getOperationButtons(appointment, patient = null) {
     const canEditMedicalRecord = canCurrentUserEditMedicalRecordEntry(null, appointment);
     
     // 檢查當前用戶是否可以確認到達（管理員、護理師或該掛號的醫師）
-    const canConfirmArrival = canManage || isAppointmentDoctor;
+    const canConfirmArrival = canManage || canStartConsultationForAppointment;
     
     // 使用正確的 patientId（優先使用 Firebase ID）
     const patientId = patient ? patient.id : appointment.patientId;
@@ -10103,7 +10204,7 @@ function getOperationButtons(appointment, patient = null) {
             
         case 'waiting':
             if (isDisabled) {
-                if (isAppointmentDoctor) {
+                if (canStartConsultationForAppointment) {
                     buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs whitespace-nowrap cursor-not-allowed" ${disabledTooltip}>開始診症</span>`);
                 }
                 // 如果為管理員或護理師，則禁用取消候診按鈕
@@ -10111,7 +10212,7 @@ function getOperationButtons(appointment, patient = null) {
                     buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs whitespace-nowrap cursor-not-allowed" ${disabledTooltip}>取消候診</span>`);
                 }
             } else {
-                if (isAppointmentDoctor) {
+                if (canStartConsultationForAppointment) {
                     buttons.push(`<button onclick="startConsultation(${appointment.id})" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">開始診症</button>`);
                 }
                 // 管理員或護理師可以取消候診，將狀態回復為已掛號
@@ -10122,7 +10223,7 @@ function getOperationButtons(appointment, patient = null) {
             break;
             
         case 'consulting':
-            if (isAppointmentDoctor) {
+            if (canContinueConsultationForAppointment) {
                 buttons.push(`<button onclick="continueConsultation(${appointment.id})" class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">繼續診症</button>`);
             }
             break;
@@ -10130,10 +10231,12 @@ function getOperationButtons(appointment, patient = null) {
         case 'completed':
             // 列印收據功能不受診症狀態限制
             buttons.push(`<button onclick="printReceiptFromAppointment(${appointment.id})" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">列印收據</button>`);
-            // 新增方藥醫囑列印功能，位於列印收據旁
-            buttons.push(`<button onclick="printPrescriptionInstructionsFromAppointment(${appointment.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">藥單醫囑</button>`);
-            buttons.push(`<button onclick="printAttendanceCertificateFromAppointment(${appointment.id})" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">到診證明</button>`);
-            buttons.push(`<button onclick="printSickLeaveFromAppointment(${appointment.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">病假證明</button>`);
+            if (!isGeneralRegistration) {
+                // 新增方藥醫囑列印功能，位於列印收據旁
+                buttons.push(`<button onclick="printPrescriptionInstructionsFromAppointment(${appointment.id})" class="bg-yellow-500 hover:bg-yellow-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">藥單醫囑</button>`);
+                buttons.push(`<button onclick="printAttendanceCertificateFromAppointment(${appointment.id})" class="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">到診證明</button>`);
+                buttons.push(`<button onclick="printSickLeaveFromAppointment(${appointment.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">病假證明</button>`);
+            }
             const editWindowStatus = getMedicalRecordEditWindowStatus(null, appointment);
             
             if (isDisabled) {
@@ -10490,8 +10593,12 @@ async function startConsultation(appointmentId) {
             showToast('找不到病人資料！', 'error');
             return;
         }
+        if (isGeneralRegistrationAppointment(appointment)) {
+            showToast('一般掛號只供管理員及護理師查看及處理。', 'error');
+            return;
+        }
         // 檢查當前用戶是否為該掛號的醫師
-        if (!currentUserData || currentUserData.position !== '醫師' || appointment.appointmentDoctor !== currentUserData.username) {
+        if (!currentUserData || currentUserData.position !== '醫師' || (!isGeneralRegistrationAppointment(appointment) && appointment.appointmentDoctor !== currentUserData.username)) {
             showToast('只有該掛號的醫師才能開始診症！', 'error');
             return;
         }
@@ -10536,7 +10643,7 @@ async function startConsultation(appointmentId) {
             apt &&
             apt.status === 'consulting' &&
             String(apt.id) !== String(appointmentId) &&
-            apt.appointmentDoctor === currentUserData.username &&
+            getAppointmentResponsibleDoctorUsername(apt) === currentUserData.username &&
             new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
         );
         if (consultingAppointment) {
@@ -11910,6 +12017,10 @@ async function saveConsultation() {
             }
             consultationData.date = existing && existing.date ? existing.date : new Date();
             consultationData.doctor = existing && existing.doctor ? existing.doctor : currentUser;
+            consultationData.generalRegistration = isGeneralRegistrationAppointment(appointment);
+            consultationData.consultingDoctor = existing && existing.consultingDoctor
+                ? existing.consultingDoctor
+                : String((appointment && appointment.consultingDoctor) || currentUser || '');
             consultationData.appointmentId = existing && existing.appointmentId
                 ? existing.appointmentId
                 : (appointment && !appointment.isDirectConsultationEdit ? currentConsultingAppointmentId : '');
@@ -11989,7 +12100,9 @@ async function saveConsultation() {
             // 為新的病歷產生一個唯一的病歷編號
             consultationData.medicalRecordNumber = generateMedicalRecordNumber();
             consultationData.date = new Date();
-            consultationData.doctor = currentUser;
+            consultationData.doctor = isGeneralRegistrationAppointment(appointment) ? GENERAL_REGISTRATION_DOCTOR_KEY : currentUser;
+            consultationData.generalRegistration = isGeneralRegistrationAppointment(appointment);
+            consultationData.consultingDoctor = String((appointment && appointment.consultingDoctor) || currentUser || '');
             // 記錄診所資訊
             try {
                 consultationData.clinicId = currentClinicId || null;
@@ -12448,7 +12561,11 @@ if (!patient) {
 
         function renderMedicalHistoryActionButtons(consultation, options = {}) {
             const { includeSickLeave = false } = options;
+            if (!canCurrentUserViewConsultationEntry(consultation)) {
+                return '';
+            }
             const buttons = [];
+            const isGeneralRegistration = isGeneralRegistrationConsultation(consultation);
 
             if (canCurrentUserEditMedicalRecordEntry(consultation, null)) {
                 const editWindowStatus = getMedicalRecordEditWindowStatus(consultation, null);
@@ -12474,23 +12591,25 @@ if (!patient) {
                 onclick: `printConsultationRecord('${consultation.id}')`,
                 variant: 'receipt'
             }));
-            buttons.push(renderMedicalHistoryActionButton({
-                label: '藥單醫囑',
-                onclick: `printPrescriptionInstructions('${consultation.id}')`,
-                variant: 'prescription'
-            }));
-            buttons.push(renderMedicalHistoryActionButton({
-                label: '到診證明',
-                onclick: `printAttendanceCertificate('${consultation.id}')`,
-                variant: 'attendance'
-            }));
-
-            if (includeSickLeave) {
+            if (!isGeneralRegistration) {
                 buttons.push(renderMedicalHistoryActionButton({
-                    label: '病假證明',
-                    onclick: `printSickLeave('${consultation.id}')`,
-                    variant: 'sickLeave'
+                    label: '藥單醫囑',
+                    onclick: `printPrescriptionInstructions('${consultation.id}')`,
+                    variant: 'prescription'
                 }));
+                buttons.push(renderMedicalHistoryActionButton({
+                    label: '到診證明',
+                    onclick: `printAttendanceCertificate('${consultation.id}')`,
+                    variant: 'attendance'
+                }));
+    
+                if (includeSickLeave) {
+                    buttons.push(renderMedicalHistoryActionButton({
+                        label: '病假證明',
+                        onclick: `printSickLeave('${consultation.id}')`,
+                        variant: 'sickLeave'
+                    }));
+                }
             }
 
             if (currentConsultingAppointmentId) {
@@ -12545,6 +12664,15 @@ if (!patient) {
                 `;
                 return;
             }
+            if (!canCurrentUserViewConsultationEntry(consultation)) {
+                contentDiv.innerHTML = `
+                    <div class="text-center py-12 text-gray-500">
+                        <div class="text-lg font-medium mb-2">暫無診症記錄</div>
+                        <div class="text-sm">您沒有查看此病歷的權限</div>
+                    </div>
+                `;
+                return;
+            }
             // #region debug-point C:patient-render
             fetch("http://127.0.0.1:7777/event",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:"history-first-page-order",runId:"pre-fix",hypothesisId:"C",location:"system.js:displayPatientMedicalHistoryPage",msg:"[DEBUG] patient history page render",data:{patientId:currentPatientHistoryPatientId||"",currentPatientHistoryPage,totalPages,consultationId:consultation&&consultation.id||"",date:consultation&&consultation.date||null,sortDate:consultation&&consultation.sortDate&&typeof consultation.sortDate.toDate==="function"?consultation.sortDate.toDate().toISOString():consultation&&consultation.sortDate||null},ts:Date.now()})}).catch(()=>{});
             // #endregion
@@ -12563,6 +12691,7 @@ if (!patient) {
             const doctorLabel = dict['醫師：'] || '醫師：';
             const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
             const clinicLabel = dict['診所：'] || '診所：';
+            const hideDoctorInfo = shouldHideGeneralRegistrationDoctorInfo(consultation, null);
             const calendarHtml = buildHistoryCalendarHtml('patient');
 
             contentDiv.innerHTML = `
@@ -12632,9 +12761,11 @@ if (!patient) {
                             }
                             return `
                             <div class="flex flex-wrap items-center gap-2">
+                                ${hideDoctorInfo ? '' : `
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
                                     ${doctorLabel}${getDoctorDisplayName(consultation.doctor)}
                                 </span>
+                                `}
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
                                             ${recordNumberLabel}${consultation.medicalRecordNumber || consultation.id}
                                 </span>
@@ -12971,6 +13102,15 @@ function displayConsultationMedicalHistoryPage() {
         `;
         return;
     }
+    if (!canCurrentUserViewConsultationEntry(consultation)) {
+        contentDiv.innerHTML = `
+            <div class="text-center py-12 text-gray-500">
+                <div class="text-lg font-medium mb-2">暫無診症記錄</div>
+                <div class="text-sm">您沒有查看此病歷的權限</div>
+            </div>
+        `;
+        return;
+    }
 
     // Build translated dynamic strings.  For Chinese we keep the original
     // formatting; for English we generate equivalent phrases.  The
@@ -12988,6 +13128,7 @@ function displayConsultationMedicalHistoryPage() {
     const doctorLabel = dict['醫師：'] || '醫師：';
     const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
     const clinicLabel = dict['診所：'] || '診所：';
+    const hideDoctorInfo = shouldHideGeneralRegistrationDoctorInfo(consultation, null);
     const calendarHtml = buildHistoryCalendarHtml('consultation');
 
     // Compose the HTML content with translated dynamic labels.  Chinese
@@ -13052,9 +13193,11 @@ function displayConsultationMedicalHistoryPage() {
                             }
                             return `
                             <div class="flex flex-wrap items-center gap-2">
+                                ${hideDoctorInfo ? '' : `
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
                                     ${doctorLabel}${getDoctorDisplayName(consultation.doctor)}
                                 </span>
+                                `}
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
                                     ${recordNumberLabel}${consultation.medicalRecordNumber || consultation.id}
                                 </span>
@@ -13563,6 +13706,7 @@ async function printConsultationRecord(consultationId, consultationData = null) 
         const receiptVisibility = mergeReceiptVisibilitySettings(clinicPrint && clinicPrint.receiptFieldVisibility).receipt;
         const customThankYouText = (clinicPrint && clinicPrint.receiptThankYouText) ? String(clinicPrint.receiptThankYouText).trim() : '';
         const layout = getReceiptPrintLayoutConfig(getClinicReceiptPaperSize(clinicPrint), 'receipt');
+        const hideDoctorInfo = shouldHideGeneralRegistrationDoctorInfo(consultation, null);
         // Construct receipt HTML with localized labels
         const printContent = `
             <!DOCTYPE html>
@@ -13776,11 +13920,13 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                             })}</span>
                         </div>
                         ` : ''}
+                        ${hideDoctorInfo ? '' : `
                         <div class="info-row">
                             <span class="info-label">${TR.doctorName}${colon}</span>
                             <span>${getDoctorDisplayName(consultation.doctor)}</span>
                         </div>
-                        ${(() => {
+                        `}
+                        ${hideDoctorInfo ? '' : (() => {
                             const regNumber = getDoctorRegistrationNumber(consultation.doctor);
                             return regNumber ? `
                                 <div class="info-row">
@@ -14107,6 +14253,7 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
         };
         const clinicPrint = await resolveClinicSettingsByConsultation(consultation);
         const layout = getReceiptPrintLayoutConfig(getClinicReceiptPaperSize(clinicPrint), 'certificate');
+        const hideDoctorInfo = shouldHideGeneralRegistrationDoctorInfo(consultation, null);
         // Build certificate HTML
         const printContent = `
             <!DOCTYPE html>
@@ -14347,6 +14494,7 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
                         </div>
                         
                         <!-- Doctor Signature -->
+                        ${hideDoctorInfo ? '' : `
                         <div class="doctor-signature">
                             <div class="signature-section">
                                 <div class="signature-line"></div>
@@ -14379,6 +14527,7 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
                                 </div>
                             </div>
                         </div>
+                        `}
                         
                         <!-- Footer Note -->
                         <div class="footer-note">
@@ -14537,6 +14686,7 @@ async function printSickLeave(consultationId, consultationData = null) {
         };
         const clinicPrint = await resolveClinicSettingsByConsultation(consultation);
         const layout = getReceiptPrintLayoutConfig(getClinicReceiptPaperSize(clinicPrint), 'certificate');
+        const hideDoctorInfo = shouldHideGeneralRegistrationDoctorInfo(consultation, null);
         // 構建 HTML 內容
         const printContent = `
             <!DOCTYPE html>
@@ -14729,6 +14879,7 @@ async function printSickLeave(consultationId, consultationData = null) {
                         <div class="rest-period">${SL.restPeriod}${colon}${restPeriodStr}</div>
                         ${instructionsHtml ? `<div class="content-section"><strong>${SL.doctorAdvice}${colon}</strong><br>${instructionsHtml}</div>` : ''}
                         <div class="content-section"><strong>${SL.certify}</strong></div>
+                        ${hideDoctorInfo ? '' : `
                         <div class="doctor-signature">
                             <div class="signature-section">
                                 <div class="signature-line"></div>
@@ -14744,6 +14895,7 @@ async function printSickLeave(consultationId, consultationData = null) {
                                 <div style="border: 2px solid #000; padding: ${layout.sealPadding}; text-align: center; background: #f8f9fa;"><div style="font-weight: bold; margin-bottom: 5px;">${SL.clinicSeal}</div><div style="font-size: ${layout.sealNoteFont}; color: #666;">${SL.sealNote}</div></div>
                             </div>
                         </div>
+                        `}
                         <div class="footer-note">
                             <div>${SL.footerNote}</div>
                             <div>${SL.footerTel}${colon}${clinicPrint.phone || '(852) 2345-6789'} | ${SL.footerHours}${colon}${clinicPrint.businessHours || '週一至週五 09:00-18:00'}</div>
@@ -15202,6 +15354,7 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
         const clinicPrint = await resolveClinicSettingsByConsultation(consultation);
         const prescriptionVisibility = mergeReceiptVisibilitySettings(clinicPrint && clinicPrint.receiptFieldVisibility).prescription;
         const layout = getReceiptPrintLayoutConfig(getClinicReceiptPaperSize(clinicPrint), 'advice');
+        const hideDoctorInfo = shouldHideGeneralRegistrationDoctorInfo(consultation, null);
         // 構建列印內容
         const printContent = `
             <!DOCTYPE html>
@@ -15328,8 +15481,8 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                         ${prescriptionVisibility.patientNumber ? `<div class="info-row"><span class="info-label">${PI.patientNo}${colon}</span><span>${patient.patientNumber || '-'}</span></div>` : ''}
                         ${prescriptionVisibility.consultationDate ? `<div class="info-row"><span class="info-label">${PI.consultationDate}${colon}</span><span>${consultationDate.toLocaleDateString(dateLocale, { year: 'numeric', month: '2-digit', day: '2-digit' })}</span></div>` : ''}
                         ${prescriptionVisibility.consultationTime ? `<div class="info-row"><span class="info-label">${PI.consultationTime}${colon}</span><span>${consultationDate.toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}</span></div>` : ''}
-                        <div class="info-row"><span class="info-label">${PI.doctor}${colon}</span><span>${getDoctorDisplayName(consultation.doctor)}</span></div>
-                        ${(() => {
+                        ${hideDoctorInfo ? '' : `<div class="info-row"><span class="info-label">${PI.doctor}${colon}</span><span>${getDoctorDisplayName(consultation.doctor)}</span></div>`}
+                        ${hideDoctorInfo ? '' : (() => {
                             const regNumber = getDoctorRegistrationNumber(consultation.doctor);
                             return regNumber ? `<div class="info-row"><span class="info-label">${PI.registrationNo}${colon}</span><span>${regNumber}</span></div>` : '';
                         })()}
@@ -15731,7 +15884,7 @@ async function editMedicalRecord(appointmentId) {
         if (isDoctorUser) {
             consultingAppointment = appointments.find(apt =>
                 apt.status === 'consulting' &&
-                apt.appointmentDoctor === currentUserData.username &&
+                getAppointmentResponsibleDoctorUsername(apt) === currentUserData.username &&
                 new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
             );
         }
@@ -15848,7 +16001,7 @@ async function editMedicalRecordByConsultationId(consultationId) {
         if (isDoctorUser && Array.isArray(appointments)) {
             consultingAppointment = appointments.find(apt =>
                 apt.status === 'consulting' &&
-                apt.appointmentDoctor === currentUserData.username &&
+                getAppointmentResponsibleDoctorUsername(apt) === currentUserData.username &&
                 new Date(apt.appointmentTime).toDateString() === new Date().toDateString()
             );
         }
@@ -20534,6 +20687,9 @@ const consultationDate = (() => {
         // 獲取醫師顯示名稱
         function getDoctorDisplayName(doctorRole) {
             if (!doctorRole) return '未記錄';
+    if (isGeneralRegistrationDoctorValue(doctorRole)) {
+        return GENERAL_REGISTRATION_LABEL;
+    }
             
             // 如果是舊的固定值，直接返回
             if (doctorRole === 'doctor') {
@@ -20553,6 +20709,9 @@ const consultationDate = (() => {
         // 獲取醫師註冊編號
         function getDoctorRegistrationNumber(doctorRole) {
             if (!doctorRole) return null;
+    if (isGeneralRegistrationDoctorValue(doctorRole)) {
+        return null;
+    }
             
             // 如果是舊的固定值，返回預設註冊編號
             if (doctorRole === 'doctor') {
@@ -28699,12 +28858,12 @@ async function displayMedicalRecords(pageChange = false) {
         }
         medicalRecords = Array.isArray(res) ? res : [];
         await ensureMedicalRecordPatientLookupForRecords(medicalRecords);
-        filtered = medicalRecords;
+        filtered = medicalRecords.filter(rec => canCurrentUserViewConsultationEntry(rec));
     } else {
         const pageData = await fetchMedicalRecordPageOptimized(currentPage, itemsPerPage);
         medicalRecords = Array.isArray(pageData) ? pageData : [];
         await ensureMedicalRecordPatientLookupForRecords(medicalRecords);
-        filtered = medicalRecords;
+        filtered = medicalRecords.filter(rec => canCurrentUserViewConsultationEntry(rec));
     }
     if (term) {
         filtered = medicalRecords.filter(rec => {
@@ -28732,6 +28891,9 @@ async function displayMedicalRecords(pageChange = false) {
                 } catch (_err) {
                     doctorName = rec.doctor.displayName || rec.doctor.name || rec.doctor.fullName || rec.doctor.email || '';
                 }
+            }
+            if (shouldHideGeneralRegistrationDoctorInfo(rec, null)) {
+                doctorName = '';
             }
             doctorName = doctorName.toLowerCase();
             return recordNum.includes(term) || patientName.includes(term) || doctorName.includes(term);
@@ -28796,6 +28958,9 @@ async function displayMedicalRecords(pageChange = false) {
                 } catch (_err) {
                     doctorName = rec.doctor.displayName || rec.doctor.name || rec.doctor.fullName || rec.doctor.email || '';
                 }
+            }
+            if (shouldHideGeneralRegistrationDoctorInfo(rec, null)) {
+                doctorName = '';
             }
             let clinicName = '';
             try {
@@ -29205,6 +29370,7 @@ async function searchMedicalRecords(term, limitCount = 50) {
                 });
             } catch (_e) {}
         }
+        out = out.filter(rec => canCurrentUserViewConsultationEntry(rec));
         try {
             out = sortMedicalRecordsBySortDateDesc(out);
         } catch (_e) {}
@@ -29238,6 +29404,10 @@ async function viewMedicalRecord(recordId, buttonEl = null) {
             showToast('找不到病歷記錄', 'error');
             return;
         }
+        if (!canCurrentUserViewConsultationEntry(rec)) {
+            showToast('您沒有查看此病歷的權限！', 'error');
+            return;
+        }
         try {
             const patientId = rec && rec.patientId !== undefined && rec.patientId !== null ? String(rec.patientId).trim() : '';
             const patientName = rec && rec.patientName ? String(rec.patientName).trim() : '';
@@ -29266,6 +29436,10 @@ async function viewMedicalRecord(recordId, buttonEl = null) {
             } catch (_err) {
                 doctorName = rec.doctor.displayName || rec.doctor.name || rec.doctor.fullName || rec.doctor.email || '';
             }
+        }
+        const hideDoctorInfo = shouldHideGeneralRegistrationDoctorInfo(rec, null);
+        if (hideDoctorInfo) {
+            doctorName = '';
         }
         // 解析日期與時間，並組合為完整字串
         const rawDate = rec.date || rec.createdAt || rec.updatedAt || null;
@@ -29308,7 +29482,7 @@ async function viewMedicalRecord(recordId, buttonEl = null) {
                     clinicName = '';
                 }
                 const row = [
-                    `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">${window.escapeHtml(doctorLabel)}${window.escapeHtml(doctorName)}</span>`,
+                    hideDoctorInfo ? '' : `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">${window.escapeHtml(doctorLabel)}${window.escapeHtml(doctorName)}</span>`,
                     `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">${window.escapeHtml(recordNumberLabel)}${window.escapeHtml(rec.medicalRecordNumber || rec.id)}</span>`,
                     `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">${window.escapeHtml(clinicLabel)}${window.escapeHtml(clinicName || '未設定')}</span>`,
                     rec.updatedAt ? '<span class="text-xs text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full border border-orange-100">已修改</span>' : ''
