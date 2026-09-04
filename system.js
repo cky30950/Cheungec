@@ -7892,9 +7892,11 @@ function canCurrentUserEditMedicalRecordEntry(consultation = null, appointment =
 
 function getMedicalRecordEditAccessScope(consultation = null, appointment = null) {
     if (!currentUserData || !currentUserData.position) return 'none';
+    if (isGeneralRegistrationContext(consultation, appointment)) {
+        return canCurrentUserAccessGeneralRegistration(consultation, appointment) ? 'full' : 'none';
+    }
     if (currentUserData.position === '診所管理') return 'full';
     if (currentUserData.position === '護理師') return 'billingOnly';
-    if (isGeneralRegistrationContext(consultation, appointment)) return 'none';
 
     const doctorUsername = getConsultationDoctorUsername(consultation, appointment);
     const isDoctorOwner = currentUserData.position === '醫師' &&
@@ -10147,22 +10149,28 @@ function getOperationButtons(appointment, patient = null) {
     
     const isCurrentConsulting = appointment.status === 'consulting';
     const isGeneralRegistration = isGeneralRegistrationAppointment(appointment);
-    
-    // 檢查當前用戶是否可以開始或繼續該掛號的診症
-    const canStartConsultationForAppointment = currentUserData &&
-        currentUserData.position === '醫師' && 
-        !isGeneralRegistration &&
-        appointment.appointmentDoctor === currentUserData.username;
-    const canContinueConsultationForAppointment = currentUserData &&
-        currentUserData.position === '醫師' &&
-        !isGeneralRegistration &&
-        getAppointmentResponsibleDoctorUsername(appointment) === currentUserData.username;
-    
+
     // 檢查當前用戶是否為管理員
     const isAdminUser = currentUserData && currentUserData.position === '診所管理';
     // 檢查當前用戶是否為管理員或護理師（可以進行管理操作）
     const canManage = currentUserData &&
         (isAdminUser || currentUserData.position === '護理師');
+    
+    // 檢查當前用戶是否可以開始或繼續該掛號的診症
+    const canStartConsultationForAppointment = currentUserData &&
+        (
+            (isGeneralRegistration && canManage) ||
+            (currentUserData.position === '醫師' &&
+                !isGeneralRegistration &&
+                appointment.appointmentDoctor === currentUserData.username)
+        );
+    const canContinueConsultationForAppointment = currentUserData &&
+        (
+            (isGeneralRegistration && canManage) ||
+            (currentUserData.position === '醫師' &&
+                !isGeneralRegistration &&
+                getAppointmentResponsibleDoctorUsername(appointment) === currentUserData.username)
+        );
     // 管理員或該掛號醫師可修改病歷
     const canEditMedicalRecord = canCurrentUserEditMedicalRecordEntry(null, appointment);
     
@@ -10593,13 +10601,21 @@ async function startConsultation(appointmentId) {
             showToast('找不到病人資料！', 'error');
             return;
         }
-        if (isGeneralRegistrationAppointment(appointment)) {
-            showToast('一般掛號只供管理員及護理師查看及處理。', 'error');
-            return;
-        }
-        // 檢查當前用戶是否為該掛號的醫師
-        if (!currentUserData || currentUserData.position !== '醫師' || (!isGeneralRegistrationAppointment(appointment) && appointment.appointmentDoctor !== currentUserData.username)) {
-            showToast('只有該掛號的醫師才能開始診症！', 'error');
+        const isGeneralRegistration = isGeneralRegistrationAppointment(appointment);
+        const canManageGeneralRegistration = currentUserData &&
+            (currentUserData.position === '診所管理' || currentUserData.position === '護理師');
+        // 檢查當前用戶是否有權開始診症
+        if (!currentUserData || (
+            isGeneralRegistration
+                ? !canManageGeneralRegistration
+                : (currentUserData.position !== '醫師' || appointment.appointmentDoctor !== currentUserData.username)
+        )) {
+            showToast(
+                isGeneralRegistration
+                    ? '只有管理員或護理師才能為一般掛號開始診症！'
+                    : '只有該掛號的醫師才能開始診症！',
+                'error'
+            );
             return;
         }
         // 詳細狀態檢查
@@ -10723,6 +10739,22 @@ async function startConsultation(appointmentId) {
                 const appointment = await getLatestAppointmentById(appointmentId);
                 if (!appointment) {
                     showToast('找不到掛號記錄！', 'error');
+                    return;
+                }
+                const isGeneralRegistration = isGeneralRegistrationAppointment(appointment);
+                const canManageGeneralRegistration = currentUserData &&
+                    (currentUserData.position === '診所管理' || currentUserData.position === '護理師');
+                if (!currentUserData || (
+                    isGeneralRegistration
+                        ? !canManageGeneralRegistration
+                        : (currentUserData.position !== '醫師' || getAppointmentResponsibleDoctorUsername(appointment) !== currentUserData.username)
+                )) {
+                    showToast(
+                        isGeneralRegistration
+                            ? '只有管理員或護理師才能繼續一般掛號的診症！'
+                            : '只有該掛號的醫師才能繼續診症！',
+                        'error'
+                    );
                     return;
                 }
                 currentConsultingAppointmentId = appointmentId;
@@ -13707,6 +13739,7 @@ async function printConsultationRecord(consultationId, consultationData = null) 
         const customThankYouText = (clinicPrint && clinicPrint.receiptThankYouText) ? String(clinicPrint.receiptThankYouText).trim() : '';
         const layout = getReceiptPrintLayoutConfig(getClinicReceiptPaperSize(clinicPrint), 'receipt');
         const hideDoctorInfo = shouldHideGeneralRegistrationDoctorInfo(consultation, null);
+        const hideDiagnosisInfo = isGeneralRegistrationConsultation(consultation);
         // Construct receipt HTML with localized labels
         const printContent = `
             <!DOCTYPE html>
@@ -13938,7 +13971,7 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                     </div>
                     
                     <!-- Diagnosis Info -->
-                    ${consultation.diagnosis ? `
+                    ${!hideDiagnosisInfo && consultation.diagnosis ? `
                     <div class="diagnosis-section">
                         <div>
                             <span class="diagnosis-title">${TR.diagnosis}${colon}</span>
