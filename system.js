@@ -7834,15 +7834,24 @@ function setConsultationEditRestrictionState(appointment = null, consultation = 
     );
     const billingOnly = isEditing && getMedicalRecordEditAccessScope(consultation, appointment) === 'billingOnly';
     const noticeEl = document.getElementById('consultationEditRestrictionNotice');
+    const restrictionHint = '護理師編輯模式：只可修改收費項目及套票，其他病歷欄位已鎖定並反白顯示。';
+    const reasonContainer = document.getElementById('auditReasonContainer');
+    const reasonEl = document.getElementById('formAuditReason');
 
     if (noticeEl) {
-        if (billingOnly) {
-            noticeEl.textContent = '護理師編輯模式：只可修改收費項目及套票，其他病歷欄位已鎖定並反白顯示。';
-            noticeEl.classList.remove('hidden');
+        noticeEl.textContent = '';
+        noticeEl.classList.add('hidden');
+    }
+
+    if (reasonContainer) {
+        if (isEditing && !billingOnly) {
+            reasonContainer.classList.remove('hidden');
         } else {
-            noticeEl.textContent = '';
-            noticeEl.classList.add('hidden');
+            reasonContainer.classList.add('hidden');
         }
+    }
+    if (reasonEl && billingOnly) {
+        reasonEl.value = '';
     }
 
     CONSULTATION_BILLING_ONLY_LOCKED_SECTION_IDS.forEach((sectionId) => {
@@ -7854,6 +7863,11 @@ function setConsultationEditRestrictionState(appointment = null, consultation = 
         sectionEl.classList.toggle('border-amber-200', billingOnly);
         sectionEl.classList.toggle('bg-amber-50', billingOnly);
         sectionEl.classList.toggle('p-3', billingOnly);
+        if (billingOnly) {
+            sectionEl.setAttribute('title', restrictionHint);
+        } else {
+            sectionEl.removeAttribute('title');
+        }
 
         const interactiveEls = sectionEl.querySelectorAll('input, textarea, button, select, [contenteditable]');
         interactiveEls.forEach((el) => {
@@ -11671,7 +11685,7 @@ async function saveConsultation() {
     const auditReason = (document.getElementById('formAuditReason') && document.getElementById('formAuditReason').value
         ? String(document.getElementById('formAuditReason').value).trim()
         : '');
-    if (isEditing && !auditReason) {
+    if (isEditing && !isBillingOnlyEdit && !auditReason) {
         showToast('請填寫病歷修改原因，以符合審核追蹤要求。', 'warning');
         return;
     }
