@@ -713,6 +713,83 @@ function updatePermissionControlledButtonsVisibility() {
   }
 }
 
+function getCurrentVisibleSectionId() {
+  const sectionIds = [
+    'patientManagement',
+    'consultationSystem',
+    'medicalRecordManagement',
+    'herbLibrary',
+    'acupointLibrary',
+    'templateLibrary',
+    'scheduleManagement',
+    'billingManagement',
+    'userManagement',
+    'financialReports',
+    'systemManagement',
+    'personalSettings',
+    'personalStatistics',
+    'accountSecurity'
+  ];
+  return sectionIds.find(id => {
+    const el = document.getElementById(id);
+    return el && !el.classList.contains('hidden');
+  }) || null;
+}
+
+function refreshClinicScopedUi() {
+  try {
+    if (typeof generateSidebarMenu === 'function') {
+      generateSidebarMenu();
+    }
+  } catch (_eMenu) {}
+  try {
+    if (typeof updateWelcomeCards === 'function') {
+      updateWelcomeCards();
+    }
+  } catch (_eWelcome) {}
+  try {
+    updatePermissionControlledButtonsVisibility();
+  } catch (_eButtons) {}
+
+  const currentSectionId = getCurrentVisibleSectionId();
+  if (!currentSectionId) return;
+
+  if (!hasAccessToSection(currentSectionId)) {
+    try {
+      hideAllSections();
+    } catch (_eHide) {}
+    const welcomePage = document.getElementById('welcomePage');
+    if (welcomePage) {
+      welcomePage.classList.remove('hidden');
+    }
+    showToast('已切換至其他診所，當前頁面在這間診所沒有存取權限', 'warning');
+    return;
+  }
+
+  if (currentSectionId === 'patientManagement') {
+    try {
+      if (!hasActionPermission('patientCreate') && typeof hideAddPatientForm === 'function') {
+        hideAddPatientForm();
+      }
+    } catch (_eHideModal) {}
+    try {
+      loadPatientList();
+    } catch (_eLoadPatients) {}
+  } else if (currentSectionId === 'medicalRecordManagement') {
+    try {
+      if (typeof loadMedicalRecordManagement === 'function') {
+        loadMedicalRecordManagement();
+      }
+    } catch (_eLoadMedicalRecords) {}
+  } else if (currentSectionId === 'systemManagement') {
+    try {
+      if (typeof loadPermissionManagementPanel === 'function') {
+        loadPermissionManagementPanel();
+      }
+    } catch (_eLoadPermissionPanel) {}
+  }
+}
+
 
 function hasAccessToSection(sectionId) {
   
@@ -2608,6 +2685,7 @@ async function fetchUsers(forceRefresh = false) {
             updateClinicSettingsDisplay();
             advanceGlobalLoading();
             updateCurrentClinicDisplay();
+            try { refreshClinicScopedUi(); } catch (_eRefreshUi) {}
             advanceGlobalLoading();
             try { populateClinicSelectors(); } catch (_e2) {}
             advanceGlobalLoading();
@@ -6933,7 +7011,7 @@ async function logout() {
         }
 
         function clearPatientForm() {
-            ['patientName', 'patientAge', 'patientGender', 'patientPhone', 'patientIdCard', 'patientBirthDate', 'patientAddress'].forEach(id => {
+            ['patientName', 'patientAge', 'patientGender', 'patientPhone', 'patientEmergencyContactName', 'patientEmergencyContactPhone', 'patientIdCard', 'patientBirthDate', 'patientAddress'].forEach(id => {
                 document.getElementById(id).value = '';
             });
             clearPatientMedicalProfileForm();
@@ -6955,6 +7033,8 @@ async function savePatient() {
         age: document.getElementById('patientAge').value,
         gender: document.getElementById('patientGender').value,
         phone: document.getElementById('patientPhone').value.trim(),
+        emergencyContactName: document.getElementById('patientEmergencyContactName').value.trim(),
+        emergencyContactPhone: document.getElementById('patientEmergencyContactPhone').value.trim(),
         idCard: document.getElementById('patientIdCard').value.trim(),
         birthDate: document.getElementById('patientBirthDate').value,
         address: document.getElementById('patientAddress').value.trim(),
@@ -7438,6 +7518,8 @@ async function editPatient(id) {
         document.getElementById('patientName').value = patient.name || '';
         document.getElementById('patientGender').value = patient.gender || '';
         document.getElementById('patientPhone').value = patient.phone || '';
+        document.getElementById('patientEmergencyContactName').value = patient.emergencyContactName || '';
+        document.getElementById('patientEmergencyContactPhone').value = patient.emergencyContactPhone || '';
         document.getElementById('patientIdCard').value = patient.idCard || '';
         document.getElementById('patientBirthDate').value = patient.birthDate || '';
         document.getElementById('patientAddress').value = patient.address || '';
@@ -7651,6 +7733,8 @@ async function viewPatient(id) {
         const safeAge = window.escapeHtml(formatAge(patient.birthDate));
         const safeGender = window.escapeHtml(patient.gender);
         const safePhone = window.escapeHtml(patient.phone);
+        const safeEmergencyContactName = patient.emergencyContactName ? window.escapeHtml(patient.emergencyContactName) : null;
+        const safeEmergencyContactPhone = patient.emergencyContactPhone ? window.escapeHtml(patient.emergencyContactPhone) : null;
         const safeIdCard = patient.idCard ? window.escapeHtml(patient.idCard) : null;
         const safeAddress = patient.address ? window.escapeHtml(patient.address) : null;
         const safeHistory = patient.history ? window.escapeHtml(patient.history) : null;
@@ -7679,6 +7763,8 @@ async function viewPatient(id) {
         const lblAge = _t('年齡：');
         const lblGender = _t('性別：');
         const lblPhone = _t('電話：');
+        const lblEmergencyContactName = _t('緊急聯絡人姓名：');
+        const lblEmergencyContactPhone = _t('緊急聯絡人電話：');
         const lblIdCard = _t('身分證：');
         const lblBirthDate = _t('出生日期：');
         const lblAddress = _t('地址：');
@@ -7700,6 +7786,8 @@ async function viewPatient(id) {
                     <div><span class="font-medium">${lblAge}</span>${safeAge}</div>
                     <div><span class="font-medium">${lblGender}</span>${safeGender}</div>
                     <div><span class="font-medium">${lblPhone}</span>${safePhone}</div>
+                    ${safeEmergencyContactName ? `<div><span class="font-medium">${lblEmergencyContactName}</span>${safeEmergencyContactName}</div>` : ''}
+                    ${safeEmergencyContactPhone ? `<div><span class="font-medium">${lblEmergencyContactPhone}</span>${safeEmergencyContactPhone}</div>` : ''}
                     ${safeIdCard ? `<div><span class="font-medium">${lblIdCard}</span>${safeIdCard}</div>` : ''}
                     ${birthDateString ? `<div><span class="font-medium">${lblBirthDate}</span>${birthDateString}</div>` : ''}
                     ${safeAddress ? `<div><span class="font-medium">${lblAddress}</span>${safeAddress}</div>` : ''}
