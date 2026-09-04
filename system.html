@@ -1189,9 +1189,11 @@
                         </div>
                         
                         
+                        <div id="consultationEditRestrictionNotice" class="hidden mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"></div>
+
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             
-                            <div class="space-y-4">
+                            <div id="consultationLockedClinicalSection" class="space-y-4">
                                 <div>
                                     
                                     <div class="flex justify-between items-center mb-2">
@@ -1286,7 +1288,7 @@
                             
                             <div class="space-y-4">
                                 
-                                <div>
+                                <div id="consultationLockedPrescriptionSection">
                                     <div class="flex justify-between items-center mb-2">
                                         <div class="flex items-center gap-2">
                                             <label class="block text-sm font-semibold text-gray-700">處方內容</label>
@@ -1341,7 +1343,7 @@
                                 
 
                                 
-                                <div>
+                                <div id="consultationBillingSection">
                                     <div class="flex justify-between items-center mb-2">
                                         <label class="block text-sm font-semibold text-gray-700">
                                             收費項目
@@ -1406,7 +1408,7 @@
                                 </div>
                                 
                                 
-                                <div>
+                                <div id="consultationLockedUsageSection">
                                     
                                     <div class="flex justify-between items-center mb-2">
                                         <label class="block text-sm font-semibold text-gray-700">中藥服用方法</label>
@@ -1423,14 +1425,14 @@
                                     <textarea id="formUsage" placeholder="煎煮方法、服用時間、劑量等..." rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
                                 </div>
 
-                                <div>
+                                <div id="consultationLockedTreatmentCourseSection">
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                                         療程
                                     </label>
                                     <input type="text" id="formTreatmentCourse" placeholder="例：7天、2週、1個月等..." class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                 </div>
                                 
-                                <div>
+                                <div id="consultationLockedInstructionsSection">
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">
                                         醫囑及注意事項
                                     </label>
@@ -1440,7 +1442,7 @@
                         </div>
                         
                         
-                        <div class="mt-6 pt-4 border-t border-gray-200">
+                        <div id="consultationLockedScheduleSection" class="mt-6 pt-4 border-t border-gray-200">
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-2">

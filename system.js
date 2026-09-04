@@ -7791,12 +7791,112 @@ function getConsultationDoctorUsername(consultation = null, appointment = null) 
 
 function canCurrentUserEditMedicalRecordEntry(consultation = null, appointment = null) {
     const isAdminUser = currentUserData && currentUserData.position === '診所管理';
+    const isNurseUser = currentUserData && currentUserData.position === '護理師';
     const doctorUsername = getConsultationDoctorUsername(consultation, appointment);
     const isDoctorOwner = currentUserData &&
         currentUserData.position === '醫師' &&
         doctorUsername &&
         currentUserData.username === doctorUsername;
-    return !!(isAdminUser || isDoctorOwner);
+    return !!(isAdminUser || isDoctorOwner || isNurseUser);
+}
+
+function getMedicalRecordEditAccessScope(consultation = null, appointment = null) {
+    if (!currentUserData || !currentUserData.position) return 'none';
+    if (currentUserData.position === '診所管理') return 'full';
+    if (currentUserData.position === '護理師') return 'billingOnly';
+
+    const doctorUsername = getConsultationDoctorUsername(consultation, appointment);
+    const isDoctorOwner = currentUserData.position === '醫師' &&
+        doctorUsername &&
+        currentUserData.username === doctorUsername;
+    return isDoctorOwner ? 'full' : 'none';
+}
+
+function getMedicalRecordEditButtonLabel(consultation = null, appointment = null) {
+    return getMedicalRecordEditAccessScope(consultation, appointment) === 'billingOnly'
+        ? '修改收費'
+        : '修改病歷';
+}
+
+const CONSULTATION_BILLING_ONLY_LOCKED_SECTION_IDS = [
+    'consultationLockedClinicalSection',
+    'consultationLockedPrescriptionSection',
+    'consultationLockedUsageSection',
+    'consultationLockedTreatmentCourseSection',
+    'consultationLockedInstructionsSection',
+    'consultationLockedScheduleSection'
+];
+
+function setConsultationEditRestrictionState(appointment = null, consultation = null) {
+    const isEditing = !!(
+        (appointment && appointment.status === 'completed' && appointment.consultationId) ||
+        (consultation && consultation.id)
+    );
+    const billingOnly = isEditing && getMedicalRecordEditAccessScope(consultation, appointment) === 'billingOnly';
+    const noticeEl = document.getElementById('consultationEditRestrictionNotice');
+
+    if (noticeEl) {
+        if (billingOnly) {
+            noticeEl.textContent = '護理師編輯模式：只可修改收費項目及套票，其他病歷欄位已鎖定並反白顯示。';
+            noticeEl.classList.remove('hidden');
+        } else {
+            noticeEl.textContent = '';
+            noticeEl.classList.add('hidden');
+        }
+    }
+
+    CONSULTATION_BILLING_ONLY_LOCKED_SECTION_IDS.forEach((sectionId) => {
+        const sectionEl = document.getElementById(sectionId);
+        if (!sectionEl) return;
+
+        sectionEl.classList.toggle('rounded-xl', billingOnly);
+        sectionEl.classList.toggle('border', billingOnly);
+        sectionEl.classList.toggle('border-amber-200', billingOnly);
+        sectionEl.classList.toggle('bg-amber-50', billingOnly);
+        sectionEl.classList.toggle('p-3', billingOnly);
+
+        const interactiveEls = sectionEl.querySelectorAll('input, textarea, button, select, [contenteditable]');
+        interactiveEls.forEach((el) => {
+            const tagName = (el.tagName || '').toUpperCase();
+            const inputType = String(el.getAttribute('type') || '').toLowerCase();
+
+            if (el.dataset.originalDisabled === undefined && 'disabled' in el) {
+                el.dataset.originalDisabled = el.disabled ? 'true' : 'false';
+            }
+            if (el.dataset.originalReadonly === undefined && 'readOnly' in el) {
+                el.dataset.originalReadonly = el.readOnly ? 'true' : 'false';
+            }
+            if (el.hasAttribute('contenteditable') && el.dataset.originalContenteditable === undefined) {
+                el.dataset.originalContenteditable = el.getAttribute('contenteditable') || 'true';
+            }
+
+            if (billingOnly) {
+                if (tagName === 'BUTTON' || tagName === 'SELECT' || ['date', 'datetime-local', 'number', 'checkbox', 'radio'].includes(inputType)) {
+                    if ('disabled' in el) el.disabled = true;
+                } else if ('readOnly' in el) {
+                    el.readOnly = true;
+                }
+                if (el.hasAttribute('contenteditable')) {
+                    el.setAttribute('contenteditable', 'false');
+                }
+            } else {
+                if ('disabled' in el) {
+                    el.disabled = el.dataset.originalDisabled === 'true';
+                }
+                if ('readOnly' in el) {
+                    el.readOnly = el.dataset.originalReadonly === 'true';
+                }
+                if (el.hasAttribute('contenteditable')) {
+                    el.setAttribute('contenteditable', el.dataset.originalContenteditable || 'true');
+                }
+            }
+
+            el.classList.toggle('bg-amber-100', billingOnly && (tagName === 'INPUT' || tagName === 'TEXTAREA' || el.hasAttribute('contenteditable')));
+            el.classList.toggle('border-amber-300', billingOnly && (tagName === 'INPUT' || tagName === 'TEXTAREA' || el.hasAttribute('contenteditable')));
+            el.classList.toggle('text-amber-900', billingOnly && (tagName === 'INPUT' || tagName === 'TEXTAREA' || el.hasAttribute('contenteditable')));
+            el.classList.toggle('cursor-not-allowed', billingOnly);
+        });
+    });
 }
 
 function isMedicalRecordInCurrentClinic(consultation = null, appointment = null) {
@@ -8217,7 +8317,7 @@ async function loadInquiryOptions(patient) {
                     const appt = appointments.find(ap => ap && String(ap.id) === String(currentConsultingAppointmentId));
                     
                     if (appt && appt.status === 'completed') {
-                        return false;
+                        return getMedicalRecordEditAccessScope(null, appt) === 'billingOnly';
                     }
                 }
             } catch (e) {
@@ -9925,6 +10025,7 @@ function createAppointmentRow(appointment, patient, index) {
 // 2. 修改 getOperationButtons 函數，確保使用正確的 patientId
 function getOperationButtons(appointment, patient = null) {
     const buttons = [];
+    const medicalRecordEditLabel = getMedicalRecordEditButtonLabel(null, appointment);
     
     // 檢查目前用戶是否為醫師
     const isDoctorUser = currentUserData && currentUserData.position === '醫師';
@@ -9948,7 +10049,7 @@ function getOperationButtons(appointment, patient = null) {
     const canManage = currentUserData &&
         (isAdminUser || currentUserData.position === '護理師');
     // 管理員或該掛號醫師可修改病歷
-    const canEditMedicalRecord = isAppointmentDoctor || isAdminUser;
+    const canEditMedicalRecord = canCurrentUserEditMedicalRecordEntry(null, appointment);
     
     // 檢查當前用戶是否可以確認到達（管理員、護理師或該掛號的醫師）
     const canConfirmArrival = canManage || isAppointmentDoctor;
@@ -10023,7 +10124,7 @@ function getOperationButtons(appointment, patient = null) {
             
             if (isDisabled) {
                 if (canEditMedicalRecord) {
-                    buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs whitespace-nowrap cursor-not-allowed" ${disabledTooltip}>修改病歷</span>`);
+                    buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs whitespace-nowrap cursor-not-allowed" ${disabledTooltip}>${medicalRecordEditLabel}</span>`);
                 }
                 if (canManage) {
                     buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs whitespace-nowrap cursor-not-allowed" ${disabledTooltip}>撤回診症</span>`);
@@ -10031,9 +10132,9 @@ function getOperationButtons(appointment, patient = null) {
             } else {
                 if (canEditMedicalRecord) {
                     if (editWindowStatus.allowed) {
-                        buttons.push(`<button onclick="editMedicalRecord(${appointment.id})" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">修改病歷</button>`);
+                        buttons.push(`<button onclick="editMedicalRecord(${appointment.id})" class="bg-orange-500 hover:bg-orange-600 text-white px-2 py-1 rounded text-xs whitespace-nowrap transition duration-200">${medicalRecordEditLabel}</button>`);
                     } else {
-                        buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs whitespace-nowrap cursor-not-allowed" title="${editWindowStatus.reason}">修改病歷</span>`);
+                        buttons.push(`<span class="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs whitespace-nowrap cursor-not-allowed" title="${editWindowStatus.reason}">${medicalRecordEditLabel}</span>`);
                     }
                 }
                 if (canManage) {
@@ -10700,8 +10801,15 @@ function restoreConsultationSymptomsDraft(appointment, patient) {
     if (!draft) return;
 
     let restored = false;
+    const isBillingOnlyEdit = !!(
+        appointment &&
+        appointment.status === 'completed' &&
+        appointment.consultationId &&
+        getMedicalRecordEditAccessScope(null, appointment) === 'billingOnly'
+    );
     const isLegacySymptomsDraft = Object.prototype.hasOwnProperty.call(draft, 'value') || Object.prototype.hasOwnProperty.call(draft, 'prevValue');
     if (isLegacySymptomsDraft) {
+        if (isBillingOnlyEdit) return;
         const symptomsEl = document.getElementById('formSymptoms');
         if (!symptomsEl) return;
         const rawValue = typeof draft.value === 'string' ? draft.value : '';
@@ -10714,18 +10822,20 @@ function restoreConsultationSymptomsDraft(appointment, patient) {
         }
     } else {
         const fields = draft.fields && typeof draft.fields === 'object' ? draft.fields : {};
-        CONSULTATION_DRAFT_TEXT_FIELD_IDS.forEach(id => {
-            if (!Object.prototype.hasOwnProperty.call(fields, id)) return;
-            const el = document.getElementById(id);
-            if (!el || !('value' in el)) return;
-            const nextValue = String(fields[id] || '');
-            if (String(el.value || '') !== nextValue) {
-                el.value = nextValue;
-                restored = true;
-            }
-        });
+        if (!isBillingOnlyEdit) {
+            CONSULTATION_DRAFT_TEXT_FIELD_IDS.forEach(id => {
+                if (!Object.prototype.hasOwnProperty.call(fields, id)) return;
+                const el = document.getElementById(id);
+                if (!el || !('value' in el)) return;
+                const nextValue = String(fields[id] || '');
+                if (String(el.value || '') !== nextValue) {
+                    el.value = nextValue;
+                    restored = true;
+                }
+            });
+        }
 
-        if (Object.prototype.hasOwnProperty.call(draft, 'acupunctureNotesHtml')) {
+        if (!isBillingOnlyEdit && Object.prototype.hasOwnProperty.call(draft, 'acupunctureNotesHtml')) {
             const acnEl = document.getElementById('formAcupunctureNotes');
             const nextHtml = String(draft.acupunctureNotesHtml || '');
             if (acnEl && String(acnEl.innerHTML || '') !== nextHtml) {
@@ -10739,7 +10849,7 @@ function restoreConsultationSymptomsDraft(appointment, patient) {
             }
         }
 
-        if (Object.prototype.hasOwnProperty.call(draft, 'multiPrescriptions')) {
+        if (!isBillingOnlyEdit && Object.prototype.hasOwnProperty.call(draft, 'multiPrescriptions')) {
             const draftSections = Array.isArray(draft.multiPrescriptions) ? draft.multiPrescriptions : [];
             if (draftSections.length > 0) {
                 prescriptions = draftSections.map((section, index) => ({
@@ -10771,7 +10881,7 @@ function restoreConsultationSymptomsDraft(appointment, patient) {
                 updatePrescriptionDisplay();
             }
             restored = true;
-        } else if (Object.prototype.hasOwnProperty.call(draft, 'prescription')) {
+        } else if (!isBillingOnlyEdit && Object.prototype.hasOwnProperty.call(draft, 'prescription')) {
             const prescriptionEl = document.getElementById('formPrescription');
             if (prescriptionEl && String(prescriptionEl.value || '') !== String(draft.prescription || '')) {
                 prescriptionEl.value = String(draft.prescription || '');
@@ -11052,6 +11162,8 @@ async function showConsultationForm(appointment) {
             setupConsultationSymptomsDraftAutosave(appointment, patient);
         } catch (_e) {}
         
+        setConsultationEditRestrictionState(appointment, null);
+
         document.getElementById('consultationForm').classList.remove('hidden');
         
         // 滾動到表單位置
@@ -11067,6 +11179,7 @@ async function showConsultationForm(appointment) {
         
         // 清空診症表單
         function clearConsultationForm() {
+            setConsultationEditRestrictionState(null, null);
             ['formSymptoms', 'formTongue', 'formPulse', 'formCurrentHistory', 'formDiagnosis', 'formSyndrome', 'formAcupunctureNotes', 'formPrescription', 'formFollowUpDate', 'formVisitTime', 'formRestStartDate', 'formRestEndDate', 'formAuditReason'].forEach(id => {
                 const el = document.getElementById(id);
                 if (!el) return;
@@ -11339,6 +11452,7 @@ async function showConsultationForm(appointment) {
         async function closeConsultationForm() {
             stopConsultationSymptomsDraftAutosave();
             updateConsultationCancelButtonLabel(false);
+            setConsultationEditRestrictionState(null, null);
             // 在關閉表單前，如有暫存的套票使用變更且尚未保存，嘗試回復。
             try {
                 if (pendingPackageChanges && pendingPackageChanges.length > 0) {
@@ -11542,18 +11656,18 @@ async function saveConsultation() {
         return;
     }
     
+    const appointment = appointments.find(apt => apt && String(apt.id) === String(currentConsultingAppointmentId))
+        || currentConsultationEditContext;
+    const isEditing = appointment && appointment.status === 'completed' && appointment.consultationId;
+    const editAccessScope = isEditing ? getMedicalRecordEditAccessScope(null, appointment) : 'full';
+    const isBillingOnlyEdit = isEditing && editAccessScope === 'billingOnly';
     const symptoms = document.getElementById('formSymptoms').value.trim();
     const diagnosis = document.getElementById('formDiagnosis').value.trim();
     
-    if (!symptoms || !diagnosis) {
+    if ((!symptoms || !diagnosis) && !isBillingOnlyEdit) {
         showToast('請填寫必填欄位：主訴、中醫診斷！', 'error');
         return;
     }
-    // 取得當前掛號資訊並判斷是否為編輯模式，供後續預處理和保存使用
-    const appointment = appointments.find(apt => apt && String(apt.id) === String(currentConsultingAppointmentId))
-        || currentConsultationEditContext;
-    // 判斷是否為編輯模式：掛號狀態為已完成且存在 consultationId
-    const isEditing = appointment && appointment.status === 'completed' && appointment.consultationId;
     const auditReason = (document.getElementById('formAuditReason') && document.getElementById('formAuditReason').value
         ? String(document.getElementById('formAuditReason').value).trim()
         : '');
@@ -11752,6 +11866,33 @@ async function saveConsultation() {
             const consResult = await window.firebaseDataManager.getConsultationById(String(appointment.consultationId), true);
             if (consResult && consResult.success && consResult.data) {
                 existing = consResult.data;
+            }
+            if (isBillingOnlyEdit && existing) {
+                [
+                    'symptoms',
+                    'tongue',
+                    'pulse',
+                    'currentHistory',
+                    'diagnosis',
+                    'syndrome',
+                    'acupunctureNotes',
+                    'prescription',
+                    'prescriptionStructured',
+                    'multiPrescriptions',
+                    'usage',
+                    'treatmentCourse',
+                    'instructions',
+                    'followUpDate',
+                    'visitTime',
+                    'restStartDate',
+                    'restEndDate',
+                    'medicationDays',
+                    'medicationFrequency'
+                ].forEach((field) => {
+                    if (Object.prototype.hasOwnProperty.call(existing, field)) {
+                        consultationData[field] = existing[field];
+                    }
+                });
             }
             consultationData.date = existing && existing.date ? existing.date : new Date();
             consultationData.doctor = existing && existing.doctor ? existing.doctor : currentUser;
@@ -12298,7 +12439,7 @@ if (!patient) {
             if (canCurrentUserEditMedicalRecordEntry(consultation, null)) {
                 const editWindowStatus = getMedicalRecordEditWindowStatus(consultation, null);
                 buttons.push(renderMedicalHistoryActionButton({
-                    label: '修改病歷',
+                    label: getMedicalRecordEditButtonLabel(consultation, null),
                     onclick: `editMedicalRecordByConsultationId('${consultation.id}')`,
                     variant: 'edit',
                     disabled: !editWindowStatus.allowed,
@@ -15496,11 +15637,7 @@ async function editMedicalRecord(appointmentId) {
             showToast('找不到掛號記錄！', 'error');
             return;
         }
-        const isAdminUser = currentUserData && currentUserData.position === '診所管理';
-        const isAppointmentDoctor = currentUserData &&
-            currentUserData.position === '醫師' &&
-            appointment.appointmentDoctor === currentUserData.username;
-        const canEditMedicalRecord = isAdminUser || isAppointmentDoctor;
+        const canEditMedicalRecord = canCurrentUserEditMedicalRecordEntry(null, appointment);
         if (!canEditMedicalRecord) {
             showToast('您沒有修改病歷的權限！', 'error');
             return;
