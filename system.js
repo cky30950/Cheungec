@@ -1925,14 +1925,18 @@ async function commitPendingPackageChanges() {
                     newRemaining = Math.max(0, newRemaining);
                 }
                 
-                const updatedPackage = { ...pkg, remainingUses: newRemaining };
+                const updatedPackage = withPackageHistoryLog({ ...pkg, remainingUses: newRemaining }, delta < 0 ? 'consume' : 'restoreUse', {
+                    fromRemainingUses: Number(pkg.remainingUses) || 0,
+                    toRemainingUses: newRemaining,
+                    changeCount: Math.abs(delta)
+                });
                 
                 await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
                 
                 if (patientPackagesCache && Array.isArray(patientPackagesCache[patientId])) {
                     patientPackagesCache[patientId] = patientPackagesCache[patientId].map(p => {
                         if (String(p.id) === String(packageRecordId)) {
-                            return { ...p, remainingUses: newRemaining };
+                            return { ...p, ...updatedPackage };
                         }
                         return p;
                     });
@@ -15796,13 +15800,17 @@ async function withdrawConsultation(appointmentId) {
                 } else {
                     newRemaining = Math.max(0, newRemaining);
                 }
-                const updatedPackage = { ...pkg, remainingUses: newRemaining };
+                const updatedPackage = withPackageHistoryLog({ ...pkg, remainingUses: newRemaining }, 'restoreUse', {
+                    fromRemainingUses: Number(pkg.remainingUses) || 0,
+                    toRemainingUses: newRemaining,
+                    changeCount: Math.abs(Number(change.delta) || 0)
+                });
                 await window.firebaseDataManager.updatePatientPackage(packageRecordIdForPkg, updatedPackage);
                 // 更新本地快取
                 if (patientPackagesCache && Array.isArray(patientPackagesCache[patientIdForPkg])) {
                     patientPackagesCache[patientIdForPkg] = patientPackagesCache[patientIdForPkg].map(p => {
                         if (String(p.id) === String(packageRecordIdForPkg)) {
-                            return { ...p, remainingUses: newRemaining };
+                            return { ...p, ...updatedPackage };
                         }
                         return p;
                     });
@@ -24380,6 +24388,171 @@ async function getPatientPackages(patientId, forceRefresh = false) {
     }
 }
 
+function getPackageHistoryOperatorUsername() {
+    if (currentUserData && currentUserData.username) {
+        return String(currentUserData.username);
+    }
+    if (currentUser) {
+        return String(currentUser);
+    }
+    return 'system';
+}
+
+function getPackageHistoryOperatorDisplayName(username) {
+    const normalized = String(username || '').trim();
+    if (!normalized) return '未知使用者';
+    if (Array.isArray(users) && users.length > 0) {
+        const matched = users.find(user => user && String(user.username || '').trim() === normalized);
+        if (matched) {
+            const displayName = matched.name || matched.fullName || matched.displayName;
+            if (displayName) return String(displayName);
+        }
+    }
+    return normalized;
+}
+
+function normalizePackageHistoryLogs(pkg) {
+    if (!pkg || !Array.isArray(pkg.historyLogs)) return [];
+    return pkg.historyLogs.filter(log => log && typeof log === 'object');
+}
+
+function createPackageHistoryLog(type, data = {}) {
+    const operatedAt = data.operatedAt || new Date().toISOString();
+    const operatedBy = data.operatedBy || getPackageHistoryOperatorUsername();
+    const { operatedAt: _ignoredAt, operatedBy: _ignoredBy, ...rest } = data || {};
+    return {
+        id: `pkglog_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        type: String(type || 'update'),
+        operatedAt,
+        operatedBy,
+        ...rest
+    };
+}
+
+function appendPackageHistoryLog(pkg, type, data = {}) {
+    const historyLogs = normalizePackageHistoryLogs(pkg);
+    return [...historyLogs, createPackageHistoryLog(type, data)];
+}
+
+function withPackageHistoryLog(pkg, type, data = {}) {
+    return {
+        ...pkg,
+        historyLogs: appendPackageHistoryLog(pkg, type, data)
+    };
+}
+
+function getPackageHistoryLogsForDisplay(pkg) {
+    const logs = normalizePackageHistoryLogs(pkg);
+    if (logs.length > 0) {
+        return logs;
+    }
+    const fallbackLogs = [];
+    if (pkg && (pkg.purchasedAt || pkg.createdAt)) {
+        fallbackLogs.push({
+            id: 'legacy_purchase',
+            type: 'purchase',
+            operatedAt: pkg.purchasedAt || pkg.createdAt,
+            operatedBy: pkg.createdBy || '',
+            totalUses: pkg.totalUses,
+            toRemainingUses: pkg.remainingUses,
+            expiresAt: pkg.expiresAt,
+            isFallback: true
+        });
+    }
+    if (pkg && pkg.updatedAt) {
+        fallbackLogs.push({
+            id: 'legacy_update',
+            type: 'legacyUpdate',
+            operatedAt: pkg.updatedAt,
+            operatedBy: pkg.updatedBy || '',
+            isFallback: true
+        });
+    }
+    return fallbackLogs;
+}
+
+function formatPackageHistoryTimestamp(raw, locale = 'zh-TW') {
+    const date = getPackageHistoryDateObject(raw);
+    if (!date || Number.isNaN(date.getTime())) {
+        return '未知時間';
+    }
+    return date.toLocaleString(locale, { hour12: false });
+}
+
+function formatPackageHistoryDateOnly(raw, locale = 'zh-TW') {
+    const date = getPackageHistoryDateObject(raw);
+    if (!date || Number.isNaN(date.getTime())) {
+        return '未知日期';
+    }
+    return date.toLocaleDateString(locale);
+}
+
+function getPackageHistoryDateObject(raw) {
+    let date = null;
+    if (raw && typeof raw.toDate === 'function') {
+        date = raw.toDate();
+    } else if (raw && typeof raw.seconds === 'number') {
+        date = new Date(raw.seconds * 1000);
+    } else if (raw) {
+        date = new Date(raw);
+    }
+    return date;
+}
+
+function getPackageHistorySummary(log, isEn = false) {
+    const fromRemaining = Number(log && log.fromRemainingUses);
+    const toRemaining = Number(log && log.toRemainingUses);
+    const totalUses = Number(log && log.totalUses);
+    const changeCount = Number(log && log.changeCount);
+    const oldExpiry = log && log.fromExpiresAt ? formatPackageHistoryDateOnly(log.fromExpiresAt, isEn ? 'en-US' : 'zh-TW') : '';
+    const newExpiry = log && log.toExpiresAt ? formatPackageHistoryDateOnly(log.toExpiresAt, isEn ? 'en-US' : 'zh-TW') : '';
+    switch (String(log && log.type || '')) {
+        case 'purchase':
+            return isEn
+                ? `Purchased package, ${Number.isFinite(totalUses) ? totalUses : '-'} total uses, expiry ${newExpiry || formatPackageHistoryDateOnly(log && log.expiresAt, 'en-US')}`
+                : `購買套票，總次數 ${Number.isFinite(totalUses) ? totalUses : '-'} 次，有效至 ${newExpiry || formatPackageHistoryDateOnly(log && log.expiresAt, 'zh-TW')}`;
+        case 'consume':
+            return isEn
+                ? `Used ${Number.isFinite(changeCount) ? changeCount : 1} time(s), remaining uses ${fromRemaining} -> ${toRemaining}`
+                : `使用 ${Number.isFinite(changeCount) ? changeCount : 1} 次，剩餘次數 ${fromRemaining} -> ${toRemaining}`;
+        case 'restoreUse':
+            return isEn
+                ? `Returned ${Number.isFinite(changeCount) ? changeCount : 1} time(s), remaining uses ${fromRemaining} -> ${toRemaining}`
+                : `退回 ${Number.isFinite(changeCount) ? changeCount : 1} 次，剩餘次數 ${fromRemaining} -> ${toRemaining}`;
+        case 'adjustRemainingUses':
+            return isEn
+                ? `Adjusted remaining uses ${fromRemaining} -> ${toRemaining}`
+                : `修改剩餘次數 ${fromRemaining} -> ${toRemaining}`;
+        case 'adjustExpiry':
+            return isEn
+                ? `Adjusted expiry ${oldExpiry} -> ${newExpiry}`
+                : `修改有限期 ${oldExpiry} -> ${newExpiry}`;
+        case 'legacyUpdate':
+            return isEn ? 'Legacy record only saved the latest update time' : '舊資料僅保留最後更新時間，未有詳細內容';
+        default:
+            return isEn ? 'Package record updated' : '套票紀錄已更新';
+    }
+}
+
+function getPackageHistoryTypeLabel(log, isEn = false) {
+    switch (String(log && log.type || '')) {
+        case 'purchase':
+            return isEn ? 'Purchase' : '購買';
+        case 'consume':
+            return isEn ? 'Use' : '使用';
+        case 'restoreUse':
+            return isEn ? 'Return' : '退回';
+        case 'adjustRemainingUses':
+            return isEn ? 'Remaining Uses' : '修改剩餘次數';
+        case 'adjustExpiry':
+            return isEn ? 'Expiry' : '修改有限期';
+        case 'legacyUpdate':
+            return isEn ? 'Legacy Update' : '舊資料更新';
+        default:
+            return isEn ? 'Update' : '更新';
+    }
+}
+
 async function purchasePackage(patientId, item) {
     const totalUses = Number(item.packageUses || item.totalUses || 0);
     const validityDays = Number(item.validityDays || 0);
@@ -24394,7 +24567,16 @@ async function purchasePackage(patientId, item) {
         totalUses: totalUses,
         remainingUses: totalUses,
         purchasedAt: purchasedAt.toISOString(),
-        expiresAt: expiresAt.toISOString()
+        expiresAt: expiresAt.toISOString(),
+        historyLogs: [
+            createPackageHistoryLog('purchase', {
+                operatedAt: purchasedAt.toISOString(),
+                totalUses,
+                toRemainingUses: totalUses,
+                expiresAt: expiresAt.toISOString(),
+                toExpiresAt: expiresAt.toISOString()
+            })
+        ]
     };
     
     try {
@@ -24440,10 +24622,14 @@ async function consumePackage(patientId, packageRecordId) {
         if (now > exp) return { ok: false, msg: '套票已過期' };
         if (pkg.remainingUses <= 0) return { ok: false, msg: '套票已用完' };
         
-        const updatedPackage = {
+        const updatedPackage = withPackageHistoryLog({
             ...pkg,
             remainingUses: pkg.remainingUses - 1
-        };
+        }, 'consume', {
+            fromRemainingUses: Number(pkg.remainingUses) || 0,
+            toRemainingUses: (Number(pkg.remainingUses) || 0) - 1,
+            changeCount: 1
+        });
         
         const result = await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
 
@@ -24452,7 +24638,7 @@ async function consumePackage(patientId, packageRecordId) {
             if (Array.isArray(patientPackagesCache[patientId])) {
                 patientPackagesCache[patientId] = patientPackagesCache[patientId].map(p => {
                     if (String(p.id) === String(packageRecordId)) {
-                        return { ...p, remainingUses: (p.remainingUses || 0) - 1 };
+                        return { ...p, ...updatedPackage };
                     }
                     return p;
                 });
@@ -24613,10 +24799,13 @@ async function updatePatientPackageExpiry(patientId, packageRecordId) {
         showToast(isEn ? 'Invalid date' : '日期無效', 'warning');
         return;
     }
-    const updatedPackage = {
+    const updatedPackage = withPackageHistoryLog({
         ...pkg,
         expiresAt: newExp.toISOString()
-    };
+    }, 'adjustExpiry', {
+        fromExpiresAt: pkg.expiresAt,
+        toExpiresAt: newExp.toISOString()
+    });
     const result = await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
     if (!result || !result.success) {
         showToast(isEn ? 'Failed to update expiry date' : '更新套票有效期失敗', 'error');
@@ -24689,10 +24878,13 @@ async function updatePatientPackageRemainingUses(patientId, packageRecordId) {
         );
         return;
     }
-    const updatedPackage = {
+    const updatedPackage = withPackageHistoryLog({
         ...pkg,
         remainingUses: nextRemaining
-    };
+    }, 'adjustRemainingUses', {
+        fromRemainingUses: currentRemaining,
+        toRemainingUses: nextRemaining
+    });
     const result = await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
     if (!result || !result.success) {
         showToast(isEn ? 'Failed to update remaining uses' : '更新剩餘次數失敗', 'error');
@@ -24757,6 +24949,59 @@ async function renderPatientPackages(patientId) {
     } catch (error) {
         console.error('渲染患者套票錯誤:', error);
         container.innerHTML = '<div class="text-red-500">載入套票資料失敗</div>';
+    }
+}
+
+async function showPatientPackageHistory(patientId, packageRecordId) {
+    const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+    const isEn = lang && lang.toLowerCase().startsWith('en');
+    try {
+        const packages = await getPatientPackages(patientId, true);
+        const pkg = Array.isArray(packages) ? packages.find(item => String(item.id) === String(packageRecordId)) : null;
+        if (!pkg) {
+            showToast(isEn ? 'Package not found' : '找不到套票', 'warning');
+            return;
+        }
+        const logs = getPackageHistoryLogsForDisplay(pkg)
+            .slice()
+            .sort((a, b) => {
+                const timeA = (getPackageHistoryDateObject(a && a.operatedAt) || new Date(0)).getTime() || 0;
+                const timeB = (getPackageHistoryDateObject(b && b.operatedAt) || new Date(0)).getTime() || 0;
+                return timeB - timeA;
+            });
+        const escape = (value) => window.escapeHtml ? window.escapeHtml(String(value == null ? '' : value)) : String(value == null ? '' : value);
+        const rowsHtml = logs.length > 0
+            ? logs.map(log => {
+                const operatedBy = getPackageHistoryOperatorDisplayName(log && log.operatedBy ? log.operatedBy : '');
+                const timeText = formatPackageHistoryTimestamp(log && log.operatedAt, isEn ? 'en-US' : 'zh-TW');
+                const typeText = getPackageHistoryTypeLabel(log, isEn);
+                const summaryText = getPackageHistorySummary(log, isEn);
+                return `
+                    <div class="rounded-lg border border-gray-200 bg-white p-3 text-left">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">${escape(typeText)}</span>
+                            <span class="text-xs text-gray-500">${escape(timeText)}</span>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-800">${escape(summaryText)}</div>
+                        <div class="mt-1 text-xs text-gray-500">${escape(isEn ? `Operator: ${operatedBy}` : `操作用戶：${operatedBy}`)}</div>
+                    </div>
+                `;
+            }).join('')
+            : `<div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-500">${escape(isEn ? 'No package records yet' : '目前沒有套票記錄')}</div>`;
+        await Swal.fire({
+            titleText: String(pkg.name || (isEn ? 'Package Records' : '套票記錄')),
+            html: `
+                <div class="text-left">
+                    <div class="mb-3 text-sm text-gray-600">${escape(isEn ? 'Package Records' : '套票記錄')}</div>
+                    <div class="max-h-[60vh] space-y-3 overflow-y-auto pr-1">${rowsHtml}</div>
+                </div>
+            `,
+            width: 720,
+            confirmButtonText: isEn ? 'Close' : '關閉'
+        });
+    } catch (error) {
+        console.error('顯示套票記錄失敗:', error);
+        showToast(isEn ? 'Failed to load package records' : '載入套票記錄失敗', 'error');
     }
 }
 
@@ -24894,7 +25139,14 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
                         </div>
                         <div class="text-right">
                             <div class="text-sm ${usesClass} mb-1">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
-                            <div class="flex items-center justify-end gap-1">
+                            <div class="flex flex-wrap items-center justify-end gap-1">
+                                <button
+                                    type="button"
+                                    onclick="showPatientPackageHistory('${patientId}', '${pkg.id}')"
+                                    class="px-2 py-1 text-xs rounded bg-violet-600 text-white hover:bg-violet-700"
+                                >
+                                    套票記錄
+                                </button>
                                 <button
                                     type="button"
                                     onclick="updatePatientPackageRemainingUses('${patientId}', '${pkg.id}')"
@@ -24941,7 +25193,14 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
                         </div>
                         <div class="text-right">
                             <div class="text-sm text-gray-500 mb-1">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
-                            <div class="flex items-center justify-end gap-1">
+                            <div class="flex flex-wrap items-center justify-end gap-1">
+                                <button
+                                    type="button"
+                                    onclick="showPatientPackageHistory('${patientId}', '${pkg.id}')"
+                                    class="px-2 py-1 text-xs rounded bg-violet-600 text-white hover:bg-violet-700"
+                                >
+                                    套票記錄
+                                </button>
                                 <button
                                     type="button"
                                     onclick="updatePatientPackageRemainingUses('${patientId}', '${pkg.id}')"
