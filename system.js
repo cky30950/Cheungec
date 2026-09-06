@@ -1925,13 +1925,18 @@ async function commitPendingPackageChanges() {
                     newRemaining = Math.max(0, newRemaining);
                 }
                 
-                const updatedPackage = withPackageHistoryLog({ ...pkg, remainingUses: newRemaining }, delta < 0 ? 'consume' : 'restoreUse', {
+                const updatedPackage = { ...pkg, remainingUses: newRemaining };
+                
+                await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
+                await recordPatientPackageHistory(buildPatientPackageHistoryRecord({
+                    patientId,
+                    packageId: packageRecordId,
+                    packageName: pkg.name,
+                    type: delta < 0 ? 'consume' : 'restoreUse',
                     fromRemainingUses: Number(pkg.remainingUses) || 0,
                     toRemainingUses: newRemaining,
                     changeCount: Math.abs(delta)
-                });
-                
-                await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
+                }));
                 
                 if (patientPackagesCache && Array.isArray(patientPackagesCache[patientId])) {
                     patientPackagesCache[patientId] = patientPackagesCache[patientId].map(p => {
@@ -7670,6 +7675,25 @@ async function deletePatientAssociatedData(patientId) {
             }
         } catch (err) {
             console.error('查詢或刪除患者套票失敗:', err);
+        }
+
+        try {
+            const historyRef = window.firebase.collection(window.firebase.db, 'patientPackageHistory');
+            const historyQuery = window.firebase.firestoreQuery(historyRef, window.firebase.where('patientId', '==', patientId));
+            const historySnap = await window.firebase.getDocs(historyQuery);
+            const historyDocs = historySnap && historySnap.docs ? historySnap.docs : [];
+            for (const docSnap of historyDocs) {
+                try {
+                    await window.firebase.deleteDoc(docSnap.ref);
+                } catch (delErr) {
+                    console.error('刪除患者套票記錄失敗:', delErr);
+                }
+            }
+            if (window.firebaseDataManager && typeof window.firebaseDataManager.resetPatientPackageHistoryPagination === 'function') {
+                window.firebaseDataManager.resetPatientPackageHistoryPagination(patientId);
+            }
+        } catch (err) {
+            console.error('查詢或刪除患者套票記錄失敗:', err);
         }
 
         
@@ -15800,12 +15824,17 @@ async function withdrawConsultation(appointmentId) {
                 } else {
                     newRemaining = Math.max(0, newRemaining);
                 }
-                const updatedPackage = withPackageHistoryLog({ ...pkg, remainingUses: newRemaining }, 'restoreUse', {
+                const updatedPackage = { ...pkg, remainingUses: newRemaining };
+                await window.firebaseDataManager.updatePatientPackage(packageRecordIdForPkg, updatedPackage);
+                await recordPatientPackageHistory(buildPatientPackageHistoryRecord({
+                    patientId: patientIdForPkg,
+                    packageId: packageRecordIdForPkg,
+                    packageName: pkg.name,
+                    type: 'restoreUse',
                     fromRemainingUses: Number(pkg.remainingUses) || 0,
                     toRemainingUses: newRemaining,
                     changeCount: Math.abs(Number(change.delta) || 0)
-                });
-                await window.firebaseDataManager.updatePatientPackage(packageRecordIdForPkg, updatedPackage);
+                }));
                 // 更新本地快取
                 if (patientPackagesCache && Array.isArray(patientPackagesCache[patientIdForPkg])) {
                     patientPackagesCache[patientIdForPkg] = patientPackagesCache[patientIdForPkg].map(p => {
@@ -23523,6 +23552,16 @@ async function exportClinicBackup() {
         } catch (e) {
             console.error('讀取套票資料失敗:', e);
         }
+        // 讀取所有套票記錄資料
+        let packageHistoryData = [];
+        try {
+            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'patientPackageHistory'));
+            snapshot.forEach((docSnap) => {
+                packageHistoryData.push({ id: docSnap.id, ...docSnap.data() });
+            });
+        } catch (e) {
+            console.error('讀取套票記錄資料失敗:', e);
+        }
         const billingData = Array.isArray(billingItems) ? billingItems : [];
         // 讀取 Realtime Database 資料，排除即時掛號及診症資料
         let rtdbData = null;
@@ -23547,7 +23586,8 @@ async function exportClinicBackup() {
             consultations: consultationsData,
             users: usersData,
             billingItems: billingData,
-            patientPackages: packageData
+            patientPackages: packageData,
+            patientPackageHistory: packageHistoryData
         };
         if (rtdbData) {
             backup.rtdb = rtdbData;
@@ -23600,8 +23640,8 @@ async function handleBackupFile(file) {
     }
     const button = document.getElementById('backupImportBtn');
     setButtonLoading(button);
-    // 動態計算匯入步驟。基本五步：patients、consultations、users、billingItems、patientPackages。
-    let totalStepsForBackupImport = 5;
+    // 動態計算匯入步驟。基本六步：patients、consultations、users、billingItems、patientPackages、patientPackageHistory。
+    let totalStepsForBackupImport = 6;
     let data;
     try {
         const text = await file.text();
@@ -23640,8 +23680,8 @@ async function handleBackupFile(file) {
  */
 async function importClinicBackup(data) {
     let progressCallback = null;
-    // 僅還原病人資料、診症記錄、用戶資料、套票資料與收費項目，總步驟數為 5
-    let totalSteps = 5;
+    // 僅還原病人資料、診症記錄、用戶資料、套票資料、套票記錄與收費項目，總步驟數為 6
+    let totalSteps = 6;
     // 若第二個參數為函式，視為進度回調；第三個參數為總步驟數（可選）
     if (arguments.length >= 2 && typeof arguments[1] === 'function') {
         progressCallback = arguments[1];
@@ -23741,7 +23781,7 @@ async function importClinicBackup(data) {
     }
     // 覆蓋各集合並更新進度
     let stepCount = 0;
-    // 覆蓋需要還原的集合，順序為：patients -> consultations -> users -> billingItems -> patientPackages
+    // 覆蓋需要還原的集合，順序為：patients -> consultations -> users -> billingItems -> patientPackages -> patientPackageHistory
     await replaceCollection('patients', Array.isArray(data.patients) ? data.patients : []);
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
@@ -23759,6 +23799,10 @@ async function importClinicBackup(data) {
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
     await replaceCollection('patientPackages', Array.isArray(data.patientPackages) ? data.patientPackages : []);
+    stepCount++;
+    if (progressCallback) progressCallback(stepCount, totalSteps);
+
+    await replaceCollection('patientPackageHistory', Array.isArray(data.patientPackageHistory) ? data.patientPackageHistory : []);
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
     // 如果備份包含 Realtime Database 資料，將其寫回
@@ -23883,6 +23927,13 @@ async function importClinicBackup(data) {
         patientPageCursors = {};
         patientAscPagesCache = {};
         patientAscPageCursors = {};
+        // 重置套票記錄分頁快取，避免匯入後仍沿用舊頁碼與總數
+        if (window.firebaseDataManager && typeof window.firebaseDataManager.resetPatientPackageHistoryPagination === 'function') {
+            window.firebaseDataManager.resetPatientPackageHistoryPagination();
+        }
+        if (typeof invalidatePatientPackageHistoryCaches === 'function') {
+            invalidatePatientPackageHistoryCaches();
+        }
         // 重新計算中藥庫使用次數（若有相關函式）
         if (typeof computeGlobalUsageCounts === 'function') {
             try { await computeGlobalUsageCounts(); } catch (_e) {}
@@ -24411,6 +24462,16 @@ function getPackageHistoryOperatorDisplayName(username) {
     return normalized;
 }
 
+const patientPackageHistoryViewState = {
+    patientId: '',
+    currentPage: 1,
+    pageSize: 30,
+    totalCount: 0,
+    totalPages: 1,
+    legacyEntries: null,
+    usingLegacy: false
+};
+
 function normalizePackageHistoryLogs(pkg) {
     if (!pkg || !Array.isArray(pkg.historyLogs)) return [];
     return pkg.historyLogs.filter(log => log && typeof log === 'object');
@@ -24553,6 +24614,189 @@ function getPackageHistoryTypeLabel(log, isEn = false) {
     }
 }
 
+function buildPatientPackageHistoryRecord({ patientId, packageId, packageName, type, ...data }) {
+    return {
+        ...createPackageHistoryLog(type, data),
+        patientId: String(patientId || ''),
+        packageId: String(packageId || ''),
+        packageName: String(packageName || '')
+    };
+}
+
+function buildLegacyPatientPackageHistoryEntries(pkgs) {
+    const packages = Array.isArray(pkgs) ? pkgs : [];
+    return packages.flatMap(pkg => {
+        const packageName = String((pkg && pkg.name) || '');
+        return getPackageHistoryLogsForDisplay(pkg).map(log => ({
+            ...log,
+            packageId: pkg && pkg.id ? String(pkg.id) : '',
+            packageName
+        }));
+    }).sort((a, b) => {
+        const timeA = (getPackageHistoryDateObject(a && a.operatedAt) || new Date(0)).getTime() || 0;
+        const timeB = (getPackageHistoryDateObject(b && b.operatedAt) || new Date(0)).getTime() || 0;
+        return timeB - timeA;
+    });
+}
+
+function invalidatePatientPackageHistoryCaches(patientId = '') {
+    const pid = String(patientId || '');
+    if (window.firebaseDataManager && typeof window.firebaseDataManager.resetPatientPackageHistoryPagination === 'function') {
+        try {
+            window.firebaseDataManager.resetPatientPackageHistoryPagination(pid);
+        } catch (error) {
+            console.warn('重置套票記錄分頁快取失敗:', error);
+        }
+    }
+    if (!pid || patientPackageHistoryViewState.patientId === pid) {
+        patientPackageHistoryViewState.patientId = pid;
+        patientPackageHistoryViewState.currentPage = 1;
+        patientPackageHistoryViewState.totalCount = 0;
+        patientPackageHistoryViewState.totalPages = 1;
+        patientPackageHistoryViewState.legacyEntries = null;
+        patientPackageHistoryViewState.usingLegacy = false;
+    }
+}
+
+async function recordPatientPackageHistory(record) {
+    if (!record || !record.patientId) return;
+    try {
+        if (window.firebaseDataManager && typeof window.firebaseDataManager.addPatientPackageHistory === 'function') {
+            await window.firebaseDataManager.addPatientPackageHistory(record);
+        } else {
+            await window.firebase.addDoc(
+                window.firebase.collection(window.firebase.db, 'patientPackageHistory'),
+                {
+                    ...record,
+                    createdAt: new Date(),
+                    createdBy: currentUser || 'system'
+                }
+            );
+        }
+        invalidatePatientPackageHistoryCaches(record.patientId);
+    } catch (error) {
+        console.error('寫入套票記錄失敗:', error);
+    }
+}
+
+function getPatientPackageHistoryLocaleState() {
+    const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
+    return {
+        lang,
+        isEn: lang && lang.toLowerCase().startsWith('en')
+    };
+}
+
+function renderPatientPackageHistoryEntriesHtml(entries, isEn = false) {
+    const escape = (value) => window.escapeHtml ? window.escapeHtml(String(value == null ? '' : value)) : String(value == null ? '' : value);
+    if (!Array.isArray(entries) || entries.length === 0) {
+        return `<div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-500">${escape(isEn ? 'No package records yet' : '目前沒有套票記錄')}</div>`;
+    }
+    return entries.map(log => {
+        const operatedBy = getPackageHistoryOperatorDisplayName(log && log.operatedBy ? log.operatedBy : '');
+        const timeText = formatPackageHistoryTimestamp(log && log.operatedAt, isEn ? 'en-US' : 'zh-TW');
+        const typeText = getPackageHistoryTypeLabel(log, isEn);
+        const summaryText = getPackageHistorySummary(log, isEn);
+        const packageName = String(log && log.packageName ? log.packageName : (isEn ? 'Package' : '套票'));
+        return `
+            <div class="rounded-lg border border-gray-200 bg-white p-3 text-left">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">${escape(typeText)}</span>
+                        <span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">${escape(packageName)}</span>
+                    </div>
+                    <span class="text-xs text-gray-500">${escape(timeText)}</span>
+                </div>
+                <div class="mt-2 text-sm text-gray-800">${escape(summaryText)}</div>
+                <div class="mt-1 text-xs text-gray-500">${escape(isEn ? `Operator: ${operatedBy}` : `操作用戶：${operatedBy}`)}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function updatePatientPackageHistoryModalPagination() {
+    const { isEn } = getPatientPackageHistoryLocaleState();
+    const listEl = document.getElementById('patientPackageHistoryList');
+    const pageInfoEl = document.getElementById('patientPackageHistoryPageInfo');
+    const prevBtn = document.getElementById('patientPackageHistoryPrevBtn');
+    const nextBtn = document.getElementById('patientPackageHistoryNextBtn');
+    if (!listEl || !pageInfoEl || !prevBtn || !nextBtn) return;
+    const currentPage = Math.max(1, Number(patientPackageHistoryViewState.currentPage) || 1);
+    const totalCount = Math.max(0, Number(patientPackageHistoryViewState.totalCount) || 0);
+    const totalPages = Math.max(1, Number(patientPackageHistoryViewState.totalPages) || 1);
+    pageInfoEl.textContent = totalCount > 0
+        ? (isEn ? `Page ${currentPage} / ${totalPages} (${totalCount} records)` : `第 ${currentPage} / ${totalPages} 頁（共 ${totalCount} 筆）`)
+        : (isEn ? `Page ${currentPage}` : `第 ${currentPage} 頁`);
+    prevBtn.disabled = currentPage <= 1;
+    nextBtn.disabled = totalCount <= 0 || currentPage >= totalPages;
+    prevBtn.classList.toggle('opacity-50', prevBtn.disabled);
+    prevBtn.classList.toggle('cursor-not-allowed', prevBtn.disabled);
+    nextBtn.classList.toggle('opacity-50', nextBtn.disabled);
+    nextBtn.classList.toggle('cursor-not-allowed', nextBtn.disabled);
+}
+
+async function loadPatientPackageHistoryPage(patientId, pageNumber = 1, options = {}) {
+    const pid = String(patientId || '');
+    if (!pid) return;
+    const { isEn } = getPatientPackageHistoryLocaleState();
+    const listEl = document.getElementById('patientPackageHistoryList');
+    if (!listEl) return;
+    const shouldReset = !!options.reset || patientPackageHistoryViewState.patientId !== pid;
+    if (shouldReset) {
+        invalidatePatientPackageHistoryCaches(pid);
+        patientPackageHistoryViewState.patientId = pid;
+        patientPackageHistoryViewState.pageSize = 30;
+    }
+    listEl.innerHTML = `<div class="py-8 text-center text-sm text-gray-500">${isEn ? 'Loading package records...' : '載入套票記錄中...'}</div>`;
+    updatePatientPackageHistoryModalPagination();
+    try {
+        if (shouldReset || patientPackageHistoryViewState.legacyEntries === null) {
+            let totalCount = 0;
+            if (window.firebaseDataManager && typeof window.firebaseDataManager.getPatientPackageHistoryCount === 'function') {
+                const countResult = await window.firebaseDataManager.getPatientPackageHistoryCount(pid, shouldReset);
+                if (countResult && countResult.success) {
+                    totalCount = Math.max(0, Number(countResult.count) || 0);
+                }
+            }
+            patientPackageHistoryViewState.totalCount = totalCount;
+            if (totalCount <= 0) {
+                const packages = await getPatientPackages(pid, false);
+                const legacyEntries = buildLegacyPatientPackageHistoryEntries(packages);
+                patientPackageHistoryViewState.legacyEntries = legacyEntries;
+                patientPackageHistoryViewState.usingLegacy = legacyEntries.length > 0;
+                if (patientPackageHistoryViewState.usingLegacy) {
+                    patientPackageHistoryViewState.totalCount = legacyEntries.length;
+                }
+            } else {
+                patientPackageHistoryViewState.legacyEntries = [];
+                patientPackageHistoryViewState.usingLegacy = false;
+            }
+        }
+        let pageEntries = [];
+        if (patientPackageHistoryViewState.usingLegacy) {
+            const startIndex = (pageNumber - 1) * patientPackageHistoryViewState.pageSize;
+            pageEntries = patientPackageHistoryViewState.legacyEntries.slice(startIndex, startIndex + patientPackageHistoryViewState.pageSize);
+        } else if (window.firebaseDataManager && typeof window.firebaseDataManager.getPatientPackageHistoryPage === 'function') {
+            const pageResult = await window.firebaseDataManager.getPatientPackageHistoryPage(pid, pageNumber, patientPackageHistoryViewState.pageSize, shouldReset && pageNumber === 1);
+            if (!pageResult || !pageResult.success) {
+                throw new Error(pageResult && pageResult.error ? pageResult.error : '讀取套票記錄失敗');
+            }
+            pageEntries = Array.isArray(pageResult.data) ? pageResult.data : [];
+        }
+        patientPackageHistoryViewState.currentPage = pageNumber;
+        patientPackageHistoryViewState.totalPages = Math.max(
+            1,
+            Math.ceil((Math.max(0, Number(patientPackageHistoryViewState.totalCount) || 0)) / patientPackageHistoryViewState.pageSize)
+        );
+        listEl.innerHTML = renderPatientPackageHistoryEntriesHtml(pageEntries, isEn);
+        updatePatientPackageHistoryModalPagination();
+    } catch (error) {
+        console.error('載入套票記錄頁失敗:', error);
+        listEl.innerHTML = `<div class="rounded-lg border border-dashed border-red-300 bg-red-50 px-4 py-6 text-sm text-red-600">${isEn ? 'Failed to load package records' : '載入套票記錄失敗'}</div>`;
+        updatePatientPackageHistoryModalPagination();
+    }
+}
+
 async function purchasePackage(patientId, item) {
     const totalUses = Number(item.packageUses || item.totalUses || 0);
     const validityDays = Number(item.validityDays || 0);
@@ -24567,16 +24811,7 @@ async function purchasePackage(patientId, item) {
         totalUses: totalUses,
         remainingUses: totalUses,
         purchasedAt: purchasedAt.toISOString(),
-        expiresAt: expiresAt.toISOString(),
-        historyLogs: [
-            createPackageHistoryLog('purchase', {
-                operatedAt: purchasedAt.toISOString(),
-                totalUses,
-                toRemainingUses: totalUses,
-                expiresAt: expiresAt.toISOString(),
-                toExpiresAt: expiresAt.toISOString()
-            })
-        ]
+        expiresAt: expiresAt.toISOString()
     };
     
     try {
@@ -24599,6 +24834,17 @@ async function purchasePackage(patientId, item) {
             } catch (e) {
                 console.warn('儲存患者套票至本地失敗:', e);
             }
+            await recordPatientPackageHistory(buildPatientPackageHistoryRecord({
+                patientId,
+                packageId: result.id,
+                packageName: item.name,
+                type: 'purchase',
+                operatedAt: purchasedAt.toISOString(),
+                totalUses,
+                toRemainingUses: totalUses,
+                expiresAt: expiresAt.toISOString(),
+                toExpiresAt: expiresAt.toISOString()
+            }));
             return newPkg;
         }
         return null;
@@ -24622,18 +24868,23 @@ async function consumePackage(patientId, packageRecordId) {
         if (now > exp) return { ok: false, msg: '套票已過期' };
         if (pkg.remainingUses <= 0) return { ok: false, msg: '套票已用完' };
         
-        const updatedPackage = withPackageHistoryLog({
+        const updatedPackage = {
             ...pkg,
             remainingUses: pkg.remainingUses - 1
-        }, 'consume', {
-            fromRemainingUses: Number(pkg.remainingUses) || 0,
-            toRemainingUses: (Number(pkg.remainingUses) || 0) - 1,
-            changeCount: 1
-        });
+        };
         
         const result = await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
 
         if (result.success) {
+            await recordPatientPackageHistory(buildPatientPackageHistoryRecord({
+                patientId,
+                packageId: packageRecordId,
+                packageName: pkg.name,
+                type: 'consume',
+                fromRemainingUses: Number(pkg.remainingUses) || 0,
+                toRemainingUses: (Number(pkg.remainingUses) || 0) - 1,
+                changeCount: 1
+            }));
             // 更新本地快取中的對應套票剩餘次數
             if (Array.isArray(patientPackagesCache[patientId])) {
                 patientPackagesCache[patientId] = patientPackagesCache[patientId].map(p => {
@@ -24799,18 +25050,23 @@ async function updatePatientPackageExpiry(patientId, packageRecordId) {
         showToast(isEn ? 'Invalid date' : '日期無效', 'warning');
         return;
     }
-    const updatedPackage = withPackageHistoryLog({
+    const updatedPackage = {
         ...pkg,
         expiresAt: newExp.toISOString()
-    }, 'adjustExpiry', {
-        fromExpiresAt: pkg.expiresAt,
-        toExpiresAt: newExp.toISOString()
-    });
+    };
     const result = await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
     if (!result || !result.success) {
         showToast(isEn ? 'Failed to update expiry date' : '更新套票有效期失敗', 'error');
         return;
     }
+    await recordPatientPackageHistory(buildPatientPackageHistoryRecord({
+        patientId,
+        packageId: packageRecordId,
+        packageName: pkg.name,
+        type: 'adjustExpiry',
+        fromExpiresAt: pkg.expiresAt,
+        toExpiresAt: newExp.toISOString()
+    }));
     showToast(isEn ? 'Expiry date updated' : '已更新套票有效期', 'success');
     await loadPatientConsultationSummary(patientId);
     await refreshPatientPackagesUI();
@@ -24878,18 +25134,23 @@ async function updatePatientPackageRemainingUses(patientId, packageRecordId) {
         );
         return;
     }
-    const updatedPackage = withPackageHistoryLog({
+    const updatedPackage = {
         ...pkg,
         remainingUses: nextRemaining
-    }, 'adjustRemainingUses', {
-        fromRemainingUses: currentRemaining,
-        toRemainingUses: nextRemaining
-    });
+    };
     const result = await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
     if (!result || !result.success) {
         showToast(isEn ? 'Failed to update remaining uses' : '更新剩餘次數失敗', 'error');
         return;
     }
+    await recordPatientPackageHistory(buildPatientPackageHistoryRecord({
+        patientId,
+        packageId: packageRecordId,
+        packageName: pkg.name,
+        type: 'adjustRemainingUses',
+        fromRemainingUses: currentRemaining,
+        toRemainingUses: nextRemaining
+    }));
     showToast(isEn ? 'Remaining uses updated' : '已更新剩餘次數', 'success');
     await loadPatientConsultationSummary(patientId);
     await refreshPatientPackagesUI();
@@ -24952,57 +25213,49 @@ async function renderPatientPackages(patientId) {
     }
 }
 
-async function showPatientPackageHistory(patientId, packageRecordId) {
-    const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
-    const isEn = lang && lang.toLowerCase().startsWith('en');
-    try {
-        const packages = await getPatientPackages(patientId, true);
-        const pkg = Array.isArray(packages) ? packages.find(item => String(item.id) === String(packageRecordId)) : null;
-        if (!pkg) {
-            showToast(isEn ? 'Package not found' : '找不到套票', 'warning');
-            return;
-        }
-        const logs = getPackageHistoryLogsForDisplay(pkg)
-            .slice()
-            .sort((a, b) => {
-                const timeA = (getPackageHistoryDateObject(a && a.operatedAt) || new Date(0)).getTime() || 0;
-                const timeB = (getPackageHistoryDateObject(b && b.operatedAt) || new Date(0)).getTime() || 0;
-                return timeB - timeA;
-            });
-        const escape = (value) => window.escapeHtml ? window.escapeHtml(String(value == null ? '' : value)) : String(value == null ? '' : value);
-        const rowsHtml = logs.length > 0
-            ? logs.map(log => {
-                const operatedBy = getPackageHistoryOperatorDisplayName(log && log.operatedBy ? log.operatedBy : '');
-                const timeText = formatPackageHistoryTimestamp(log && log.operatedAt, isEn ? 'en-US' : 'zh-TW');
-                const typeText = getPackageHistoryTypeLabel(log, isEn);
-                const summaryText = getPackageHistorySummary(log, isEn);
-                return `
-                    <div class="rounded-lg border border-gray-200 bg-white p-3 text-left">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">${escape(typeText)}</span>
-                            <span class="text-xs text-gray-500">${escape(timeText)}</span>
-                        </div>
-                        <div class="mt-2 text-sm text-gray-800">${escape(summaryText)}</div>
-                        <div class="mt-1 text-xs text-gray-500">${escape(isEn ? `Operator: ${operatedBy}` : `操作用戶：${operatedBy}`)}</div>
-                    </div>
-                `;
-            }).join('')
-            : `<div class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-500">${escape(isEn ? 'No package records yet' : '目前沒有套票記錄')}</div>`;
-        await Swal.fire({
-            titleText: String(pkg.name || (isEn ? 'Package Records' : '套票記錄')),
-            html: `
-                <div class="text-left">
-                    <div class="mb-3 text-sm text-gray-600">${escape(isEn ? 'Package Records' : '套票記錄')}</div>
-                    <div class="max-h-[60vh] space-y-3 overflow-y-auto pr-1">${rowsHtml}</div>
+async function showPatientPackageHistory(patientId) {
+    const { isEn } = getPatientPackageHistoryLocaleState();
+    await Swal.fire({
+        titleText: String(isEn ? 'Package Records' : '套票記錄'),
+        html: `
+            <div class="text-left">
+                <div class="mb-3 text-sm text-gray-600">${isEn ? 'Package Records' : '套票記錄'}</div>
+                <div id="patientPackageHistoryList" class="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+                    <div class="py-8 text-center text-sm text-gray-500">${isEn ? 'Loading package records...' : '載入套票記錄中...'}</div>
                 </div>
-            `,
-            width: 720,
-            confirmButtonText: isEn ? 'Close' : '關閉'
-        });
-    } catch (error) {
-        console.error('顯示套票記錄失敗:', error);
-        showToast(isEn ? 'Failed to load package records' : '載入套票記錄失敗', 'error');
-    }
+                <div class="mt-4 flex items-center justify-between gap-2">
+                    <button id="patientPackageHistoryPrevBtn" type="button" class="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                        ${isEn ? 'Previous' : '上一頁'}
+                    </button>
+                    <div id="patientPackageHistoryPageInfo" class="text-sm text-gray-600">${isEn ? 'Loading...' : '載入中...'}</div>
+                    <button id="patientPackageHistoryNextBtn" type="button" class="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                        ${isEn ? 'Next' : '下一頁'}
+                    </button>
+                </div>
+            </div>
+        `,
+        width: 760,
+        confirmButtonText: isEn ? 'Close' : '關閉',
+        didOpen: () => {
+            const prevBtn = document.getElementById('patientPackageHistoryPrevBtn');
+            const nextBtn = document.getElementById('patientPackageHistoryNextBtn');
+            if (prevBtn) {
+                prevBtn.addEventListener('click', function() {
+                    if (patientPackageHistoryViewState.currentPage > 1) {
+                        loadPatientPackageHistoryPage(patientId, patientPackageHistoryViewState.currentPage - 1);
+                    }
+                });
+            }
+            if (nextBtn) {
+                nextBtn.addEventListener('click', function() {
+                    if (patientPackageHistoryViewState.currentPage < patientPackageHistoryViewState.totalPages) {
+                        loadPatientPackageHistoryPage(patientId, patientPackageHistoryViewState.currentPage + 1);
+                    }
+                });
+            }
+            loadPatientPackageHistoryPage(patientId, 1, { reset: true });
+        }
+    });
 }
 
 /**
@@ -25029,7 +25282,14 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
         if (!Array.isArray(pkgs) || pkgs.length === 0) {
             contentEl.innerHTML = `
                 <div class="space-y-3">
-                    <div class="flex justify-end">
+                    <div class="flex justify-end gap-2">
+                        <button
+                            type="button"
+                            onclick="showPatientPackageHistory('${patientId}')"
+                            class="px-3 py-1.5 text-sm rounded bg-violet-600 text-white hover:bg-violet-700"
+                        >
+                            套票記錄
+                        </button>
                         <button
                             type="button"
                             onclick="createManualPatientPackage('${patientId}')"
@@ -25103,7 +25363,14 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
         // 使用一個垂直容器，依序渲染有效與失效套票
         htmlParts.push('<div class="space-y-4">');
         htmlParts.push(`
-            <div class="flex justify-end">
+            <div class="flex justify-end gap-2">
+                <button
+                    type="button"
+                    onclick="showPatientPackageHistory('${patientId}')"
+                    class="px-3 py-1.5 text-sm rounded bg-violet-600 text-white hover:bg-violet-700"
+                >
+                    套票記錄
+                </button>
                 <button
                     type="button"
                     onclick="createManualPatientPackage('${patientId}')"
@@ -25140,13 +25407,6 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
                         <div class="text-right">
                             <div class="text-sm ${usesClass} mb-1">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
                             <div class="flex flex-wrap items-center justify-end gap-1">
-                                <button
-                                    type="button"
-                                    onclick="showPatientPackageHistory('${patientId}', '${pkg.id}')"
-                                    class="px-2 py-1 text-xs rounded bg-violet-600 text-white hover:bg-violet-700"
-                                >
-                                    套票記錄
-                                </button>
                                 <button
                                     type="button"
                                     onclick="updatePatientPackageRemainingUses('${patientId}', '${pkg.id}')"
@@ -25194,13 +25454,6 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
                         <div class="text-right">
                             <div class="text-sm text-gray-500 mb-1">${remainingUses}${totalUses !== '' ? '/' + totalUses : ''}</div>
                             <div class="flex flex-wrap items-center justify-end gap-1">
-                                <button
-                                    type="button"
-                                    onclick="showPatientPackageHistory('${patientId}', '${pkg.id}')"
-                                    class="px-2 py-1 text-xs rounded bg-violet-600 text-white hover:bg-violet-700"
-                                >
-                                    套票記錄
-                                </button>
                                 <button
                                     type="button"
                                     onclick="updatePatientPackageRemainingUses('${patientId}', '${pkg.id}')"
@@ -25604,6 +25857,9 @@ class FirebaseDataManager {
         this.usersCache = null;
         this.usersLastVisible = null;
         this.usersHasMore = false;
+        // 用於緩存套票紀錄分頁與統計
+        this.patientPackageHistoryPagination = {};
+        this.patientPackageHistoryCountCache = {};
         this.initializeWhenReady();
     }
 
@@ -27984,6 +28240,130 @@ class FirebaseDataManager {
         } catch (error) {
             console.error('刪除患者套票失敗:', error);
             return { success: false, error: error.message };
+        }
+    }
+
+    resetPatientPackageHistoryPagination(patientId = '') {
+        const pid = String(patientId || '');
+        if (pid) {
+            delete this.patientPackageHistoryPagination[pid];
+            delete this.patientPackageHistoryCountCache[pid];
+            return;
+        }
+        this.patientPackageHistoryPagination = {};
+        this.patientPackageHistoryCountCache = {};
+    }
+
+    async addPatientPackageHistory(historyData) {
+        if (!this.isReady) return { success: false };
+        try {
+            let dataToWrite;
+            try {
+                const { id, ...rest } = historyData || {};
+                dataToWrite = rest;
+            } catch (_omitErr) {
+                dataToWrite = historyData;
+            }
+            const docRef = await window.firebase.addDoc(
+                window.firebase.collection(window.firebase.db, 'patientPackageHistory'),
+                {
+                    ...dataToWrite,
+                    createdAt: new Date(),
+                    createdBy: currentUser || 'system'
+                }
+            );
+            if (historyData && historyData.patientId) {
+                this.resetPatientPackageHistoryPagination(historyData.patientId);
+            }
+            return { success: true, id: docRef.id };
+        } catch (error) {
+            console.error('新增套票記錄失敗:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async getPatientPackageHistoryCount(patientId, forceRefresh = false) {
+        if (!this.isReady) return { success: false, count: 0 };
+        const pid = String(patientId || '');
+        if (!pid) return { success: true, count: 0 };
+        if (!forceRefresh && Object.prototype.hasOwnProperty.call(this.patientPackageHistoryCountCache, pid)) {
+            return { success: true, count: this.patientPackageHistoryCountCache[pid] };
+        }
+        try {
+            const q = window.firebase.firestoreQuery(
+                window.firebase.collection(window.firebase.db, 'patientPackageHistory'),
+                window.firebase.where('patientId', '==', pid)
+            );
+            const snap = await window.firebase.getCountFromServer(q);
+            const count = snap && typeof snap.data === 'function' ? (Number(snap.data().count) || 0) : 0;
+            this.patientPackageHistoryCountCache[pid] = count;
+            return { success: true, count };
+        } catch (error) {
+            console.error('讀取套票記錄數量失敗:', error);
+            return { success: false, count: 0, error: error.message };
+        }
+    }
+
+    async getPatientPackageHistoryPage(patientId, pageNumber = 1, pageSize = 30, forceRefresh = false) {
+        if (!this.isReady) return { success: false, data: [] };
+        const pid = String(patientId || '');
+        const targetPage = Math.max(1, Number(pageNumber) || 1);
+        const size = Math.max(1, Number(pageSize) || 30);
+        if (!pid) return { success: true, data: [], hasMore: false };
+        if (forceRefresh || !this.patientPackageHistoryPagination[pid] || this.patientPackageHistoryPagination[pid].pageSize !== size) {
+            this.patientPackageHistoryPagination[pid] = {
+                pageSize: size,
+                pages: {},
+                lastVisibleByPage: {},
+                hasMoreByPage: {}
+            };
+        }
+        const state = this.patientPackageHistoryPagination[pid];
+        if (state.pages[targetPage]) {
+            return {
+                success: true,
+                data: state.pages[targetPage],
+                hasMore: !!state.hasMoreByPage[targetPage]
+            };
+        }
+        try {
+            let q = null;
+            if (targetPage === 1) {
+                q = window.firebase.firestoreQuery(
+                    window.firebase.collection(window.firebase.db, 'patientPackageHistory'),
+                    window.firebase.where('patientId', '==', pid),
+                    window.firebase.orderBy('operatedAt', 'desc'),
+                    window.firebase.limit(size)
+                );
+            } else {
+                const prevCursor = state.lastVisibleByPage[targetPage - 1];
+                if (!prevCursor) {
+                    return { success: false, data: [], error: '套票記錄頁碼游標尚未建立' };
+                }
+                q = window.firebase.firestoreQuery(
+                    window.firebase.collection(window.firebase.db, 'patientPackageHistory'),
+                    window.firebase.where('patientId', '==', pid),
+                    window.firebase.orderBy('operatedAt', 'desc'),
+                    window.firebase.startAfter(prevCursor),
+                    window.firebase.limit(size)
+                );
+            }
+            const snapshot = await window.firebase.getDocs(q);
+            const rows = [];
+            snapshot.forEach((docSnap) => {
+                rows.push({ id: docSnap.id, ...docSnap.data() });
+            });
+            state.pages[targetPage] = rows;
+            state.lastVisibleByPage[targetPage] = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : null;
+            state.hasMoreByPage[targetPage] = snapshot.docs.length === size;
+            return {
+                success: true,
+                data: rows,
+                hasMore: !!state.hasMoreByPage[targetPage]
+            };
+        } catch (error) {
+            console.error('讀取套票記錄分頁失敗:', error);
+            return { success: false, data: [], error: error.message };
         }
     }
 
