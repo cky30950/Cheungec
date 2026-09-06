@@ -24975,185 +24975,225 @@ function formatPackageStatus(pkg) {
 async function createManualPatientPackage(patientId) {
     const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
     const isEn = lang && lang.toLowerCase().startsWith('en');
+    const loadingButton = getLoadingButtonFromEvent(`button[onclick="createManualPatientPackage('${patientId}')"]`);
+    if (loadingButton) {
+        setButtonLoading(loadingButton, isEn ? 'Loading...' : '讀取中...');
+    }
     try {
         if (!Array.isArray(billingItems) || billingItems.length === 0) {
             await initBillingItems();
         }
     } catch (_e) {}
-    const packageItems = (Array.isArray(billingItems) ? billingItems : [])
-        .filter(item => item && item.active !== false && item.category === 'package' && Number(item.packageUses) > 0 && Number(item.validityDays) > 0);
-    if (packageItems.length === 0) {
-        showToast(isEn ? 'No package items in billing settings' : '收費項目中沒有可用的套票項目', 'warning');
-        return;
+    try {
+        const packageItems = (Array.isArray(billingItems) ? billingItems : [])
+            .filter(item => item && item.active !== false && item.category === 'package' && Number(item.packageUses) > 0 && Number(item.validityDays) > 0);
+        if (packageItems.length === 0) {
+            showToast(isEn ? 'No package items in billing settings' : '收費項目中沒有可用的套票項目', 'warning');
+            return;
+        }
+        const options = {};
+        packageItems.forEach(item => {
+            const label = `${item.name || ''} (${Number(item.packageUses) || 0}次 / ${Number(item.validityDays) || 0}天)`;
+            options[String(item.id)] = window.escapeHtml(label);
+        });
+        const pickResult = await Swal.fire({
+            title: isEn ? 'Select package item' : '選擇套票項目',
+            input: 'select',
+            inputOptions: options,
+            inputPlaceholder: isEn ? 'Please select' : '請選擇',
+            showCancelButton: true,
+            confirmButtonText: isEn ? 'Confirm' : '確定',
+            cancelButtonText: isEn ? 'Cancel' : '取消'
+        });
+        if (!pickResult || !pickResult.isConfirmed) {
+            return;
+        }
+        const selectedId = String(pickResult.value || '');
+        const selectedItem = packageItems.find(item => String(item.id) === selectedId);
+        if (!selectedItem) {
+            showToast(isEn ? 'Invalid package item' : '套票項目無效', 'warning');
+            return;
+        }
+        const created = await purchasePackage(patientId, {
+            id: selectedItem.id,
+            name: selectedItem.name,
+            packageUses: Number(selectedItem.packageUses) || 0,
+            validityDays: Number(selectedItem.validityDays) || 0
+        });
+        if (!created) {
+            showToast(isEn ? 'Failed to create package' : '新增套票失敗', 'error');
+            return;
+        }
+        showToast(isEn ? 'Package created' : '已新增套票', 'success');
+        await loadPatientConsultationSummary(patientId);
+        await refreshPatientPackagesUI();
+    } finally {
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
-    const options = {};
-    packageItems.forEach(item => {
-        const label = `${item.name || ''} (${Number(item.packageUses) || 0}次 / ${Number(item.validityDays) || 0}天)`;
-        options[String(item.id)] = window.escapeHtml(label);
-    });
-    const pickResult = await Swal.fire({
-        title: isEn ? 'Select package item' : '選擇套票項目',
-        input: 'select',
-        inputOptions: options,
-        inputPlaceholder: isEn ? 'Please select' : '請選擇',
-        showCancelButton: true,
-        confirmButtonText: isEn ? 'Confirm' : '確定',
-        cancelButtonText: isEn ? 'Cancel' : '取消'
-    });
-    if (!pickResult || !pickResult.isConfirmed) {
-        return;
-    }
-    const selectedId = String(pickResult.value || '');
-    const selectedItem = packageItems.find(item => String(item.id) === selectedId);
-    if (!selectedItem) {
-        showToast(isEn ? 'Invalid package item' : '套票項目無效', 'warning');
-        return;
-    }
-    const created = await purchasePackage(patientId, {
-        id: selectedItem.id,
-        name: selectedItem.name,
-        packageUses: Number(selectedItem.packageUses) || 0,
-        validityDays: Number(selectedItem.validityDays) || 0
-    });
-    if (!created) {
-        showToast(isEn ? 'Failed to create package' : '新增套票失敗', 'error');
-        return;
-    }
-    showToast(isEn ? 'Package created' : '已新增套票', 'success');
-    await loadPatientConsultationSummary(patientId);
-    await refreshPatientPackagesUI();
 }
 
 async function updatePatientPackageExpiry(patientId, packageRecordId) {
     const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
     const isEn = lang && lang.toLowerCase().startsWith('en');
-    const packages = await getPatientPackages(patientId, true);
-    const pkg = Array.isArray(packages) ? packages.find(p => String(p.id) === String(packageRecordId)) : null;
-    if (!pkg) {
-        showToast(isEn ? 'Package not found' : '找不到套票', 'warning');
-        return;
+    const loadingButton = getLoadingButtonFromEvent(`button[onclick="updatePatientPackageExpiry('${patientId}', '${packageRecordId}')"]`);
+    if (loadingButton) {
+        setButtonLoading(loadingButton, isEn ? 'Loading...' : '讀取中...');
     }
-    const exp = new Date(pkg.expiresAt);
-    const defaultDate = Number.isNaN(exp.getTime()) ? '' : exp.toISOString().slice(0, 10);
-    const dateResult = await Swal.fire({
-        title: isEn ? 'Update expiry date' : '修改套票有效期',
-        input: 'date',
-        inputValue: defaultDate,
-        showCancelButton: true,
-        confirmButtonText: isEn ? 'Update' : '更新',
-        cancelButtonText: isEn ? 'Cancel' : '取消'
-    });
-    if (!dateResult || !dateResult.isConfirmed) return;
-    const dateText = String(dateResult.value || '').trim();
-    const newExp = new Date(`${dateText}T23:59:59`);
-    if (Number.isNaN(newExp.getTime())) {
-        showToast(isEn ? 'Invalid date' : '日期無效', 'warning');
-        return;
+    try {
+        const packages = await getPatientPackages(patientId, true);
+        const pkg = Array.isArray(packages) ? packages.find(p => String(p.id) === String(packageRecordId)) : null;
+        if (!pkg) {
+            showToast(isEn ? 'Package not found' : '找不到套票', 'warning');
+            return;
+        }
+        const exp = new Date(pkg.expiresAt);
+        const defaultDate = Number.isNaN(exp.getTime()) ? '' : exp.toISOString().slice(0, 10);
+        const dateResult = await Swal.fire({
+            title: isEn ? 'Update expiry date' : '修改套票有效期',
+            input: 'date',
+            inputValue: defaultDate,
+            showCancelButton: true,
+            confirmButtonText: isEn ? 'Update' : '更新',
+            cancelButtonText: isEn ? 'Cancel' : '取消'
+        });
+        if (!dateResult || !dateResult.isConfirmed) return;
+        const dateText = String(dateResult.value || '').trim();
+        const newExp = new Date(`${dateText}T23:59:59`);
+        if (Number.isNaN(newExp.getTime())) {
+            showToast(isEn ? 'Invalid date' : '日期無效', 'warning');
+            return;
+        }
+        const updatedPackage = {
+            ...pkg,
+            expiresAt: newExp.toISOString()
+        };
+        const result = await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
+        if (!result || !result.success) {
+            showToast(isEn ? 'Failed to update expiry date' : '更新套票有效期失敗', 'error');
+            return;
+        }
+        await recordPatientPackageHistory(buildPatientPackageHistoryRecord({
+            patientId,
+            packageId: packageRecordId,
+            packageName: pkg.name,
+            type: 'adjustExpiry',
+            fromExpiresAt: pkg.expiresAt,
+            toExpiresAt: newExp.toISOString()
+        }));
+        showToast(isEn ? 'Expiry date updated' : '已更新套票有效期', 'success');
+        await loadPatientConsultationSummary(patientId);
+        await refreshPatientPackagesUI();
+    } finally {
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
-    const updatedPackage = {
-        ...pkg,
-        expiresAt: newExp.toISOString()
-    };
-    const result = await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
-    if (!result || !result.success) {
-        showToast(isEn ? 'Failed to update expiry date' : '更新套票有效期失敗', 'error');
-        return;
-    }
-    await recordPatientPackageHistory(buildPatientPackageHistoryRecord({
-        patientId,
-        packageId: packageRecordId,
-        packageName: pkg.name,
-        type: 'adjustExpiry',
-        fromExpiresAt: pkg.expiresAt,
-        toExpiresAt: newExp.toISOString()
-    }));
-    showToast(isEn ? 'Expiry date updated' : '已更新套票有效期', 'success');
-    await loadPatientConsultationSummary(patientId);
-    await refreshPatientPackagesUI();
 }
 
 async function deletePatientPackageRecord(patientId, packageRecordId) {
     const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
     const isEn = lang && lang.toLowerCase().startsWith('en');
-    const packages = await getPatientPackages(patientId, true);
-    const pkg = Array.isArray(packages) ? packages.find(p => String(p.id) === String(packageRecordId)) : null;
-    if (!pkg) {
-        showToast(isEn ? 'Package not found' : '找不到套票', 'warning');
-        return;
+    const loadingButton = getLoadingButtonFromEvent(`button[onclick="deletePatientPackageRecord('${patientId}', '${packageRecordId}')"]`);
+    if (loadingButton) {
+        setButtonLoading(loadingButton, isEn ? 'Deleting...' : '刪除中...');
     }
-    const ok = await showConfirmation(
-        isEn
-            ? `Delete package "${pkg.name || ''}"?\nThis action cannot be undone.`
-            : `確定要刪除套票「${pkg.name || ''}」嗎？\n此操作無法復原。`,
-        'warning'
-    );
-    if (!ok) return;
-    const result = await window.firebaseDataManager.deletePatientPackage(packageRecordId, patientId);
-    if (!result || !result.success) {
-        showToast(isEn ? 'Failed to delete package' : '刪除套票失敗', 'error');
-        return;
+    try {
+        const packages = await getPatientPackages(patientId, true);
+        const pkg = Array.isArray(packages) ? packages.find(p => String(p.id) === String(packageRecordId)) : null;
+        if (!pkg) {
+            showToast(isEn ? 'Package not found' : '找不到套票', 'warning');
+            return;
+        }
+        const ok = await showConfirmation(
+            isEn
+                ? `Delete package "${pkg.name || ''}"?\nThis action cannot be undone.`
+                : `確定要刪除套票「${pkg.name || ''}」嗎？\n此操作無法復原。`,
+            'warning'
+        );
+        if (!ok) return;
+        const result = await window.firebaseDataManager.deletePatientPackage(packageRecordId, patientId);
+        if (!result || !result.success) {
+            showToast(isEn ? 'Failed to delete package' : '刪除套票失敗', 'error');
+            return;
+        }
+        showToast(isEn ? 'Package deleted' : '已刪除套票', 'success');
+        await loadPatientConsultationSummary(patientId);
+        await refreshPatientPackagesUI();
+    } finally {
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
-    showToast(isEn ? 'Package deleted' : '已刪除套票', 'success');
-    await loadPatientConsultationSummary(patientId);
-    await refreshPatientPackagesUI();
 }
 
 async function updatePatientPackageRemainingUses(patientId, packageRecordId) {
     const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ? localStorage.getItem('lang') : 'zh';
     const isEn = lang && lang.toLowerCase().startsWith('en');
-    const packages = await getPatientPackages(patientId, true);
-    const pkg = Array.isArray(packages) ? packages.find(p => String(p.id) === String(packageRecordId)) : null;
-    if (!pkg) {
-        showToast(isEn ? 'Package not found' : '找不到套票', 'warning');
-        return;
+    const loadingButton = getLoadingButtonFromEvent(`button[onclick="updatePatientPackageRemainingUses('${patientId}', '${packageRecordId}')"]`);
+    if (loadingButton) {
+        setButtonLoading(loadingButton, isEn ? 'Loading...' : '讀取中...');
     }
-    const totalUses = Number(pkg.totalUses);
-    const currentRemaining = Number(pkg.remainingUses);
-    const inputResult = await Swal.fire({
-        title: isEn ? 'Update remaining uses' : '修改剩餘次數',
-        input: 'number',
-        inputValue: Number.isFinite(currentRemaining) ? String(currentRemaining) : '0',
-        inputAttributes: {
-            min: '0',
-            step: '1'
-        },
-        showCancelButton: true,
-        confirmButtonText: isEn ? 'Update' : '更新',
-        cancelButtonText: isEn ? 'Cancel' : '取消'
-    });
-    if (!inputResult || !inputResult.isConfirmed) return;
-    const nextRemaining = parseInt(String(inputResult.value || '').trim(), 10);
-    if (!Number.isInteger(nextRemaining) || nextRemaining < 0) {
-        showToast(isEn ? 'Remaining uses must be a non-negative integer' : '剩餘次數必須為 0 或以上的整數', 'warning');
-        return;
+    try {
+        const packages = await getPatientPackages(patientId, true);
+        const pkg = Array.isArray(packages) ? packages.find(p => String(p.id) === String(packageRecordId)) : null;
+        if (!pkg) {
+            showToast(isEn ? 'Package not found' : '找不到套票', 'warning');
+            return;
+        }
+        const totalUses = Number(pkg.totalUses);
+        const currentRemaining = Number(pkg.remainingUses);
+        const inputResult = await Swal.fire({
+            title: isEn ? 'Update remaining uses' : '修改剩餘次數',
+            input: 'number',
+            inputValue: Number.isFinite(currentRemaining) ? String(currentRemaining) : '0',
+            inputAttributes: {
+                min: '0',
+                step: '1'
+            },
+            showCancelButton: true,
+            confirmButtonText: isEn ? 'Update' : '更新',
+            cancelButtonText: isEn ? 'Cancel' : '取消'
+        });
+        if (!inputResult || !inputResult.isConfirmed) return;
+        const nextRemaining = parseInt(String(inputResult.value || '').trim(), 10);
+        if (!Number.isInteger(nextRemaining) || nextRemaining < 0) {
+            showToast(isEn ? 'Remaining uses must be a non-negative integer' : '剩餘次數必須為 0 或以上的整數', 'warning');
+            return;
+        }
+        if (Number.isFinite(totalUses) && nextRemaining > totalUses) {
+            showToast(
+                isEn ? `Remaining uses cannot exceed total uses (${totalUses})` : `剩餘次數不可大於總次數（${totalUses}）`,
+                'warning'
+            );
+            return;
+        }
+        const updatedPackage = {
+            ...pkg,
+            remainingUses: nextRemaining
+        };
+        const result = await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
+        if (!result || !result.success) {
+            showToast(isEn ? 'Failed to update remaining uses' : '更新剩餘次數失敗', 'error');
+            return;
+        }
+        await recordPatientPackageHistory(buildPatientPackageHistoryRecord({
+            patientId,
+            packageId: packageRecordId,
+            packageName: pkg.name,
+            type: 'adjustRemainingUses',
+            fromRemainingUses: currentRemaining,
+            toRemainingUses: nextRemaining
+        }));
+        showToast(isEn ? 'Remaining uses updated' : '已更新剩餘次數', 'success');
+        await loadPatientConsultationSummary(patientId);
+        await refreshPatientPackagesUI();
+    } finally {
+        if (loadingButton) {
+            clearButtonLoading(loadingButton);
+        }
     }
-    if (Number.isFinite(totalUses) && nextRemaining > totalUses) {
-        showToast(
-            isEn ? `Remaining uses cannot exceed total uses (${totalUses})` : `剩餘次數不可大於總次數（${totalUses}）`,
-            'warning'
-        );
-        return;
-    }
-    const updatedPackage = {
-        ...pkg,
-        remainingUses: nextRemaining
-    };
-    const result = await window.firebaseDataManager.updatePatientPackage(packageRecordId, updatedPackage);
-    if (!result || !result.success) {
-        showToast(isEn ? 'Failed to update remaining uses' : '更新剩餘次數失敗', 'error');
-        return;
-    }
-    await recordPatientPackageHistory(buildPatientPackageHistoryRecord({
-        patientId,
-        packageId: packageRecordId,
-        packageName: pkg.name,
-        type: 'adjustRemainingUses',
-        fromRemainingUses: currentRemaining,
-        toRemainingUses: nextRemaining
-    }));
-    showToast(isEn ? 'Remaining uses updated' : '已更新剩餘次數', 'success');
-    await loadPatientConsultationSummary(patientId);
-    await refreshPatientPackagesUI();
 }
 
 async function renderPatientPackages(patientId) {
@@ -25215,6 +25255,17 @@ async function renderPatientPackages(patientId) {
 
 async function showPatientPackageHistory(patientId) {
     const { isEn } = getPatientPackageHistoryLocaleState();
+    const loadingButton = getLoadingButtonFromEvent(`button[onclick="showPatientPackageHistory('${patientId}')"]`);
+    let loadingReleased = false;
+    const releaseLoadingButton = () => {
+        if (!loadingReleased && loadingButton) {
+            clearButtonLoading(loadingButton);
+            loadingReleased = true;
+        }
+    };
+    if (loadingButton) {
+        setButtonLoading(loadingButton, isEn ? 'Loading...' : '讀取中...');
+    }
     await Swal.fire({
         titleText: String(isEn ? 'Package Records' : '套票記錄'),
         html: `
@@ -25253,9 +25304,10 @@ async function showPatientPackageHistory(patientId) {
                     }
                 });
             }
-            loadPatientPackageHistoryPage(patientId, 1, { reset: true });
+            loadPatientPackageHistoryPage(patientId, 1, { reset: true }).finally(releaseLoadingButton);
         }
     });
+    releaseLoadingButton();
 }
 
 /**
