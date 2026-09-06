@@ -1932,6 +1932,7 @@ async function commitPendingPackageChanges() {
                     patientId,
                     packageId: packageRecordId,
                     packageName: pkg.name,
+                    source: delta < 0 ? 'consultationBillingUse' : 'consultationBillingReturn',
                     type: delta < 0 ? 'consume' : 'restoreUse',
                     fromRemainingUses: Number(pkg.remainingUses) || 0,
                     toRemainingUses: newRemaining,
@@ -1965,12 +1966,17 @@ async function commitPendingPackagePurchases() {
             if (!purchase || !purchase.patientId || !purchase.item) continue;
             const { patientId, item, confirmUse, usageItemId } = purchase;
             
-            const purchasedPackage = await purchasePackage(patientId, item);
+            const purchasedPackage = await purchasePackage(patientId, {
+                ...item,
+                historySource: 'consultationBillingPurchase'
+            });
             if (purchasedPackage) {
                 
                 if (confirmUse) {
                     try {
-                        const useResult = await consumePackage(patientId, purchasedPackage.id);
+                        const useResult = await consumePackage(patientId, purchasedPackage.id, {
+                            historySource: 'consultationBillingUse'
+                        });
                         if (useResult && useResult.ok) {
                             
                             if (usageItemId) {
@@ -15830,6 +15836,7 @@ async function withdrawConsultation(appointmentId) {
                     patientId: patientIdForPkg,
                     packageId: packageRecordIdForPkg,
                     packageName: pkg.name,
+                    source: 'consultationBillingReturn',
                     type: 'restoreUse',
                     fromRemainingUses: Number(pkg.remainingUses) || 0,
                     toRemainingUses: newRemaining,
@@ -24614,6 +24621,25 @@ function getPackageHistoryTypeLabel(log, isEn = false) {
     }
 }
 
+function getPackageHistorySourceLabel(log, isEn = false) {
+    switch (String(log && log.source || '')) {
+        case 'consultationBillingPurchase':
+            return isEn ? 'Consultation Billing Purchase' : '診症收費購買';
+        case 'consultationBillingUse':
+            return isEn ? 'Consultation Billing Use' : '診症收費使用';
+        case 'consultationBillingReturn':
+            return isEn ? 'Consultation Billing Return' : '診症收費退回';
+        case 'patientManagementPurchase':
+            return isEn ? 'Patient Management Add' : '病人資料管理新增';
+        case 'patientManagementAdjustment':
+            return isEn ? 'Patient Management Update' : '病人資料管理修改';
+        case 'legacy':
+            return isEn ? 'Legacy Data' : '舊資料';
+        default:
+            return isEn ? 'Other Source' : '其他來源';
+    }
+}
+
 function buildPatientPackageHistoryRecord({ patientId, packageId, packageName, type, ...data }) {
     return {
         ...createPackageHistoryLog(type, data),
@@ -24629,6 +24655,7 @@ function buildLegacyPatientPackageHistoryEntries(pkgs) {
         const packageName = String((pkg && pkg.name) || '');
         return getPackageHistoryLogsForDisplay(pkg).map(log => ({
             ...log,
+            source: log && log.source ? String(log.source) : 'legacy',
             packageId: pkg && pkg.id ? String(pkg.id) : '',
             packageName
         }));
@@ -24696,6 +24723,7 @@ function renderPatientPackageHistoryEntriesHtml(entries, isEn = false) {
         const operatedBy = getPackageHistoryOperatorDisplayName(log && log.operatedBy ? log.operatedBy : '');
         const timeText = formatPackageHistoryTimestamp(log && log.operatedAt, isEn ? 'en-US' : 'zh-TW');
         const typeText = getPackageHistoryTypeLabel(log, isEn);
+        const sourceText = getPackageHistorySourceLabel(log, isEn);
         const summaryText = getPackageHistorySummary(log, isEn);
         const packageName = String(log && log.packageName ? log.packageName : (isEn ? 'Package' : '套票'));
         return `
@@ -24704,6 +24732,7 @@ function renderPatientPackageHistoryEntriesHtml(entries, isEn = false) {
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">${escape(typeText)}</span>
                         <span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">${escape(packageName)}</span>
+                        <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">${escape(sourceText)}</span>
                     </div>
                     <span class="text-xs text-gray-500">${escape(timeText)}</span>
                 </div>
@@ -24800,6 +24829,7 @@ async function loadPatientPackageHistoryPage(patientId, pageNumber = 1, options 
 async function purchasePackage(patientId, item) {
     const totalUses = Number(item.packageUses || item.totalUses || 0);
     const validityDays = Number(item.validityDays || 0);
+    const historySource = item && item.historySource ? String(item.historySource) : 'patientManagementPurchase';
     const purchasedAt = new Date();
     const expiresAt = new Date(purchasedAt);
     expiresAt.setDate(expiresAt.getDate() + validityDays);
@@ -24838,6 +24868,7 @@ async function purchasePackage(patientId, item) {
                 patientId,
                 packageId: result.id,
                 packageName: item.name,
+                source: historySource,
                 type: 'purchase',
                 operatedAt: purchasedAt.toISOString(),
                 totalUses,
@@ -24854,8 +24885,9 @@ async function purchasePackage(patientId, item) {
     }
 }
 
-async function consumePackage(patientId, packageRecordId) {
+async function consumePackage(patientId, packageRecordId, options = {}) {
     try {
+        const historySource = options && options.historySource ? String(options.historySource) : 'other';
         // 始終從資料庫重新取得套票，避免跨裝置快取不一致
         const packages = await getPatientPackages(patientId, true);
         // 比對 ID 時統一轉為字串，避免類型不一致導致找不到套票
@@ -24880,6 +24912,7 @@ async function consumePackage(patientId, packageRecordId) {
                 patientId,
                 packageId: packageRecordId,
                 packageName: pkg.name,
+                source: historySource,
                 type: 'consume',
                 fromRemainingUses: Number(pkg.remainingUses) || 0,
                 toRemainingUses: (Number(pkg.remainingUses) || 0) - 1,
@@ -25018,7 +25051,8 @@ async function createManualPatientPackage(patientId) {
             id: selectedItem.id,
             name: selectedItem.name,
             packageUses: Number(selectedItem.packageUses) || 0,
-            validityDays: Number(selectedItem.validityDays) || 0
+            validityDays: Number(selectedItem.validityDays) || 0,
+            historySource: 'patientManagementPurchase'
         });
         if (!created) {
             showToast(isEn ? 'Failed to create package' : '新增套票失敗', 'error');
@@ -25078,6 +25112,7 @@ async function updatePatientPackageExpiry(patientId, packageRecordId) {
             patientId,
             packageId: packageRecordId,
             packageName: pkg.name,
+            source: 'patientManagementAdjustment',
             type: 'adjustExpiry',
             fromExpiresAt: pkg.expiresAt,
             toExpiresAt: newExp.toISOString()
@@ -25182,6 +25217,7 @@ async function updatePatientPackageRemainingUses(patientId, packageRecordId) {
             patientId,
             packageId: packageRecordId,
             packageName: pkg.name,
+            source: 'patientManagementAdjustment',
             type: 'adjustRemainingUses',
             fromRemainingUses: currentRemaining,
             toRemainingUses: nextRemaining
