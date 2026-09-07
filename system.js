@@ -28450,8 +28450,36 @@ class FirebaseDataManager {
                 hasMore: !!state.hasMoreByPage[targetPage]
             };
         } catch (error) {
-            console.error('讀取套票記錄分頁失敗:', error);
-            return { success: false, data: [], error: error.message };
+            console.warn('讀取套票記錄分頁失敗，改用後備查詢:', error);
+            try {
+                const fallbackQuery = window.firebase.firestoreQuery(
+                    window.firebase.collection(window.firebase.db, 'patientPackageHistory'),
+                    window.firebase.where('patientId', '==', pid)
+                );
+                const fallbackSnapshot = await window.firebase.getDocs(fallbackQuery);
+                const fallbackRows = [];
+                fallbackSnapshot.forEach((docSnap) => {
+                    fallbackRows.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                fallbackRows.sort((a, b) => {
+                    const timeA = (getPackageHistoryDateObject(a && (a.operatedAt || a.createdAt)) || new Date(0)).getTime() || 0;
+                    const timeB = (getPackageHistoryDateObject(b && (b.operatedAt || b.createdAt)) || new Date(0)).getTime() || 0;
+                    return timeB - timeA;
+                });
+                const startIndex = (targetPage - 1) * size;
+                const pageRows = fallbackRows.slice(startIndex, startIndex + size);
+                state.pages[targetPage] = pageRows;
+                state.lastVisibleByPage[targetPage] = null;
+                state.hasMoreByPage[targetPage] = startIndex + size < fallbackRows.length;
+                return {
+                    success: true,
+                    data: pageRows,
+                    hasMore: !!state.hasMoreByPage[targetPage]
+                };
+            } catch (fallbackError) {
+                console.error('讀取套票記錄分頁失敗:', fallbackError);
+                return { success: false, data: [], error: fallbackError.message };
+            }
         }
     }
 
