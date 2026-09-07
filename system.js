@@ -24595,6 +24595,10 @@ function getPackageHistorySummary(log, isEn = false) {
             return isEn
                 ? `Adjusted expiry ${oldExpiry} -> ${newExpiry}`
                 : `修改有限期 ${oldExpiry} -> ${newExpiry}`;
+        case 'delete':
+            return isEn
+                ? `Deleted package, remaining uses ${Number.isFinite(fromRemaining) ? fromRemaining : '-'}, expiry ${oldExpiry || formatPackageHistoryDateOnly(log && log.expiresAt, 'en-US')}`
+                : `刪除套票，剩餘次數 ${Number.isFinite(fromRemaining) ? fromRemaining : '-'}，有效至 ${oldExpiry || formatPackageHistoryDateOnly(log && log.expiresAt, 'zh-TW')}`;
         case 'legacyUpdate':
             return isEn ? 'Legacy record only saved the latest update time' : '舊資料僅保留最後更新時間，未有詳細內容';
         default:
@@ -24614,6 +24618,8 @@ function getPackageHistoryTypeLabel(log, isEn = false) {
             return isEn ? 'Remaining Uses' : '修改剩餘次數';
         case 'adjustExpiry':
             return isEn ? 'Expiry' : '修改有限期';
+        case 'delete':
+            return isEn ? 'Delete' : '刪除';
         case 'legacyUpdate':
             return isEn ? 'Legacy Update' : '舊資料更新';
         default:
@@ -25153,6 +25159,17 @@ async function deletePatientPackageRecord(patientId, packageRecordId) {
             showToast(isEn ? 'Failed to delete package' : '刪除套票失敗', 'error');
             return;
         }
+        await recordPatientPackageHistory(buildPatientPackageHistoryRecord({
+            patientId,
+            packageId: packageRecordId,
+            packageName: pkg.name,
+            source: 'patientManagementAdjustment',
+            type: 'delete',
+            totalUses: Number(pkg.totalUses) || 0,
+            fromRemainingUses: Number(pkg.remainingUses) || 0,
+            fromExpiresAt: pkg.expiresAt,
+            expiresAt: pkg.expiresAt
+        }));
         showToast(isEn ? 'Package deleted' : '已刪除套票', 'success');
         await loadPatientConsultationSummary(patientId);
         await refreshPatientPackagesUI();
