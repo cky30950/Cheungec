@@ -2062,6 +2062,10 @@ async function commitPendingPackagePurchases() {
         if (typeof updateBillingDisplay === 'function') {
             updateBillingDisplay();
         }
+
+        if (typeof refreshPatientPackagesUI === 'function') {
+            await refreshPatientPackagesUI();
+        }
         
         pendingPackagePurchases = [];
     } catch (err) {
@@ -7749,68 +7753,70 @@ async function deletePatientAssociatedData(patientId) {
 
 async function viewPatient(id) {
     try {
-        
-        
         const patient = await getPatientByIdWithRefresh(id);
         if (!patient) {
-            
             showToast('找不到病人資料', 'error');
             return;
         }
 
-        
-        
-        
-        let content = '';
-        const safePatientNumber = window.escapeHtml(patient.patientNumber || '未設定');
-        const safeName = window.escapeHtml(patient.name);
-        const safeAge = window.escapeHtml(formatAge(patient.birthDate));
-        const safeGender = window.escapeHtml(patient.gender);
-        const safePhone = window.escapeHtml(patient.phone);
-        const safeEmergencyContactName = patient.emergencyContactName ? window.escapeHtml(patient.emergencyContactName) : null;
-        const safeEmergencyContactPhone = patient.emergencyContactPhone ? window.escapeHtml(patient.emergencyContactPhone) : null;
-        const safeIdCard = patient.idCard ? window.escapeHtml(patient.idCard) : null;
-        const safeAddress = patient.address ? window.escapeHtml(patient.address) : null;
-        const safeHistory = patient.history ? window.escapeHtml(patient.history) : null;
-        const safeAllergies = patient.allergies ? window.escapeHtml(patient.allergies) : null;
-        const birthDateString = patient.birthDate ? new Date(patient.birthDate).toLocaleDateString('zh-TW') : '';
-        
-        const createdAtStr = patient.createdAt ? (() => {
-            const d = new Date(patient.createdAt.seconds * 1000);
-            return d.toLocaleString('zh-TW', { hour12: false });
-        })() : '未知';
-        const updatedAtStr = patient.updatedAt ? (() => {
-            const d = new Date(patient.updatedAt.seconds * 1000);
-            return d.toLocaleString('zh-TW', { hour12: false });
-        })() : '';
-        
-        
-        let packageStatusHtml = '';
+        await renderPatientDetailContent(patient, true);
+        await attachPatientDetailRealtimeListeners(id);
+    } catch (error) {
+        console.error('查看病人資料錯誤:', error);
+        showToast('讀取病人資料失敗', 'error');
+    }
+}
 
-        
-        const _t = typeof t === 'function' ? t : (str) => str;
-        
-        const lblBasicInfo = _t('基本資料');
-        const lblMedicalInfo = _t('醫療資訊');
-        const lblPatientNumber = _t('病人編號：');
-        const lblName = _t('姓名：');
-        const lblAge = _t('年齡：');
-        const lblGender = _t('性別：');
-        const lblPhone = _t('電話：');
-        const lblEmergencyContactName = _t('緊急聯絡人姓名：');
-        const lblEmergencyContactPhone = _t('緊急聯絡人電話：');
-        const lblIdCard = _t('身分證：');
-        const lblBirthDate = _t('出生日期：');
-        const lblAddress = _t('地址：');
-        const lblHistoryAndNotes = _t('病史及備註：');
-        const lblAllergies = _t('過敏史：');
-        const lblCreatedAt = _t('建檔日期：');
-        const lblUpdatedAt = _t('更新日期：');
-        const lblConsultationSummary = _t('診症記錄摘要');
-        const lblLoadingConsultations = _t('載入診症記錄中...');
+async function renderPatientDetailContent(patient, forcePackageRefresh = false) {
+    if (!patient || !patient.id) return;
+    const patientId = String(patient.id);
+    let content = '';
+    const safePatientNumber = window.escapeHtml(patient.patientNumber || '未設定');
+    const safeName = window.escapeHtml(patient.name);
+    const safeAge = window.escapeHtml(formatAge(patient.birthDate));
+    const safeGender = window.escapeHtml(patient.gender);
+    const safePhone = window.escapeHtml(patient.phone);
+    const safeEmergencyContactName = patient.emergencyContactName ? window.escapeHtml(patient.emergencyContactName) : null;
+    const safeEmergencyContactPhone = patient.emergencyContactPhone ? window.escapeHtml(patient.emergencyContactPhone) : null;
+    const safeIdCard = patient.idCard ? window.escapeHtml(patient.idCard) : null;
+    const safeAddress = patient.address ? window.escapeHtml(patient.address) : null;
+    const safeHistory = patient.history ? window.escapeHtml(patient.history) : null;
+    const safeAllergies = patient.allergies ? window.escapeHtml(patient.allergies) : null;
+    const birthDateString = patient.birthDate ? new Date(patient.birthDate).toLocaleDateString('zh-TW') : '';
 
-        
-        content = `
+    const createdAtStr = patient.createdAt ? (() => {
+        const d = new Date(patient.createdAt.seconds * 1000);
+        return d.toLocaleString('zh-TW', { hour12: false });
+    })() : '未知';
+    const updatedAtStr = patient.updatedAt ? (() => {
+        const d = new Date(patient.updatedAt.seconds * 1000);
+        return d.toLocaleString('zh-TW', { hour12: false });
+    })() : '';
+
+    let packageStatusHtml = '';
+
+    const _t = typeof t === 'function' ? t : (str) => str;
+
+    const lblBasicInfo = _t('基本資料');
+    const lblMedicalInfo = _t('醫療資訊');
+    const lblPatientNumber = _t('病人編號：');
+    const lblName = _t('姓名：');
+    const lblAge = _t('年齡：');
+    const lblGender = _t('性別：');
+    const lblPhone = _t('電話：');
+    const lblEmergencyContactName = _t('緊急聯絡人姓名：');
+    const lblEmergencyContactPhone = _t('緊急聯絡人電話：');
+    const lblIdCard = _t('身分證：');
+    const lblBirthDate = _t('出生日期：');
+    const lblAddress = _t('地址：');
+    const lblHistoryAndNotes = _t('病史及備註：');
+    const lblAllergies = _t('過敏史：');
+    const lblCreatedAt = _t('建檔日期：');
+    const lblUpdatedAt = _t('更新日期：');
+    const lblConsultationSummary = _t('診症記錄摘要');
+    const lblLoadingConsultations = _t('載入診症記錄中...');
+
+    content = `
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-4">
                 <h4 class="text-lg font-semibold text-gray-800 border-b pb-2">${lblBasicInfo}</h4>
@@ -7853,28 +7859,162 @@ async function viewPatient(id) {
             </div>
         </div>
         `;
-        
-        const detailContainer = document.getElementById('patientDetailContent');
-        if (detailContainer) {
-            detailContainer.innerHTML = content;
+
+    const detailContainer = document.getElementById('patientDetailContent');
+    const previousScrollTop = detailContainer ? detailContainer.scrollTop : 0;
+    if (detailContainer) {
+        detailContainer.innerHTML = content;
+        detailContainer.scrollTop = previousScrollTop;
+    }
+    const modalEl = document.getElementById('patientDetailModal');
+    if (modalEl) {
+        modalEl.classList.remove('hidden');
+    }
+
+    currentPatientDetailId = patientId;
+    await loadPatientConsultationSummary(patientId, forcePackageRefresh);
+}
+
+function syncPatientToLocalCaches(patient) {
+    if (!patient || !patient.id) return;
+    const patientId = String(patient.id);
+    try {
+        if (window.firebaseDataManager) {
+            const cacheArr = Array.isArray(window.firebaseDataManager.patientsCache) ? window.firebaseDataManager.patientsCache.slice() : [];
+            const idx = cacheArr.findIndex(p => p && String(p.id) === patientId);
+            if (idx >= 0) {
+                cacheArr[idx] = patient;
+            } else {
+                cacheArr.push(patient);
+            }
+            window.firebaseDataManager.patientsCache = cacheArr;
         }
-        const modalEl = document.getElementById('patientDetailModal');
-        if (modalEl) {
-            modalEl.classList.remove('hidden');
+    } catch (_e) {}
+    try {
+        if (Array.isArray(patientCache)) {
+            const idx = patientCache.findIndex(p => p && String(p.id) === patientId);
+            if (idx >= 0) {
+                patientCache[idx] = patient;
+            }
         }
+    } catch (_e) {}
+    try {
+        const stored = localStorage.getItem('patients');
+        const arr = stored ? JSON.parse(stored) : [];
+        if (Array.isArray(arr)) {
+            const idx = arr.findIndex(p => p && String(p.id) === patientId);
+            if (idx >= 0) {
+                arr[idx] = patient;
+            } else {
+                arr.push(patient);
+            }
+            localStorage.setItem('patients', JSON.stringify(arr));
+        }
+    } catch (_e) {}
+}
 
-        
+function syncPatientPackagesToLocalCaches(patientId, packages) {
+    const pid = String(patientId || '');
+    if (!pid) return;
+    const safePackages = Array.isArray(packages) ? packages : [];
+    patientPackagesCache[pid] = safePackages;
+    try {
+        localStorage.setItem(`patientPackages_${pid}`, JSON.stringify(safePackages));
+    } catch (_e) {}
+}
 
-        
-        loadPatientConsultationSummary(id);
+async function attachPatientDetailRealtimeListeners(patientId) {
+    const pid = String(patientId || '');
+    if (!pid) return;
+    if (patientDetailRealtimePatientId && patientDetailRealtimePatientId !== pid) {
+        detachPatientDetailRealtimeListeners();
+    }
+    if (patientDetailDocUnsubscribe || patientDetailPackagesUnsubscribe) {
+        patientDetailRealtimePatientId = pid;
+        return;
+    }
+    try {
+        await waitForFirebaseDb();
+        let patientDocInitialized = false;
+        let patientPackagesInitialized = false;
+        const docRef = window.firebase.doc(window.firebase.db, 'patients', pid);
+        patientDetailDocUnsubscribe = window.firebase.onSnapshot(docRef, async (docSnap) => {
+            try {
+                if (!docSnap || !docSnap.exists()) {
+                    if (String(currentPatientDetailId || '') === pid) {
+                        detachPatientDetailRealtimeListeners();
+                        closePatientDetail();
+                        showToast('病人資料已被其他裝置刪除', 'warning');
+                    }
+                    return;
+                }
+                const patient = { id: docSnap.id, ...docSnap.data() };
+                syncPatientToLocalCaches(patient);
+                if (!patientDocInitialized) {
+                    patientDocInitialized = true;
+                    return;
+                }
+                const modalEl = document.getElementById('patientDetailModal');
+                if (modalEl && !modalEl.classList.contains('hidden') && String(currentPatientDetailId || '') === pid) {
+                    await renderPatientDetailContent(patient);
+                }
+            } catch (innerErr) {
+                console.error('病人詳情即時更新失敗:', innerErr);
+            }
+        }, (err) => {
+            console.error('監聽病人詳情失敗:', err);
+        });
 
-    } catch (error) {
-        console.error('查看病人資料錯誤:', error);
-        showToast('讀取病人資料失敗', 'error');
+        const packagesQuery = window.firebase.firestoreQuery(
+            window.firebase.collection(window.firebase.db, 'patientPackages'),
+            window.firebase.where('patientId', '==', pid)
+        );
+        patientDetailPackagesUnsubscribe = window.firebase.onSnapshot(packagesQuery, async (snapshot) => {
+            try {
+                const packages = [];
+                snapshot.forEach((docSnap) => {
+                    packages.push({ id: docSnap.id, ...docSnap.data() });
+                });
+                syncPatientPackagesToLocalCaches(pid, packages);
+                if (!patientPackagesInitialized) {
+                    patientPackagesInitialized = true;
+                    return;
+                }
+                const modalEl = document.getElementById('patientDetailModal');
+                if (modalEl && !modalEl.classList.contains('hidden') && String(currentPatientDetailId || '') === pid) {
+                    await renderPackageStatusSection(pid, true, false);
+                }
+            } catch (innerErr) {
+                console.error('病人套票即時更新失敗:', innerErr);
+            }
+        }, (err) => {
+            console.error('監聽病人套票失敗:', err);
+        });
+        patientDetailRealtimePatientId = pid;
+    } catch (outerErr) {
+        console.error('附加病人詳情即時監聽失敗:', outerErr);
     }
 }
 
+function detachPatientDetailRealtimeListeners() {
+    try {
+        if (typeof patientDetailDocUnsubscribe === 'function') {
+            patientDetailDocUnsubscribe();
+        }
+    } catch (_e) {}
+    try {
+        if (typeof patientDetailPackagesUnsubscribe === 'function') {
+            patientDetailPackagesUnsubscribe();
+        }
+    } catch (_e) {}
+    patientDetailDocUnsubscribe = null;
+    patientDetailPackagesUnsubscribe = null;
+    patientDetailRealtimePatientId = null;
+}
+
         function closePatientDetail() {
+            detachPatientDetailRealtimeListeners();
+            currentPatientDetailId = null;
             document.getElementById('patientDetailModal').classList.add('hidden');
         }
 
@@ -7886,6 +8026,10 @@ async function viewPatient(id) {
 
         
         let selectedPatientForRegistration = null;
+        let currentPatientDetailId = null;
+        let patientDetailRealtimePatientId = null;
+        let patientDetailDocUnsubscribe = null;
+        let patientDetailPackagesUnsubscribe = null;
         let currentConsultingAppointmentId = null;
         let currentConsultationEditContext = null;
 const GENERAL_REGISTRATION_DOCTOR_KEY = '__general_registration__';
@@ -16212,7 +16356,7 @@ async function editMedicalRecordByConsultationId(consultationId) {
     }
 }
 // 載入病人診療記錄摘要
-async function loadPatientConsultationSummary(patientId) {
+async function loadPatientConsultationSummary(patientId, forcePackageRefresh = false) {
     const summaryContainer = document.getElementById('patientConsultationSummary');
 
     // 如果容器尚未渲染，直接跳過，以免對 null 設定 innerHTML
@@ -16310,7 +16454,7 @@ async function loadPatientConsultationSummary(patientId) {
                 <!-- 無診療記錄時不顯示提示文字 -->
             `;
             // 透過 renderPackageStatusSection 在診療摘要中渲染套票分頁與內容
-            await renderPackageStatusSection(patientId);
+            await renderPackageStatusSection(patientId, false, forcePackageRefresh);
             return;
         }
 
@@ -16367,7 +16511,7 @@ async function loadPatientConsultationSummary(patientId) {
             </div>
         `;
         // 透過 renderPackageStatusSection 在診療摘要中渲染套票分頁與內容
-        await renderPackageStatusSection(patientId);
+        await renderPackageStatusSection(patientId, false, forcePackageRefresh);
 
     } catch (error) {
         console.error('載入診療記錄摘要錯誤:', error);
@@ -25373,7 +25517,7 @@ async function showPatientPackageHistory(patientId) {
  * @param {string} patientId 病人 ID
  * @param {boolean} pageChange 是否由分頁控制觸發
  */
-async function renderPackageStatusSection(patientId, pageChange = false) {
+async function renderPackageStatusSection(patientId, pageChange = false, forceRefresh = false) {
     const contentEl = document.getElementById('packageStatusContent');
     if (!contentEl) return;
     try {
@@ -25381,8 +25525,8 @@ async function renderPackageStatusSection(patientId, pageChange = false) {
         if (!pageChange) {
             paginationSettings.patientPackageStatus.currentPage = 1;
         }
-        // 查看詳細資料時優先使用快取，避免每次開啟視窗都重新抓取套票。
-        const pkgs = await getPatientPackages(patientId, false);
+        // 初次載入或外部要求刷新時，強制抓取最新套票資料，避免病人資料視窗停留在舊快取。
+        const pkgs = await getPatientPackages(patientId, !!forceRefresh);
         // 若無套票資料，顯示提示文字並隱藏分頁控制
         if (!Array.isArray(pkgs) || pkgs.length === 0) {
             contentEl.innerHTML = `
@@ -25612,6 +25756,16 @@ async function refreshPatientPackagesUI() {
     const appointment = appointments.find(apt => apt && String(apt.id) === String(currentConsultingAppointmentId));
     if (!appointment) return;
     await renderPatientPackages(appointment.patientId);
+    const patientDetailModal = document.getElementById('patientDetailModal');
+    const summaryContainer = document.getElementById('patientConsultationSummary');
+    if (
+        patientDetailModal &&
+        !patientDetailModal.classList.contains('hidden') &&
+        summaryContainer &&
+        String(currentPatientDetailId || '') === String(appointment.patientId || '')
+    ) {
+        await loadPatientConsultationSummary(appointment.patientId);
+    }
 }
 
 async function useOnePackage(patientId, packageRecordId) {
