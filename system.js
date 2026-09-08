@@ -7913,6 +7913,10 @@ function shouldHideGeneralRegistrationDoctorInfo(consultation = null, appointmen
     return isGeneralRegistrationContext(consultation, appointment);
 }
 
+function getGeneralRegistrationSourceLabel(isEn = false) {
+    return isEn ? 'General Registration' : GENERAL_REGISTRATION_LABEL;
+}
+
 function canCurrentUserAccessGeneralRegistration(consultation = null, appointment = null) {
     if (!isGeneralRegistrationContext(consultation, appointment)) {
         return true;
@@ -7921,8 +7925,16 @@ function canCurrentUserAccessGeneralRegistration(consultation = null, appointmen
     return position === '診所管理' || position === '護理師';
 }
 
+function canCurrentUserViewGeneralRegistration(consultation = null, appointment = null) {
+    if (!isGeneralRegistrationContext(consultation, appointment)) {
+        return true;
+    }
+    const position = currentUserData && currentUserData.position ? String(currentUserData.position).trim() : '';
+    return position === '診所管理' || position === '護理師' || position === '醫師';
+}
+
 function canCurrentUserViewConsultationEntry(consultation = null) {
-    return canCurrentUserAccessGeneralRegistration(consultation, null);
+    return canCurrentUserViewGeneralRegistration(consultation, null);
 }
 
 function getAppointmentResponsibleDoctorUsername(appointment = null) {
@@ -12846,6 +12858,9 @@ if (!patient) {
             const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
             const clinicLabel = dict['診所：'] || '診所：';
             const hideDoctorInfo = shouldHideGeneralRegistrationDoctorInfo(consultation, null);
+            const generalRegistrationBadge = isGeneralRegistrationConsultation(consultation)
+                ? `<span class="text-sm text-purple-700 bg-purple-50 px-3 py-1 rounded-full border border-purple-100 shadow-sm">${window.escapeHtml(getGeneralRegistrationSourceLabel(String(lang).toLowerCase().startsWith('en')))}</span>`
+                : '';
             const calendarHtml = buildHistoryCalendarHtml('patient');
 
             contentDiv.innerHTML = `
@@ -12915,6 +12930,7 @@ if (!patient) {
                             }
                             return `
                             <div class="flex flex-wrap items-center gap-2">
+                                ${generalRegistrationBadge}
                                 ${hideDoctorInfo ? '' : `
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
                                     ${doctorLabel}${getDoctorDisplayName(consultation.doctor)}
@@ -13283,6 +13299,9 @@ function displayConsultationMedicalHistoryPage() {
     const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
     const clinicLabel = dict['診所：'] || '診所：';
     const hideDoctorInfo = shouldHideGeneralRegistrationDoctorInfo(consultation, null);
+    const generalRegistrationBadge = isGeneralRegistrationConsultation(consultation)
+        ? `<span class="text-sm text-purple-700 bg-purple-50 px-3 py-1 rounded-full border border-purple-100 shadow-sm">${window.escapeHtml(getGeneralRegistrationSourceLabel(String(lang).toLowerCase().startsWith('en')))}</span>`
+        : '';
     const calendarHtml = buildHistoryCalendarHtml('consultation');
 
     // Compose the HTML content with translated dynamic labels.  Chinese
@@ -13347,6 +13366,7 @@ function displayConsultationMedicalHistoryPage() {
                             }
                             return `
                             <div class="flex flex-wrap items-center gap-2">
+                                ${generalRegistrationBadge}
                                 ${hideDoctorInfo ? '' : `
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
                                     ${doctorLabel}${getDoctorDisplayName(consultation.doctor)}
@@ -24595,6 +24615,10 @@ function getPackageHistorySummary(log, isEn = false) {
             return isEn
                 ? `Adjusted expiry ${oldExpiry} -> ${newExpiry}`
                 : `修改有限期 ${oldExpiry} -> ${newExpiry}`;
+        case 'delete':
+            return isEn
+                ? `Deleted package record, remaining uses ${fromRemaining}/${Number.isFinite(totalUses) ? totalUses : '-'}, expiry ${oldExpiry || 'Unknown date'}`
+                : `刪除套票紀錄，刪除前剩餘次數 ${fromRemaining}/${Number.isFinite(totalUses) ? totalUses : '-'}，有效至 ${oldExpiry || '未知日期'}`;
         case 'legacyUpdate':
             return isEn ? 'Legacy record only saved the latest update time' : '舊資料僅保留最後更新時間，未有詳細內容';
         default:
@@ -24614,6 +24638,8 @@ function getPackageHistoryTypeLabel(log, isEn = false) {
             return isEn ? 'Remaining Uses' : '修改剩餘次數';
         case 'adjustExpiry':
             return isEn ? 'Expiry' : '修改有限期';
+        case 'delete':
+            return isEn ? 'Delete' : '刪除';
         case 'legacyUpdate':
             return isEn ? 'Legacy Update' : '舊資料更新';
         default:
@@ -24633,6 +24659,8 @@ function getPackageHistorySourceLabel(log, isEn = false) {
             return isEn ? 'Patient Management Add' : '病人資料管理新增';
         case 'patientManagementAdjustment':
             return isEn ? 'Patient Management Update' : '病人資料管理修改';
+        case 'patientManagementDelete':
+            return isEn ? 'Patient Management Delete' : '病人資料管理刪除';
         case 'legacy':
             return isEn ? 'Legacy Data' : '舊資料';
         default:
@@ -25153,6 +25181,17 @@ async function deletePatientPackageRecord(patientId, packageRecordId) {
             showToast(isEn ? 'Failed to delete package' : '刪除套票失敗', 'error');
             return;
         }
+        await recordPatientPackageHistory(buildPatientPackageHistoryRecord({
+            patientId,
+            packageId: packageRecordId,
+            packageName: pkg.name,
+            source: 'patientManagementDelete',
+            type: 'delete',
+            totalUses: Number(pkg.totalUses) || 0,
+            fromRemainingUses: Number(pkg.remainingUses) || 0,
+            toRemainingUses: 0,
+            fromExpiresAt: pkg.expiresAt
+        }));
         showToast(isEn ? 'Package deleted' : '已刪除套票', 'success');
         await loadPatientConsultationSummary(patientId);
         await refreshPatientPackagesUI();
@@ -30304,6 +30343,9 @@ async function viewMedicalRecord(recordId, buttonEl = null) {
         const doctorLabel = dict['醫師：'] || '醫師：';
         const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
         const clinicLabel = dict['診所：'] || '診所：';
+        const generalRegistrationBadge = isGeneralRegistrationConsultation(rec)
+            ? `<span class="text-sm text-purple-700 bg-purple-50 px-3 py-1 rounded-full border border-purple-100 shadow-sm">${window.escapeHtml(getGeneralRegistrationSourceLabel(String(lang).toLowerCase().startsWith('en')))}</span>`
+            : '';
         // 組合詳細內容的 HTML，使用與病人病歷查看一致的卡片樣式
         let detailHtml = '';
         detailHtml += '<div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">';
@@ -30330,6 +30372,7 @@ async function viewMedicalRecord(recordId, buttonEl = null) {
                     clinicName = '';
                 }
                 const row = [
+                    generalRegistrationBadge,
                     hideDoctorInfo ? '' : `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">${window.escapeHtml(doctorLabel)}${window.escapeHtml(doctorName)}</span>`,
                     `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">${window.escapeHtml(recordNumberLabel)}${window.escapeHtml(rec.medicalRecordNumber || rec.id)}</span>`,
                     `<span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">${window.escapeHtml(clinicLabel)}${window.escapeHtml(clinicName || '未設定')}</span>`,
