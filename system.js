@@ -13768,6 +13768,46 @@ async function printConsultationRecord(consultationId, consultationData = null) 
         // 解析收費項目以計算總金額
         let totalAmount = 0;
         let billingItemsHtml = '';
+
+        // Determine language preference for receipt fields
+        const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+        const isEnglish = lang && lang.startsWith('en');
+
+        // 為套票使用項目準備餘下次數資訊
+        // 解析結構化收費項目，依順序收集所有套票使用項目的 packageRecordId
+        let packageUseRecords = [];
+        try {
+            if (consultation.billingItemsStructured) {
+                const parsedItems = JSON.parse(consultation.billingItemsStructured);
+                if (Array.isArray(parsedItems)) {
+                    parsedItems.forEach(item => {
+                        if (item && (item.category === 'packageUse' || (item.name && item.name.includes('使用套票')))) {
+                            const pkgRecordId = item.packageRecordId ? String(item.packageRecordId) : '';
+                            if (pkgRecordId) {
+                                packageUseRecords.push({ packageRecordId: pkgRecordId, name: item.name });
+                            }
+                        }
+                    });
+                }
+            }
+        } catch (_e) {
+            // 忽略解析錯誤
+        }
+
+        // 取得病人套票列表以查詢餘下次數
+        let patientPackagesList = [];
+        try {
+            const pkgPatientId = consultation.patientId || (patient && patient.id) || '';
+            if (pkgPatientId) {
+                patientPackagesList = await getPatientPackages(pkgPatientId, true) || [];
+            }
+        } catch (_e) {
+            // 忽略套票查詢錯誤
+        }
+
+        // 套票使用項目的比對指標（依順序對應文字行中的套票使用項目）
+        let packageUseIndex = 0;
+
         if (consultation.billingItems) {
             const lines = consultation.billingItems.split('\n');
             lines.forEach(line => {
@@ -13776,7 +13816,22 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                     if (match) {
                         totalAmount += parseInt(match[1]);
                     }
-                    billingItemsHtml += `<tr><td style="padding: 5px; border-bottom: 1px dotted #ccc;">${line}</td></tr>`;
+                    // 若為套票使用項目，附加餘下次數
+                    let displayLine = line;
+                    if (line.includes('使用套票') && packageUseIndex < packageUseRecords.length) {
+                        const recordInfo = packageUseRecords[packageUseIndex];
+                        packageUseIndex++;
+                        try {
+                            const pkg = patientPackagesList.find(p => p && String(p.id) === String(recordInfo.packageRecordId));
+                            if (pkg && typeof pkg.remainingUses === 'number') {
+                                const remainingLabel = isEnglish ? ` (Remaining: ${pkg.remainingUses})` : `（餘下 ${pkg.remainingUses} 次）`;
+                                displayLine = line + ' ' + remainingLabel;
+                            }
+                        } catch (_e) {
+                            // 忽略錯誤，使用原始行
+                        }
+                    }
+                    billingItemsHtml += `<tr><td style="padding: 5px; border-bottom: 1px dotted #ccc;">${displayLine}</td></tr>`;
                 } else if (line.includes('總費用')) {
                     const match = line.match(/\$(\d+)/);
                     if (match) {
@@ -13830,9 +13885,7 @@ async function printConsultationRecord(consultationId, consultationData = null) 
         consultation.instructions = null;
         consultation.followUpDate = null;
 
-        // Determine language preference and localise receipt fields
-        const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
-        const isEnglish = lang && lang.startsWith('en');
+        // Localise receipt fields (lang and isEnglish defined earlier)
         const htmlLang = isEnglish ? 'en' : 'zh-TW';
         const dateLocale = isEnglish ? 'en-US' : 'zh-TW';
         const colon = isEnglish ? ':' : '：';
