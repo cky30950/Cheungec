@@ -30001,7 +30001,13 @@ async function displayMedicalRecords(pageChange = false) {
                 }
             }
             if (shouldHideGeneralRegistrationDoctorInfo(rec, null)) {
-                doctorName = '';
+                // 一般掛號沒有指定醫師，醫師欄改顯示「一般掛號」而非空白
+                try {
+                    const filterLang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
+                    doctorName = getGeneralRegistrationSourceLabel(String(filterLang).toLowerCase().startsWith('en'));
+                } catch (_e) {
+                    doctorName = GENERAL_REGISTRATION_LABEL;
+                }
             }
             doctorName = doctorName.toLowerCase();
             return recordNum.includes(term) || patientName.includes(term) || doctorName.includes(term);
@@ -30068,7 +30074,8 @@ async function displayMedicalRecords(pageChange = false) {
                 }
             }
             if (shouldHideGeneralRegistrationDoctorInfo(rec, null)) {
-                doctorName = '';
+                // 一般掛號沒有指定醫師，醫師欄顯示「一般掛號」而非空白
+                doctorName = getGeneralRegistrationSourceLabel(String(lang).toLowerCase().startsWith('en'));
             }
             let clinicName = '';
             try {
