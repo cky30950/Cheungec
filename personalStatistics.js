@@ -1,0 +1,379 @@
+
+let personalHerbChartInstance = null;
+let personalFormulaChartInstance = null;
+let personalAcupointChartInstance = null;
+let personalStatsCurrentMonth = null;
+let personalStatsCurrentClinic = 'ALL';
+let personalStatsSelectedClinicName = '';
+let personalStatsLoading = false;
+let personalStatsBucketsCache = [];
+
+function setPersonalStatisticsLoading(loading) {
+    personalStatsLoading = !!loading;
+    const listIds = ['personalFormulaList', 'personalHerbList', 'personalAcupointList'];
+    if (personalStatsLoading) {
+        const loadingHtml = `
+            <li class="py-6 text-center text-gray-500">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                <div class="mt-2">載入中...</div>
+            </li>
+        `;
+        listIds.forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = loadingHtml;
+        });
+    }
+    const clinicSel = document.getElementById('personalStatsClinicSelect');
+    const monthSel = document.getElementById('personalStatsMonthSelect');
+    if (clinicSel) clinicSel.disabled = personalStatsLoading;
+    if (monthSel) monthSel.disabled = personalStatsLoading;
+}
+
+function psReadCache(doctor) {
+    try {
+        const s = localStorage.getItem('personalStatsV3');
+        if (!s) return null;
+        const obj = JSON.parse(s);
+        const v = obj && obj[String(doctor)];
+        return v || null;
+    } catch (_e) {
+        return null;
+    }
+}
+function psWriteCache(doctor, value) {
+    try {
+        const s = localStorage.getItem('personalStatsV3');
+        const obj = s ? JSON.parse(s) : {};
+        obj[String(doctor)] = value;
+        localStorage.setItem('personalStatsV3', JSON.stringify(obj));
+    } catch (_e) {}
+}
+
+function normalizeDateIso(d) {
+    if (!d) return null;
+    if (typeof d === 'object' && d.seconds) {
+        return new Date(d.seconds * 1000).toISOString();
+    }
+    try {
+        const dt = new Date(d);
+        if (!isNaN(dt.getTime())) return dt.toISOString();
+    } catch (_e) {}
+    return null;
+}
+
+function getMonthKeyFromIso(iso) {
+    if (!iso) return null;
+    try {
+        const d = new Date(iso);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        return `${y}-${m}`;
+    } catch (_e) { return null; }
+}
+
+function computeStatsFromSummaries(list) {
+    const herbCounts = {};
+    const formulaCounts = {};
+    const acupointCounts = {};
+    if (!Array.isArray(list) || list.length === 0) {
+        return { herbCounts, formulaCounts, acupointCounts };
+    }
+    const isFormulaName = (name) => {
+        if (!Array.isArray(herbLibrary)) return false;
+        const f = herbLibrary.find(i => i && i.name === name);
+        return !!(f && f.type === 'formula');
+    };
+    for (const item of list) {
+        try {
+            const pres = item && item.prescription ? String(item.prescription) : '';
+            const lines = pres.split('\n');
+            for (const raw of lines) {
+                const line = raw.trim();
+                if (!line) continue;
+                const m = line.match(/^([^0-9\s\(\)\.]+)/);
+                const name = m ? m[1].trim() : line.split(/[\d\s]/)[0];
+                if (!name) continue;
+                if (isFormulaName(name)) {
+                    formulaCounts[name] = (formulaCounts[name] || 0) + 1;
+                } else {
+                    herbCounts[name] = (herbCounts[name] || 0) + 1;
+                }
+            }
+            const acNotes = item && item.acupunctureNotes ? String(item.acupunctureNotes) : '';
+            const re = /data-acupoint-name="(.*?)"/g;
+            let mm;
+            while ((mm = re.exec(acNotes)) !== null) {
+                const acName = mm[1];
+                if (acName) {
+                    acupointCounts[acName] = (acupointCounts[acName] || 0) + 1;
+                }
+            }
+        } catch (_e) {}
+    }
+    return { herbCounts, formulaCounts, acupointCounts };
+}
+
+function normalizeText(s) {
+    if (s == null) return '';
+    try {
+        return String(s).trim().toLowerCase();
+    } catch (_e) { return ''; }
+}
+
+function filterByClinic(list, clinicId, clinicName) {
+    if (!clinicId || clinicId === 'ALL') return (list || []).filter(it => normalizeText(it.clinicId || '') !== 'local-default');
+    const idNorm = normalizeText(clinicId);
+    const nameNorm = normalizeText(clinicName);
+    return (list || []).filter(it => {
+        const itemId = normalizeText(it.clinicId || '');
+        const itemName = normalizeText(it.clinicName || '');
+        return (itemId && itemId === idNorm) || (itemName && nameNorm && itemName === nameNorm);
+    });
+}
+
+function filterByMonth(list, monthKey) {
+    if (!monthKey) return list || [];
+    return (list || []).filter(it => String(it && it.monthKey || '') === String(monthKey));
+}
+
+function computeAvailableMonths(list) {
+    const set = new Set();
+    for (const it of (list || [])) {
+        const mk = it && it.monthKey ? String(it.monthKey) : null;
+        if (mk) set.add(mk);
+    }
+    const arr = Array.from(set);
+    arr.sort((a, b) => {
+        const [ay, am] = a.split('-').map(x => parseInt(x, 10));
+        const [by, bm] = b.split('-').map(x => parseInt(x, 10));
+        if (ay !== by) return by - ay;
+        return bm - am;
+    });
+    return arr;
+}
+
+function renderPersonalStatistics(stats) {
+    if (!stats) return;
+    const { herbCounts, formulaCounts, acupointCounts } = stats;
+    function getLang() {
+        try { return (localStorage.getItem('lang') || 'zh').toLowerCase(); } catch (_e) { return 'zh'; }
+    }
+    function mapDisplayName(name, type) {
+        const langSel = getLang();
+        if (!langSel.startsWith('en')) return name;
+        try {
+            if (type === 'herb' || type === 'formula') {
+                if (Array.isArray(herbLibrary)) {
+                    const item = herbLibrary.find(h => h && h.name === name && (type === 'herb' ? h.type === 'herb' : h.type === 'formula'));
+                    if (item && item.englishName) return item.englishName;
+                }
+            } else if (type === 'acupoint') {
+                if (Array.isArray(acupointLibrary)) {
+                    const ac = acupointLibrary.find(a => a && a.name === name);
+                    if (ac && ac.englishName) return ac.englishName;
+                }
+            }
+        } catch (_e) {}
+        return name;
+    }
+    function renderList(counts, listId) {
+        const listEl = document.getElementById(listId);
+        if (!listEl) return [];
+        listEl.innerHTML = '';
+        const entries = Object.entries(counts || {}).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        const type = (listId === 'personalHerbList') ? 'herb' : (listId === 'personalFormulaList') ? 'formula' : 'acupoint';
+        entries.forEach(([name, count]) => {
+            const li = document.createElement('li');
+            li.className = 'py-1 flex justify-between';
+            const disp = mapDisplayName(name, type);
+            li.innerHTML = `<span>${window.escapeHtml(disp)}</span><span class="font-semibold">${count}</span>`;
+            listEl.appendChild(li);
+        });
+        return entries;
+    }
+    function renderChart(entries, canvasId, oldInstance) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return null;
+        if (oldInstance && typeof oldInstance.destroy === 'function') {
+            try { oldInstance.destroy(); } catch (_e) {}
+        }
+        const type = (canvasId === 'personalHerbChart') ? 'herb' : (canvasId === 'personalFormulaChart') ? 'formula' : 'acupoint';
+        const labels = entries.map(e => mapDisplayName(e[0], type));
+        const dataVals = entries.map(e => e[1]);
+        const ctx = canvas.getContext('2d');
+        return new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{ label: (typeof window.t === 'function' ? window.t('使用次數') : '使用次數'), data: dataVals }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { title: { display: true, text: (typeof window.t === 'function' ? window.t('名稱') : '名稱') } },
+                    y: { title: { display: true, text: (typeof window.t === 'function' ? window.t('使用次數') : '使用次數') }, beginAtZero: true },
+                },
+            },
+        });
+    }
+    const herbEntries = renderList(herbCounts, 'personalHerbList');
+    personalHerbChartInstance = renderChart(herbEntries, 'personalHerbChart', personalHerbChartInstance);
+    const formulaEntries = renderList(formulaCounts, 'personalFormulaList');
+    personalFormulaChartInstance = renderChart(formulaEntries, 'personalFormulaChart', personalFormulaChartInstance);
+    const acEntries = renderList(acupointCounts, 'personalAcupointList');
+    personalAcupointChartInstance = renderChart(acEntries, 'personalAcupointChart', personalAcupointChartInstance);
+}
+
+function entriesToCountMap(entries) {
+    const out = {};
+    (Array.isArray(entries) ? entries : []).forEach((entry) => {
+        const name = entry && entry.name ? String(entry.name) : '';
+        const count = Math.round(Number(entry && entry.count) || 0);
+        if (!name || count <= 0) return;
+        out[name] = (out[name] || 0) + count;
+    });
+    return out;
+}
+
+function mergeCountMaps(target, source) {
+    const base = target || {};
+    Object.entries(source || {}).forEach(([name, count]) => {
+        base[name] = (base[name] || 0) + (Number(count) || 0);
+    });
+    return base;
+}
+
+function computeStatsFromBuckets(list) {
+    const herbCounts = {};
+    const formulaCounts = {};
+    const acupointCounts = {};
+    (Array.isArray(list) ? list : []).forEach((bucket) => {
+        mergeCountMaps(herbCounts, entriesToCountMap(bucket && bucket.herbEntries));
+        mergeCountMaps(formulaCounts, entriesToCountMap(bucket && bucket.formulaEntries));
+        mergeCountMaps(acupointCounts, entriesToCountMap(bucket && bucket.acupointEntries));
+    });
+    return { herbCounts, formulaCounts, acupointCounts };
+}
+
+function updatePersonalStatisticsView(refreshMonthOptions = true) {
+    const byClinic = filterByClinic(personalStatsBucketsCache, personalStatsCurrentClinic, personalStatsSelectedClinicName);
+    if (refreshMonthOptions) {
+        const months = computeAvailableMonths(byClinic);
+        populateMonthSelect(months, personalStatsCurrentMonth || 'ALL');
+    }
+    const filtered = personalStatsCurrentMonth === 'ALL'
+        ? byClinic
+        : filterByMonth(byClinic, personalStatsCurrentMonth);
+    renderPersonalStatistics(computeStatsFromBuckets(filtered));
+}
+
+function populateMonthSelect(months, currentKey) {
+    const sel = document.getElementById('personalStatsMonthSelect');
+    if (!sel) return;
+    sel.innerHTML = '';
+    const allOpt = document.createElement('option');
+    allOpt.value = 'ALL';
+    allOpt.textContent = window.t('全部月份');
+    sel.appendChild(allOpt);
+    const desiredKey = currentKey || 'ALL';
+    const seen = new Set();
+    if (months && months.length) {
+        months.forEach(mk => {
+            if (seen.has(mk)) return;
+            const opt = document.createElement('option');
+            opt.value = mk;
+            opt.textContent = mk;
+            sel.appendChild(opt);
+            seen.add(mk);
+        });
+        const initialKey = desiredKey === 'ALL' ? 'ALL' : (months.includes(desiredKey) ? desiredKey : months[0]);
+        sel.value = initialKey;
+        personalStatsCurrentMonth = initialKey;
+    } else {
+        sel.value = desiredKey;
+        personalStatsCurrentMonth = desiredKey;
+    }
+    sel.onchange = function () {
+        personalStatsCurrentMonth = this.value || personalStatsCurrentMonth;
+        try {
+            updatePersonalStatisticsView(false);
+        } catch (_e) {}
+    };
+}
+
+function readClinicsForPersonalStats() {
+    try {
+        const s = localStorage.getItem('clinics');
+        const arr = s ? JSON.parse(s) : [];
+        if (!Array.isArray(arr)) return [];
+        return arr.filter(c => normalizeText(c && c.id ? c.id : '') !== 'local-default').map(c => ({
+            id: c && c.id ? c.id : '',
+            name: (c && (c.chineseName || c.englishName)) ? (c.chineseName || c.englishName) : (c && c.id ? c.id : '')
+        }));
+    } catch (_e) {
+        return [];
+    }
+}
+
+function populateClinicSelect(initialClinicId) {
+    const sel = document.getElementById('personalStatsClinicSelect');
+    if (!sel) return;
+    sel.innerHTML = '';
+    const allOpt = document.createElement('option');
+    allOpt.value = 'ALL';
+    allOpt.textContent = window.t('全部診所');
+    sel.appendChild(allOpt);
+    const clinics = readClinicsForPersonalStats();
+    clinics.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name || c.id || '';
+        sel.appendChild(opt);
+    });
+    const desired = initialClinicId || 'ALL';
+    sel.value = desired;
+    personalStatsCurrentClinic = desired;
+    const curObj = clinics.find(c => String(c.id) === String(desired));
+    personalStatsSelectedClinicName = curObj ? (curObj.name || '') : '';
+    sel.onchange = function () {
+        personalStatsCurrentClinic = this.value || personalStatsCurrentClinic;
+        try {
+            const cList = readClinicsForPersonalStats();
+            const found = cList.find(c => String(c.id) === String(personalStatsCurrentClinic));
+            personalStatsSelectedClinicName = found ? (found.name || '') : '';
+        } catch (_e0) {}
+        try {
+            updatePersonalStatisticsView(true);
+        } catch (_e) {}
+    };
+}
+
+async function loadPersonalStatistics() {
+    setPersonalStatisticsLoading(true);
+    try {
+        const doctor = currentUser;
+        populateClinicSelect('ALL');
+        const cached = psReadCache(doctor);
+        if (cached && Array.isArray(cached.buckets)) {
+            personalStatsBucketsCache = cached.buckets.slice();
+            updatePersonalStatisticsView(true);
+        } else {
+            personalStatsBucketsCache = [];
+        }
+        try {
+            const res = await window.firebaseDataManager.getPersonalStatsMonthlySummaries(doctor);
+            if (res && res.success && Array.isArray(res.data)) {
+                personalStatsBucketsCache = res.data.slice();
+                psWriteCache(doctor, {
+                    buckets: personalStatsBucketsCache,
+                    cachedAt: new Date().toISOString()
+                });
+                updatePersonalStatisticsView(true);
+            }
+        } catch (_e) {}
+    } finally {
+        setPersonalStatisticsLoading(false);
+    }
+}
