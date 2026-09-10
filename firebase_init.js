@@ -1,5 +1,4 @@
-
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import {
   collection,
   addDoc,
@@ -16,168 +15,144 @@ import {
   startAfter,
   getDoc,
   runTransaction,
-  
   initializeFirestore,
   persistentLocalCache,
-  
-  persistentMultipleTabManager
-  ,
-  
-  writeBatch
-  
-  , onSnapshot
+  persistentMultipleTabManager,
+  writeBatch,
+  onSnapshot
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-import { getDatabase, ref, set, get, update, remove, onValue, off,
-        
-        onDisconnect,
-        push,
-        serverTimestamp,
-        
-        query as rtdbQuery,
-        orderByChild,
-        startAt,
-        endAt,
-        
-        limitToLast } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
-import { getAuth, signInWithEmailAndPassword, signOut, setPersistence,
-        browserSessionPersistence, browserLocalPersistence,
-        createUserWithEmailAndPassword, updateProfile,
-        
-        updatePassword, deleteUser as firebaseDeleteUser, EmailAuthProvider, reauthenticateWithCredential,
-        
-        onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-
+import { 
+  getDatabase, ref, set, get, update, remove, onValue, off,
+  onDisconnect, push, serverTimestamp,
+  query as rtdbQuery, orderByChild, startAt, endAt, limitToLast 
+} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+import { 
+  getAuth, signInWithEmailAndPassword, signOut, setPersistence,
+  browserSessionPersistence, browserLocalPersistence,
+  createUserWithEmailAndPassword, updateProfile,
+  updatePassword, deleteUser as firebaseDeleteUser, EmailAuthProvider, reauthenticateWithCredential,
+  onAuthStateChanged 
+} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
 import firebaseConfig from './firebaseConfig.js';
 
-    
-    const app = initializeApp(firebaseConfig);
-    
-    
-    
-    const db = initializeFirestore(app, {
-      
-      
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-      })
-    });
+// 修正重點：判斷 firebaseConfig 是函數還是物件
+// 如果是函數（例如之前的 getFirebaseConfig），先執行它取得 config 物件
+const config = typeof firebaseConfig === 'function' ? firebaseConfig() : firebaseConfig;
 
-    
-    const rtdb = getDatabase(app);
-    const auth = getAuth(app);
+// 初始化 Firebase
+const app = initializeApp(config);
 
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+});
 
-
+const rtdb = getDatabase(app);
+const auth = getAuth(app);
 
 setPersistence(auth, browserSessionPersistence).catch((error) => {
   console.error('設置 Firebase Auth 持久化模式失敗:', error);
 });
 
+window.firebase = {
+    app,
+    db,
+    rtdb,
+    auth,
     
+    collection,
+    addDoc,
+    getDocs,
+    doc,
+    updateDoc,
+    deleteDoc,
+    setDoc,
     
+    writeBatch,
     
-    window.firebase = {
-        
-        app,
-        db,
-        rtdb,
-        auth,
-        
-        collection,
-        addDoc,
-        getDocs,
-        doc,
-        updateDoc,
-        deleteDoc,
-        setDoc,
-        
-        writeBatch,
-        
-        firestoreQuery: query,
-        where,
-        orderBy,
-        limit,
-        startAfter,   
-        getDoc,       
-        getCountFromServer,
-        runTransaction,
-        
-        onSnapshot,
-        
-        ref,
-        set,
-        get,
-        update,
-        remove,
-        onValue,
-        off,
-        
-        onDisconnect,
-        push,
-        serverTimestamp,
-        
-        rtdbQuery,
-        
-        query: rtdbQuery,
-        orderByChild,
-        startAt,
-        endAt,
-        
-        limitToLast,
-        
-        signInWithEmailAndPassword,
-        signOut,
-        createUserWithEmailAndPassword,
-        updateProfile,
-        
-        updatePassword,
-        
-        deleteAuthUser: firebaseDeleteUser,
-        
-        EmailAuthProvider,
-        reauthenticateWithCredential,
-        
-        setPersistence,
-        browserSessionPersistence,
-        browserLocalPersistence,
-        
-        onAuthStateChanged
-    };
+    firestoreQuery: query,
+    where,
+    orderBy,
+    limit,
+    startAfter,   
+    getDoc,       
+    getCountFromServer,
+    runTransaction,
+    
+    onSnapshot,
+    
+    ref,
+    set,
+    get,
+    update,
+    remove,
+    onValue,
+    off,
+    
+    onDisconnect,
+    push,
+    serverTimestamp,
+    
+    rtdbQuery,
+    
+    query: rtdbQuery,
+    orderByChild,
+    startAt,
+    endAt,
+    
+    limitToLast,
+    
+    signInWithEmailAndPassword,
+    signOut,
+    createUserWithEmailAndPassword,
+    updateProfile,
+    
+    updatePassword,
+    
+    deleteAuthUser: firebaseDeleteUser,
+    
+    EmailAuthProvider,
+    reauthenticateWithCredential,
+    
+    setPersistence,
+    browserSessionPersistence,
+    browserLocalPersistence,
+    
+    onAuthStateChanged
+};
 
-    
-    window.firebaseConnected = false;
-    const connectedRef = ref(rtdb, '.info/connected');
-    onValue(connectedRef, (snapshot) => {
-        if (snapshot.val() === true) {
-            window.firebaseConnected = true;
-            console.log('Firebase 已連接');
+window.firebaseConnected = false;
+const connectedRef = ref(rtdb, '.info/connected');
+onValue(connectedRef, (snapshot) => {
+    if (snapshot.val() === true) {
+        window.firebaseConnected = true;
+        console.log('Firebase 已連接');
+        
+        window.firebaseStatusInitialized = true;
+        
+        try {
+            window.dispatchEvent(new CustomEvent('firebaseConnectionChanged', {
+                detail: { connected: true }
+            }));
+        } catch (_e) {
             
-            window.firebaseStatusInitialized = true;
-            
-            try {
-                window.dispatchEvent(new CustomEvent('firebaseConnectionChanged', {
-                    detail: { connected: true }
-                }));
-            } catch (_e) {
-                
-            }
-        } else {
-            window.firebaseConnected = false;
-            console.log('Firebase 連接中斷');
-            
-            window.firebaseStatusInitialized = true;
-            
-            try {
-                window.dispatchEvent(new CustomEvent('firebaseConnectionChanged', {
-                    detail: { connected: false }
-                }));
-            } catch (_e) {
-                
-            }
         }
-    });
+    } else {
+        window.firebaseConnected = false;
+        console.log('Firebase 連接中斷');
+        
+        window.firebaseStatusInitialized = true;
+        
+        try {
+            window.dispatchEvent(new CustomEvent('firebaseConnectionChanged', {
+                detail: { connected: false }
+            }));
+        } catch (_e) {
+            
+        }
+    }
+});
 
-    console.log('Firebase 初始化完成');
-
-    
+console.log('Firebase 初始化完成');
