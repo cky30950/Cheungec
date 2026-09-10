@@ -1,13 +1,17 @@
 
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCx_BLIWVKZs0vJa5TwL6zoycJexY_5nXU",
-  authDomain: "system-1e90a.firebaseapp.com",
-  databaseURL: "https://system-1e90a-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "system-1e90a",
-  storageBucket: "system-1e90a.firebasestorage.app",
-  messagingSenderId: "80947900109",
-  appId: "1:80947900109:web:b6cd62bb2f1e07971a4384"
+// 檔案路徑：/firebaseConfig.js (根目錄)
+
+export const getFirebaseConfig = (env) => {
+  return {
+    apiKey: env.FIREBASE_API_KEY,
+    authDomain: env.FIREBASE_AUTH_DOMAIN,
+    databaseURL: env.FIREBASE_DATABASE_URL,
+    projectId: env.FIREBASE_PROJECT_ID,
+    storageBucket: env.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: env.FIREBASE_MESSAGING_SENDER_ID,
+    appId: env.FIREBASE_APP_ID
+  };
 };
 
-export default firebaseConfig;
+export default getFirebaseConfig;
