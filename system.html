@@ -45,16 +45,15 @@
         }
 
         /*
-         * 視訊診症：開啟時維持「左邊診症、右邊視訊」，但不把診症欄位擠壓成多欄。
+         * 視訊診症：開啟時維持「左邊診症、右邊視訊」，兩半 50/50。
          * 僅作用於 #consultationForm.video-split，不影響其他頁面與預設直向排列。
-         * 右側視訊為固定窄欄（約 400~480px），左側吃掉剩餘寬度；
-         * 分欄期間診症表單內所有 grid 一律單一直列，避免欄位被壓扁。
-         * 小螢幕（<1024px）時自動退回上下排列，視訊面板顯示在欄位下方。
+         * 分欄期間診症表單內所有 grid 一律單一直列，欄位不被擠成多欄；
+         * 關閉視訊後恢復原狀。小螢幕（<1024px）自動退回上下排列。
          */
         @media (min-width: 1024px) {
             #consultationForm.video-split {
                 display: grid;
-                grid-template-columns: minmax(0, 1fr) clamp(400px, 30vw, 30rem);
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
                 align-items: start;
             }
             #consultationForm.video-split > #consultationFormHeader {
@@ -5303,9 +5302,9 @@
     
     <script src="systemmanagement.js"></script>
 
-    <script src="livekit_config.js"></script>
-    <script src="livekit_room.js"></script>
-    <script src="video_consultation.js"></script>
+    <script src="livekit_config.js?v=2"></script>
+    <script src="livekit_room.js?v=2"></script>
+    <script src="video_consultation.js?v=2"></script>
     
     <script src="chat_module.js"></script>
     

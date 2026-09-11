@@ -70,7 +70,10 @@
       '.lk-tile audio{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}',
       '.lk-name{position:absolute;left:.5rem;bottom:.5rem;background:rgba(0,0,0,.6);color:#fff;font-size:.75rem;line-height:1;padding:.3rem .55rem;border-radius:.4rem;white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis}',
       '.lk-avatar{width:4.5rem;height:4.5rem;border-radius:9999px;background:#334155;color:#e2e8f0;display:flex;align-items:center;justify-content:center;font-size:1.75rem;font-weight:600}',
-      '.lk-bar{display:flex;align-items:center;gap:.4rem;padding:.55rem .7rem;background:#111827;flex-wrap:wrap}',
+      '.lk-bar{display:flex;align-items:center;gap:.4rem;padding:.55rem .7rem;background:#111827;flex-wrap:wrap;flex-shrink:0}',
+      '.lk-invitebar{display:flex;align-items:center;gap:.5rem;justify-content:space-between;background:#0b1220;padding:.5rem .7rem;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0}',
+      '.lk-invitebar-text{color:#94a3b8;font-size:.75rem;line-height:1.2;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.lk-invitebar .lk-btn{flex-shrink:0}',
       '.lk-btn{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;background:rgba(255,255,255,.12);color:#fff;border-radius:.55rem;padding:.5rem .7rem;font-size:.8rem;line-height:1;transition:background .15s ease;cursor:pointer;border:0;white-space:nowrap}',
       '.lk-btn:hover:not(:disabled){background:rgba(255,255,255,.24)}',
       '.lk-btn.off{background:#dc2626;color:#fff}',
@@ -103,6 +106,12 @@
   function shellHtml(mode) {
     return (
       '<div class="lk-shell">' +
+      (mode === 'doctor'
+        ? '<div class="lk-invitebar">' +
+          '<span class="lk-invitebar-text">病人尚未加入時，請複製連結傳給病人</span>' +
+          '<button type="button" class="lk-btn lk-btn-invite" data-lk-invite title="複製病人加入連結">' + svgIcon('link') + '<span>複製病人連結</span></button>' +
+          '</div>'
+        : '') +
       '<div class="lk-stage" data-lk-stage>' +
       '<div class="lk-overlay" data-lk-overlay>' +
       '<div>' +
@@ -121,7 +130,7 @@
         : '') +
       '<button type="button" class="lk-btn" data-lk-btn="users" title="參與者"><span>' + svgIcon('users') + '</span><span class="lk-count" data-lk-count>1</span></button>' +
       (mode === 'doctor'
-        ? '<button type="button" class="lk-btn lk-btn-invite" data-lk-btn="invite" title="複製病人加入連結">' + svgIcon('link') + '<span>邀請連結</span></button>'
+        ? '<button type="button" class="lk-btn lk-btn-invite" data-lk-invite title="複製病人加入連結">' + svgIcon('link') + '<span>邀請連結</span></button>'
         : '') +
       '<span class="lk-spacer"></span>' +
       '<button type="button" class="lk-btn" data-lk-btn="fs" title="全螢幕">' + svgIcon('fullscreen') + '</button>' +
@@ -331,7 +340,12 @@
       if (!connected) return;
       if (remoteCount() === 0) {
         if (mode === 'doctor') {
-          showOverlay('等候病人加入', '病人尚未進入診症室，可點下方連結圖示複製邀請連結傳給病人。');
+          showOverlay(
+            '等候病人加入',
+            '病人尚未進入診症室，請複製邀請連結傳給病人。',
+            '複製邀請連結',
+            function () { if (typeof options.onInvite === 'function') options.onInvite(); }
+          );
         } else {
           showOverlay('等候醫師進入', '醫師尚未開始視訊診症，請稍候，醫師進入後會自動接通。');
         }
@@ -424,6 +438,13 @@
     });
     if (btnInvite) {
       btnInvite.addEventListener('click', function () {
+        if (typeof options.onInvite === 'function') options.onInvite();
+      });
+    }
+    // 頂部邀請列與控制列的邀請按鈕共用同一行為
+    var inviteButtons = root.querySelectorAll('[data-lk-invite]');
+    for (var bi = 0; bi < inviteButtons.length; bi++) {
+      inviteButtons[bi].addEventListener('click', function () {
         if (typeof options.onInvite === 'function') options.onInvite();
       });
     }
