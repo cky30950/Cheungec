@@ -45,14 +45,16 @@
         }
 
         /*
-         * 視訊診症：開啟時診症記錄左右分欄（左：原有欄位；右：視訊面板）
+         * 視訊診症：開啟時維持「左邊診症、右邊視訊」，但不把診症欄位擠壓成多欄。
          * 僅作用於 #consultationForm.video-split，不影響其他頁面與預設直向排列。
-         * 小螢幕（<1024px）時自動退回直向排列，視訊面板顯示在欄位下方。
+         * 右側視訊為固定窄欄（約 400~480px），左側吃掉剩餘寬度；
+         * 分欄期間診症表單內所有 grid 一律單一直列，避免欄位被壓扁。
+         * 小螢幕（<1024px）時自動退回上下排列，視訊面板顯示在欄位下方。
          */
         @media (min-width: 1024px) {
             #consultationForm.video-split {
                 display: grid;
-                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                grid-template-columns: minmax(0, 1fr) clamp(400px, 30vw, 30rem);
                 align-items: start;
             }
             #consultationForm.video-split > #consultationFormHeader {
@@ -64,6 +66,10 @@
             #consultationForm.video-split > #consultationVideoPane {
                 display: block;
                 min-width: 0;
+            }
+            /* 分欄時診症欄位維持單一直列（ID 選擇器權重高於 Tailwind 類別，不需 !important） */
+            #consultationForm.video-split #consultationFormBody .grid {
+                grid-template-columns: minmax(0, 1fr);
             }
         }
 

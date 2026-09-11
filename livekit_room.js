@@ -103,12 +103,13 @@
   function shellHtml(mode) {
     return (
       '<div class="lk-shell">' +
-      '<div class="lk-stage" data-lk-stage></div>' +
+      '<div class="lk-stage" data-lk-stage>' +
       '<div class="lk-overlay" data-lk-overlay>' +
       '<div>' +
       '<div class="lk-overlay-title" data-lk-overlay-title></div>' +
       '<div class="lk-overlay-sub" data-lk-overlay-sub></div>' +
       '<button type="button" class="lk-overlay-action" data-lk-overlay-action></button>' +
+      '</div>' +
       '</div>' +
       '</div>' +
       '<div class="lk-pop" data-lk-pop></div>' +
@@ -120,7 +121,7 @@
         : '') +
       '<button type="button" class="lk-btn" data-lk-btn="users" title="參與者"><span>' + svgIcon('users') + '</span><span class="lk-count" data-lk-count>1</span></button>' +
       (mode === 'doctor'
-        ? '<button type="button" class="lk-btn" data-lk-btn="invite" title="複製病人加入連結">' + svgIcon('link') + '</button>'
+        ? '<button type="button" class="lk-btn lk-btn-invite" data-lk-btn="invite" title="複製病人加入連結">' + svgIcon('link') + '<span>邀請連結</span></button>'
         : '') +
       '<span class="lk-spacer"></span>' +
       '<button type="button" class="lk-btn" data-lk-btn="fs" title="全螢幕">' + svgIcon('fullscreen') + '</button>' +
