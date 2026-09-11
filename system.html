@@ -44,6 +44,29 @@
             overflow-wrap: break-word;
         }
 
+        /*
+         * 視訊診症：開啟時診症記錄左右分欄（左：原有欄位；右：視訊面板）
+         * 僅作用於 #consultationForm.video-split，不影響其他頁面與預設直向排列。
+         * 小螢幕（<1024px）時自動退回直向排列，視訊面板顯示在欄位下方。
+         */
+        @media (min-width: 1024px) {
+            #consultationForm.video-split {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+                align-items: start;
+            }
+            #consultationForm.video-split > #consultationFormHeader {
+                grid-column: 1 / -1;
+            }
+            #consultationForm.video-split > #consultationFormBody {
+                min-width: 0;
+            }
+            #consultationForm.video-split > #consultationVideoPane {
+                display: block;
+                min-width: 0;
+            }
+        }
+
         /* 調整針灸備註中穴位方塊的字體大小，原本為 text-xs，改為較大的大小 */
         #formAcupunctureNotes span[data-acupoint-name] {
             /* 使用與 Tailwind text-sm 相當的字體大小 (0.875rem) 以提升可讀性 */
@@ -1144,11 +1167,19 @@
                 </div>
                 
                 <div id="consultationForm" class="hidden bg-white border border-gray-200 rounded-lg mt-6">
-                    <div class="bg-green-600 text-white px-6 py-4 rounded-t-lg">
+                    <div id="consultationFormHeader" class="bg-green-600 text-white px-6 py-4 rounded-t-lg flex items-center justify-between gap-3">
                         <h3 class="text-xl font-bold">診症記錄</h3>
+                        <button type="button" id="toggleVideoConsultBtn" onclick="toggleVideoConsultation()"
+                                class="inline-flex items-center gap-2 bg-white text-green-700 hover:bg-green-50 border border-transparent font-medium px-4 py-2 rounded-lg text-sm transition duration-200 whitespace-nowrap">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 pointer-events-none">
+                                <path d="m22 8-6 4 6 4V8Z"/>
+                                <rect x="2" y="6" width="14" height="12" rx="2"/>
+                            </svg>
+                            <span data-video-btn-label>視訊診症</span>
+                        </button>
                     </div>
-                    
-                    <div class="p-6">
+
+                    <div id="consultationFormBody" class="p-6">
                         
                         <div class="bg-blue-50 rounded-lg p-4 mb-6">
                             
@@ -1512,6 +1543,9 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                    <div id="consultationVideoPane" class="hidden bg-gray-50 border-t border-gray-200 lg:border-t-0 lg:border-l lg:border-gray-200 lg:sticky lg:top-4 self-start">
+                        <div id="consultationVideoContainer" class="h-[70vh] lg:h-[80vh] p-3"></div>
                     </div>
                 </div>
             </div>
@@ -5262,6 +5296,10 @@
     <script src="personalStatistics.js"></script>
     
     <script src="systemmanagement.js"></script>
+
+    <script src="livekit_config.js"></script>
+    <script src="livekit_room.js"></script>
+    <script src="video_consultation.js"></script>
     
     <script src="chat_module.js"></script>
     
