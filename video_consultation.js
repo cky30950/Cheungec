@@ -58,13 +58,20 @@
     var label = btn.querySelector('[data-video-btn-label]');
     if (state === 'active') {
       btn.disabled = false;
-      btn.classList.remove('opacity-70', 'cursor-wait', 'bg-white', 'text-green-700');
+      // 關閉態的白底綠字／綠 hover 必須一併移走，否則 class 並存會互相覆蓋
+      btn.classList.remove(
+        'opacity-70', 'cursor-wait',
+        'bg-white', 'text-green-700', 'hover:bg-green-50'
+      );
       btn.classList.add('bg-red-500', 'hover:bg-red-600', 'text-white');
       label.textContent = '關閉視訊';
     } else {
       btn.disabled = false;
-      btn.classList.remove('opacity-70', 'cursor-wait', 'bg-red-500', 'hover:bg-red-600');
-      btn.classList.add('bg-white', 'text-green-700');
+      btn.classList.remove(
+        'opacity-70', 'cursor-wait',
+        'bg-red-500', 'hover:bg-red-600', 'text-white'
+      );
+      btn.classList.add('bg-white', 'text-green-700', 'hover:bg-green-50');
       label.textContent = '視訊診症';
     }
   }
