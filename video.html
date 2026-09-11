@@ -6,8 +6,10 @@
     <title>視訊診症 - 名醫中醫診所</title>
     <link rel="icon" type="image/png" href="images/myLogo.png">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="livekit_config.js?v=2"></script>
-    <script src="livekit_room.js?v=2"></script>
+    <script src="livekit_config.js?v=3"></script>
+    <script src="livekit_room.js?v=3"></script>
+    <script src="video_call_signaling.js?v=3"></script>
+    <script type="module" src="firebase_init.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; }
@@ -27,7 +29,7 @@
 
     <main class="flex-1 w-full max-w-5xl mx-auto px-4 py-6 flex flex-col">
 
-        <!-- 加入前畫面 -->
+        <!-- 1. 加入前：輸入姓名並提出申請 -->
         <section id="joinPanel" class="flex-1 flex items-center justify-center">
             <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8">
                 <div class="flex justify-center mb-4">
@@ -38,8 +40,8 @@
                         </svg>
                     </div>
                 </div>
-                <h2 class="text-xl font-bold text-gray-800 text-center mb-1">進入視訊診症室</h2>
-                <p class="text-sm text-gray-500 text-center mb-6">醫師就緒後會自動接通，請先確認攝影機與麥克風權限。</p>
+                <h2 class="text-xl font-bold text-gray-800 text-center mb-1">申請視訊診症</h2>
+                <p class="text-sm text-gray-500 text-center mb-6">提出申請後，請稍候醫師接納；醫師接納後才會開始視訊通話。</p>
 
                 <div id="joinError" class="hidden mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3"></div>
 
@@ -53,18 +55,34 @@
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
                         <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92Z"/>
                     </svg>
-                    <span id="joinButtonLabel">進入診症室</span>
+                    <span id="joinButtonLabel">申請視訊診症</span>
                 </button>
 
                 <ul class="mt-6 text-xs text-gray-500 space-y-1.5">
+                    <li>・提出申請後不會立即開始通話，醫師接納後才會連線。</li>
                     <li>・建議使用 Chrome、Edge 或 Safari 最新版本瀏覽器。</li>
-                    <li>・進入後如無畫面，請檢查網址列左邊的攝影機／麥克風權限。</li>
-                    <li>・若遲遲未接通，請聯絡診所確認看診時間。</li>
+                    <li>・接通時瀏覽器會詢問攝影機／麥克風權限，請選「允許」。</li>
                 </ul>
             </div>
         </section>
 
-        <!-- 視訊畫面 -->
+        <!-- 2. 等候醫師接納 -->
+        <section id="waitingPanel" class="hidden flex-1 items-center justify-center">
+            <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 p-6 sm:p-8 text-center">
+                <div class="flex justify-center mb-5">
+                    <div class="w-14 h-14 rounded-full border-4 border-emerald-200 border-t-emerald-600 animate-spin"></div>
+                </div>
+                <h2 class="text-xl font-bold text-gray-800 mb-1">等候醫師接納</h2>
+                <p class="text-sm text-gray-500 mb-2">醫師已收到您的申請，請保持此頁面開啟。</p>
+                <p class="text-xs text-gray-400 mb-6">接通後會自動開啟攝影機與麥克風，無需重新整理。</p>
+                <button id="cancelRequestButton" type="button"
+                        class="text-sm text-gray-500 hover:text-red-600 underline underline-offset-2">
+                    取消申請
+                </button>
+            </div>
+        </section>
+
+        <!-- 3. 通話中 -->
         <section id="callPanel" class="hidden flex-1 flex flex-col">
             <div id="callStage" class="h-[72vh] sm:h-[78vh]"></div>
         </section>
@@ -79,47 +97,149 @@
         (function () {
             'use strict';
 
+            // state: 'idle' | 'requesting' | 'accepted' | 'call'
+            var state = 'idle';
+            var session = null;
+            var unsubscribe = null;
+            var acceptedHandled = false;
+
             var params = new URLSearchParams(window.location.search);
             var room = (params.get('room') || '').trim();
             var code = (params.get('code') || '').trim();
             var presetName = (params.get('name') || '').trim();
 
             var joinPanel = document.getElementById('joinPanel');
+            var waitingPanel = document.getElementById('waitingPanel');
             var callPanel = document.getElementById('callPanel');
             var nameInput = document.getElementById('patientNameInput');
             var joinButton = document.getElementById('joinButton');
             var joinButtonLabel = document.getElementById('joinButtonLabel');
             var joinError = document.getElementById('joinError');
+            var cancelButton = document.getElementById('cancelRequestButton');
             var callStage = document.getElementById('callStage');
 
-            var session = null;
-            var joining = false;
-
             nameInput.value = presetName;
+
+            function showPanel(name) {
+                joinPanel.classList.toggle('hidden', name !== 'join');
+                waitingPanel.classList.toggle('hidden', name !== 'waiting');
+                waitingPanel.classList.toggle('flex', name === 'waiting');
+                callPanel.classList.toggle('hidden', name !== 'call');
+            }
 
             function showJoinError(message) {
                 joinError.textContent = message;
                 joinError.classList.remove('hidden');
             }
 
-            function setJoining(state) {
-                joining = state;
-                joinButton.disabled = state;
-                joinButton.classList.toggle('opacity-70', state);
-                joinButton.classList.toggle('cursor-wait', state);
-                joinButtonLabel.textContent = state ? '進入中…' : '進入診症室';
+            function setJoinBusy(busy) {
+                joinButton.disabled = busy;
+                joinButton.classList.toggle('opacity-70', busy);
+                joinButton.classList.toggle('cursor-wait', busy);
+                joinButtonLabel.textContent = busy ? '申請中…' : '申請視訊診症';
             }
 
-            function backToJoin() {
-                session = null;
+            function stopWatching() {
+                if (unsubscribe) {
+                    try { unsubscribe(); } catch (_e) {}
+                    unsubscribe = null;
+                }
+                if (waitTimer) {
+                    clearTimeout(waitTimer);
+                    waitTimer = null;
+                }
+            }
+
+            function backToJoin(message) {
+                state = 'idle';
+                stopWatching();
                 callStage.innerHTML = '';
-                callPanel.classList.add('hidden');
-                joinPanel.classList.remove('hidden');
-                setJoining(false);
+                session = null;
+                showPanel('join');
+                setJoinBusy(false);
+                if (message) showJoinError(message);
+                else joinError.classList.add('hidden');
             }
 
-            async function joinRoom() {
-                if (joining) return;
+            /* ---- 進入通話（醫師已接納） ---- */
+            async function enterCall(name) {
+                if (acceptedHandled) return;
+                acceptedHandled = true;
+                var config = window.LIVEKIT_CONFIG;
+
+                var tokenData;
+                try {
+                    tokenData = await window.LiveKitVideo.requestToken(config.tokenEndpoint, {
+                        role: 'patient',
+                        room: room,
+                        code: code,
+                        name: name
+                    });
+                } catch (e) {
+                    console.error('取得視訊憑證失敗', e);
+                    backToJoin(e.message || '無法進入診症室，請重新申請。');
+                    return;
+                }
+
+                state = 'call';
+                showPanel('call');
+
+                session = window.LiveKitVideo.createSession(callStage, {
+                    mode: 'patient',
+                    onLeave: function () {
+                        // 病人主動掛斷、斷線後按返回，都通知醫師通話結束
+                        if (room && window.VideoCallSignaling && window.VideoCallSignaling.ready()) {
+                            Promise.resolve(window.VideoCallSignaling.end(room, 'patient')).catch(function () {});
+                        }
+                        backToJoin('通話已結束，如需再次看診請重新申請。');
+                    },
+                    onError: function (message) {
+                        console.warn('[視訊]', message);
+                    }
+                });
+
+                try {
+                    await session.connect(tokenData.url || config.url, tokenData.token);
+                } catch (_e) {
+                    // 失敗畫面由視訊核心顯示，並提供「返回」按鈕
+                }
+            }
+
+            /* ---- 監聽申請狀態 ---- */
+            function watchRequest(name) {
+                unsubscribe = window.VideoCallSignaling.watch(room, function (data, error) {
+                    if (error) {
+                        console.error('監聽申請狀態失敗', error);
+                        if (state === 'requesting') {
+                            backToJoin('與診所的即時連線中斷，請檢查網路後重新申請。');
+                        }
+                        return;
+                    }
+
+                    if (state === 'requesting') {
+                        if (!data) return; // 寫入後短暫空窗
+                        if (data.status === 'accepted') {
+                            state = 'accepted';
+                            enterCall(name);
+                        } else if (data.status === 'declined') {
+                            backToJoin('醫師目前無法接聽，請稍候重新申請或聯絡診所。');
+                        } else if (data.status === 'ended') {
+                            backToJoin('醫師已結束本次視訊，請重新申請或聯絡診所。');
+                        }
+                        // pending / cancelled：繼續等候（cancelled 只可能是自己造成）
+                    } else if (state === 'call' || state === 'accepted') {
+                        if (data && data.status === 'ended' && session) {
+                            var s = session;
+                            session = null;
+                            Promise.resolve(s.leave()).catch(function () {});
+                        }
+                    }
+                });
+            }
+
+            /* ---- 提出申請 ---- */
+            async function submitRequest() {
+                if (state !== 'idle') return;
                 joinError.classList.add('hidden');
 
                 var name = nameInput.value.trim();
@@ -137,49 +257,55 @@
                     showJoinError('視訊模組載入失敗，請重新整理頁面後再試。');
                     return;
                 }
-
-                setJoining(true);
-
-                var tokenData;
-                try {
-                    tokenData = await window.LiveKitVideo.requestToken(config.tokenEndpoint, {
-                        role: 'patient',
-                        room: room,
-                        code: code,
-                        name: name
-                    });
-                } catch (e) {
-                    console.error('取得視訊憑證失敗', e);
-                    showJoinError(e.message || '無法進入診症室，請稍後再試。');
-                    setJoining(false);
+                if (!window.VideoCallSignaling || !window.VideoCallSignaling.ready()) {
+                    showJoinError('即時服務尚未就緒，請稍候幾秒後再按一次。');
                     return;
                 }
 
-                joinPanel.classList.add('hidden');
-                callPanel.classList.remove('hidden');
-
-                session = window.LiveKitVideo.createSession(callStage, {
-                    mode: 'patient',
-                    onLeave: function () {
-                        backToJoin();
-                    },
-                    onError: function (message) {
-                        console.warn('[視訊]', message);
-                    }
-                });
-
+                setJoinBusy(true);
                 try {
-                    await session.connect(tokenData.url || config.url, tokenData.token);
-                } catch (_e) {
-                    // 失敗畫面由視訊核心顯示，並提供「返回」按鈕
-                } finally {
-                    setJoining(false);
+                    await window.VideoCallSignaling.request(room, name);
+                } catch (e) {
+                    console.error('提出視訊申請失敗', e);
+                    showJoinError('申請送出失敗，請檢查網路後重試。');
+                    setJoinBusy(false);
+                    return;
                 }
+
+                acceptedHandled = false;
+                state = 'requesting';
+                showPanel('waiting');
+                watchRequest(name);
             }
 
-            joinButton.addEventListener('click', function () { joinRoom(); });
+            async function cancelRequest() {
+                if (state !== 'requesting') return;
+                try {
+                    await window.VideoCallSignaling.cancel(room);
+                } catch (e) {
+                    console.warn('取消申請失敗', e);
+                }
+                backToJoin();
+            }
+
+            async function hangUpByPatient() {
+                if (room && window.VideoCallSignaling && window.VideoCallSignaling.ready()) {
+                    try { await window.VideoCallSignaling.end(room, 'patient'); } catch (_e) {}
+                }
+                if (session) {
+                    var s = session;
+                    session = null;
+                    try { await s.leave(); } catch (_e) { backToJoin(); }
+                } else {
+                    backToJoin();
+                }
+            }
+              window._patientHangUp = hangUpByPatient;
+
+            joinButton.addEventListener('click', function () { submitRequest(); });
+            cancelButton.addEventListener('click', function () { cancelRequest(); });
             nameInput.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter') joinRoom();
+                if (e.key === 'Enter') submitRequest();
             });
 
             if (!room || !code) {
