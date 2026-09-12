@@ -8,7 +8,7 @@
 
    改好後儲存檔案、重新整理網頁就會生效，不需改其他程式碼。
    ============================================================ */
-window.SYSTEM_EDITION = 'standard'; // ← 改成 'advanced' 即切換為進階版
+window.SYSTEM_EDITION = 'advanced'; // ← 改成 'advanced' 即切換為進階版
 
 (function () {
     // 各版本可建立的診所數量上限（日後如需調整數字可直接改這裡）
