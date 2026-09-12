@@ -2515,7 +2515,30 @@ async function fetchUsers(forceRefresh = false) {
             updateCurrentClinicDisplay();
             try { localStorage.setItem('clinics', JSON.stringify(clinicsList)); } catch (_e) {}
         }
+        // 依據系統版本（普通版／進階版，設定見 edition_config.js）控制新增、刪除診所按鈕
+        function applyEditionClinicButtons() {
+            try {
+                const edition = window.AppEdition;
+                const locked = !edition || edition.isStandard;
+                ['systemAddClinicButton', 'systemDeleteClinicButton'].forEach(function(id) {
+                    const btn = document.getElementById(id);
+                    if (!btn) return;
+                    if (locked) {
+                        btn.disabled = true;
+                        btn.classList.add('edition-locked-btn');
+                    } else {
+                        btn.disabled = false;
+                        btn.classList.remove('edition-locked-btn');
+                    }
+                });
+                const hint = document.getElementById('editionLockedHint');
+                if (hint) hint.classList.toggle('hidden', !locked);
+            } catch (_e) {}
+        }
         function populateClinicSelectors() {
+            try {
+                applyEditionClinicButtons();
+            } catch (_eEdition) {}
             try {
                 const loginSel = document.getElementById('loginClinicSelector');
                 if (loginSel) {
@@ -2572,6 +2595,10 @@ async function fetchUsers(forceRefresh = false) {
                 const delBtn = document.getElementById('systemDeleteClinicButton');
                 if (delBtn && !delBtn.dataset.bound) {
                     delBtn.addEventListener('click', async function() {
+                        if (window.AppEdition && window.AppEdition.isStandard) {
+                            showToast('刪除診所為「進階版系統」才有', 'error');
+                            return;
+                        }
                         if (!currentClinicId || currentClinicId === 'local-default') {
                             showToast('未選擇診所或此診所不可刪除', 'error');
                             return;
@@ -17072,9 +17099,16 @@ async function initializeSystemAfterLogin() {
 
         function showAddClinicModal() {
             try {
+                if (window.AppEdition && window.AppEdition.isStandard) {
+                    showToast('新增診所為「進階版系統」才有', 'error');
+                    return;
+                }
+            } catch (_eEdition) {}
+            try {
+                const maxClinics = (window.AppEdition && window.AppEdition.maxClinics) ? window.AppEdition.maxClinics : 1;
                 const count = Array.isArray(clinicsList) ? clinicsList.length : 0;
-                if (count >= 3) {
-                    showToast('診所數量已達上限（3），無法新增', 'error');
+                if (count >= maxClinics) {
+                    showToast(`診所數量已達上限（${maxClinics}），無法新增`, 'error');
                     return;
                 }
             } catch (_e) {}
@@ -26452,8 +26486,9 @@ class FirebaseDataManager {
                     window.firebase.collection(window.firebase.db, 'clinics')
                 );
                 const count = (snap && typeof snap.size === 'number') ? snap.size : 0;
-                if (count >= 3) {
-                    return { success: false, error: '診所數量已達上限（3），無法新增' };
+                const maxClinics = (window.AppEdition && window.AppEdition.maxClinics) ? window.AppEdition.maxClinics : 1;
+                if (count >= maxClinics) {
+                    return { success: false, error: `診所數量已達上限（${maxClinics}），無法新增` };
                 }
             } catch (_eLimit) {}
             let dataToWrite;

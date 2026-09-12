@@ -267,6 +267,14 @@
             border-radius: 50%;
             pointer-events: none;
         }
+
+        /* 普通版專用：進階版功能按鈕反白（停用）樣式 */
+        .edition-locked-btn,
+        .edition-locked-btn:hover {
+            background-color: #9ca3af !important;
+            cursor: not-allowed !important;
+            opacity: 0.65;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
@@ -2367,9 +2375,12 @@
                                 <h3 class="text-lg font-semibold mb-2">診所設定</h3>
                                 <p class="text-sm text-gray-600">以下設定會根據所選診所切換，權限管理、收據自定義與中藥存庫開關都會套用到目前選擇的診所。</p>
                             </div>
-                            <div class="flex flex-col sm:flex-row gap-2">
-                                <button id="systemAddClinicButton" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition duration-200">新增診所</button>
-                                <button id="systemDeleteClinicButton" class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition duration-200">刪除目前診所</button>
+                            <div>
+                                <div class="flex flex-col sm:flex-row gap-2">
+                                    <button id="systemAddClinicButton" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition duration-200">新增診所</button>
+                                    <button id="systemDeleteClinicButton" class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition duration-200">刪除目前診所</button>
+                                </div>
+                                <p id="editionLockedHint" class="hidden text-xs text-amber-600 mt-2 text-right sm:text-left">🔒 新增／刪除診所為「進階版系統」才有</p>
                             </div>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -5258,6 +5269,7 @@
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <script src="edition_config.js"></script>
     <script src="schedule_management.js"></script><script src="system.js"></script>
     <script src="personalStatistics.js"></script>
     
