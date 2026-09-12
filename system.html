@@ -8,7 +8,7 @@
     <link rel="icon" type="image/png" href="images/myLogo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <script type="module" src="firebase_init.js?v=2"></script>
+    <script type="module" src="firebase_init.js"></script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     
@@ -42,34 +42,6 @@
             /* 允許在任意字元斷行，避免內容溢出欄位 */
             word-break: break-all;
             overflow-wrap: break-word;
-        }
-
-        /*
-         * 視訊診症：開啟時維持「左邊診症、右邊視訊」，兩半 50/50。
-         * 僅作用於 #consultationForm.video-split，不影響其他頁面與預設直向排列。
-         * 分欄期間診症表單內所有 grid 一律單一直列，欄位不被擠成多欄；
-         * 關閉視訊後恢復原狀。小螢幕（<1024px）自動退回上下排列。
-         */
-        @media (min-width: 1024px) {
-            #consultationForm.video-split {
-                display: grid;
-                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-                align-items: start;
-            }
-            #consultationForm.video-split > #consultationFormHeader {
-                grid-column: 1 / -1;
-            }
-            #consultationForm.video-split > #consultationFormBody {
-                min-width: 0;
-            }
-            #consultationForm.video-split > #consultationVideoPane {
-                display: block;
-                min-width: 0;
-            }
-            /* 分欄時診症欄位維持單一直列（ID 選擇器權重高於 Tailwind 類別，不需 !important） */
-            #consultationForm.video-split #consultationFormBody .grid {
-                grid-template-columns: minmax(0, 1fr);
-            }
         }
 
         /* 調整針灸備註中穴位方塊的字體大小，原本為 text-xs，改為較大的大小 */
@@ -1172,19 +1144,11 @@
                 </div>
                 
                 <div id="consultationForm" class="hidden bg-white border border-gray-200 rounded-lg mt-6">
-                    <div id="consultationFormHeader" class="bg-green-600 text-white px-6 py-4 rounded-t-lg flex items-center justify-between gap-3">
+                    <div class="bg-green-600 text-white px-6 py-4 rounded-t-lg">
                         <h3 class="text-xl font-bold">診症記錄</h3>
-                        <button type="button" id="toggleVideoConsultBtn" onclick="toggleVideoConsultation()"
-                                class="inline-flex items-center gap-2 bg-white text-green-700 hover:bg-green-50 border border-transparent font-medium px-4 py-2 rounded-lg text-sm transition duration-200 whitespace-nowrap">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 pointer-events-none">
-                                <path d="m22 8-6 4 6 4V8Z"/>
-                                <rect x="2" y="6" width="14" height="12" rx="2"/>
-                            </svg>
-                            <span data-video-btn-label>視訊診症</span>
-                        </button>
                     </div>
-
-                    <div id="consultationFormBody" class="p-6">
+                    
+                    <div class="p-6">
                         
                         <div class="bg-blue-50 rounded-lg p-4 mb-6">
                             
@@ -1548,9 +1512,6 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div id="consultationVideoPane" class="hidden bg-gray-50 border-t border-gray-200 lg:border-t-0 lg:border-l lg:border-gray-200 lg:sticky lg:top-4 self-start">
-                        <div id="consultationVideoContainer" class="h-[70vh] lg:h-[80vh] p-3"></div>
                     </div>
                 </div>
             </div>
@@ -2406,12 +2367,9 @@
                                 <h3 class="text-lg font-semibold mb-2">診所設定</h3>
                                 <p class="text-sm text-gray-600">以下設定會根據所選診所切換，權限管理、收據自定義與中藥存庫開關都會套用到目前選擇的診所。</p>
                             </div>
-                            <div class="flex flex-col items-start sm:items-end gap-1">
-                                <div class="flex flex-col sm:flex-row gap-2">
-                                    <button id="systemAddClinicButton" class="bg-green-600 hover:bg-green-700 disabled:hover:bg-green-600 text-white py-2 px-4 rounded-lg transition duration-200">新增診所</button>
-                                    <button id="systemDeleteClinicButton" class="bg-red-600 hover:bg-red-700 disabled:hover:bg-red-600 text-white py-2 px-4 rounded-lg transition duration-200">刪除目前診所</button>
-                                </div>
-                                <span id="clinicEditionHint" class="hidden text-xs font-medium text-amber-600">🔒 新增／刪除診所為「進階版系統」才有</span>
+                            <div class="flex flex-col sm:flex-row gap-2">
+                                <button id="systemAddClinicButton" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition duration-200">新增診所</button>
+                                <button id="systemDeleteClinicButton" class="bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg transition duration-200">刪除目前診所</button>
                             </div>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -5300,15 +5258,10 @@
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <script src="system_version_config.js"></script><script src="schedule_management.js"></script><script src="system.js"></script>
+    <script src="schedule_management.js"></script><script src="system.js"></script>
     <script src="personalStatistics.js"></script>
     
     <script src="systemmanagement.js"></script>
-
-    <script src="video/livekit_config.js?v=3"></script>
-    <script src="video/livekit_room.js?v=3"></script>
-    <script src="video/video_call_signaling.js?v=5"></script>
-    <script src="video/video_consultation.js?v=4"></script>
     
     <script src="chat_module.js"></script>
     
