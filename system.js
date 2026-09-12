@@ -2515,7 +2515,28 @@ async function fetchUsers(forceRefresh = false) {
             updateCurrentClinicDisplay();
             try { localStorage.setItem('clinics', JSON.stringify(clinicsList)); } catch (_e) {}
         }
+        // 依系統版本（進階版／普通版，見 system_version_config.js）控制診所新增／刪除按鈕
+        function applyEditionClinicRestrictions() {
+            try {
+                const isPro = (typeof window.isProEdition === 'function') ? window.isProEdition() : true;
+                const editionBtnClass = 'clinic-edition-disabled';
+                ['systemAddClinicButton', 'systemDeleteClinicButton'].forEach(function(btnId) {
+                    const btn = document.getElementById(btnId);
+                    if (!btn) return;
+                    if (isPro) {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-50', 'grayscale', 'cursor-not-allowed', editionBtnClass);
+                    } else {
+                        btn.disabled = true;
+                        btn.classList.add('opacity-50', 'grayscale', 'cursor-not-allowed', editionBtnClass);
+                    }
+                });
+                const hint = document.getElementById('clinicEditionHint');
+                if (hint) hint.classList.toggle('hidden', !!isPro);
+            } catch (_eEdition) {}
+        }
         function populateClinicSelectors() {
+            applyEditionClinicRestrictions();
             try {
                 const loginSel = document.getElementById('loginClinicSelector');
                 if (loginSel) {
@@ -2572,6 +2593,10 @@ async function fetchUsers(forceRefresh = false) {
                 const delBtn = document.getElementById('systemDeleteClinicButton');
                 if (delBtn && !delBtn.dataset.bound) {
                     delBtn.addEventListener('click', async function() {
+                        if (typeof window.isProEdition === 'function' && !window.isProEdition()) {
+                            showToast('普通版只限使用一間診所，刪除診所為「進階版系統」才有', 'error');
+                            return;
+                        }
                         if (!currentClinicId || currentClinicId === 'local-default') {
                             showToast('未選擇診所或此診所不可刪除', 'error');
                             return;
@@ -17072,9 +17097,15 @@ async function initializeSystemAfterLogin() {
 
         function showAddClinicModal() {
             try {
+                const isPro = (typeof window.isProEdition === 'function') ? window.isProEdition() : true;
+                const maxClinics = (typeof window.getMaxClinics === 'function') ? window.getMaxClinics() : 5;
                 const count = Array.isArray(clinicsList) ? clinicsList.length : 0;
-                if (count >= 3) {
-                    showToast('診所數量已達上限（3），無法新增', 'error');
+                if (!isPro) {
+                    showToast('普通版只限使用一間診所，新增診所為「進階版系統」才有', 'error');
+                    return;
+                }
+                if (count >= maxClinics) {
+                    showToast('診所數量已達上限（' + maxClinics + '），無法新增', 'error');
                     return;
                 }
             } catch (_e) {}
@@ -26452,8 +26483,13 @@ class FirebaseDataManager {
                     window.firebase.collection(window.firebase.db, 'clinics')
                 );
                 const count = (snap && typeof snap.size === 'number') ? snap.size : 0;
-                if (count >= 3) {
-                    return { success: false, error: '診所數量已達上限（3），無法新增' };
+                const editionIsPro = (typeof window.isProEdition === 'function') ? window.isProEdition() : true;
+                const editionMaxClinics = (typeof window.getMaxClinics === 'function') ? window.getMaxClinics() : 5;
+                if (count >= editionMaxClinics) {
+                    // 普通版仍允許首次自動建立第 1 間診所，只有再新增時才阻擋
+                    return { success: false, error: editionIsPro
+                        ? ('診所數量已達上限（' + editionMaxClinics + '），無法新增')
+                        : '普通版只限使用一間診所，新增診所為「進階版系統」才有' };
                 }
             } catch (_eLimit) {}
             let dataToWrite;
