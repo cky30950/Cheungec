@@ -24,8 +24,9 @@ import {
   ,
   
   writeBatch
-  
+
   , onSnapshot
+  , serverTimestamp as firestoreServerTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import { getDatabase, ref, set, get, update, remove, onValue, off,
         
@@ -104,7 +105,10 @@ setPersistence(auth, browserSessionPersistence).catch((error) => {
         runTransaction,
         
         onSnapshot,
-        
+
+        // Firestore 專用的伺服器時間 sentinel（注意：下方 serverTimestamp 是 RTDB 版本，兩者不可混用）
+        firestoreServerTimestamp,
+
         ref,
         set,
         get,
