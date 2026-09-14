@@ -1,5 +1,5 @@
 /* ============================================================
- * 病人端視訊診間（video/room.html）
+ * 病人端視訊診間（video/room.html）— RTC SDK 原生 API
  * ------------------------------------------------------------
  * 病人打開醫師提供的連結即可就診，無需登入系統：
  *   video/room.html?apt=<掛號編號>
@@ -7,13 +7,13 @@
  *
  * 頻道 = agora-config.js 的 CHANNEL_PREFIX + 掛號編號，
  * 與醫師端 video-consultation.js 使用同一規則，雙方自動接通。
- * Token 經同源 /api/agora-token 自動取得。
+ * 通話介面與邏輯共用 video/agora-call.js。
  * ============================================================ */
 
 (function () {
     'use strict';
 
-    var UIKIT_TAG = 'agora-react-web-uikit';
+    var callController = null;
     var state = {
         channel: '',
         appointmentId: ''
@@ -63,23 +63,6 @@
         return { channel: safe, appointmentId: appointmentId };
     }
 
-    function destroyUiKit() {
-        var stage = $('roomStage');
-        if (!stage) return;
-        var el = stage.querySelector(UIKIT_TAG);
-        if (el) {
-            // 觸發離開頻道、釋放鏡頭與麥克風後再移除元件
-            try { el.callActive = false; } catch (e) { /* ignore */ }
-            try { el.removeEventListener('agoraUIKitEndcall', onEndCall); } catch (e) { /* ignore */ }
-        }
-        stage.innerHTML = '';
-    }
-
-    function onEndCall() {
-        destroyUiKit();
-        showScreen('ended');
-    }
-
     function joinRoom() {
         var cfg = getConfig();
 
@@ -87,40 +70,49 @@
             showError('診間尚未完成視訊配置，請聯絡診所。');
             return;
         }
-        if (!window.customElements || !window.customElements.get(UIKIT_TAG)) {
+        if (!window.AgoraRTC || !window.AgoraCall) {
             showError('視訊元件載入失敗，請重新整理頁面後再試。');
             return;
         }
 
         var stage = $('roomStage');
         if (!stage) return;
-        destroyUiKit();
 
-        var el = document.createElement(UIKIT_TAG);
-        el.style.width = '100%';
-        el.style.height = '100%';
-        el.style.display = 'flex';
-
-        // 與醫師端相同的 Direflow 屬性設定方式
-        el.setAttribute('appid', cfg.APP_ID);
-        el.setAttribute('channel', state.channel);
-        el.setAttribute('uid', '0');
-        el.setAttribute('role', 'host');    // 病人同樣需要收發鏡頭與聲音
-        el.setAttribute('layout', '0');     // 九宮格佈局
-        el.setAttribute('callactive', 'true');
-        el.setAttribute('enableaudio', 'true');
-        el.setAttribute('enablevideo', 'true');
-        el.setAttribute('activespeaker', 'true');
-        el.setAttribute('disablertm', 'true');
-
-        if (cfg.TOKEN_URL) {
-            el.setAttribute('tokenurl', String(cfg.TOKEN_URL).replace(/\/+$/, ''));
+        // 離開上一通話後重新進入：先清空容器
+        if (callController) {
+            callController.destroy();
+            callController = null;
         }
 
-        el.addEventListener('agoraUIKitEndcall', onEndCall);
+        callController = window.AgoraCall.create(stage, {
+            appId: cfg.APP_ID,
+            channel: state.channel,
+            tokenUrl: cfg.TOKEN_URL || '',
+            localName: '我',
+            remoteName: '醫師',
+            waitingText: '已進入診間，等待醫師加入…',
+            onError: function (message) {
+                // 權限／設備錯誤時，回到錯誤頁並顯示具體原因
+                leaveCallScreen();
+                showError(message);
+            },
+            onLeft: function () {
+                leaveCallScreen();
+                showScreen('ended');
+            }
+        });
 
-        stage.appendChild(el);
         showScreen('call');
+        callController.join().catch(function () {
+            // 錯誤已由 onError 切換到錯誤頁處理
+        });
+    }
+
+    function leaveCallScreen() {
+        if (callController) {
+            callController.destroy();
+            callController = null;
+        }
     }
 
     function init() {

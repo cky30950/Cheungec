@@ -45,8 +45,8 @@
             </div>
         </div>
 
-        <!-- 視訊通話中（UIKit 全畫面） -->
-        <div id="callScreen" class="hidden flex-1 min-h-0 flex flex-col bg-gray-900">
+        <!-- 視訊通話中（原生 SDK 自建介面由 agora-call.js 注入 #roomStage） -->
+        <div id="callScreen" class="hidden flex-1 min-h-0 flex flex-col bg-gray-900 relative">
             <div id="roomStage" class="flex-1 min-h-0"></div>
         </div>
 
@@ -68,9 +68,10 @@
 
     </div>
 
-    <!-- 與醫師端共用同一份設定與 UI Kit（同資料夾） -->
+    <!-- 與醫師端共用：設定 → RTC SDK → 通話介面模組 → 病人端邏輯 -->
     <script src="agora-config.js"></script>
-    <script src="agora-uikit.js"></script>
+    <script src="agora-rtc-sdk.js"></script>
+    <script src="agora-call.js"></script>
     <script src="room.js"></script>
 </body>
 </html>

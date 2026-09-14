@@ -1,8 +1,9 @@
 /* ============================================================
- * Agora 視訊診症整合（Agora Web UI Kit）
+ * Agora 視訊診症整合（RTC SDK 原生 API 自建介面）— 醫師端
  * ------------------------------------------------------------
  * 依賴（視訊相關檔案統一放在 video/ 資料夾）：
- *   - video/agora-uikit.js（Agora Web UI Kit，提供 <agora-react-web-uikit>）
+ *   - video/agora-rtc-sdk.js（Agora RTC SDK 4.x，全域 AgoraRTC）
+ *   - video/agora-call.js（自建通話介面與邏輯，全域 AgoraCall）
  *   - video/agora-config.js（App ID、Token 伺服器設定）
  *   - system.js 的診症狀態（currentConsultingAppointmentId / appointments）
  *
@@ -14,8 +15,8 @@
 (function () {
     'use strict';
 
-    var UIKIT_TAG = 'agora-react-web-uikit';
-    var uikitInstance = null;
+    var callController = null;
+    var joinModeLabel = '';
 
     function getConfig() {
         return window.AGORA_CONFIG || {};
@@ -67,16 +68,13 @@
         return safe.substring(0, 64);
     }
 
-    async function resolvePatientName(appointment) {
-        if (!appointment) return '';
+    function resolvePatientName(appointment) {
         if (appointment.patientName) return appointment.patientName;
-        if (appointment.patient && appointment.patient.name) return appointment.patient.name;
-
-        if (appointment.patientId && typeof window.getPatientByIdWithRefresh === 'function') {
-            try {
-                var patient = await window.getPatientByIdWithRefresh(appointment.patientId);
-                if (patient && patient.name) return patient.name;
-            } catch (e) { /* 忽略，退回首用頻道顯示 */ }
+        var patientId = appointment.patientId || appointment.patient_id;
+        if (patientId && typeof window.getPatientByIdWithRefresh === 'function') {
+            return Promise.resolve(window.getPatientByIdWithRefresh(patientId)).then(function (patient) {
+                return (patient && (patient.name || patient.patientName)) || '';
+            }).catch(function () { return ''; });
         }
         return '';
     }
@@ -86,9 +84,8 @@
             if (typeof currentUserData !== 'undefined' && currentUserData && currentUserData.username) {
                 return currentUserData.username;
             }
-            if (typeof currentUser !== 'undefined' && currentUser) return String(currentUser);
         } catch (e) { /* ignore */ }
-        return '';
+        return '醫師';
     }
 
     function showSetupGuide() {
@@ -105,55 +102,38 @@
         }
     }
 
-    function destroyUiKit() {
-        var stage = document.getElementById('videoConsultStage');
-        if (!stage) return;
-        var el = stage.querySelector(UIKIT_TAG);
-        if (el) {
-            // 觸發 UIKit 離開頻道、釋放鏡頭與麥克風，再移除元件
-            try { el.callActive = false; } catch (e) { /* ignore */ }
-            try { el.removeEventListener('agoraUIKitEndcall', window.closeVideoConsultation); } catch (e) { /* ignore */ }
-        }
-        uikitInstance = null;
-        stage.innerHTML = '';
+    function setHeaderStatus(suffix) {
+        var status = document.getElementById('videoConsultStatus');
+        if (status) status.textContent = joinModeLabel + (suffix ? '　·　' + suffix : '');
     }
 
-    function createUiKit(channel) {
+    function createCall(channel, patientName, doctorName) {
         var cfg = getConfig();
         var stage = document.getElementById('videoConsultStage');
         if (!stage) return;
 
-        destroyUiKit();
+        callController = window.AgoraCall.create(stage, {
+            appId: cfg.APP_ID,
+            channel: channel,
+            tokenUrl: cfg.TOKEN_URL || '',
+            localName: doctorName || '醫師',
+            remoteName: patientName || '病人',
+            waitingText: '已就緒，等待病人加入…',
+            onStatus: function (kind, text) {
+                setHeaderStatus(text);
+            },
+            onError: function (message) {
+                notify(message, 'error');
+            },
+            onLeft: function () {
+                // 醫師按下掛斷鈕 → 關閉彈窗
+                window.closeVideoConsultation(true);
+            }
+        });
 
-        var el = document.createElement(UIKIT_TAG);
-        el.style.width = '100%';
-        el.style.height = '100%';
-        el.style.display = 'flex';
-
-        // Direflow 元件在首次掛載時從 HTML attributes 讀取 props：
-        // 空字串→true、"true"/"false"→布林、"0"→數字，其餘視為字串。
-        // （屬性名在 HTML 文件中不分大小寫）
-        el.setAttribute('appid', cfg.APP_ID);
-        el.setAttribute('channel', channel);
-        el.setAttribute('uid', '0');        // 0 = 由 Agora 分配 UID；Token 同樣以 uid 0 簽發
-        el.setAttribute('role', 'host');    // 醫師以主播身分加入（可收發影像聲音）
-        el.setAttribute('layout', '0');     // 0 = 九宮格佈局
-        el.setAttribute('callactive', 'true');
-        el.setAttribute('enableaudio', 'true');
-        el.setAttribute('enablevideo', 'true');
-        el.setAttribute('activespeaker', 'true');
-        el.setAttribute('disablertm', 'true'); // 停用 RTM，診症只需音訊／視訊
-
-        // TOKEN_URL 留空＝測試模式（不帶 token 屬性，UIKit 預設即為 null）
-        if (cfg.TOKEN_URL) {
-            // 移除網址結尾的斜線，UIKit 會自行在後方加上 /rtc/... 路徑
-            el.setAttribute('tokenurl', String(cfg.TOKEN_URL).replace(/\/+$/, ''));
-        }
-
-        el.addEventListener('agoraUIKitEndcall', window.closeVideoConsultation);
-
-        stage.appendChild(el);
-        uikitInstance = el;
+        callController.join().catch(function () {
+            // 錯誤已透過 onError 提示；彈窗保持開啟以便醫師重試或關閉
+        });
     }
 
     window.openVideoConsultation = async function () {
@@ -164,8 +144,8 @@
                 return;
             }
 
-            if (!window.customElements || !window.customElements.get(UIKIT_TAG)) {
-                notify('視訊元件尚未載入，請確認 video/agora-uikit.js 已成功引入', 'error');
+            if (!window.AgoraRTC || !window.AgoraCall) {
+                notify('視訊元件尚未載入，請確認 video/agora-rtc-sdk.js 與 video/agora-call.js 已成功引入', 'error');
                 return;
             }
 
@@ -188,9 +168,8 @@
                     '頻道：' + channel +
                     (doctorName ? ('　醫師：' + doctorName) : '');
             }
-            if (status) {
-                status.textContent = cfg.TOKEN_URL ? 'Token 認證模式' : '測試模式（無 Token）';
-            }
+            joinModeLabel = cfg.TOKEN_URL ? 'Token 認證模式' : '測試模式（無 Token）';
+            if (status) status.textContent = joinModeLabel + '　·　連線中…';
 
             // 更新病人「進入診間」連結
             var roomUrl = buildRoomUrl(appointment.id);
@@ -201,21 +180,36 @@
 
             modal.classList.remove('hidden');
 
-            createUiKit(channel);
+            createCall(channel, patientName, doctorName);
         } catch (error) {
             console.error('開啟視訊診症失敗:', error);
             notify('開啟視訊診症失敗：' + (error && error.message ? error.message : error), 'error');
         }
     };
 
-    window.closeVideoConsultation = function () {
+    // fromController=true 表示由通話元件的掛斷鈕觸發（SDK 已 leave）
+    window.closeVideoConsultation = function (fromController) {
         var modal = document.getElementById('videoConsultModal');
-        try {
-            destroyUiKit();
-        } catch (error) {
-            console.error('關閉視訊診症失敗:', error);
+        var stage = document.getElementById('videoConsultStage');
+
+        var finish = function () {
+            callController = null;
+            if (stage) stage.innerHTML = '';
+            if (modal) modal.classList.add('hidden');
+        };
+
+        if (fromController) {
+            finish();
+            return;
         }
-        if (modal) modal.classList.add('hidden');
+
+        if (callController) {
+            var controller = callController;
+            callController = null;
+            controller.leave().then(finish, finish);
+        } else {
+            finish();
+        }
     };
 
     // 綁定「複製連結」按鈕

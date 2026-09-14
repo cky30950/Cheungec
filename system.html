@@ -1184,7 +1184,7 @@
                                 <span aria-hidden="true">📋</span>複製連結
                             </button>
                         </div>
-                        <div id="videoConsultStage" class="flex-1 min-h-0 bg-gray-900"></div>
+                        <div id="videoConsultStage" class="flex-1 min-h-0 bg-gray-900 relative"></div>
                     </div>
                 </div>
 
@@ -5322,9 +5322,10 @@
     
     <script src="i18n.js"></script>
 
-    <!-- Agora 視訊診症：設定檔 → Web UI Kit → 系統整合邏輯（統一放在 video/ 資料夾） -->
+    <!-- Agora 視訊診症：設定檔 → RTC SDK 原生 → 通話介面模組 → 醫師端整合（統一放在 video/） -->
     <script src="video/agora-config.js"></script>
-    <script src="video/agora-uikit.js"></script>
+    <script src="video/agora-rtc-sdk.js"></script>
+    <script src="video/agora-call.js"></script>
     <script src="video/video-consultation.js"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96f142c32d05b42b","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"97172fa8b875b31b","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
