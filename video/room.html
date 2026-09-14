@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>視訊診間</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        html, body { height: 100%; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div id="app" class="h-screen flex flex-col">
+
+        <!-- 進入前大廳 -->
+        <div id="lobbyScreen" class="flex-1 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center">
+                <div class="text-5xl mb-4" aria-hidden="true">📹</div>
+                <h1 class="text-2xl font-bold text-gray-800">視訊診間</h1>
+                <p id="roomCodeLine" class="text-sm text-gray-500 mt-2">
+                    診間編號：<span id="roomCodeText" class="font-semibold text-gray-700">—</span>
+                </p>
+                <p class="text-sm text-gray-600 leading-relaxed mt-5">
+                    請於安靜、光線充足的環境就診，<br>
+                    進入後請允許瀏覽器使用<b>鏡頭與麥克風</b>。
+                </p>
+                <button
+                    type="button"
+                    id="joinRoomBtn"
+                    class="mt-6 w-full inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold px-6 py-3 rounded-xl shadow transition duration-200"
+                >
+                    <span aria-hidden="true">🚪</span>進入診間
+                </button>
+                <p class="text-xs text-gray-400 mt-4">建議使用最新版 Chrome、Edge 或 Safari 瀏覽器</p>
+            </div>
+        </div>
+
+        <!-- 錯誤提示 -->
+        <div id="errorScreen" class="hidden flex-1 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center">
+                <div class="text-5xl mb-4" aria-hidden="true">⚠️</div>
+                <h1 class="text-xl font-bold text-gray-800">無法進入診間</h1>
+                <p id="errorMessage" class="text-sm text-gray-600 mt-3">連結無效或已過期。</p>
+                <p class="text-xs text-gray-400 mt-4">請確認您開啟的是醫師提供的完整連結，或聯絡診所重新索取。</p>
+            </div>
+        </div>
+
+        <!-- 視訊通話中（UIKit 全畫面） -->
+        <div id="callScreen" class="hidden flex-1 min-h-0 flex flex-col bg-gray-900">
+            <div id="roomStage" class="flex-1 min-h-0"></div>
+        </div>
+
+        <!-- 已離開診間 -->
+        <div id="endedScreen" class="hidden flex-1 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center">
+                <div class="text-5xl mb-4" aria-hidden="true">✅</div>
+                <h1 class="text-xl font-bold text-gray-800">你已離開診間</h1>
+                <p class="text-sm text-gray-500 mt-3">如醫師要求重新連線，可再次進入。</p>
+                <button
+                    type="button"
+                    id="rejoinRoomBtn"
+                    class="mt-6 w-full inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white text-base font-semibold px-6 py-3 rounded-xl shadow transition duration-200"
+                >
+                    <span aria-hidden="true">🔄</span>重新進入診間
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 與醫師端共用同一份設定與 UI Kit（同資料夾） -->
+    <script src="agora-config.js"></script>
+    <script src="agora-uikit.js"></script>
+    <script src="room.js"></script>
+</body>
+</html>

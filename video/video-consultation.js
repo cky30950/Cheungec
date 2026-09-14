@@ -52,6 +52,13 @@
         return null;
     }
 
+    // 病人端診間頁面網址（video/room.html?apt=<掛號編號>）
+    function buildRoomUrl(appointmentId) {
+        var url = new URL('video/room.html', window.location.href);
+        url.searchParams.set('apt', String(appointmentId));
+        return url.href;
+    }
+
     // Agora 頻道名稱只接受 ASCII，長度 ≤ 64
     function buildChannelName(appointment) {
         var prefix = getConfig().CHANNEL_PREFIX || 'tcm-consult-';
@@ -185,6 +192,13 @@
                 status.textContent = cfg.TOKEN_URL ? 'Token 認證模式' : '測試模式（無 Token）';
             }
 
+            // 更新病人「進入診間」連結
+            var roomUrl = buildRoomUrl(appointment.id);
+            var roomLink = document.getElementById('videoConsultRoomLink');
+            var roomUrlInput = document.getElementById('videoConsultRoomUrl');
+            if (roomLink) roomLink.href = roomUrl;
+            if (roomUrlInput) roomUrlInput.value = roomUrl;
+
             modal.classList.remove('hidden');
 
             createUiKit(channel);
@@ -203,4 +217,40 @@
         }
         if (modal) modal.classList.add('hidden');
     };
+
+    // 綁定「複製連結」按鈕
+    function initCopyRoomUrlButton() {
+        var btn = document.getElementById('copyRoomUrlBtn');
+        if (!btn) return;
+        btn.addEventListener('click', async function () {
+            var input = document.getElementById('videoConsultRoomUrl');
+            var text = input ? input.value : '';
+            if (!text || text === '#') {
+                notify('請先開啟一筆診症的視訊診間', 'error');
+                return;
+            }
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    // 舊瀏覽器／非安全來源的備援方式
+                    input.removeAttribute('readonly');
+                    input.select();
+                    document.execCommand('copy');
+                    input.setAttribute('readonly', 'readonly');
+                    input.blur();
+                }
+                notify('已複製病人診間連結，可直接傳送給病人', 'success');
+            } catch (error) {
+                input.select();
+                notify('複製失敗，請手動選取網址複製', 'error');
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCopyRoomUrlButton);
+    } else {
+        initCopyRoomUrlButton();
+    }
 })();
