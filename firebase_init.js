@@ -25,8 +25,7 @@ import {
   
   writeBatch
   
-  , onSnapshot,
-  documentId
+  , onSnapshot
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import { getDatabase, ref, set, get, update, remove, onValue, off,
         
@@ -105,7 +104,6 @@ setPersistence(auth, browserSessionPersistence).catch((error) => {
         runTransaction,
         
         onSnapshot,
-        documentId,
         
         ref,
         set,
