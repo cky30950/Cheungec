@@ -5619,10 +5619,11 @@ function generateSearchKeywords(patient = {}) {
 
 // ===== 病歷（consultations）搜尋索引 =====
 // 搜尋索引版本：日後若調整關鍵詞生成規則，遞增版本即可讓索引自動重建。
-const CONSULTATION_SEARCH_INDEX_VERSION = 1;
+// v2：修正 v1 以 sortDate 分頁會漏掃缺少 sortDate 之舊病歷的問題，改用文件 ID 分頁並加入總數校驗。
+const CONSULTATION_SEARCH_INDEX_VERSION = 2;
 const CONSULTATION_SEARCH_INDEX_STATE_COLLECTION = 'searchIndexStates';
-const CONSULTATION_SEARCH_INDEX_STATE_DOC_ID = 'consultationKeywordsV1';
-const CONSULTATION_SEARCH_INDEX_STORAGE_KEY = 'consultationSearchIndexStateV1';
+const CONSULTATION_SEARCH_INDEX_STATE_DOC_ID = 'consultationKeywordsV2';
+const CONSULTATION_SEARCH_INDEX_STORAGE_KEY = 'consultationSearchIndexStateV2';
 
 /**
  * 將字串展開為「完整值 + 連續片段」關鍵詞（全小寫）。
@@ -27622,71 +27623,85 @@ class FirebaseDataManager {
                 const col = window.firebase.collection(window.firebase.db, 'consultations');
                 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-                let lastDoc = null;
-                let orderField = 'sortDate';
                 let round = 0;
                 let scanned = 0;
                 let updated = 0;
 
-                while (true) {
-                    const parts = [window.firebase.limit(pageSize)];
-                    if (lastDoc) parts.push(window.firebase.startAfter(lastDoc));
-                    let snap;
-                    try {
-                        snap = await window.firebase.getDocs(
-                            window.firebase.firestoreQuery(col, window.firebase.orderBy(orderField, 'asc'), ...parts)
+                // 以「文件 ID」排序分頁：文件 ID 必然存在且有自動索引，
+                // 可確保缺少 sortDate / createdAt 的舊病歷也會被掃到
+                // （v1 用 orderBy('sortDate') 會漏掃沒有該欄位的舊文件）。
+                const runOnePass = async () => {
+                    let lastDoc = null;
+                    let passScanned = 0;
+                    while (true) {
+                        const constraints = [
+                            window.firebase.orderBy(window.firebase.documentId()),
+                            window.firebase.limit(pageSize)
+                        ];
+                        if (lastDoc) constraints.push(window.firebase.startAfter(lastDoc));
+                        const snap = await window.firebase.getDocs(
+                            window.firebase.firestoreQuery(col, ...constraints)
                         );
-                    } catch (orderErr) {
-                        // sortDate 索引不可用時退回 createdAt
-                        if (orderField !== 'createdAt') {
-                            orderField = 'createdAt';
-                            lastDoc = null;
-                            continue;
-                        }
-                        throw orderErr;
-                    }
-                    const docs = (snap && Array.isArray(snap.docs)) ? snap.docs : [];
-                    if (docs.length === 0) break;
+                        const docs = (snap && Array.isArray(snap.docs)) ? snap.docs : [];
+                        if (docs.length === 0) break;
 
-                    let batch = window.firebase.writeBatch(window.firebase.db);
-                    let pending = 0;
-                    docs.forEach(d => {
-                        scanned++;
-                        const data = (d && d.data) ? d.data() : {};
-                        const keywords = generateConsultationSearchKeywords({ id: d.id, ...data });
-                        const existing = Array.isArray(data.searchKeywords) ? data.searchKeywords : null;
-                        // 關鍵詞已存在且內容相同則略過，重跑回填不產生寫入
-                        const same = !!existing
-                            && existing.length === keywords.length
-                            && keywords.every(k => existing.includes(k));
-                        if (!same) {
-                            batch.update(d.ref, { searchKeywords: keywords });
-                            pending++;
-                            updated++;
+                        let batch = window.firebase.writeBatch(window.firebase.db);
+                        let pending = 0;
+                        docs.forEach(d => {
+                            passScanned++;
+                            const data = (d && d.data) ? d.data() : {};
+                            const keywords = generateConsultationSearchKeywords({ id: d.id, ...data });
+                            const existing = Array.isArray(data.searchKeywords) ? data.searchKeywords : null;
+                            // 關鍵詞已存在且內容相同則略過，重跑回填不產生寫入
+                            const same = !!existing
+                                && existing.length === keywords.length
+                                && keywords.every(k => existing.includes(k));
+                            if (!same) {
+                                batch.update(d.ref, { searchKeywords: keywords });
+                                pending++;
+                                updated++;
+                            }
+                        });
+                        if (pending > 0) {
+                            try {
+                                await batch.commit();
+                            } catch (commitErr) {
+                                // 常見於無寫入權限的帳號：放棄建立，搜尋繼續走 legacy 路徑，並允許日後重試
+                                console.warn('病歷搜尋索引批次寫入失敗，停止背景建立:', commitErr);
+                                throw commitErr;
+                            }
                         }
-                    });
-                    if (pending > 0) {
-                        try {
-                            await batch.commit();
-                        } catch (commitErr) {
-                            // 常見於無寫入權限的帳號：放棄建立，搜尋繼續走 legacy 路徑，並允許日後重試
-                            console.warn('病歷搜尋索引批次寫入失敗，停止背景建立:', commitErr);
-                            this.consultationSearchIndexBackfillPromise = null;
-                            return { success: false, error: commitErr && commitErr.message ? commitErr.message : String(commitErr) };
-                        }
+                        lastDoc = docs[docs.length - 1];
+                        round++;
+                        if (docs.length < pageSize) break;
+                        // 每 4 批（約 1200 筆）短暫讓出執行緒，避免卡住 UI
+                        if (round % 4 === 0) await sleep(100);
                     }
-                    lastDoc = docs[docs.length - 1];
-                    round++;
-                    if (docs.length < pageSize) break;
-                    // 每 4 批（約 1200 筆）短暫讓出執行緒，避免卡住 UI
-                    if (round % 4 === 0) await sleep(100);
+                    return passScanned;
+                };
+
+                // 第一輪：完整掃描並補建關鍵詞
+                scanned = await runOnePass();
+
+                // 總數校驗：確認沒有任何文件被遺漏。若掃描數小於總數（通常是掃描期間有新建病歷），
+                // 再完整掃一輪；新建病歷寫入時已自帶關鍵詞，第二輪一般 0 寫入。
+                let total = null;
+                try {
+                    const countSnap = await window.firebase.getCountFromServer(col);
+                    total = countSnap && typeof countSnap.data === 'function' ? countSnap.data().count : null;
+                } catch (_countErr) {}
+                let verifyPasses = 0;
+                while (total !== null && scanned < total && verifyPasses < 2) {
+                    verifyPasses++;
+                    await sleep(100);
+                    scanned = await runOnePass();
                 }
 
                 this.consultationSearchIndexReady = true;
                 try {
                     localStorage.setItem(
                         CONSULTATION_SEARCH_INDEX_STORAGE_KEY,
-                        JSON.stringify({ version: CONSULTATION_SEARCH_INDEX_VERSION, readyAt: Date.now(), scanned })
+                        JSON.stringify({ version: CONSULTATION_SEARCH_INDEX_VERSION, readyAt: Date.now(), scanned, total })
                     );
                 } catch (_e) {}
                 // 狀態文件為最佳努力寫入；失敗時各裝置以 localStorage 標記為準
@@ -27701,12 +27716,13 @@ class FirebaseDataManager {
                             version: CONSULTATION_SEARCH_INDEX_VERSION,
                             initializedAt: new Date(),
                             scanned,
+                            total,
                             updated
                         }
                     );
                 } catch (_stateErr) {}
-                console.log(`病歷搜尋索引建立完成：掃描 ${scanned} 筆，更新 ${updated} 筆`);
-                return { success: true, scanned, updated };
+                console.log(`病歷搜尋索引建立完成：掃描 ${scanned} 筆，更新 ${updated} 筆，總數 ${total === null ? '未知' : total}`);
+                return { success: true, scanned, updated, total };
             } catch (error) {
                 console.warn('建立病歷搜尋索引失敗:', error);
                 this.consultationSearchIndexBackfillPromise = null;
@@ -30453,7 +30469,8 @@ async function displayMedicalRecords(pageChange = false) {
         let res = medicalRecordSearchCache[term] || null;
         if (!Array.isArray(res)) {
             res = await searchMedicalRecords(rawTerm, 50);
-            if (Array.isArray(res)) medicalRecordSearchCache[term] = res;
+            // 僅快取有命中的結果；空結果不入快取，避免索引/資料更新後同關鍵字被舊的空白結果卡住
+            if (Array.isArray(res) && res.length > 0) medicalRecordSearchCache[term] = res;
         }
         medicalRecords = Array.isArray(res) ? res : [];
         await ensureMedicalRecordPatientLookupForRecords(medicalRecords);
@@ -30812,6 +30829,13 @@ async function searchMedicalRecords(term, limitCount = 50) {
         const rawTerm = String(term || '').trim();
         const lc = rawTerm.toLowerCase();
         if (!lc) return [];
+        // 確保用戶清單已載入：結果回傳後客戶端還會以醫師顯示名做二次過濾，
+        // 且需靠它把 doctor username 解析為中文名稱（getUsers 有快取，命中時零讀取）。
+        try {
+            if (window.firebaseDataManager && typeof window.firebaseDataManager.getUsers === 'function') {
+                await window.firebaseDataManager.getUsers();
+            }
+        } catch (_e) {}
         const seen = new Set();
         const out = [];
         const isFull = () => out.length >= limitCount;
@@ -30861,14 +30885,18 @@ async function searchMedicalRecords(term, limitCount = 50) {
         } catch (_e) {}
 
         // 3) 主要路徑：單一 array-contains 查詢。索引完成後整個搜尋只需這 1 個查詢。
+        const beforeKeywordHits = out.length;
         await runSearchQuery(
             window.firebase.where('searchKeywords', 'array-contains', lc),
             window.firebase.limit(limitCount)
         );
+        const keywordHitCount = out.length - beforeKeywordHits;
 
-        // 4) 索引未完成的過渡期，沿用舊式多路徑查詢補足尚未回填的舊文件；
-        //    每個查詢後提前結束，且單字搜尋不展開（避免單字扇出大量查詢）。
-        if (!indexReady && lc.length >= 2 && !isFull()) {
+        // 4) 舊式多路徑查詢的執行時機：
+        //    - 索引尚未完成（過渡期，補足還沒回填的舊文件）；或
+        //    - 索引雖已完成但本次關鍵詞查詢零命中（保險：任何漏網的舊文件仍可被搜到）。
+        //    命中時維持單一查詢，不增加流量；只有零結果搜尋才會多跑兜底查詢。
+        if ((!indexReady || keywordHitCount === 0) && !isFull()) {
             const termUpper = rawTerm.toUpperCase();
             // 4.1 病歷號精確匹配（原值；大小寫變體僅在與原值不同時才查）
             await runSearchQuery(
