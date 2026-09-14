@@ -1143,9 +1143,36 @@
                     </div>
                 </div>
                 
+                <div id="videoConsultModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-center justify-center p-4">
+                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[85vh] flex flex-col overflow-hidden">
+                        <div class="flex items-center justify-between gap-4 border-b border-gray-200 px-6 py-4">
+                            <div class="min-w-0">
+                                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                    <span>📹</span> 視訊診症
+                                </h3>
+                                <p id="videoConsultSubtitle" class="text-xs text-gray-500 mt-1 truncate"></p>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <span id="videoConsultStatus" class="text-xs text-gray-500 hidden sm:inline"></span>
+                                <button type="button" onclick="closeVideoConsultation()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none" aria-label="關閉視訊診症">×</button>
+                            </div>
+                        </div>
+                        <div id="videoConsultStage" class="flex-1 min-h-0 bg-gray-900"></div>
+                    </div>
+                </div>
+
                 <div id="consultationForm" class="hidden bg-white border border-gray-200 rounded-lg mt-6">
-                    <div class="bg-green-600 text-white px-6 py-4 rounded-t-lg">
+                    <div class="bg-green-600 text-white px-6 py-4 rounded-t-lg flex items-center justify-between gap-3">
                         <h3 class="text-xl font-bold">診症記錄</h3>
+                        <button
+                            type="button"
+                            onclick="openVideoConsultation()"
+                            id="videoConsultBtn"
+                            class="inline-flex items-center gap-2 bg-white text-green-700 hover:bg-green-50 active:bg-green-100 font-semibold text-sm px-4 py-2 rounded-lg shadow transition duration-200 whitespace-nowrap"
+                        >
+                            <span aria-hidden="true">📹</span>
+                            <span>視訊診症</span>
+                        </button>
                     </div>
                     
                     <div class="p-6">
@@ -5267,6 +5294,11 @@
     <script src="chat_module.js"></script>
     
     <script src="i18n.js"></script>
+
+    <!-- Agora 視訊診症：設定檔 → Web UI Kit → 系統整合邏輯 -->
+    <script src="agora-config.js"></script>
+    <script src="agora-uikit.js"></script>
+    <script src="video-consultation.js"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"96f142c32d05b42b","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"rayId":"97172fa8b875b31b","serverTiming":{"name":{"cfExtPri":true,"cfEdge":true,"cfOrigin":true,"cfL4":true,"cfSpeedBrain":true,"cfCacheStatus":true}},"version":"2025.8.0","token":"b2074e7888b746fe9fbbc15492b4c3d4"}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon='{"version":"2024.11.0","token":"7939e04a4baf43c8b86a560f74aac60e","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
