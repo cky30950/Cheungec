@@ -1,7 +1,0 @@
-# 忽略環境設定檔
-firebaseConfig.js
-.env
-
-# 忽略系統產生的檔案
-node_modules/
-.DS_Store
