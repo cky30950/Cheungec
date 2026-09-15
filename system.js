@@ -32262,11 +32262,16 @@ function _oldSelectPrescriptionTemplate(id) {
    * 在頁面卸載時清空暫存的套票變更。
    *
    * 離開頁面後，記憶體中的 pendingPackageChanges 將會失效，不過在某些瀏覽器中
-   * 仍有可能在後續執行非同步或同步回調時引用到舊資料。為安全起見，在 unload 事件
+   * 仍有可能在後續執行非同步或同步回調時引用到舊資料。為安全起見，在卸載事件
    * 中顯式將暫存變更清空，確保後續不會誤判為需要回復。
+   *
+   * 注意：Chrome 已以 Permissions-Policy 封鎖即將廢棄的 unload 事件（註冊時
+   * 會出現「unload is not allowed in this document」違規提示），故改用官方
+   * 建議的 pagehide；頁面進入往返快取（bfcache）時不應清空，避免返回後狀態遺失。
    */
-  window.addEventListener('unload', function () {
+  window.addEventListener('pagehide', function (event) {
     try {
+      if (event && event.persisted) return;
       pendingPackageChanges = [];
     } catch (_e) {
       // 若無法清空，略過即可；刷新後此變數會重新初始化
