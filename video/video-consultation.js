@@ -202,8 +202,8 @@
 
         panelActive = true;
 
-        // 醫師一直停在頻道外的免費等待狀態：不開鏡頭、不進 Agora，
-        // 直到病人「已成功加入 Agora」（joined 信號）才連接。
+        // 醫師與病人皆在頻道外免費等待：病人發出新鮮心跳（已通過鏡頭檢查）
+        // 後，由醫師先加入 Agora，並以 markJoined 通知病人加入。
         callController.setStatus('connecting', '等待病人進入診間…');
 
         function joinNow() {
@@ -211,7 +211,11 @@
             if (!callController || !panelActive) return;
             callController.join().then(function () {
                 if (!panelActive) return;
-                // 病人應已在頻道內；60 秒仍未看到病人則自動離開並重返等待
+                // 醫師已在頻道：通知病人加入
+                if (presence && typeof presence.markJoined === 'function') {
+                    presence.markJoined();
+                }
+                // 60 秒仍未看到病人則自動離開並重返等待
                 armAloneTimer(channel, patientName, doctorName);
             }).catch(function () {
                 // 錯誤已透過 onError 提示；面板保持開啟以便醫師重試或關閉
@@ -219,8 +223,9 @@
         }
 
         if (window.VideoPresence) {
-            // 不設逾時：病人不來，醫師就一直免費等下去
-            presence = window.VideoPresence.waitPeer('doctor', channel, { requirePeerJoined: true });
+            // 不設逾時：病人不來，醫師就一直免費等下去；
+            // 醫師只要求病人心跳新鮮（病人已完成鏡頭授權），不要求 joined
+            presence = window.VideoPresence.waitPeer('doctor', channel);
             presence.ready.then(joinNow).catch(function () {
                 // 只有信號服務故障才退回直接加入（極罕見；避免完全無法看診）
                 notify('就緒檢查服務暫不可用，已直接進入診間', 'info');

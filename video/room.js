@@ -99,7 +99,9 @@
             remoteName: '醫師',
             // 醫師畫面佔滿、病人自己的畫面縮小於右上角
             layout: 'spotlight',
-            waitingText: '已進入診間，等待醫師加入…',
+            // 病人只在醫師已進入頻道後才加入，加入後數秒內隱藏自己的滿版畫面
+            hideLocalUntilPeer: true,
+            waitingText: '正在與醫師連線…',
             onStatus: function (kind) {
                 // 醫師影像送達 → 取消自動離開計時
                 if (kind === 'connected') clearAloneTimer();
@@ -124,34 +126,78 @@
 
         showScreen('call');
 
-        // 病人先在頻道外等醫師就緒；醫師在線後由病人先加入 Agora，
-        // 成功後才以 markJoined 通知醫師加入——醫師端可全程免費等待。
-        callController.setStatus('connecting', '等待醫師進入診間…');
+        // 先確認鏡頭與麥克風可用（含瀏覽器授權），通過後才廣播就緒，
+        // 避免病人卡在授權彈窗時醫師已先進入頻道空等計費。
+        callController.setStatus('connecting', '正在確認鏡頭與麥克風…');
+        probeDevices().then(function () {
+            // 短暫緩衝讓設備完全釋放，隨後 Agora 再建立軌道（部分瀏覽器需要）
+            setTimeout(beginWaiting, 300);
+        }, function (message) {
+            leaveCallScreen();
+            showError(message);
+        });
 
-        function joinNow() {
-            // 等待期間若已離開則不再加入
+        // 病人在頻道外免費等待：看到醫師「已成功加入 Agora」（joined 信號）
+        // 才進入頻道——醫師不來就無限等待，完全不計費。
+        function beginWaiting() {
             if (!callController) return;
-            callController.join().then(function () {
-                // 已成功進入 Agora：通知醫師「病人上線了」
-                if (presence && typeof presence.markJoined === 'function') {
-                    presence.markJoined();
-                }
-                // 醫師未於 90 秒內出現 → 自動離開停止計費
-                armAloneTimer();
-            }).catch(function () {
-                // 錯誤已由 onError 切換到錯誤頁處理
-            });
-        }
+            callController.setStatus('connecting', '等待醫師進入診間…');
 
-        if (window.VideoPresence) {
-            presence = window.VideoPresence.waitPeer('patient', state.channel, { timeoutMs: 45000 });
-            presence.ready.then(joinNow).catch(function () {
-                // 超時或信號服務不可用時退回原行為（直接加入），不阻斷看診
+            function joinNow() {
+                // 等待期間若已離開則不再加入
+                if (!callController) return;
+                callController.join().then(function () {
+                    // 病人已進入（雙方接通後的 joined 狀態仍持續心跳，
+                    // 供醫師萬一斷線重返時判讀）
+                    if (presence && typeof presence.markJoined === 'function') {
+                        presence.markJoined();
+                    }
+                    // 醫師未於 90 秒內出現 → 自動離開停止計費
+                    armAloneTimer();
+                }).catch(function () {
+                    // 錯誤已由 onError 切換到錯誤頁處理
+                });
+            }
+
+            if (window.VideoPresence) {
+                // 不設逾時：醫師不來，病人就一直免費等下去；
+                // 30 秒寬限為相容舊版醫師頁面（快取未更新）之用
+                presence = window.VideoPresence.waitPeer('patient', state.channel, { requirePeerJoined: true });
+                presence.ready.then(joinNow).catch(function () {
+                    // 信號服務故障才退回直接加入，不阻斷看診
+                    joinNow();
+                });
+            } else {
                 joinNow();
-            });
-        } else {
-            joinNow();
+            }
         }
+    }
+
+    // 預先取得鏡頭與麥克風授權：通過後立即釋放，Agora 稍後建立軌道時
+    // 不會再彈權限視窗（授權已記住），失敗則給出具體操作指引
+    function probeDevices() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            return Promise.reject('瀏覽器不支援視訊，請使用最新版 Chrome／Safari，並以 HTTPS 開啟頁面。');
+        }
+        return navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(function (stream) {
+                stream.getTracks().forEach(function (track) {
+                    try { track.stop(); } catch (e) { /* ignore */ }
+                });
+            })
+            .catch(function (err) {
+                var name = err && (err.name || err.message) || '';
+                if (/NotAllowed|PermissionDenied|SecurityError/i.test(name)) {
+                    throw '請允許瀏覽器使用鏡頭與麥克風（可按網址列左側鎖頭圖示調整權限）後，再按進入診間。';
+                }
+                if (/NotFound|DevicesNotFound|Overconstrained/i.test(name)) {
+                    throw '找不到鏡頭或麥克風，請確認設備已連接後再試。';
+                }
+                if (/NotReadable|TrackStartError|DeviceInUse/i.test(name)) {
+                    throw '鏡頭或麥克風正被其他程式佔用，請關閉其他視訊應用程式（如 FaceTime、Zoom）後再試。';
+                }
+                throw '無法開啟鏡頭或麥克風，請檢查設備後再試。';
+            });
     }
 
     function armAloneTimer() {

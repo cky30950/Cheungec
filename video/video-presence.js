@@ -5,12 +5,14 @@
  * 亦按音頻分鐘計費）。因此雙方在真正加入 Agora 頻道前，先在
  * Firestore 完成就緒廣播，確認對方也在線後才進入頻道。
  *
- * 兩階段信號（進一步把單人在頻道的時間壓到 1~2 秒）：
- *   1) 心跳就緒：{ at, sid, joined:false } — 頁面已開啟、準備好
- *   2) 已加入：病人（先進方）client.join 成功後呼叫 markJoined()，
- *      心跳改寫 { at, sid, joined:true }；醫師端以 requirePeerJoined
- *      等待此信號，確認病人「真的已在 Agora 頻道內」才加入，
- *      故醫師端可一直停在免費等待狀態，直到病人真正上線。
+ * 兩階段信號（雙方等待期間皆不進頻道、完全不計費）：
+ *   1) 心跳就緒：{ at, sid, joined:false } — 頁面已開啟、設備已備妥
+ *      （病人端在發送心跳前會先通過鏡頭／麥克風授權探測）
+ *   2) 已加入：雙方心跳交會後，由「醫師」先 client.join，成功後呼叫
+ *      markJoined()，心跳改寫 { at, sid, joined:true }；病人端以
+ *      requirePeerJoined 等待此信號，確認醫師真的已在 Agora 頻道內
+ *      才加入。故醫師不來病人可無限免費等，反之亦然；
+ *      任一方單獨在頻道的時間僅最後接通的 1~2 秒。
  *
  * 機制：
  *   - 雙方共寫同一文件：videoPresence/<頻道名稱>
@@ -30,9 +32,14 @@
  *   }
  *
  * 用法：
- *   var p = VideoPresence.waitPeer('doctor', channel, { timeoutMs: 45000 });
- *   p.ready.then(function () { call.join(); })
- *          .catch(function (err) { 信號不可用或超時，退回直接加入; });
+ *   // 醫師：等病人心跳新鮮即先加入，再 markJoined
+ *   var p = VideoPresence.waitPeer('doctor', channel);
+ *   p.ready.then(function () { return call.join(); })
+ *          .then(function () { p.markJoined(); })
+ *          .catch(function (err) { 信號不可用時，退回直接加入; });
+ *   // 病人：等醫師 joined 才加入（不設 timeoutMs 即無限免費等待）
+ *   var p2 = VideoPresence.waitPeer('patient', channel, { requirePeerJoined: true });
+ *   p2.ready.then(function () { call.join(); });
  *   // 離開時：p.leave();
  * ============================================================ */
 
