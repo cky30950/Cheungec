@@ -7,16 +7,14 @@
  *   - video/agora-config.js（App ID、Token 伺服器設定）
  *   - system.js 的診症狀態（currentConsultingAppointmentId / appointments）
  *
- * 運作方式：
- *   醫師在診症表單點擊「視訊診症」→ 以「前綴 + 掛號編號」作為
- *   Agora 頻道開啟視訊；病人端使用同一頻道名稱即可加入。
+ * 版面：點擊「視訊診症」後不再彈出全螢幕視窗，改為診症記錄在左、
+ *       視訊診間在右的左右分屏（手機為上下排列）。
  * ============================================================ */
 
 (function () {
     'use strict';
 
     var callController = null;
-    var joinModeLabel = '';
 
     function getConfig() {
         return window.AGORA_CONFIG || {};
@@ -79,10 +77,17 @@
         return '';
     }
 
+    // 醫師顯示名：用戶全名 + 醫師（例如「陳大文醫師」），無全名則退回登入帳號
     function getDoctorName() {
         try {
-            if (typeof currentUserData !== 'undefined' && currentUserData && currentUserData.username) {
-                return currentUserData.username;
+            if (typeof currentUserData !== 'undefined' && currentUserData) {
+                var raw = String(
+                    currentUserData.name ||
+                    currentUserData.fullName ||
+                    currentUserData.username ||
+                    ''
+                ).trim();
+                if (raw) return /醫師$/.test(raw) ? raw : raw + '醫師';
             }
         } catch (e) { /* ignore */ }
         return '醫師';
@@ -102,12 +107,31 @@
         }
     }
 
-    function setHeaderStatus(suffix) {
-        var status = document.getElementById('videoConsultStatus');
-        if (status) status.textContent = joinModeLabel + (suffix ? '　·　' + suffix : '');
+    // 面板標題列右側的狀態文字：連線中 → 等待病人 → ✅ 成功連接
+    function setPanelStatus(kind, text) {
+        var el = document.getElementById('videoConsultStatus');
+        if (!el) return;
+        var label = '';
+        var color = '';
+        if (kind === 'connected') {
+            var match = String(text || '').match(/(\d+)\s*人/);
+            label = '✅ 成功連接' + (match ? '（通話中 ' + match[1] + ' 人）' : '');
+            color = '#16a34a';
+        } else if (kind === 'waiting') {
+            label = '已就緒，等待病人加入…';
+        } else if (kind === 'error') {
+            label = '連線失敗';
+            color = '#dc2626';
+        } else if (kind === 'left') {
+            label = '已離開診間';
+        } else {
+            label = text || '連線中…';
+        }
+        el.textContent = label;
+        el.style.color = color;
     }
 
-    function createCall(channel, patientName, doctorName) {
+    function createCall(channel, patientName, doctorName, roomUrl) {
         var cfg = getConfig();
         var stage = document.getElementById('videoConsultStage');
         if (!stage) return;
@@ -118,22 +142,37 @@
             tokenUrl: cfg.TOKEN_URL || '',
             localName: doctorName || '醫師',
             remoteName: patientName || '病人',
+            roomUrl: roomUrl,
             waitingText: '已就緒，等待病人加入…',
             onStatus: function (kind, text) {
-                setHeaderStatus(text);
+                setPanelStatus(kind, text);
+            },
+            onNotify: function (message, type) {
+                notify(message, type);
             },
             onError: function (message) {
                 notify(message, 'error');
             },
             onLeft: function () {
-                // 醫師按下掛斷鈕 → 關閉彈窗
+                // 醫師按下掛斷鈕 → 收起右側面板（SDK 已 leave）
                 window.closeVideoConsultation(true);
             }
         });
 
         callController.join().catch(function () {
-            // 錯誤已透過 onError 提示；彈窗保持開啟以便醫師重試或關閉
+            // 錯誤已透過 onError 提示；面板保持開啟以便醫師重試或關閉
         });
+    }
+
+    function showPanel() {
+        var workspace = document.getElementById('consultationWorkspace');
+        var panel = document.getElementById('videoConsultPanel');
+        if (workspace) workspace.classList.add('vc-active');
+        if (panel) {
+            panel.classList.remove('hidden');
+            // 手機直向排列時，自動捲到視訊面板；桌面因左右同列，位置幾乎不變
+            try { panel.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { /* ignore */ }
+        }
     }
 
     window.openVideoConsultation = async function () {
@@ -155,32 +194,26 @@
                 return;
             }
 
+            // 已在通訊中：重複點擊只捲動到右側面板，不重複建立
+            if (callController) {
+                showPanel();
+                return;
+            }
+
             var channel = buildChannelName(appointment);
             var patientName = await resolvePatientName(appointment);
             var doctorName = getDoctorName();
+            var roomUrl = buildRoomUrl(appointment.id);
 
-            var modal = document.getElementById('videoConsultModal');
             var subtitle = document.getElementById('videoConsultSubtitle');
-            var status = document.getElementById('videoConsultStatus');
-
             if (subtitle) {
                 subtitle.textContent = (patientName ? ('病人：' + patientName + '　') : '') +
-                    '頻道：' + channel +
-                    (doctorName ? ('　醫師：' + doctorName) : '');
+                    '醫師：' + doctorName;
             }
-            joinModeLabel = cfg.TOKEN_URL ? 'Token 認證模式' : '測試模式（無 Token）';
-            if (status) status.textContent = joinModeLabel + '　·　連線中…';
+            setPanelStatus('connecting', '連線中…');
 
-            // 更新病人「進入診間」連結
-            var roomUrl = buildRoomUrl(appointment.id);
-            var roomLink = document.getElementById('videoConsultRoomLink');
-            var roomUrlInput = document.getElementById('videoConsultRoomUrl');
-            if (roomLink) roomLink.href = roomUrl;
-            if (roomUrlInput) roomUrlInput.value = roomUrl;
-
-            modal.classList.remove('hidden');
-
-            createCall(channel, patientName, doctorName);
+            showPanel();
+            createCall(channel, patientName, doctorName, roomUrl);
         } catch (error) {
             console.error('開啟視訊診症失敗:', error);
             notify('開啟視訊診症失敗：' + (error && error.message ? error.message : error), 'error');
@@ -189,13 +222,15 @@
 
     // fromController=true 表示由通話元件的掛斷鈕觸發（SDK 已 leave）
     window.closeVideoConsultation = function (fromController) {
-        var modal = document.getElementById('videoConsultModal');
+        var workspace = document.getElementById('consultationWorkspace');
+        var panel = document.getElementById('videoConsultPanel');
         var stage = document.getElementById('videoConsultStage');
 
         var finish = function () {
             callController = null;
             if (stage) stage.innerHTML = '';
-            if (modal) modal.classList.add('hidden');
+            if (panel) panel.classList.add('hidden');
+            if (workspace) workspace.classList.remove('vc-active');
         };
 
         if (fromController) {
@@ -212,39 +247,21 @@
         }
     };
 
-    // 綁定「複製連結」按鈕
-    function initCopyRoomUrlButton() {
-        var btn = document.getElementById('copyRoomUrlBtn');
-        if (!btn) return;
-        btn.addEventListener('click', async function () {
-            var input = document.getElementById('videoConsultRoomUrl');
-            var text = input ? input.value : '';
-            if (!text || text === '#') {
-                notify('請先開啟一筆診症的視訊診間', 'error');
-                return;
-            }
-            try {
-                if (navigator.clipboard && window.isSecureContext) {
-                    await navigator.clipboard.writeText(text);
-                } else {
-                    // 舊瀏覽器／非安全來源的備援方式
-                    input.removeAttribute('readonly');
-                    input.select();
-                    document.execCommand('copy');
-                    input.setAttribute('readonly', 'readonly');
-                    input.blur();
-                }
-                notify('已複製病人診間連結，可直接傳送給病人', 'success');
-            } catch (error) {
-                input.select();
-                notify('複製失敗，請手動選取網址複製', 'error');
+    // 診症表單被 system.js 關閉（取消／保存診症）時，一併結束視訊並收起面板
+    function watchFormHidden() {
+        var form = document.getElementById('consultationForm');
+        if (!form || !('MutationObserver' in window)) return;
+        var observer = new MutationObserver(function () {
+            if (form.classList.contains('hidden') && callController) {
+                window.closeVideoConsultation();
             }
         });
+        observer.observe(form, { attributes: true, attributeFilter: ['class'] });
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initCopyRoomUrlButton);
+        document.addEventListener('DOMContentLoaded', watchFormHidden);
     } else {
-        initCopyRoomUrlButton();
+        watchFormHidden();
     }
 })();

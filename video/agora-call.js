@@ -9,9 +9,11 @@
  *       tokenUrl: '/api/agora-token',   // 留空＝無 Token 模式
  *       localName: '我（醫師）',
  *       remoteName: '陳大文',           // 遠端顯示名（選填）
+ *       roomUrl: 'https://...',        // 病人診間連結（選填；有傳才顯示右上角按鈕）
  *       onStatus: function (kind, text) {},   // connecting|waiting|connected|error|left
  *       onParticipants: function (count) {},  // 含自己在內的人數
  *       onError: function (message, detail) {},
+ *       onNotify: function (message, type) {},// 右上角複製鈕等操作提示（選填）
  *       onLeft: function () {}
  *   });
  *   await call.join();
@@ -38,7 +40,13 @@
         '.av-namebar{position:absolute;z-index:3;left:8px;bottom:8px;display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.55);color:#fff;font-size:13px;line-height:1;padding:6px 10px;border-radius:999px;max-width:calc(100% - 16px);}',
         '.av-namebar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
         '.av-badge{font-size:13px;line-height:1;}',
-        '.av-status{position:absolute;z-index:5;top:14px;left:50%;transform:translateX(-50%);display:inline-flex;align-items:center;gap:8px;background:rgba(0,0,0,.6);color:#fff;font-size:14px;font-weight:500;padding:7px 16px;border-radius:9999px;white-space:nowrap;backdrop-filter:blur(4px);}',
+        '.av-status{position:absolute;z-index:5;top:14px;left:50%;transform:translateX(-50%);display:inline-flex;align-items:center;gap:8px;background:rgba(0,0,0,.6);color:#fff;font-size:13px;font-weight:500;padding:7px 14px;border-radius:9999px;white-space:nowrap;backdrop-filter:blur(4px);max-width:calc(100% - 110px);overflow:hidden;text-overflow:ellipsis;}',
+        '.av-topright{position:absolute;z-index:6;top:12px;right:12px;display:flex;align-items:center;gap:8px;}',
+        '.av-trbtn{width:38px;height:38px;padding:0;border-radius:9999px;border:1px solid rgba(255,255,255,.22);background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;backdrop-filter:blur(4px);text-decoration:none;transition:background .15s,transform .1s;flex:none;}',
+        '.av-trbtn:hover{background:rgba(30,41,59,.92);}',
+        '.av-trbtn:active{transform:scale(.94);}',
+        '.av-trbtn svg{width:19px;height:19px;}',
+        '.av-tr-tip{position:absolute;top:46px;right:0;background:rgba(0,0,0,.78);color:#fff;font-size:12px;padding:5px 10px;border-radius:8px;white-space:nowrap;pointer-events:none;}',
         '.av-dot{width:9px;height:9px;border-radius:9999px;background:#fbbf24;animation:av-pulse 1.2s ease-in-out infinite;}',
         '.av-dot.av-green{background:#34d399;animation:none;}',
         '.av-dot.av-red{background:#f87171;animation:none;}',
@@ -76,7 +84,10 @@
         micOff: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 9a3 3 0 0 1 5.12-2.13L9 9.89V9z"/><path d="M12 14a3 3 0 0 0 2.06-.81L10.5 9.67A3 3 0 0 0 12 14z" opacity=".45"/><path d="M19 11a1 1 0 1 0-2 0 5 5 0 0 1-.27 1.63l1.47 1.47A7 7 0 0 0 19 11z" opacity=".45"/><path d="M5 11a1 1 0 1 0-2 0c0 .65.09 1.28.27 1.88l1.64-1.64A5 5 0 0 1 5 11z"/><path d="M3.7 2.3a1 1 0 0 0-1.4 1.4l16 16a1 1 0 0 0 1.4-1.4l-16-16z"/></svg>',
         camOn: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 11.9 9.8 8.6a.6.6 0 0 0-.9.52v5.76a.6.6 0 0 0 .9.52l5.7-3.3a.6.6 0 0 0 0-1.04z"/><rect x="2.5" y="6" width="13" height="12" rx="2.5"/></svg>',
         camOff: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.7 2.3a1 1 0 0 0-1.4 1.4l2.2 2.2V18a2 2 0 0 0 2 2h11a2 2 0 0 0 1.2-.4l1.6 1.6a1 1 0 0 0 1.4-1.4l-18-17.5zM13.5 12.1 8.5 7.2V7A1.5 1.5 0 0 1 10 5.5h5A1.5 1.5 0 0 1 16.5 7v3.5l4-2.3v7.6l-4-2.3v.5l-3-2.9z"/></svg>',
-        hangup: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9.6c-1.6 0-3.1.3-4.5.9V8.2c1.4-.5 2.9-.8 4.5-.8s3.1.3 4.5.8v2.3c-1.4-.6-2.9-.9-4.5-.9z" opacity=".001"/><path d="M21 15.5l-2.8-1.3a1.8 1.8 0 0 0-2.1.4l-1 1a14.7 14.7 0 0 1-6.2-6.2l1-1a1.8 1.8 0 0 0 .4-2.1L8.5 3.5A1.8 1.8 0 0 0 6.4 2.5L3.6 3A1.6 1.6 0 0 0 2.2 4.6C1.4 13 11 22.6 19.4 21.8a1.6 1.6 0 0 0 1.6-1.4l.5-2.8a1.8 1.8 0 0 0-.5-2.1z"/></svg>'
+        hangup: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9.6c-1.6 0-3.1.3-4.5.9V8.2c1.4-.5 2.9-.8 4.5-.8s3.1.3 4.5.8v2.3c-1.4-.6-2.9-.9-4.5-.9z" opacity=".001"/><path d="M21 15.5l-2.8-1.3a1.8 1.8 0 0 0-2.1.4l-1 1a14.7 14.7 0 0 1-6.2-6.2l1-1a1.8 1.8 0 0 0 .4-2.1L8.5 3.5A1.8 1.8 0 0 0 6.4 2.5L3.6 3A1.6 1.6 0 0 0 2.2 4.6C1.4 13 11 22.6 19.4 21.8a1.6 1.6 0 0 0 1.6-1.4l.5-2.8a1.8 1.8 0 0 0-.5-2.1z"/></svg>',
+        link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.07-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+        copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+        check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
     };
 
     /* ---------------- Token 取得 ---------------- */
@@ -122,9 +133,19 @@
         var leftFired = false;
 
         /* ----- DOM ----- */
+        // 有提供 roomUrl（醫師端）時，於右上角顯示病人診間連結與複製鈕
+        var topRightHtml = options.roomUrl
+            ? '<div class="av-topright">' +
+              '  <a class="av-trbtn av-room-link" href="#" target="_blank" rel="noopener" title="開啟病人「進入診間」連結（另開分頁）">' + ICONS.link + '</a>' +
+              '  <button type="button" class="av-trbtn av-copy-link" title="複製病人診間連結">' + ICONS.copy + '</button>' +
+              '  <span class="av-tr-tip" style="display:none"></span>' +
+              '</div>'
+            : '';
+
         container.innerHTML =
             '<div class="av-root">' +
             '  <div class="av-status"><span class="av-dot"></span><span class="av-status-text">連線中…</span></div>' +
+            topRightHtml +
             '  <div class="av-grid"></div>' +
             '  <div class="av-bar">' +
             '    <button type="button" class="av-btn av-on av-mic" title="開關麥克風" aria-label="開關麥克風">' + ICONS.micOn + '</button>' +
@@ -141,6 +162,63 @@
         var micBtn = root.querySelector('.av-mic');
         var camBtn = root.querySelector('.av-cam');
         var hangupBtn = root.querySelector('.av-hangup');
+
+        /* ----- 右上角：病人診間連結 / 複製（僅醫師端傳入 roomUrl 時存在） ----- */
+        var roomLinkBtn = root.querySelector('.av-room-link');
+        var copyLinkBtn = root.querySelector('.av-copy-link');
+        var copyTip = root.querySelector('.av-tr-tip');
+
+        function flashCopyTip(text) {
+            if (!copyTip) return;
+            copyTip.textContent = text;
+            copyTip.style.display = 'block';
+            clearTimeout(copyTip._timer);
+            copyTip._timer = setTimeout(function () {
+                copyTip.style.display = 'none';
+            }, 1600);
+        }
+
+        function copyTextFallback(text) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            var ok = false;
+            try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+            document.body.removeChild(ta);
+            return ok;
+        }
+
+        if (roomLinkBtn && options.roomUrl) {
+            roomLinkBtn.href = options.roomUrl;
+        }
+
+        if (copyLinkBtn && options.roomUrl) {
+            copyLinkBtn.addEventListener('click', function () {
+                var url = options.roomUrl;
+                var done = function (ok) {
+                    if (ok) {
+                        copyLinkBtn.innerHTML = ICONS.check;
+                        setTimeout(function () { copyLinkBtn.innerHTML = ICONS.copy; }, 1500);
+                        flashCopyTip('已複製連結');
+                        if (typeof options.onNotify === 'function') options.onNotify('已複製病人診間連結，可直接傳送給病人', 'success');
+                    } else {
+                        flashCopyTip('請手動複製');
+                        if (typeof options.onNotify === 'function') options.onNotify('複製失敗，請手動複製連結', 'error');
+                    }
+                };
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(url).then(function () { done(true); }, function () {
+                        done(copyTextFallback(url));
+                    });
+                } else {
+                    done(copyTextFallback(url));
+                }
+            });
+        }
 
         function emitStatus(kind, text) {
             statusText.textContent = text;

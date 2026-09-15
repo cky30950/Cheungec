@@ -200,6 +200,39 @@
             }
 
             /*
+             * 視訊診症分屏（#consultationWorkspace.vc-active）
+             * 手機：表單在上、視訊面板在下（直向堆疊，面板高 72vh）
+             * 桌面（≥1024px）：診症記錄在左、視訊診間在右，各佔一半；
+             * 右側面板 sticky 固定，捲動病歷時視訊保持可見。
+             */
+            #consultationWorkspace.vc-active {
+                display: flex;
+                flex-direction: column;
+                gap: 1.5rem;
+                align-items: stretch;
+            }
+            #videoConsultPanel {
+                height: 72vh;
+            }
+            @media (min-width: 1024px) {
+                #consultationWorkspace.vc-active {
+                    flex-direction: row;
+                    align-items: flex-start;
+                }
+                #consultationWorkspace.vc-active #consultationForm,
+                #consultationWorkspace.vc-active #videoConsultPanel {
+                    width: 50%;
+                    flex: 0 0 50%;
+                    min-width: 0;
+                }
+                #consultationWorkspace.vc-active #videoConsultPanel {
+                    position: sticky;
+                    top: 1rem;
+                    height: calc(100vh - 2rem);
+                }
+            }
+
+            /*
              * 下拉選單樣式調整
              *
              * 在手機版面中，許多 <select> 元素會因為預設寬度或選項文字較長而超出容器，
@@ -1143,51 +1176,13 @@
                     </div>
                 </div>
                 
-                <div id="videoConsultModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-center justify-center p-4">
-                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[85vh] flex flex-col overflow-hidden">
-                        <div class="flex items-center justify-between gap-4 border-b border-gray-200 px-6 py-4">
-                            <div class="min-w-0">
-                                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                                    <span>📹</span> 視訊診症
-                                </h3>
-                                <p id="videoConsultSubtitle" class="text-xs text-gray-500 mt-1 truncate"></p>
-                            </div>
-                            <div class="flex items-center gap-3 shrink-0">
-                                <span id="videoConsultStatus" class="text-xs text-gray-500 hidden sm:inline"></span>
-                                <button type="button" onclick="closeVideoConsultation()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none" aria-label="關閉視訊診症">×</button>
-                            </div>
-                        </div>
-                        <div class="border-b border-blue-100 bg-blue-50 px-4 sm:px-6 py-3 flex flex-wrap items-center gap-2 sm:gap-3">
-                            <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-800 shrink-0">
-                                <span aria-hidden="true">🔗</span>病人「進入診間」連結
-                            </span>
-                            <a
-                                id="videoConsultRoomLink"
-                                href="#"
-                                target="_blank"
-                                rel="noopener"
-                                class="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm transition duration-200 whitespace-nowrap"
-                            >
-                                <span aria-hidden="true">🚪</span>進入診間
-                            </a>
-                            <input
-                                id="videoConsultRoomUrl"
-                                type="text"
-                                readonly
-                                class="flex-1 min-w-[180px] text-xs sm:text-sm bg-white border border-blue-200 rounded-lg px-3 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                            >
-                            <button
-                                type="button"
-                                id="copyRoomUrlBtn"
-                                class="inline-flex items-center gap-1 bg-white hover:bg-blue-100 text-blue-700 border border-blue-300 text-sm font-medium px-3 py-1.5 rounded-lg transition duration-200 whitespace-nowrap"
-                            >
-                                <span aria-hidden="true">📋</span>複製連結
-                            </button>
-                        </div>
-                        <div id="videoConsultStage" class="flex-1 min-h-0 bg-gray-900 relative"></div>
-                    </div>
-                </div>
-
+                <!--
+                    視訊診症分屏工作區：
+                    未開啟視訊時只顯示 #consultationForm（與原本相同）；
+                    開啟後 #consultationWorkspace 加上 .vc-active，
+                    診症記錄在左、視訊診間在右，各佔一半（手機直向排列）。
+                -->
+                <div id="consultationWorkspace">
                 <div id="consultationForm" class="hidden bg-white border border-gray-200 rounded-lg mt-6">
                     <div class="bg-green-600 text-white px-6 py-4 rounded-t-lg flex items-center justify-between gap-3">
                         <h3 class="text-xl font-bold">診症記錄</h3>
@@ -1568,6 +1563,25 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 右側內嵌視訊診間面板（開啟視訊後顯示，病人連結按鈕在畫面右上角） -->
+                <div id="videoConsultPanel" class="hidden bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 flex flex-col w-full">
+                    <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
+                        <div class="min-w-0">
+                            <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
+                                <span>📹</span> 視訊診症
+                            </h3>
+                            <p id="videoConsultSubtitle" class="text-xs text-gray-500 mt-0.5 truncate"></p>
+                        </div>
+                        <div class="flex items-center gap-3 shrink-0">
+                            <span id="videoConsultStatus" class="text-xs text-gray-500 whitespace-nowrap"></span>
+                            <button type="button" onclick="closeVideoConsultation()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none" aria-label="關閉視訊診症">×</button>
+                        </div>
+                    </div>
+                    <!-- 通話介面（狀態膠囊、九宮格、mic/cam/掛斷、右上角病人連結）由 agora-call.js 注入 -->
+                    <div id="videoConsultStage" class="flex-1 min-h-0 bg-gray-900 relative"></div>
+                </div>
+                </div><!-- /#consultationWorkspace -->
             </div>
             <div id="consultationAuditTrailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[1000] items-center justify-center p-4">
                 <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden">
