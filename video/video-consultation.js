@@ -178,10 +178,12 @@
         }
 
         if (window.VideoPresence) {
-            presence = window.VideoPresence.waitPeer('doctor', channel);
-            presence.ready.then(joinNow).catch(function () {
-                // 信號服務不可用時退回原行為（直接加入），不阻斷看診
-                notify('就緒檢查服務暫不可用，已直接進入診間', 'info');
+            presence = window.VideoPresence.waitPeer('doctor', channel, { timeoutMs: 45000 });
+            presence.ready.then(joinNow).catch(function (err) {
+                // 超時或信號服務不可用時退回原行為（直接加入），不阻斷看診
+                if (!err || err.code !== 'PRESENCE_TIMEOUT') {
+                    notify('就緒檢查服務暫不可用，已直接進入診間', 'info');
+                }
                 joinNow();
             });
         } else {

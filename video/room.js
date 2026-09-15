@@ -121,9 +121,9 @@
         }
 
         if (window.VideoPresence) {
-            presence = window.VideoPresence.waitPeer('patient', state.channel);
+            presence = window.VideoPresence.waitPeer('patient', state.channel, { timeoutMs: 45000 });
             presence.ready.then(joinNow).catch(function () {
-                // 信號服務不可用時退回原行為（直接加入），不阻斷看診
+                // 超時或信號服務不可用時退回原行為（直接加入），不阻斷看診
                 joinNow();
             });
         } else {
