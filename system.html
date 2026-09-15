@@ -1143,51 +1143,6 @@
                     </div>
                 </div>
                 
-                <div id="videoConsultModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-center justify-center p-4">
-                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[85vh] flex flex-col overflow-hidden">
-                        <div class="flex items-center justify-between gap-4 border-b border-gray-200 px-6 py-4">
-                            <div class="min-w-0">
-                                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                                    <span>📹</span> 視訊診症
-                                </h3>
-                                <p id="videoConsultSubtitle" class="text-xs text-gray-500 mt-1 truncate"></p>
-                            </div>
-                            <div class="flex items-center gap-3 shrink-0">
-                                <span id="videoConsultStatus" class="text-xs text-gray-500 hidden sm:inline"></span>
-                                <button type="button" onclick="closeVideoConsultation()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none" aria-label="關閉視訊診症">×</button>
-                            </div>
-                        </div>
-                        <div class="border-b border-blue-100 bg-blue-50 px-4 sm:px-6 py-3 flex flex-wrap items-center gap-2 sm:gap-3">
-                            <span class="inline-flex items-center gap-1.5 text-sm font-semibold text-blue-800 shrink-0">
-                                <span aria-hidden="true">🔗</span>病人「進入診間」連結
-                            </span>
-                            <a
-                                id="videoConsultRoomLink"
-                                href="#"
-                                target="_blank"
-                                rel="noopener"
-                                class="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm transition duration-200 whitespace-nowrap"
-                            >
-                                <span aria-hidden="true">🚪</span>進入診間
-                            </a>
-                            <input
-                                id="videoConsultRoomUrl"
-                                type="text"
-                                readonly
-                                class="flex-1 min-w-[180px] text-xs sm:text-sm bg-white border border-blue-200 rounded-lg px-3 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                            >
-                            <button
-                                type="button"
-                                id="copyRoomUrlBtn"
-                                class="inline-flex items-center gap-1 bg-white hover:bg-blue-100 text-blue-700 border border-blue-300 text-sm font-medium px-3 py-1.5 rounded-lg transition duration-200 whitespace-nowrap"
-                            >
-                                <span aria-hidden="true">📋</span>複製連結
-                            </button>
-                        </div>
-                        <div id="videoConsultStage" class="flex-1 min-h-0 bg-gray-900 relative"></div>
-                    </div>
-                </div>
-
                 <div id="consultationForm" class="hidden bg-white border border-gray-200 rounded-lg mt-6">
                     <div class="bg-green-600 text-white px-6 py-4 rounded-t-lg flex items-center justify-between gap-3">
                         <h3 class="text-xl font-bold">診症記錄</h3>
@@ -1203,7 +1158,10 @@
                     </div>
                     
                     <div class="p-6">
-                        
+
+                        <div id="consultationWorkspace" class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                        <div id="consultationFieldsPanel" class="min-w-0 lg:col-span-2">
+
                         <div class="bg-blue-50 rounded-lg p-4 mb-6">
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
@@ -1253,7 +1211,7 @@
                         
                         <div id="consultationEditRestrictionNotice" class="hidden mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"></div>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div id="consultationFieldsGrid" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             
                             <div id="consultationLockedClinicalSection" class="space-y-4">
                                 <div>
@@ -1566,6 +1524,49 @@
                                 </div>
                             </div>
                         </div>
+                        </div><!-- /#consultationFieldsPanel（診症資料：左半側） -->
+
+                        <!-- 視訊診症面板（右半側，點擊「視訊診症」後顯示） -->
+                        <div id="videoConsultPanel" class="hidden min-w-0 flex flex-col h-[60vh] lg:h-[calc(100vh-7.5rem)] lg:sticky lg:top-4 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                            <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
+                                <div class="min-w-0">
+                                    <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
+                                        <span>📹</span> 視訊診症
+                                    </h3>
+                                    <p id="videoConsultSubtitle" class="text-xs text-gray-500 mt-0.5 truncate"></p>
+                                </div>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <span id="videoConsultStatus" class="text-xs text-gray-500 hidden xl:inline"></span>
+                                    <button type="button" onclick="closeVideoConsultation()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none" aria-label="關閉視訊診症">×</button>
+                                </div>
+                            </div>
+                            <div class="border-b border-blue-100 bg-blue-50 px-3 py-2 flex flex-wrap items-center gap-2">
+                                <a
+                                    id="videoConsultRoomLink"
+                                    href="#"
+                                    target="_blank"
+                                    rel="noopener"
+                                    class="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-1.5 rounded-lg shadow-sm transition duration-200 whitespace-nowrap"
+                                >
+                                    <span aria-hidden="true">🚪</span>進入診間
+                                </a>
+                                <input
+                                    id="videoConsultRoomUrl"
+                                    type="text"
+                                    readonly
+                                    class="flex-1 min-w-[140px] text-xs sm:text-sm bg-white border border-blue-200 rounded-lg px-3 py-1.5 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                >
+                                <button
+                                    type="button"
+                                    id="copyRoomUrlBtn"
+                                    class="inline-flex items-center gap-1 bg-white hover:bg-blue-100 text-blue-700 border border-blue-300 text-sm font-medium px-3 py-1.5 rounded-lg transition duration-200 whitespace-nowrap"
+                                >
+                                    <span aria-hidden="true">📋</span>複製連結
+                                </button>
+                            </div>
+                            <div id="videoConsultStage" class="flex-1 min-h-0 bg-gray-900 relative"></div>
+                        </div>
+                        </div><!-- /#consultationWorkspace -->
                     </div>
                 </div>
             </div>

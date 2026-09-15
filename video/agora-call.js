@@ -12,7 +12,8 @@
  *       onStatus: function (kind, text) {},   // connecting|waiting|connected|error|left
  *       onParticipants: function (count) {},  // 含自己在內的人數
  *       onError: function (message, detail) {},
- *       onLeft: function () {}
+ *       onLeft: function () {},
+ *       layout: 'grid'                 // 選填，'grid'（預設並排）或 'spotlight'（遠端滿版、本機小畫面）
  *   });
  *   await call.join();
  *   call.toggleMic(); call.toggleCamera(); call.leave();
@@ -30,6 +31,10 @@
     var CSS = [
         '.av-root{position:absolute;inset:0;display:flex;flex-direction:column;background:#0b1220;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei",sans-serif;}',
         '.av-grid{flex:1;min-height:0;display:grid;gap:10px;padding:10px;grid-template-columns:1fr;grid-auto-rows:1fr;}',
+        '.av-pips{position:absolute;left:12px;right:12px;top:12px;bottom:88px;z-index:4;pointer-events:none;}',
+        '.av-tile.av-pip{position:absolute;top:0;right:0;width:clamp(96px,26%,210px);aspect-ratio:16/10;border:2px solid rgba(255,255,255,.45);border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.5);pointer-events:auto;}',
+        '.av-tile.av-pip .av-namebar{display:none;}',
+        '.av-tile.av-pip .av-avatar{width:42%;min-width:38px;max-width:64px;font-size:clamp(18px,3vw,28px);}',
         '.av-tile{position:relative;background:#111827;border-radius:12px;overflow:hidden;min-height:0;display:flex;align-items:center;justify-content:center;}',
         '.av-media{position:absolute;inset:0;}',
         '.av-media video{width:100%;height:100%;object-fit:cover;display:block;}',
@@ -126,6 +131,7 @@
             '<div class="av-root">' +
             '  <div class="av-status"><span class="av-dot"></span><span class="av-status-text">連線中…</span></div>' +
             '  <div class="av-grid"></div>' +
+            '  <div class="av-pips"></div>' +
             '  <div class="av-bar">' +
             '    <button type="button" class="av-btn av-on av-mic" title="開關麥克風" aria-label="開關麥克風">' + ICONS.micOn + '</button>' +
             '    <button type="button" class="av-btn av-on av-cam" title="開關鏡頭" aria-label="開關鏡頭">' + ICONS.camOn + '</button>' +
@@ -135,6 +141,7 @@
 
         var root = container.firstElementChild;
         var grid = root.querySelector('.av-grid');
+        var pipsLayer = root.querySelector('.av-pips');
         var statusEl = root.querySelector('.av-status');
         var statusDot = root.querySelector('.av-dot');
         var statusText = root.querySelector('.av-status-text');
@@ -150,12 +157,33 @@
 
         function refreshParticipants() {
             var count = Object.keys(tiles).length;
-            if (count === participantCount) return;
-            participantCount = count;
-            // 1 人直向滿版、2 人左右、3-4 人兩欄、5+ 三欄
-            var cols = count <= 1 ? 1 : count <= 4 ? 2 : 3;
+            if (count !== participantCount) {
+                participantCount = count;
+                if (typeof options.onParticipants === 'function') options.onParticipants(count);
+            }
+
+            var cols;
+            if (options.layout === 'spotlight') {
+                // 焦點排版：遠端畫面佔滿主要區域；本機影像在有遠端與會者時
+                // 縮為右上角小畫面（PiP），無人加入時仍滿版顯示自己的畫面。
+                var remoteCount = Math.max(0, count - (tiles.local ? 1 : 0));
+                cols = remoteCount <= 1 ? 1 : remoteCount <= 4 ? 2 : 3;
+
+                var localTile = tiles.local;
+                if (localTile) {
+                    if (remoteCount > 0) {
+                        if (localTile.parentNode !== pipsLayer) pipsLayer.appendChild(localTile);
+                        localTile.classList.add('av-pip');
+                    } else {
+                        if (localTile.parentNode !== grid) grid.appendChild(localTile);
+                        localTile.classList.remove('av-pip');
+                    }
+                }
+            } else {
+                // 1 人直向滿版、2 人左右、3-4 人兩欄、5+ 三欄
+                cols = count <= 1 ? 1 : count <= 4 ? 2 : 3;
+            }
             grid.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
-            if (typeof options.onParticipants === 'function') options.onParticipants(count);
         }
 
         function setTileName(tile, name, micOn, camOn) {

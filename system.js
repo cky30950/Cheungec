@@ -11810,6 +11810,14 @@ async function showConsultationForm(appointment) {
             // 清除暫存的套票購買記錄不需再次調用，已在 revertPendingPackageChanges 處理
             // 隱藏診症表單
             document.getElementById('consultationForm').classList.add('hidden');
+            // 如表單關閉時視訊仍在進行中，一併離開診間並還原版面
+            try {
+                if (typeof window.closeVideoConsultation === 'function') {
+                    window.closeVideoConsultation();
+                }
+            } catch (_e) {
+                // 忽略視訊關閉過程的錯誤，避免影響表單關閉流程
+            }
             closeConsultationAuditTrail();
             closeConsultationMedicalHistoryEditor();
             

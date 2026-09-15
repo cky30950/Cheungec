@@ -107,6 +107,41 @@
         if (status) status.textContent = joinModeLabel + (suffix ? '　·　' + suffix : '');
     }
 
+    // 切換「診症資料在左、視訊畫面在右（各佔一半）」的嵌入版面
+    function setEmbeddedVideoUI(active) {
+        var panel = document.getElementById('videoConsultPanel');
+        var fieldsPanel = document.getElementById('consultationFieldsPanel');
+        var fieldsGrid = document.getElementById('consultationFieldsGrid');
+
+        if (panel) panel.classList.toggle('hidden', !active);
+        // 診症資料原本滿版（col-span-2），開啟視訊後只佔左半（span 1）
+        if (fieldsPanel) fieldsPanel.classList.toggle('lg:col-span-2', !active);
+        // 擠到左半後，診症資料內部改為單欄排列
+        if (fieldsGrid) fieldsGrid.classList.toggle('lg:grid-cols-2', !active);
+
+        updateEntryButton(active);
+
+        if (active && panel) {
+            try { panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { /* ignore */ }
+        }
+    }
+
+    // 診症記錄標題列的「視訊診症」按鈕：作用中時變為「關閉視訊」
+    function updateEntryButton(active) {
+        var btn = document.getElementById('videoConsultBtn');
+        if (!btn) return;
+        var label = btn.querySelectorAll('span')[1];
+        if (active) {
+            btn.classList.remove('bg-white', 'text-green-700', 'hover:bg-green-50', 'active:bg-green-100');
+            btn.classList.add('bg-red-600', 'text-white', 'hover:bg-red-700', 'active:bg-red-800');
+            if (label) label.textContent = '關閉視訊';
+        } else {
+            btn.classList.add('bg-white', 'text-green-700', 'hover:bg-green-50', 'active:bg-green-100');
+            btn.classList.remove('bg-red-600', 'text-white', 'hover:bg-red-700', 'active:bg-red-800');
+            if (label) label.textContent = '視訊診症';
+        }
+    }
+
     function createCall(channel, patientName, doctorName) {
         var cfg = getConfig();
         var stage = document.getElementById('videoConsultStage');
@@ -118,6 +153,8 @@
             tokenUrl: cfg.TOKEN_URL || '',
             localName: doctorName || '醫師',
             remoteName: patientName || '病人',
+            // 對方畫面佔滿、自己畫面縮小於右上角
+            layout: 'spotlight',
             waitingText: '已就緒，等待病人加入…',
             onStatus: function (kind, text) {
                 setHeaderStatus(text);
@@ -126,18 +163,24 @@
                 notify(message, 'error');
             },
             onLeft: function () {
-                // 醫師按下掛斷鈕 → 關閉彈窗
+                // 醫師按下掛斷鈕 → 關閉右側視訊面板、還原診症資料版面
                 window.closeVideoConsultation(true);
             }
         });
 
         callController.join().catch(function () {
-            // 錯誤已透過 onError 提示；彈窗保持開啟以便醫師重試或關閉
+            // 錯誤已透過 onError 提示；面板保持開啟以便醫師重試或關閉
         });
     }
 
     window.openVideoConsultation = async function () {
         try {
+            // 已在通訊中再次點擊 → 直接關閉視訊（按鈕這時顯示為「關閉視訊」）
+            if (callController) {
+                window.closeVideoConsultation();
+                return;
+            }
+
             var cfg = getConfig();
             if (!cfg.APP_ID) {
                 showSetupGuide();
@@ -159,7 +202,6 @@
             var patientName = await resolvePatientName(appointment);
             var doctorName = getDoctorName();
 
-            var modal = document.getElementById('videoConsultModal');
             var subtitle = document.getElementById('videoConsultSubtitle');
             var status = document.getElementById('videoConsultStatus');
 
@@ -178,7 +220,8 @@
             if (roomLink) roomLink.href = roomUrl;
             if (roomUrlInput) roomUrlInput.value = roomUrl;
 
-            modal.classList.remove('hidden');
+            // 顯示右半側視訊面板，診症資料順移至左半側
+            setEmbeddedVideoUI(true);
 
             createCall(channel, patientName, doctorName);
         } catch (error) {
@@ -189,13 +232,13 @@
 
     // fromController=true 表示由通話元件的掛斷鈕觸發（SDK 已 leave）
     window.closeVideoConsultation = function (fromController) {
-        var modal = document.getElementById('videoConsultModal');
         var stage = document.getElementById('videoConsultStage');
 
         var finish = function () {
             callController = null;
             if (stage) stage.innerHTML = '';
-            if (modal) modal.classList.add('hidden');
+            // 隱藏右半側面板，診症資料恢復滿版
+            setEmbeddedVideoUI(false);
         };
 
         if (fromController) {
