@@ -50,6 +50,52 @@
             </div>
         </div>
 
+        <!-- 視像診症電子同意書（必須同意才可進入診間） -->
+        <div id="consentScreen" class="hidden flex-1 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 sm:p-8 flex flex-col max-h-full">
+                <div class="text-center shrink-0">
+                    <div class="text-4xl mb-2" aria-hidden="true">📋</div>
+                    <h1 class="text-xl font-bold text-gray-800">視像診症電子同意書</h1>
+                    <p class="text-xs text-gray-400 mt-1">版本 v1</p>
+                </div>
+
+                <div class="mt-4 border border-gray-200 rounded-xl bg-gray-50 p-4 overflow-y-auto text-sm text-gray-700 leading-relaxed space-y-3">
+                    <p>1. 本人明白視像診症是經互聯網以視像方式提供的醫療諮詢，<b>不能取代面對面的實體檢查</b>，醫師的臨床判斷或會因此受到限制。如屬急症、重症或病情突然轉壞，本人會立即致電 999 或前往就近急症室求診。</p>
+                    <p>2. 本人同意診所收集及使用本人於診症期間提供的身分及健康資料，作診斷、治療及醫療記錄用途；診所會按照《個人資料（私隱）條例》妥善保存，未經本人同意不會向第三方披露。</p>
+                    <p>3. 本人明白視像傳輸經加密處理，診所不會在未經本人同意下錄影、錄音或截圖；本人亦承諾不會在未經醫師同意下，自行錄影、錄音、截圖或轉播診症過程。</p>
+                    <p>4. 本人會在安靜及保障私隱的環境應診，並如實提供身分證明及病歷資料；如有需要，本人會配合診所的身分核對程序。</p>
+                    <p>5. 本人明白網絡連線、設備故障或其他技術問題，可能導致診症中斷或影像、聲音不清，屆時可重新連線或更改診症安排。</p>
+                    <p>6. 本人屬<b>自願同意</b>接受視像診症，並明白有權在任何時候終止診症；終止後如仍有醫療需要，會安排實體就診。</p>
+                </div>
+
+                <p class="text-xs text-gray-400 mt-3 shrink-0">按下「同意並進入診間」後，系統會記錄同意時間、診間編號及同意書版本，作為診所存檔憑據。</p>
+
+                <label class="mt-3 flex items-start gap-2 text-sm text-gray-700 shrink-0 cursor-pointer">
+                    <input id="consentAgreeCheck" type="checkbox"
+                        class="mt-0.5 w-4 h-4 accent-green-600 shrink-0">
+                    <span>我已細閱及明白上述內容，<b>同意接受視像診症</b>。</span>
+                </label>
+
+                <div class="mt-5 flex flex-col sm:flex-row gap-3 shrink-0">
+                    <button
+                        type="button"
+                        id="declineConsentBtn"
+                        class="flex-1 inline-flex items-center justify-center bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 text-base font-semibold px-6 py-3 rounded-xl transition duration-200"
+                    >
+                        不同意
+                    </button>
+                    <button
+                        type="button"
+                        id="acceptConsentBtn"
+                        disabled
+                        class="flex-1 inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-base font-semibold px-6 py-3 rounded-xl shadow transition duration-200"
+                    >
+                        <span aria-hidden="true">✓</span>同意並進入診間
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- 錯誤提示 -->
         <div id="errorScreen" class="hidden flex-1 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-8 text-center">
@@ -90,6 +136,7 @@
     <script src="agora-rtc-sdk.js"></script>
     <script src="agora-call.js"></script>
     <script src="video-presence.js"></script>
+    <script src="video-consent.js"></script>
     <script src="room.js"></script>
 </body>
 </html>

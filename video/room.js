@@ -35,7 +35,7 @@
     }
 
     function showScreen(name) {
-        ['lobby', 'error', 'call', 'ended'].forEach(function (screen) {
+        ['lobby', 'consent', 'error', 'call', 'ended'].forEach(function (screen) {
             var el = $(screen + 'Screen');
             if (el) el.classList.toggle('hidden', screen !== name);
         });
@@ -68,6 +68,39 @@
         if (!safe || safe.indexOf(prefix) !== 0) return null;
 
         return { channel: safe, appointmentId: appointmentId };
+    }
+
+    // 進入前閘門：未簽同意書者先看同意書，已簽（同一診間、同一版本）則直接進入
+    function requestEnterRoom() {
+        if (window.VideoConsent &&
+            window.VideoConsent.hasLocalConsent(state.channel)) {
+            joinRoom();
+        } else {
+            resetConsentScreen();
+            showScreen('consent');
+        }
+    }
+
+    function resetConsentScreen() {
+        var check = $('consentAgreeCheck');
+        var acceptBtn = $('acceptConsentBtn');
+        if (check) check.checked = false;
+        if (acceptBtn) acceptBtn.disabled = true;
+    }
+
+    // 病人勾選同意：記錄後才進入診間（鏡頭探測與 Agora 皆在其後）
+    function acceptConsent() {
+        var acceptBtn = $('acceptConsentBtn');
+        if (acceptBtn) acceptBtn.disabled = true;
+
+        var proceed = function () { joinRoom(); };
+        if (window.VideoConsent) {
+            // recordConsent 一定會 resolve（Firestore 失敗僅警告，不阻斷）
+            window.VideoConsent.recordConsent(state.channel, state.appointmentId)
+                .then(proceed, proceed);
+        } else {
+            proceed();
+        }
     }
 
     function joinRoom() {
@@ -246,8 +279,23 @@
 
         var joinBtn = $('joinRoomBtn');
         var rejoinBtn = $('rejoinRoomBtn');
-        if (joinBtn) joinBtn.addEventListener('click', joinRoom);
-        if (rejoinBtn) rejoinBtn.addEventListener('click', joinRoom);
+        if (joinBtn) joinBtn.addEventListener('click', requestEnterRoom);
+        if (rejoinBtn) rejoinBtn.addEventListener('click', requestEnterRoom);
+
+        // 同意書：勾選後才能按同意；不同意則返回大廳
+        var agreeCheck = $('consentAgreeCheck');
+        var acceptBtn = $('acceptConsentBtn');
+        var declineBtn = $('declineConsentBtn');
+        if (agreeCheck && acceptBtn) {
+            agreeCheck.addEventListener('change', function () {
+                acceptBtn.disabled = !agreeCheck.checked;
+            });
+        }
+        if (acceptBtn) acceptBtn.addEventListener('click', acceptConsent);
+        if (declineBtn) declineBtn.addEventListener('click', function () {
+            resetConsentScreen();
+            showScreen('lobby');
+        });
     }
 
     document.addEventListener('DOMContentLoaded', init);

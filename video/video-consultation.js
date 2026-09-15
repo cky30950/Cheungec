@@ -25,6 +25,8 @@
     // 加入後遲遲未見病人的自動離開計時器
     var aloneTimer = null;
     var DOCTOR_ALONE_MS = 60000;
+    // 病人電子同意書記錄監聽取消函式
+    var consentUnwatch = null;
 
     function getConfig() {
         return window.AGORA_CONFIG || {};
@@ -277,6 +279,29 @@
         }
     }
 
+    function setConsentBadge(signed) {
+        var badge = document.getElementById('videoConsultConsent');
+        if (badge) badge.classList.toggle('hidden', !signed);
+    }
+
+    // 監聽病人是否已簽電子同意書（病人同意後才會開始心跳，故未簽時
+    // 醫師只會停在等待狀態；此標記供醫師即時確認與事後查核）
+    function startConsentWatch(channel) {
+        stopConsentWatch();
+        setConsentBadge(false);
+        if (window.VideoConsent) {
+            consentUnwatch = window.VideoConsent.watchConsent(channel, setConsentBadge);
+        }
+    }
+
+    function stopConsentWatch() {
+        if (consentUnwatch) {
+            try { consentUnwatch(); } catch (e) { /* ignore */ }
+            consentUnwatch = null;
+        }
+        setConsentBadge(false);
+    }
+
     window.openVideoConsultation = async function () {
         try {
             // 權限閘門：非醫師不得開啟（按鈕亦已隱藏，此處擋住控制台或殘留入口）
@@ -325,6 +350,9 @@
             // 顯示右半側視訊面板，診症資料順移至左半側
             setEmbeddedVideoUI(true);
 
+            // 監聽病人同意書簽署狀態（標題列顯示「已簽同意書」）
+            startConsentWatch(channel);
+
             createCall(channel, patientName, doctorName);
         } catch (error) {
             console.error('開啟視訊診症失敗:', error);
@@ -341,6 +369,7 @@
             clearAloneTimer();
             callController = null;
             clearPresence();
+            stopConsentWatch();
             if (stage) stage.innerHTML = '';
             // 隱藏右半側面板，診症資料恢復滿版
             setEmbeddedVideoUI(false);
