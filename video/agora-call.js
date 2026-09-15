@@ -482,6 +482,8 @@
             join: join,
             leave: leave,
             destroy: destroy,
+            // join 前亦可呼叫，用於顯示「等待對方進入診間…」等狀態
+            setStatus: function (kind, text) { emitStatus(kind, text); },
             toggleMic: function () { micBtn.click(); },
             toggleCamera: function () { camBtn.click(); },
             isJoined: function () { return joined; }

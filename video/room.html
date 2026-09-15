@@ -83,10 +83,13 @@
 
     </div>
 
-    <!-- 與醫師端共用：設定 → RTC SDK → 通話介面模組 → 病人端邏輯 -->
+    <!-- Firebase：用於雙方就緒檢測（雙方到齊才進入 Agora 頻道，避免等待期間計費） -->
+    <script type="module" src="../firebase_init.js"></script>
+    <!-- 與醫師端共用：設定 → RTC SDK → 通話介面模組 → 就緒信號 → 病人端邏輯 -->
     <script src="agora-config.js"></script>
     <script src="agora-rtc-sdk.js"></script>
     <script src="agora-call.js"></script>
+    <script src="video-presence.js"></script>
     <script src="room.js"></script>
 </body>
 </html>

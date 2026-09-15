@@ -14,6 +14,8 @@
     'use strict';
 
     var callController = null;
+    // 雙方就緒信號控制代碼（VideoPresence），用於在加入 Agora 前等待醫師
+    var presence = null;
     var state = {
         channel: '',
         appointmentId: ''
@@ -105,12 +107,35 @@
         });
 
         showScreen('call');
-        callController.join().catch(function () {
-            // 錯誤已由 onError 切換到錯誤頁處理
-        });
+
+        // 先在頻道外等待醫師就緒，確認醫師已在線才加入 Agora，
+        // 避免病人單獨在頻道內的等待時間被計入音頻費用。
+        callController.setStatus('connecting', '等待醫師進入診間…');
+
+        function joinNow() {
+            // 等待期間若已離開則不再加入
+            if (!callController) return;
+            callController.join().catch(function () {
+                // 錯誤已由 onError 切換到錯誤頁處理
+            });
+        }
+
+        if (window.VideoPresence) {
+            presence = window.VideoPresence.waitPeer('patient', state.channel);
+            presence.ready.then(joinNow).catch(function () {
+                // 信號服務不可用時退回原行為（直接加入），不阻斷看診
+                joinNow();
+            });
+        } else {
+            joinNow();
+        }
     }
 
     function leaveCallScreen() {
+        if (presence) {
+            try { presence.leave(); } catch (e) { /* ignore */ }
+            presence = null;
+        }
         if (callController) {
             callController.destroy();
             callController = null;

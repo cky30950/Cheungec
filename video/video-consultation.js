@@ -16,6 +16,8 @@
     'use strict';
 
     var callController = null;
+    // 雙方就緒信號控制代碼（VideoPresence），用於在加入 Agora 前等待病人
+    var presence = null;
 
     function getConfig() {
         return window.AGORA_CONFIG || {};
@@ -163,9 +165,35 @@
             }
         });
 
-        callController.join().catch(function () {
-            // 錯誤已透過 onError 提示；面板保持開啟以便醫師重試或關閉
-        });
+        // 先在頻道外等待病人就緒，確認病人已在線才加入 Agora，
+        // 避免醫師單獨在頻道內的等待時間被計入音頻費用。
+        callController.setStatus('connecting', '等待病人進入診間…');
+
+        function joinNow() {
+            // 等待期間若已關閉面板則不再加入
+            if (!callController) return;
+            callController.join().catch(function () {
+                // 錯誤已透過 onError 提示；面板保持開啟以便醫師重試或關閉
+            });
+        }
+
+        if (window.VideoPresence) {
+            presence = window.VideoPresence.waitPeer('doctor', channel);
+            presence.ready.then(joinNow).catch(function () {
+                // 信號服務不可用時退回原行為（直接加入），不阻斷看診
+                notify('就緒檢查服務暫不可用，已直接進入診間', 'info');
+                joinNow();
+            });
+        } else {
+            joinNow();
+        }
+    }
+
+    function clearPresence() {
+        if (presence) {
+            try { presence.leave(); } catch (e) { /* ignore */ }
+            presence = null;
+        }
     }
 
     window.openVideoConsultation = async function () {
@@ -223,6 +251,7 @@
 
         var finish = function () {
             callController = null;
+            clearPresence();
             if (stage) stage.innerHTML = '';
             // 隱藏右半側面板，診症資料恢復滿版
             setEmbeddedVideoUI(false);
