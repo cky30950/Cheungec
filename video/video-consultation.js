@@ -93,6 +93,22 @@
         return '醫師';
     }
 
+    // 視訊診症僅限職位為「醫師」者使用（護理師／診所管理／用戶皆無此功能）
+    function isDoctorUser() {
+        try {
+            if (typeof currentUserData !== 'undefined' && currentUserData) {
+                return String(currentUserData.position || '').trim() === '醫師';
+            }
+        } catch (e) { /* ignore */ }
+        return false;
+    }
+
+    // 依當前登入角色顯示／隱藏診症記錄標題列的「視訊診症」按鈕
+    function syncVideoEntryVisibility() {
+        var btn = document.getElementById('videoConsultBtn');
+        if (btn) btn.classList.toggle('hidden', !isDoctorUser());
+    }
+
     function showSetupGuide() {
         var message = '請先在 video/agora-config.js 填入 Agora App ID（測試模式），重新整理後再試。';
         if (window.Swal) {
@@ -200,6 +216,12 @@
 
     window.openVideoConsultation = async function () {
         try {
+            // 權限閘門：非醫師不得開啟（按鈕亦已隱藏，此處擋住控制台或殘留入口）
+            if (!isDoctorUser()) {
+                notify('視訊診症僅限醫師帳號使用', 'error');
+                return;
+            }
+
             // 已在通訊中再次點擊 → 直接關閉視訊（按鈕這時顯示為「關閉視訊」）
             if (callController) {
                 window.closeVideoConsultation();
@@ -317,9 +339,27 @@
         });
     }
 
+    function initRoleGate() {
+        syncVideoEntryVisibility();
+        // 診症表單展開時（使用者登入後才進入診症）再次同步，
+        // 避免自動登入較慢導致按鈕狀態未更新
+        var form = document.getElementById('consultationForm');
+        if (form && !form._videoRoleObserved) {
+            form._videoRoleObserved = true;
+            var observer = new MutationObserver(function () {
+                if (!form.classList.contains('hidden')) syncVideoEntryVisibility();
+            });
+            observer.observe(form, { attributes: true, attributeFilter: ['class'] });
+        }
+    }
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initCopyRoomUrlButton);
+        document.addEventListener('DOMContentLoaded', function () {
+            initCopyRoomUrlButton();
+            initRoleGate();
+        });
     } else {
         initCopyRoomUrlButton();
+        initRoleGate();
     }
 })();

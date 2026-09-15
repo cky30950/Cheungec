@@ -450,20 +450,29 @@
         }
 
         function cleanupSdk() {
+            // 先停止接收斷線後才傳回的事件，避免收尾途中又觸發畫面更新
+            if (client) { try { client.removeAllListeners(); } catch (e) { /* ignore */ } }
+
+            // 立刻關閉音視頻軌道：馬上釋放鏡頭/麥克風（瀏覽器列號燈熄滅）
             var tracks = [localAudio, localVideo].filter(Boolean);
-            var leavePromise = client ? client.leave().catch(function (e) {
-                console.error('[AgoraCall] client.leave 失敗:', e);
-            }) : Promise.resolve();
             tracks.forEach(function (t) { try { t.close(); } catch (e) { /* ignore */ } });
             localAudio = null;
             localVideo = null;
-            return leavePromise.then(function () {
-                if (client) {
-                    client.removeAllListeners();
-                    client = null;
-                }
-                joined = false;
+
+            var clientRef = client;
+            client = null;
+            joined = false;
+
+            if (!clientRef) return Promise.resolve();
+
+            // 網路已斷時，SDK 的 leave（底層 WebSocket）可能數分鐘才逾時。
+            // 本機資源已全部釋放，故最多只等 5 秒即完成掛斷；leave 請求仍在背景繼續，
+            // 網路恢復時伺服器側頻道狀態一樣會清除（且對方端本來就會憑 peer 狀態判斷離線）。
+            var leavePromise = clientRef.leave().catch(function (e) {
+                console.warn('[AgoraCall] client.leave 失敗（多為網路已斷線，可忽略）:', e && e.message ? e.message : e);
             });
+            var guard = new Promise(function (resolve) { setTimeout(resolve, 5000); });
+            return Promise.race([leavePromise, guard]);
         }
 
         function leave() {
