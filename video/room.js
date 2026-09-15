@@ -16,6 +16,11 @@
     var callController = null;
     // 雙方就緒信號控制代碼（VideoPresence），用於在加入 Agora 前等待醫師
     var presence = null;
+    // 加入後遲遲未見醫師的自動掛斷計時器（避免病人單獨在頻道內持續計費）
+    var aloneTimer = null;
+    var ALONE_LIMIT_MS = 90000;
+    // 自動結束等候時要顯示的原因
+    var endReason = '';
     var state = {
         channel: '',
         appointmentId: ''
@@ -95,27 +100,45 @@
             // 醫師畫面佔滿、病人自己的畫面縮小於右上角
             layout: 'spotlight',
             waitingText: '已進入診間，等待醫師加入…',
+            onStatus: function (kind) {
+                // 醫師影像送達 → 取消自動離開計時
+                if (kind === 'connected') clearAloneTimer();
+            },
             onError: function (message) {
                 // 權限／設備錯誤時，回到錯誤頁並顯示具體原因
+                clearAloneTimer();
                 leaveCallScreen();
                 showError(message);
             },
             onLeft: function () {
+                clearAloneTimer();
                 leaveCallScreen();
-                showScreen('ended');
+                if (endReason) {
+                    showError(endReason);
+                    endReason = '';
+                } else {
+                    showScreen('ended');
+                }
             }
         });
 
         showScreen('call');
 
-        // 先在頻道外等待醫師就緒，確認醫師已在線才加入 Agora，
-        // 避免病人單獨在頻道內的等待時間被計入音頻費用。
+        // 病人先在頻道外等醫師就緒；醫師在線後由病人先加入 Agora，
+        // 成功後才以 markJoined 通知醫師加入——醫師端可全程免費等待。
         callController.setStatus('connecting', '等待醫師進入診間…');
 
         function joinNow() {
             // 等待期間若已離開則不再加入
             if (!callController) return;
-            callController.join().catch(function () {
+            callController.join().then(function () {
+                // 已成功進入 Agora：通知醫師「病人上線了」
+                if (presence && typeof presence.markJoined === 'function') {
+                    presence.markJoined();
+                }
+                // 醫師未於 90 秒內出現 → 自動離開停止計費
+                armAloneTimer();
+            }).catch(function () {
                 // 錯誤已由 onError 切換到錯誤頁處理
             });
         }
@@ -131,7 +154,24 @@
         }
     }
 
+    function armAloneTimer() {
+        clearAloneTimer();
+        aloneTimer = setTimeout(function () {
+            if (!callController) return;
+            endReason = '醫師尚未進入診間，等候已結束。請按「重新進入」再試，或聯絡診所。';
+            callController.leave();
+        }, ALONE_LIMIT_MS);
+    }
+
+    function clearAloneTimer() {
+        if (aloneTimer) {
+            clearTimeout(aloneTimer);
+            aloneTimer = null;
+        }
+    }
+
     function leaveCallScreen() {
+        clearAloneTimer();
         if (presence) {
             try { presence.leave(); } catch (e) { /* ignore */ }
             presence = null;

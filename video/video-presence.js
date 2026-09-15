@@ -3,16 +3,22 @@
  * ------------------------------------------------------------
  * 目的：Agora 計費從用戶加入頻道即開始（即使只有單人在頻道內，
  * 亦按音頻分鐘計費）。因此雙方在真正加入 Agora 頻道前，先在
- * Firestore 完成就緒廣播；確認對方也在線後，兩端才幾乎同時
- * join 頻道，把「未連接」的計費時間降到接近零。
+ * Firestore 完成就緒廣播，確認對方也在線後才進入頻道。
+ *
+ * 兩階段信號（進一步把單人在頻道的時間壓到 1~2 秒）：
+ *   1) 心跳就緒：{ at, sid, joined:false } — 頁面已開啟、準備好
+ *   2) 已加入：病人（先進方）client.join 成功後呼叫 markJoined()，
+ *      心跳改寫 { at, sid, joined:true }；醫師端以 requirePeerJoined
+ *      等待此信號，確認病人「真的已在 Agora 頻道內」才加入，
+ *      故醫師端可一直停在免費等待狀態，直到病人真正上線。
  *
  * 機制：
  *   - 雙方共寫同一文件：videoPresence/<頻道名稱>
- *       { doctor: { at: <Firestore 伺服器時間>, sid: <會話識別> },
- *         patient: { at: <Firestore 伺服器時間>, sid: ... } }
- *   - 每 5 秒更新一次自己的心跳，時間一律用 serverTimestamp，
- *     判讀時以同一文件內自己的伺服器時間為基準，完全不受雙方
- *     設備時鐘誤差影響
+ *       { doctor: { at: <Firestore 伺服器時間>, sid, joined },
+ *         patient: { at: <Firestore 伺服器時間>, sid, joined } }
+ *   - 每 5 秒更新一次自己的心跳（就緒後仍持續，直到 leave），
+ *     時間一律用 serverTimestamp，判讀時以同一文件內自己的
+ *     伺服器時間為基準，完全不受雙方設備時鐘誤差影響
  *   - 對方心跳距自己最近一次心跳的伺服器時間在 15 秒內視為在線
  *   - 異常斷線／關閉分頁無法主動清除時，靠心跳停止更新而失效
  *
@@ -58,18 +64,28 @@
      * 廣播自己就緒，並等待對方就緒。
      * @param {string} role 'doctor' | 'patient'
      * @param {string} channel 完整 Agora 頻道名稱
-     * @param {object} [opts] timeoutMs：超時毫秒（逾時 reject PRESENCE_TIMEOUT）
-     * @returns {{ready: Promise, leave: Function}}
+     * @param {object} [opts]
+     *   - timeoutMs：超時毫秒（逾時 reject PRESENCE_TIMEOUT）；0／不設為無限等待
+     *   - requirePeerJoined：true 時除了對方心跳新鮮，還必須對方 joined===true
+     *     （表示對方已成功 join Agora）才 resolve（醫師端使用）
+     * @returns {{ready: Promise, leave: Function, markJoined: Function}}
      */
     function waitPeer(role, channel, opts) {
         opts = opts || {};
         var peerRole = peerRoleOf(role);
         var heartbeatMs = DEFAULT_HEARTBEAT_MS;
         var freshMs = DEFAULT_FRESH_MS;
+        var requirePeerJoined = !!opts.requirePeerJoined;
+        // 過渡相容：對方心跳新鮮但遲遲沒有 joined（舊版客戶端快取），
+        // 寬限到期後仍放行（退回舊版同步加入行為）
+        var joinedGraceMs = typeof opts.requirePeerJoinedGraceMs === 'number'
+            ? opts.requirePeerJoinedGraceMs : 30000;
 
         var settled = false;
+        var joinedFlag = false; // 自己是否已成功加入 Agora（markJoined 後為 true）
         var heartbeatTimer = null;
         var watchdogTimer = null;
+        var graceTimer = null;
         var unsubscribe = null;
         var docRef = null;
         var setDocFn = null;
@@ -78,6 +94,47 @@
         // 最近一次已解析的自己心跳伺服器時間（快照中自己的 serverTimestamp
         // 在下次寫入後會短暫為 null，故保留最後有效值）
         var lastOwnServerTs = null;
+        var sid = String(Date.now()) + '-' + Math.random().toString(36).slice(2, 10);
+
+        function stopTimers() {
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+            if (watchdogTimer) {
+                clearTimeout(watchdogTimer);
+                watchdogTimer = null;
+            }
+            if (graceTimer) {
+                clearTimeout(graceTimer);
+                graceTimer = null;
+            }
+        }
+
+        function stop() {
+            stopTimers();
+            if (unsubscribe) {
+                try { unsubscribe(); } catch (e) { /* ignore */ }
+                unsubscribe = null;
+            }
+        }
+
+        function ownPayload(joined) {
+            var data = {};
+            data[role] = { at: serverTimestampFn(), sid: sid, joined: !!joined };
+            return data;
+        }
+
+        // 自己已成功加入 Agora 頻道：立刻把 joined:true 寫出，
+        // 之後的心跳也維持 joined:true，直到 leave
+        function markJoined() {
+            joinedFlag = true;
+            if (docRef && setDocFn && serverTimestampFn) {
+                setDocFn(docRef, ownPayload(true), { merge: true }).catch(function (err) {
+                    console.warn('[VideoPresence] joined 信號寫入失敗:', err);
+                });
+            }
+        }
 
         var ready = new Promise(function (resolve, reject) {
             var fb = getFirebase();
@@ -90,12 +147,8 @@
             onSnapshotFn = fb.onSnapshot;
             docRef = fb.doc(fb.db, COLLECTION, String(channel));
 
-            var sid = String(Date.now()) + '-' + Math.random().toString(36).slice(2, 10);
-
             function payload() {
-                var data = {};
-                data[role] = { at: serverTimestampFn(), sid: sid };
-                return data;
+                return ownPayload(joinedFlag);
             }
 
             function heartbeatWrite() {
@@ -104,30 +157,17 @@
                 });
             }
 
-            function stopTimers() {
-                if (heartbeatTimer) {
-                    clearInterval(heartbeatTimer);
-                    heartbeatTimer = null;
-                }
-                if (watchdogTimer) {
-                    clearTimeout(watchdogTimer);
-                    watchdogTimer = null;
-                }
-            }
-
-            function stop() {
-                stopTimers();
+            function succeed() {
+                if (settled) return;
+                settled = true;
+                // 條件達成：取消監聽與逾時計時器，但「心跳繼續」——
+                // 對方可能還在 join 途中，需持續看到自己的新鮮心跳與 joined 狀態，
+                // 直到呼叫 leave 才停止。
+                if (watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
                 if (unsubscribe) {
                     try { unsubscribe(); } catch (e) { /* ignore */ }
                     unsubscribe = null;
                 }
-            }
-
-            function succeed() {
-                if (settled) return;
-                settled = true;
-                // 雙方已互相看到：不再需要心跳與監聽（掛斷時 leave 會補記 at:0）
-                stop();
                 resolve();
             }
 
@@ -138,7 +178,8 @@
                 reject(err || new Error('PRESENCE_FAILED'));
             }
 
-            var isFresh = function (data) {
+            // 只判斷對方心跳是否新鮮（joined 條件於快照回呼中另行判斷）
+            var peerFresh = function (data) {
                 if (!data) return false;
                 var own = data[role] || null;
                 var peer = data[peerRole] || null;
@@ -149,6 +190,16 @@
                 return peerTs !== null && lastOwnServerTs !== null &&
                     peerTs >= lastOwnServerTs - freshMs;
             };
+
+            function armJoinedGraceOnce() {
+                if (graceTimer || !joinedGraceMs || joinedGraceMs <= 0) return;
+                graceTimer = setTimeout(function () {
+                    graceTimer = null;
+                    // 對方是舊版客戶端（不會寫 joined）：寬限後放行
+                    console.warn('[VideoPresence] 未收到對方 joined 信號，以相容模式放行');
+                    succeed();
+                }, joinedGraceMs);
+            }
 
             // serverTimestamp 需從 Firestore 模組取得（經 CDN 動態匯入，
             // 與 firebase_init.js 使用同一版本）
@@ -177,7 +228,14 @@
                     function (snap) {
                         if (settled) return;
                         var data = snap && snap.data ? snap.data() : null;
-                        if (isFresh(data)) succeed();
+                        if (!peerFresh(data)) return;
+                        // 對方心跳新鮮：要嘛 joined 已確認，要嘛啟動舊版相容寬限
+                        var peer = data[peerRole] || {};
+                        if (!requirePeerJoined || peer.joined === true) {
+                            succeed();
+                        } else {
+                            armJoinedGraceOnce();
+                        }
                     },
                     function (err) {
                         // 權限不足或網路錯誤等：無法使用信號服務，交由呼叫方退回
@@ -191,18 +249,19 @@
             });
         });
 
-        // 離開／掛斷：停止心跳、取消監聽，並把自己的心跳標記為失效（at:0）
+        // 離開／掛斷：停止心跳、取消監聽，並把自己的心跳標記為失效
         function leave() {
             if (heartbeatTimer || watchdogTimer || unsubscribe) stop();
+            joinedFlag = false;
             var fb = getFirebase();
             if (docRef && fb && typeof fb.setDoc === 'function') {
                 var data = {};
-                data[role] = { at: 0 };
+                data[role] = { at: 0, joined: false };
                 fb.setDoc(docRef, data, { merge: true }).catch(function () { /* ignore */ });
             }
         }
 
-        return { ready: ready, leave: leave };
+        return { ready: ready, leave: leave, markJoined: markJoined };
     }
 
     window.VideoPresence = { waitPeer: waitPeer };

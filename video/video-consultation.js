@@ -18,6 +18,13 @@
     var callController = null;
     // 雙方就緒信號控制代碼（VideoPresence），用於在加入 Agora 前等待病人
     var presence = null;
+    // 面板是否處於開啟狀態（自動重返等待流程時用，避免與手動關閉競態）
+    var panelActive = false;
+    // 自動重返等待中（此時 Agora 的 onLeft 不應關閉面板）
+    var reattaching = false;
+    // 加入後遲遲未見病人的自動離開計時器
+    var aloneTimer = null;
+    var DOCTOR_ALONE_MS = 60000;
 
     function getConfig() {
         return window.AGORA_CONFIG || {};
@@ -163,6 +170,9 @@
         var stage = document.getElementById('videoConsultStage');
         if (!stage) return;
 
+        // 重新進入等待流程前，先結束舊的就緒監聽
+        clearPresence();
+
         callController = window.AgoraCall.create(stage, {
             appId: cfg.APP_ID,
             channel: channel,
@@ -171,40 +181,88 @@
             remoteName: patientName || '病人',
             // 對方畫面佔滿、自己畫面縮小於右上角
             layout: 'spotlight',
-            waitingText: '已就緒，等待病人加入…',
+            // 醫師只在病人已進入頻道後才加入，加入後數秒內會隱藏自己的滿版畫面
+            hideLocalUntilPeer: true,
+            waitingText: '正在與病人連線…',
+            onStatus: function (kind) {
+                // 病人影像送達 → 取消自動離開計時
+                if (kind === 'connected') clearAloneTimer();
+            },
             onError: function (message) {
+                clearAloneTimer();
                 notify(message, 'error');
             },
             onLeft: function () {
+                // 自動重返等待流程造成的 leave，不關面板
+                if (reattaching) return;
                 // 醫師按下掛斷鈕 → 關閉右側視訊面板、還原診症資料版面
                 window.closeVideoConsultation(true);
             }
         });
 
-        // 先在頻道外等待病人就緒，確認病人已在線才加入 Agora，
-        // 避免醫師單獨在頻道內的等待時間被計入音頻費用。
+        panelActive = true;
+
+        // 醫師一直停在頻道外的免費等待狀態：不開鏡頭、不進 Agora，
+        // 直到病人「已成功加入 Agora」（joined 信號）才連接。
         callController.setStatus('connecting', '等待病人進入診間…');
 
         function joinNow() {
             // 等待期間若已關閉面板則不再加入
-            if (!callController) return;
-            callController.join().catch(function () {
+            if (!callController || !panelActive) return;
+            callController.join().then(function () {
+                if (!panelActive) return;
+                // 病人應已在頻道內；60 秒仍未看到病人則自動離開並重返等待
+                armAloneTimer(channel, patientName, doctorName);
+            }).catch(function () {
                 // 錯誤已透過 onError 提示；面板保持開啟以便醫師重試或關閉
             });
         }
 
         if (window.VideoPresence) {
-            presence = window.VideoPresence.waitPeer('doctor', channel, { timeoutMs: 45000 });
-            presence.ready.then(joinNow).catch(function (err) {
-                // 超時或信號服務不可用時退回原行為（直接加入），不阻斷看診
-                if (!err || err.code !== 'PRESENCE_TIMEOUT') {
-                    notify('就緒檢查服務暫不可用，已直接進入診間', 'info');
-                }
+            // 不設逾時：病人不來，醫師就一直免費等下去
+            presence = window.VideoPresence.waitPeer('doctor', channel, { requirePeerJoined: true });
+            presence.ready.then(joinNow).catch(function () {
+                // 只有信號服務故障才退回直接加入（極罕見；避免完全無法看診）
+                notify('就緒檢查服務暫不可用，已直接進入診間', 'info');
                 joinNow();
             });
         } else {
             joinNow();
         }
+    }
+
+    function armAloneTimer(channel, patientName, doctorName) {
+        clearAloneTimer();
+        aloneTimer = setTimeout(function () {
+            beginReattach(channel, patientName, doctorName);
+        }, DOCTOR_ALONE_MS);
+    }
+
+    function clearAloneTimer() {
+        if (aloneTimer) {
+            clearTimeout(aloneTimer);
+            aloneTimer = null;
+        }
+    }
+
+    // 加入後遲遲未見病人（對方加入後當機／斷線）：離開頻道停止計費，
+    // 並自動回到「等待病人進入診間」，病人重新進入時會再次自動接通
+    function beginReattach(channel, patientName, doctorName) {
+        if (!panelActive || !callController || reattaching) return;
+        reattaching = true;
+        clearAloneTimer();
+        var old = callController;
+        callController = null;
+        notify('尚未偵測到病人，已暫時離開頻道，等待病人重新進入…', 'info');
+        old.leave().then(function () {
+            reattaching = false;
+            if (!panelActive) return;
+            createCall(channel, patientName, doctorName);
+        }, function () {
+            reattaching = false;
+            if (!panelActive) return;
+            createCall(channel, patientName, doctorName);
+        });
     }
 
     function clearPresence() {
@@ -274,6 +332,8 @@
         var stage = document.getElementById('videoConsultStage');
 
         var finish = function () {
+            panelActive = false;
+            clearAloneTimer();
             callController = null;
             clearPresence();
             if (stage) stage.innerHTML = '';

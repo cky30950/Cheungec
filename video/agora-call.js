@@ -35,6 +35,8 @@
         '.av-root.av-spotlight .av-grid{gap:0;padding:0;}',
         '.av-root.av-spotlight .av-grid > .av-tile{border-radius:0;}',
         '.av-root.av-spotlight .av-grid video{object-fit:contain;}',
+        // 醫師端：對方抵達前暫時隱藏本機滿版畫面，只留「連線中…」狀態列
+        '.av-root.av-spotlight .av-tile.av-local.av-local-hidden{display:none;}',
         '.av-pips{position:absolute;left:12px;right:12px;top:12px;bottom:88px;z-index:4;pointer-events:none;}',
         // 本機小畫面固定為打直的 9:16 長方框（手機自拍視角），影像置中裁切填滿
         '.av-tile.av-pip{position:absolute;top:0;right:0;width:clamp(84px,22%,140px);aspect-ratio:9/16;border:2px solid rgba(255,255,255,.45);border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.5);pointer-events:auto;background:#000;}',
@@ -316,6 +318,8 @@
             var remoteCount = Object.keys(tiles).length - (tiles.local ? 1 : 0);
             if (joined) {
                 if (remoteCount > 0) {
+                    // 對方已實際接通：顯示本機小畫面（解除加入初期的隱藏）
+                    if (tiles.local) tiles.local.classList.remove('av-local-hidden');
                     emitStatus('connected', '已連線（通話中 ' + (remoteCount + 1) + ' 人）');
                 } else {
                     emitStatus('waiting', options.waitingText || '已進入診間，等待對方加入…');
@@ -423,6 +427,10 @@
                 var localTile = buildTile('local', options.localName || '我', true);
                 localVideo.play(localTile.querySelector('.av-media'), { mirror: true });
                 // 本地音軌不播放，避免自己聽到自己的回音
+
+                // 醫師端在對方實際接通前隱藏自己的滿版畫面（只顯示連線狀態），
+                // track 仍正常發布；evaluateConnection 偵測到對方後解除
+                if (options.hideLocalUntilPeer) localTile.classList.add('av-local-hidden');
 
                 return client.publish([localAudio, localVideo]);
             }).then(function () {
