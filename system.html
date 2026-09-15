@@ -1529,11 +1529,11 @@
                         <!-- 視訊診症面板（右半側，點擊「視訊診症」後顯示） -->
                         <div id="videoConsultPanel" class="hidden min-w-0 flex flex-col h-[60vh] lg:h-[calc(100vh-7.5rem)] lg:sticky lg:top-4 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                             <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
-                                <div class="min-w-0">
-                                    <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
+                                <div class="min-w-0 flex items-center gap-2">
+                                    <h3 class="text-base font-bold text-gray-800 flex items-center gap-2 shrink-0">
                                         <span>📹</span> 視訊診症
                                     </h3>
-                                    <p id="videoConsultSubtitle" class="text-xs text-gray-500 mt-0.5 truncate"></p>
+                                    <span id="videoConsultChannel" class="text-xs text-gray-500 truncate"></span>
                                 </div>
                                 <div class="flex items-center gap-2 shrink-0">
                                     <input type="hidden" id="videoConsultRoomUrl">

@@ -197,13 +197,10 @@
             var patientName = await resolvePatientName(appointment);
             var doctorName = getDoctorName();
 
-            var subtitle = document.getElementById('videoConsultSubtitle');
-
-            if (subtitle) {
-                subtitle.textContent = (patientName ? ('病人：' + patientName + '　') : '') +
-                    '頻道：' + channel +
-                    (doctorName ? ('　' + doctorName) : '');
-            }
+            // 頻道名稱顯示在「視訊診症」標題右側；
+            // 病人名已見於病歷、醫師名已見於視訊畫面，此處不再重複顯示
+            var channelEl = document.getElementById('videoConsultChannel');
+            if (channelEl) channelEl.textContent = '頻道：' + channel;
 
             // 將病人診間連結寫入隱藏欄位，供「診間連結」按鈕複製
             var roomUrl = buildRoomUrl(appointment.id);
