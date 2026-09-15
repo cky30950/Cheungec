@@ -36,12 +36,10 @@
         '.av-root.av-spotlight .av-grid > .av-tile{border-radius:0;}',
         '.av-root.av-spotlight .av-grid video{object-fit:contain;}',
         '.av-pips{position:absolute;left:12px;right:12px;top:12px;bottom:88px;z-index:4;pointer-events:none;}',
-        // PiP 尺寸由 JS 依鏡頭真實寬高比寫入（width/height inline），此處僅保留預設值
-        '.av-tile.av-pip{position:absolute;top:0;right:0;width:clamp(96px,26%,210px);aspect-ratio:16/10;border:2px solid rgba(255,255,255,.45);border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.5);pointer-events:auto;background:#000;}',
+        // 本機小畫面固定為打直的 9:16 長方框（手機自拍視角），影像置中裁切填滿
+        '.av-tile.av-pip{position:absolute;top:0;right:0;width:clamp(84px,22%,140px);aspect-ratio:9/16;border:2px solid rgba(255,255,255,.45);border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.5);pointer-events:auto;background:#000;}',
         '.av-tile.av-pip .av-namebar{display:none;}',
         '.av-tile.av-pip .av-avatar{width:42%;min-width:38px;max-width:64px;font-size:clamp(18px,3vw,28px);}',
-        // 小畫面比例與串流一致（JS 同步外框比例），故用 contain 即可完整顯示
-        '.av-tile.av-pip video{object-fit:contain;}',
         '.av-tile{position:relative;background:#111827;border-radius:12px;overflow:hidden;min-height:0;display:flex;align-items:center;justify-content:center;}',
         '.av-media{position:absolute;inset:0;}',
         '.av-media video{width:100%;height:100%;object-fit:cover;display:block;}',
@@ -132,9 +130,6 @@
         var remoteState = {};    // uid -> {audio:bool, video:bool, name:string}
         var participantCount = 0;
         var leftFired = false;
-        var localVideoEl = null; // 本機 <video> 元素（用於讀取鏡頭真實寬高比）
-        var onLocalVideoMeta = null;
-        var onStageResize = null;
 
         /* ----- DOM ----- */
         container.innerHTML =
@@ -185,15 +180,9 @@
                     if (remoteCount > 0) {
                         if (localTile.parentNode !== pipsLayer) pipsLayer.appendChild(localTile);
                         localTile.classList.add('av-pip');
-                        // 移到小畫面層後依鏡頭真實比例重算外框
-                        sizeLocalPip();
                     } else {
                         if (localTile.parentNode !== grid) grid.appendChild(localTile);
                         localTile.classList.remove('av-pip');
-                        // 回到主畫面：清除小框尺寸，由 grid 拉回滿版
-                        localTile.style.width = '';
-                        localTile.style.height = '';
-                        localTile.style.aspectRatio = '';
                     }
                 }
             } else {
@@ -201,36 +190,6 @@
                 cols = count <= 1 ? 1 : count <= 4 ? 2 : 3;
             }
             grid.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
-        }
-
-        // 依本機鏡頭「真實寬高比」計算小畫面外框：
-        // 直向手機（例如 720x1280）得到直向小框、橫向電腦得到橫向小框，
-        // 外框比例與串流一致，故 contain 可完整顯示自拍畫面而不被裁切。
-        function sizeLocalPip() {
-            if (options.layout !== 'spotlight') return;
-            var localTile = tiles.local;
-            if (!localTile || !localTile.classList.contains('av-pip') || !localVideoEl) return;
-            var vw = localVideoEl.videoWidth;
-            var vh = localVideoEl.videoHeight;
-            if (!vw || !vh) return;
-
-            var layerW = pipsLayer.clientWidth || container.clientWidth || 0;
-            var layerH = pipsLayer.clientHeight || container.clientHeight || 0;
-            if (!layerW || !layerH) return;
-
-            // 寬度上限：舞台寬 26%、最大 210px；高度上限：舞台高 34%
-            var maxW = Math.min(layerW * 0.26, 210);
-            var maxH = layerH * 0.34;
-            var ratio = vw / vh;
-            var w = maxW;
-            var h = w / ratio;
-            if (h > maxH) {
-                h = maxH;
-                w = h * ratio;
-            }
-            localTile.style.width = Math.round(w) + 'px';
-            localTile.style.height = Math.round(h) + 'px';
-            localTile.style.aspectRatio = 'auto';
         }
 
         function setTileName(tile, name, micOn, camOn) {
@@ -465,17 +424,6 @@
                 localVideo.play(localTile.querySelector('.av-media'), { mirror: true });
                 // 本地音軌不播放，避免自己聽到自己的回音
 
-                // 監聽本機影片真實解析度（含手機旋轉導致的直橫向切換），
-                // 據此把小畫面外框調成與鏡頭一致的比例
-                localVideoEl = localTile.querySelector('.av-media video');
-                if (localVideoEl) {
-                    onLocalVideoMeta = function () { sizeLocalPip(); };
-                    localVideoEl.addEventListener('loadedmetadata', onLocalVideoMeta);
-                    localVideoEl.addEventListener('resize', onLocalVideoMeta);
-                }
-                onStageResize = function () { sizeLocalPip(); };
-                window.addEventListener('resize', onStageResize);
-
                 return client.publish([localAudio, localVideo]);
             }).then(function () {
                 evaluateConnection();
@@ -502,17 +450,6 @@
         }
 
         function cleanupSdk() {
-            if (localVideoEl && onLocalVideoMeta) {
-                localVideoEl.removeEventListener('loadedmetadata', onLocalVideoMeta);
-                localVideoEl.removeEventListener('resize', onLocalVideoMeta);
-            }
-            if (onStageResize) {
-                window.removeEventListener('resize', onStageResize);
-            }
-            localVideoEl = null;
-            onLocalVideoMeta = null;
-            onStageResize = null;
-
             var tracks = [localAudio, localVideo].filter(Boolean);
             var leavePromise = client ? client.leave().catch(function (e) {
                 console.error('[AgoraCall] client.leave 失敗:', e);
