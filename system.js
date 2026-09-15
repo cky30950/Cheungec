@@ -13044,6 +13044,8 @@ if (!patient) {
             const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
             const clinicLabel = dict['診所：'] || '診所：';
             const hideDoctorInfo = shouldHideGeneralRegistrationDoctorInfo(consultation, null);
+            // 沒有開藥的已完成病歷，不顯示處方內容與服用方法欄位
+            const hasPrescribedMedication = consultationHasPrescription(consultation);
             const generalRegistrationBadge = isGeneralRegistrationConsultation(consultation)
                 ? `<span class="text-sm text-purple-700 bg-purple-50 px-3 py-1 rounded-full border border-purple-100 shadow-sm">${window.escapeHtml(getGeneralRegistrationSourceLabel(String(lang).toLowerCase().startsWith('en')))}</span>`
                 : '';
@@ -13190,6 +13192,7 @@ if (!patient) {
                             </div>
                             
                             <div class="space-y-4">
+                                ${hasPrescribedMedication ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>
                                     ${(() => {
@@ -13267,6 +13270,7 @@ if (!patient) {
                                         </div>
                                     `;
                                 })()}
+                                ` : ''}
                                 
                                 ${consultation.treatmentCourse ? `
                                 <div>
@@ -13491,6 +13495,8 @@ async function displayConsultationMedicalHistoryPage() {
     const recordNumberLabel = dict['病歷編號：'] || '病歷編號：';
     const clinicLabel = dict['診所：'] || '診所：';
     const hideDoctorInfo = shouldHideGeneralRegistrationDoctorInfo(consultation, null);
+    // 沒有開藥的已完成病歷，不顯示處方內容與服用方法欄位
+    const hasPrescribedMedication = consultationHasPrescription(consultation);
     const generalRegistrationBadge = isGeneralRegistrationConsultation(consultation)
         ? `<span class="text-sm text-purple-700 bg-purple-50 px-3 py-1 rounded-full border border-purple-100 shadow-sm">${window.escapeHtml(getGeneralRegistrationSourceLabel(String(lang).toLowerCase().startsWith('en')))}</span>`
         : '';
@@ -13632,6 +13638,7 @@ async function displayConsultationMedicalHistoryPage() {
                             </div>
                             
                             <div class="space-y-4">
+                                ${hasPrescribedMedication ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>
                                     ${(() => {
@@ -13665,9 +13672,11 @@ async function displayConsultationMedicalHistoryPage() {
                                         return `<div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 medical-field">${html}</div>`;
                                     })()}
                                 </div>
+                                ` : ''}
                                 
                                 ${(() => {
-                                    let showBlock = !!consultation.prescription || !!consultation.multiPrescriptions || !!consultation.usage;
+                                    // 沒有開藥的病歷連同服用方法欄位一併隱藏
+                                    let showBlock = hasPrescribedMedication;
                                     if (!showBlock) return '';
                                     let medInfoHtml = '';
                                     try {
@@ -15468,6 +15477,41 @@ async function printSickLeave(consultationId, consultationData = null) {
     }
 }
 
+/**
+ * 判斷已完成病歷是否實際有開立藥物（處方）。
+ * 依次檢查多處方結構、舊版結構化處方與舊版文字處方；
+ * 只有空白處方區塊或完全無處方資料時視為「沒有開藥」
+ * （例如只做針灸、單純醫囑回診的病歷）。
+ * 診症記錄畫面與藥單醫囑列印皆以此決定是否顯示處方內容／服用方法（服藥資訊）欄位。
+ */
+function consultationHasPrescription(consultation) {
+    if (!consultation) return false;
+    const hasNamedItems = (arr) => Array.isArray(arr) &&
+        arr.some(it => it && String(it.name || '').trim() !== '');
+    // 1. 多處方完整結構：任一處方區塊含有具名藥材／方劑項目
+    if (consultation.multiPrescriptions) {
+        try {
+            const mp = JSON.parse(consultation.multiPrescriptions);
+            if (Array.isArray(mp) && mp.some(sec => sec && hasNamedItems(sec.items))) {
+                return true;
+            }
+        } catch (_e) { /* 解析失敗則繼續檢查其他來源 */ }
+    }
+    // 2. 舊版結構化處方
+    if (consultation.prescriptionStructured) {
+        try {
+            if (hasNamedItems(JSON.parse(consultation.prescriptionStructured))) {
+                return true;
+            }
+        } catch (_e) { /* 忽略解析錯誤 */ }
+    }
+    // 3. 舊版文字處方
+    if (typeof consultation.prescription === 'string' && consultation.prescription.trim() !== '') {
+        return true;
+    }
+    return false;
+}
+
 // 新增：從掛號記錄列印方藥醫囑
 async function printPrescriptionInstructionsFromAppointment(appointmentId) {
     const appointment = appointments.find(apt => apt && String(apt.id) === String(appointmentId));
@@ -15790,6 +15834,8 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
             // 無處方內容
             prescriptionHtml = '無記錄';
         }
+        // 是否實際有開立藥物：沒有開藥時，藥單醫囑不顯示處方內容與服藥資訊欄位
+        const hasPrescribedMedication = consultationHasPrescription(consultation);
         // 語言設定
         const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
         const isEnglish = lang === 'en';
@@ -15856,9 +15902,10 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
             if (consultation.usage) {
                 medInfoHtml += `<strong>${isEnglish ? 'Usage' : '服用方法'}${colon}</strong>${consultation.usage}`;
             }
-            if (!consultation.prescription || (typeof consultation.prescription === 'string' && consultation.prescription.trim() === '')) {
-                medInfoHtml = '';
-            }
+        }
+        // 沒有開藥時，服藥資訊（服藥天數／每日次數／服用方法）整段不顯示
+        if (!hasPrescribedMedication) {
+            medInfoHtml = '';
         }
         // 醫囑及注意事項
         const instructionsHtml = consultation.instructions ? consultation.instructions.replace(/\n/g, '<br>') : '';
@@ -16037,8 +16084,8 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                         })()}
                         ${consultation.diagnosis ? `<div class="info-row"><span class="info-label">${PI.diagnosis}${colon}</span><span>${consultation.diagnosis}</span></div>` : ''}
                     </div>
-                    <div class="section-title">${PI.prescriptionContent}</div>
-                    <div class="section-content">${prescriptionHtml}</div>
+                    ${hasPrescribedMedication ? `<div class="section-title">${PI.prescriptionContent}</div>
+                    <div class="section-content">${prescriptionHtml}</div>` : ''}
                     ${medInfoHtml ? `<div class="section-title">${PI.medicationInfo}</div><div class="section-content">${medInfoHtml}</div>` : ''}
                     ${instructionsHtml ? `<div class="section-title">${PI.instructions}</div><div class="section-content">${instructionsHtml}</div>` : ''}
                     ${followUpHtml ? `<div class="section-title">${PI.followUp}</div><div class="section-content">${followUpHtml}</div>` : ''}
@@ -30831,7 +30878,8 @@ async function viewMedicalRecord(recordId, buttonEl = null) {
         detailHtml += '</div>'; // 左欄結束
         // 右欄：處方與用法
         detailHtml += '<div class="space-y-4">';
-        // 處方內容
+        // 處方內容與服用方法：沒有開藥的病歷不顯示這兩個欄位
+        if (consultationHasPrescription(rec)) {
         detailHtml += '<div>';
         detailHtml += '<span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>';
         (function () {
@@ -30907,6 +30955,7 @@ async function viewMedicalRecord(recordId, buttonEl = null) {
             detailHtml += `<div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${medInfoHtml || '無記錄'}</div>`;
             detailHtml += '</div>';
         })();
+        }
         // 療程
         if (rec.treatmentCourse) {
             detailHtml += '<div>';
