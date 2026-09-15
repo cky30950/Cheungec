@@ -1,0 +1,8 @@
+firebaseConfig.js
+.env
+.dev.vars
+
+# 忽略系統產生的檔案
+node_modules/
+.DS_Store
+.wrangler/
