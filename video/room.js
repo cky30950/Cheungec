@@ -90,6 +90,8 @@
             tokenUrl: cfg.TOKEN_URL || '',
             localName: '我',
             remoteName: '醫師',
+            // 醫師畫面佔滿、病人自己的畫面縮小於右上角
+            layout: 'spotlight',
             waitingText: '已進入診間，等待醫師加入…',
             onError: function (message) {
                 // 權限／設備錯誤時，回到錯誤頁並顯示具體原因

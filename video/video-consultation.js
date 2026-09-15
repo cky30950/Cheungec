@@ -16,7 +16,6 @@
     'use strict';
 
     var callController = null;
-    var joinModeLabel = '';
 
     function getConfig() {
         return window.AGORA_CONFIG || {};
@@ -81,8 +80,12 @@
 
     function getDoctorName() {
         try {
-            if (typeof currentUserData !== 'undefined' && currentUserData && currentUserData.username) {
-                return currentUserData.username;
+            if (typeof currentUserData !== 'undefined' && currentUserData) {
+                // 顯示用戶全名並加上「醫師」，例：陳大文醫師
+                var fullName = String(currentUserData.name || currentUserData.username || '').trim();
+                if (fullName) {
+                    return /醫師$/.test(fullName) ? fullName : fullName + '醫師';
+                }
             }
         } catch (e) { /* ignore */ }
         return '醫師';
@@ -100,11 +103,6 @@
         } else {
             notify(message, 'error');
         }
-    }
-
-    function setHeaderStatus(suffix) {
-        var status = document.getElementById('videoConsultStatus');
-        if (status) status.textContent = joinModeLabel + (suffix ? '　·　' + suffix : '');
     }
 
     // 切換「診症資料在左、視訊畫面在右（各佔一半）」的嵌入版面
@@ -156,9 +154,6 @@
             // 對方畫面佔滿、自己畫面縮小於右上角
             layout: 'spotlight',
             waitingText: '已就緒，等待病人加入…',
-            onStatus: function (kind, text) {
-                setHeaderStatus(text);
-            },
             onError: function (message) {
                 notify(message, 'error');
             },
@@ -203,21 +198,16 @@
             var doctorName = getDoctorName();
 
             var subtitle = document.getElementById('videoConsultSubtitle');
-            var status = document.getElementById('videoConsultStatus');
 
             if (subtitle) {
                 subtitle.textContent = (patientName ? ('病人：' + patientName + '　') : '') +
                     '頻道：' + channel +
-                    (doctorName ? ('　醫師：' + doctorName) : '');
+                    (doctorName ? ('　' + doctorName) : '');
             }
-            joinModeLabel = cfg.TOKEN_URL ? 'Token 認證模式' : '測試模式（無 Token）';
-            if (status) status.textContent = joinModeLabel + '　·　連線中…';
 
-            // 更新病人「進入診間」連結
+            // 將病人診間連結寫入隱藏欄位，供「診間連結」按鈕複製
             var roomUrl = buildRoomUrl(appointment.id);
-            var roomLink = document.getElementById('videoConsultRoomLink');
             var roomUrlInput = document.getElementById('videoConsultRoomUrl');
-            if (roomLink) roomLink.href = roomUrl;
             if (roomUrlInput) roomUrlInput.value = roomUrl;
 
             // 顯示右半側視訊面板，診症資料順移至左半側
@@ -255,9 +245,33 @@
         }
     };
 
-    // 綁定「複製連結」按鈕
+    // 以非同步剪貼簿 API 為主，舊瀏覽器／非安全來源用暫存 textarea 備援
+    function copyText(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(text);
+        }
+        return new Promise(function (resolve, reject) {
+            try {
+                var ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.top = '-9999px';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                var ok = document.execCommand('copy');
+                document.body.removeChild(ta);
+                ok ? resolve() : reject(new Error('execCommand failed'));
+            } catch (e) {
+                reject(e);
+            }
+        });
+    }
+
+    // 綁定面板頂部「診間連結」按鈕：點擊複製病人診間網址
     function initCopyRoomUrlButton() {
-        var btn = document.getElementById('copyRoomUrlBtn');
+        var btn = document.getElementById('roomLinkBtn');
         if (!btn) return;
         btn.addEventListener('click', async function () {
             var input = document.getElementById('videoConsultRoomUrl');
@@ -267,20 +281,10 @@
                 return;
             }
             try {
-                if (navigator.clipboard && window.isSecureContext) {
-                    await navigator.clipboard.writeText(text);
-                } else {
-                    // 舊瀏覽器／非安全來源的備援方式
-                    input.removeAttribute('readonly');
-                    input.select();
-                    document.execCommand('copy');
-                    input.setAttribute('readonly', 'readonly');
-                    input.blur();
-                }
+                await copyText(text);
                 notify('已複製病人診間連結，可直接傳送給病人', 'success');
             } catch (error) {
-                input.select();
-                notify('複製失敗，請手動選取網址複製', 'error');
+                notify('複製失敗，請稍後再試', 'error');
             }
         });
     }
