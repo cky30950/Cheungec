@@ -293,15 +293,58 @@ async function getGoogleAccessToken(cfg) {
 
 // ─────────────────── Firebase ID token 驗證（職員） ─────────────────
 
+// 非敏感的 token 形狀診斷（不含內容，只看結構）
+function idTokenShape(idToken) {
+  const parts = String(idToken).split('.');
+  let alg = null;
+  try {
+    const headerJson = JSON.parse(decodeBase64Url(parts[0]));
+    alg = headerJson.alg || null;
+  } catch (_e) { /* header 無法解析時保持 null */ }
+  return {
+    length: String(idToken).length,
+    segments: parts.length,
+    alg,
+    hasWhitespace: /\s/.test(String(idToken))
+  };
+}
+
+function decodeBase64Url(s) {
+  const m = String(s).replace(/-/g, '+').replace(/_/g, '/');
+  const padded = m + '='.repeat((4 - (m.length % 4)) % 4);
+  const bin = atob(padded);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
 async function verifyStaffIdToken(accessToken, projectId, idToken) {
   if (!idToken) return { error: jsonResponse({ ok: false, error: 'NO_ID_TOKEN' }, 401) };
+
+  const shape = idTokenShape(idToken);
+  // Firebase ID token 是三段 RS256 JWT，長度通常 700～1300
+  if (shape.segments !== 3 || shape.alg !== 'RS256' || shape.length < 200) {
+    return { error: jsonResponse({
+      ok: false,
+      error: 'ID_TOKEN_MALFORMED',
+      detail: shape
+    }, 401) };
+  }
 
   const verifyResp = await fetch(
     'https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=' + encodeURIComponent(idToken)
   );
-  const info = await verifyResp.json();
+  const info = await verifyResp.json().catch(() => ({}));
   if (!verifyResp.ok || info.error) {
-    return { error: jsonResponse({ ok: false, error: 'ID_TOKEN_INVALID' }, 401) };
+    return { error: jsonResponse({
+      ok: false,
+      error: 'ID_TOKEN_INVALID',
+      detail: {
+        googleStatus: verifyResp.status,
+        googleError: info.error || null,
+        googleDescription: info.error_description || null
+      }
+    }, 401) };
   }
   if (info.aud !== projectId) {
     return { error: jsonResponse({ ok: false, error: 'ID_TOKEN_AUDIENCE_MISMATCH' }, 401) };
