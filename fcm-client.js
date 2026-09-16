@@ -223,8 +223,8 @@
   function setupTokenRefreshListener(swReg) {
     try {
       if (!('serviceWorker' in navigator)) return;
+      // Service Worker 發訊息通知刷新（例如 pushsubscriptionchange 時）
       navigator.serviceWorker.addEventListener('message', function (event) {
-        // Service Worker 有變化時重新取 token
         if (event.data && event.data.type === 'FCM_TOKEN_REFRESH') {
           console.log('[FCM] Service Worker 要求刷新 token…');
           getToken(swReg).then(function (newToken) {
@@ -237,20 +237,6 @@
           });
         }
       });
-      // 瀏覽器 push 訂閱變更時也重新取 token
-      if (swReg && swReg.pushManager) {
-        swReg.pushManager.addEventListener('pushsubscriptionchange', function () {
-          console.log('[FCM] pushsubscriptionchange：重新取得 token');
-          getToken(swReg).then(function (newToken) {
-            currentToken = newToken;
-            if (currentUserUid) {
-              saveTokenToFirestore(newToken, currentUserUid);
-            }
-          }).catch(function (err) {
-            console.warn('[FCM] pushsubscriptionchange 後取 token 失敗：', err);
-          });
-        });
-      }
     } catch (err) {
       console.warn('[FCM] token refresh listener 設定失敗：', err);
     }
