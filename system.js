@@ -6122,6 +6122,15 @@ async function syncUserDataFromFirebase(options = {}) {
                 const msg = lang === 'en' ? enMsg : zhMsg;
                 showToast(msg, 'success');
             }
+            
+            // ── FCM Cloud Messaging：登入後請求通知權限並註冊 token ──
+            try {
+                if (window.FCM && typeof window.FCM.initAfterAuth === 'function') {
+                    window.FCM.initAfterAuth(user);
+                }
+            } catch (_fcmErr) {
+                // FCM 失敗不阻斷登入流程
+            }
         }
 
         
@@ -6152,6 +6161,13 @@ async function logout() {
         } catch (chatErr) {
             console.error('銷毀聊天模組失敗:', chatErr);
         }
+        
+        // ── FCM Cloud Messaging：登出前清除本機 token ──
+        try {
+            if (window.FCM && typeof window.FCM.handleLogout === 'function') {
+                window.FCM.handleLogout();
+            }
+        } catch (_fcmErr) {}
         
         if (window.firebase && window.firebase.auth) {
             await window.firebase.signOut(window.firebase.auth);
@@ -9691,6 +9707,21 @@ function subscribeToAppointments() {
                                 const msg = lang === 'en' ? enMsg : zhMsg;
                                 showToast(msg, 'info');
                                 playNotificationSound();
+                                
+                                // ── FCM：推播通知所有 staff（護理師/診所管理/診所助理） ──
+                                try {
+                                    if (window.FCM && typeof window.FCM.notifyStaff === 'function') {
+                                        window.FCM.notifyStaff(
+                                            lang === 'en' ? 'New patient waiting' : '病人候診通知',
+                                            msg,
+                                            {
+                                                tag: 'patient-waiting-' + (apt.id || ''),
+                                                type: 'patient-waiting',
+                                                appointmentId: apt.id || ''
+                                            }
+                                        ).catch(function (_err) { /* 推播失敗不阻斷 */ });
+                                    }
+                                } catch (_fcmErr) {}
                             }
                         }
                     }
@@ -9735,6 +9766,21 @@ function subscribeToAppointments() {
                         const msg = lang === 'en' ? enMsg : zhMsg;
                         showToast(msg, 'info');
                         playNotificationSound();
+                        
+                        // ── FCM：推播通知所有 staff（護理師/診所管理/診所助理） ──
+                        try {
+                            if (window.FCM && typeof window.FCM.notifyStaff === 'function') {
+                                window.FCM.notifyStaff(
+                                    lang === 'en' ? 'Consultation completed' : '診症完成通知',
+                                    msg,
+                                    {
+                                        tag: 'consultation-completed-' + (apt.id || ''),
+                                        type: 'consultation-completed',
+                                        appointmentId: apt.id || ''
+                                    }
+                                ).catch(function (_err) { /* 推播失敗不阻斷 */ });
+                            }
+                        } catch (_fcmErr) {}
                     }
                 }
             }
