@@ -9798,66 +9798,71 @@ function subscribeToAppointments() {
                 // 更新狀態紀錄
                 window.previousAppointmentStatuses[apt.id] = apt.status;
             }
-            // 如果有需要通知的掛號並且目前使用者是醫師
-            if (toNotify.length > 0 && currentUserData && currentUserData.position === '醫師') {
+            // ── 候診事件 ─────────────────────────────────────────────
+            // FCM 派發：任何觀察到狀態變化的職員分頁都負責發送給該診醫師
+            // （護理師/管理者按「確認到達」時同樣會觸發；伺服器以 eventId 去重）。
+            // 本機 toast 音效：僅該掛號醫師本人看到。
+            if (toNotify.length > 0) {
                 let patientsList = null;
+                const isDoctor = currentUserData && currentUserData.position === '醫師';
                 for (const apt of toNotify) {
-                    // 僅通知該醫師所屬的掛號
-                    if (canDoctorViewAppointment(apt, currentUserData.username)) {
-                        // 優先使用掛號物件中的病人姓名
-                        let patientName = '';
-                        if (apt.patientName) {
-                            patientName = apt.patientName;
-                        } else {
-                            // 僅當缺少 patientName 時才讀取一次完整病人列表
-                            if (!patientsList) {
+                    // 優先使用掛號物件中的病人姓名
+                    let patientName = '';
+                    if (apt.patientName) {
+                        patientName = apt.patientName;
+                    } else {
+                        // 僅當缺少 patientName 時才讀取一次完整病人列表
+                        if (!patientsList) {
+                            try {
+                                patientsList = await fetchPatients();
+                            } catch (fetchErr) {
+                                console.error('讀取病人資料以取得姓名時發生錯誤:', fetchErr);
+                            }
+                        }
+                        if (Array.isArray(patientsList)) {
+                            let patient = patientsList.find(p => p && p.id === apt.patientId);
+                            // 若未找到，嘗試跨裝置刷新取得病人資料
+                            if (!patient) {
                                 try {
-                                    patientsList = await fetchPatients();
-                                } catch (fetchErr) {
-                                    console.error('讀取病人資料以取得姓名時發生錯誤:', fetchErr);
+                                    patient = await getPatientByIdWithRefresh(apt.patientId);
+                                } catch (_e) {
+                                    patient = null;
                                 }
                             }
-                            if (Array.isArray(patientsList)) {
-                                let patient = patientsList.find(p => p && p.id === apt.patientId);
-                                // 若未找到，嘗試跨裝置刷新取得病人資料
-                                if (!patient) {
-                                    try {
-                                        patient = await getPatientByIdWithRefresh(apt.patientId);
-                                    } catch (_e) {
-                                        patient = null;
-                                    }
-                                }
-                                patientName = patient ? patient.name : '';
-                            }
+                            patientName = patient ? patient.name : '';
                         }
-                        if (patientName) {
-                            // 顯示提示並播放音效
-                            {
-                                // FCM 推播給該診醫師（含本機離線／其他裝置）；
-                                // 本機即將顯示同名站內通知，先登記去重，避免前景重複 toast
-                                let _waitingEventId = '';
-                                try { _waitingEventId = sendWaitingPush(apt, patientName); } catch (_e) {}
-                                if (_waitingEventId && window.FCMClient) {
-                                    window.FCMClient.markEventSeen(_waitingEventId);
-                                }
-                                // Notify that the patient has entered the waiting state, with translation
-                                const lang = localStorage.getItem('lang') || 'zh';
-                                const zhMsg = `病人 ${patientName} 已進入候診中，請準備診症。`;
-                                const enMsg = `Patient ${patientName} has entered the waiting state, please prepare for consultation.`;
-                                const msg = lang === 'en' ? enMsg : zhMsg;
-                                showToast(msg, 'info');
-                                playNotificationSound();
-                            }
+                    }
+                    if (!patientName) continue;
+
+                    // FCM 推播給該診醫師（所有職員分頁皆派發，醫師本人分頁於函式內自行跳過）
+                    let _waitingEventId = '';
+                    try { _waitingEventId = sendWaitingPush(apt, patientName); } catch (_e) {}
+
+                    // 本機提示僅該掛號醫師看到
+                    if (isDoctor && canDoctorViewAppointment(apt, currentUserData.username)) {
+                        // 本機即將顯示同名站內通知，先登記去重，避免前景 FCM toast 重複
+                        if (_waitingEventId && window.FCMClient) {
+                            window.FCMClient.markEventSeen(_waitingEventId);
                         }
+                        // Notify that the patient has entered the waiting state, with translation
+                        const lang = localStorage.getItem('lang') || 'zh';
+                        const zhMsg = `病人 ${patientName} 已進入候診中，請準備診症。`;
+                        const enMsg = `Patient ${patientName} has entered the waiting state, please prepare for consultation.`;
+                        const msg = lang === 'en' ? enMsg : zhMsg;
+                        showToast(msg, 'info');
+                        playNotificationSound();
                     }
                 }
             }
 
-            // 如果有診症完成通知，且目前使用者為護理師、診所管理或診所助理，則提示並播放音效
-            if (completedNotify.length > 0 && currentUserData && currentUserData.position && ['護理師', '診所管理', '診所助理'].includes(currentUserData.position)) {
+            // ── 診症完成事件 ─────────────────────────────────────────
+            // FCM 派發：任何觀察到完成狀態的職員分頁都負責發送（醫師完成診症時，
+            // 就是由醫師分頁發給護理師/助理）；本機 toast 僅護理/助理/管理看到。
+            if (completedNotify.length > 0) {
                 let patientsList2 = null;
+                const isNursingStaff = !!(currentUserData && currentUserData.position &&
+                    ['護理師', '診所管理', '診所助理'].includes(currentUserData.position));
                 for (const apt of completedNotify) {
-                    // 僅通知該完成事件
                     // 優先使用掛號物件中的病人姓名
                     let patientName = '';
                     if (apt.patientName) {
@@ -9884,10 +9889,15 @@ function subscribeToAppointments() {
                             patientName = patient ? patient.name : '';
                         }
                     }
-                    if (patientName) {
-                        // FCM 推播給護理師／助理（含離線裝置）；登記去重避免前景重複 toast
-                        let _completedEventId = '';
-                        try { _completedEventId = sendCompletedPush(apt, patientName); } catch (_e) {}
+                    if (!patientName) continue;
+
+                    // FCM 推播給護理師／助理（含離線裝置）
+                    let _completedEventId = '';
+                    try { _completedEventId = sendCompletedPush(apt, patientName); } catch (_e) {}
+
+                    // 本機提示僅護理師／診所管理／診所助理看到
+                    if (isNursingStaff) {
+                        // 登記去重避免前景 FCM toast 重複
                         if (_completedEventId && window.FCMClient) {
                             window.FCMClient.markEventSeen(_completedEventId);
                         }

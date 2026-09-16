@@ -651,23 +651,29 @@ function buildOrigin(request) {
 
 async function sendOne(accessToken, projectId, entry, title, body, data, origin) {
   const link = data.url || (origin ? `${origin}/system.html` : '/system.html');
+  // web 端通知選項（遵循 Web Notification API，title 為必要欄位）
+  const webNotification = {
+    title,
+    body,
+    tag: data.eventId || undefined,
+    requireInteraction: false
+  };
+  if (origin) {
+    webNotification.icon = `${origin}/images/myLogo.png`;
+    webNotification.badge = `${origin}/images/myLogo.png`;
+  }
   const message = {
     token: entry.token,
     notification: { title, body },
     data: data,
     webpush: {
       headers: { Urgency: 'high', TTL: '3600' },
-      notification: {
-        icon: origin ? `${origin}/images/myLogo.png` : undefined,
-        badge: origin ? `${origin}/images/myLogo.png` : undefined
-      },
+      notification: webNotification,
       fcm_options: { link }
     },
     android: { priority: 'HIGH', ttl: '3600s' }
   };
-  // 移除 undefined
-  if (!message.webpush.notification.icon) delete message.webpush.notification.icon;
-  if (!message.webpush.notification.badge) delete message.webpush.notification.badge;
+  if (!webNotification.tag) delete webNotification.tag;
 
   const resp = await fetch(
     `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
@@ -684,13 +690,18 @@ async function sendOne(accessToken, projectId, entry, title, body, data, origin)
   if (resp.ok) return { ok: true };
   let errJson = {};
   try { errJson = await resp.json(); } catch (_e) {}
-  const status = (errJson.error && errJson.error.status) || '';
-  // 失效／不符的 token → 自清
-  const removable = ['NOT_FOUND', 'UNREGISTERED', 'SENDER_ID_MISMATCH', 'INVALID_ARGUMENT'];
-  if (resp.status === 404 || removable.includes(status)) {
-    return { ok: false, dead: true, status: status || resp.status };
+  const errObj = errJson.error || {};
+  const status = errObj.status || '';
+  const errMessage = errObj.message || '';
+  // 明確指向「token 失效」的錯誤才自清；
+  // 注意 INVALID_ARGUMENT 可能是訊息格式錯誤而非 token 問題，不可誤刪有效 token
+  const tokenDead = resp.status === 404 ||
+    ['NOT_FOUND', 'UNREGISTERED', 'SENDER_ID_MISMATCH'].includes(status) ||
+    (status === 'INVALID_ARGUMENT' && /registration token|not a valid|invalid token/i.test(errMessage));
+  if (tokenDead) {
+    return { ok: false, dead: true, status: status || resp.status, message: errMessage };
   }
-  return { ok: false, status: status || resp.status, message: errJson.error && errJson.error.message };
+  return { ok: false, status: status || resp.status, message: errMessage };
 }
 
 async function dispatch(accessToken, projectId, request, entries, title, body, data) {
@@ -698,6 +709,7 @@ async function dispatch(accessToken, projectId, request, entries, title, body, d
   let sent = 0;
   let failed = 0;
   const removed = [];
+  const failures = [];
 
   await Promise.all(entries.map(async (entry) => {
     const result = await sendOne(accessToken, projectId, entry, title, body, data, origin);
@@ -708,11 +720,14 @@ async function dispatch(accessToken, projectId, request, entries, title, body, d
       removed.push(entry.token);
     } else {
       failed += 1;
+      failures.push({ uid: String(entry.uid || '').slice(0, 8), status: result.status, message: result.message });
       console.warn('[FCM] 發送失敗:', entry.uid, result.status, result.message || '');
     }
   }));
 
-  return { ok: true, sent, failed, removed: removed.length };
+  const summary = { ok: true, sent, failed, removed: removed.length };
+  if (failures.length > 0) summary.failures = failures;
+  return summary;
 }
 
 // ──────────────────── 路由 A：職員主動派發通知 ────────────────────
