@@ -73,11 +73,17 @@ export async function onRequestPost(context) {
     return jsonResponse({ ok: false, error: 'UNKNOWN_ACTION' }, 404);
   } catch (err) {
     console.error('[FCM] 未預期錯誤:', err);
-    return jsonResponse({
+    const code = String((err && (err.code || err.message)) || 'INTERNAL_ERROR');
+    const response = {
       ok: false,
-      error: 'INTERNAL_ERROR',
-      message: String((err && err.message) || err)
-    }, 500);
+      error: code,
+      message: code.startsWith('PRIVATE_KEY')
+        ? 'Cloudflare 環境變數 FCM_PRIVATE_KEY 格式不正確，請刪除後重新貼上（含 BEGIN/END 標記的完整內容）。'
+        : String((err && err.message) || err)
+    };
+    // 金鑰診斷資訊不含私鑰內容，可安全回傳
+    if (err && err.detail) response.detail = err.detail;
+    return jsonResponse(response, 500);
   }
 }
 
@@ -144,15 +150,79 @@ function base64url(bytes) {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+// 將 Cloudflare 環境變數中的私鑰字串正規化為標準 PEM。
+// 常見貼入變形：含字面 \n、首尾被 JSON 引號包住、誤貼整個
+// "private_key": "..." 欄位、CRLF、BOM／零寬字元、換行被壓成空白。
+function normalizePrivateKey(raw) {
+  let key = String(raw == null ? '' : raw);
+
+  // 誤貼整個 JSON 欄位：擷取引號內的值
+  const fieldMatch = key.match(/"?(?:private_key|privateKey)"?\s*:\s*"([\s\S]+?)"\s*,?\s*$/);
+  if (fieldMatch) key = fieldMatch[1];
+
+  // 去除 BOM 與首尾空白
+  key = key.replace(/^\uFEFF/, '').trim();
+
+  // 去除成對首尾引號（單引號或雙引號）
+  if (key.length >= 2 &&
+      ((key.startsWith('"') && key.endsWith('"')) ||
+       (key.startsWith("'") && key.endsWith("'")))) {
+    key = key.slice(1, -1);
+  }
+
+  // 字面 \r\n / \n / \r → 真實換行，再統一所有換行格式
+  key = key
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\n')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+
+  return key.trim();
+}
+
+function privateKeyDiagnostics(key) {
+  return {
+    hasBegin: /-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(key),
+    hasEnd: /-----END [A-Z ]*PRIVATE KEY-----/.test(key),
+    bodyLength: key
+      .replace(/-----[A-Z ]*PRIVATE KEY-----/g, '')
+      .replace(/\s+/g, '').length
+  };
+}
+
 function pemToPkcs8(pem) {
-  const normalized = String(pem).replace(/\\n/g, '\n');
-  const base64 = normalized
-    .replace(/-----BEGIN PRIVATE KEY-----/g, '')
-    .replace(/-----END PRIVATE KEY-----/g, '')
-    .replace(/-----BEGIN RSA PRIVATE KEY-----/g, '')
-    .replace(/-----END RSA PRIVATE KEY-----/g, '')
-    .replace(/\s+/g, '');
-  const binary = atob(base64);
+  const normalized = normalizePrivateKey(pem);
+  const diag = privateKeyDiagnostics(normalized);
+
+  // 取出 base64 本體：移除 PEM 標記、所有空白與不可見字元（BOM、NBSP、零寬）
+  let base64 = normalized
+    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----/g, '')
+    .replace(/-----END [A-Z ]*PRIVATE KEY-----/g, '')
+    .replace(/[\s\u00A0\u200B-\u200F\u202A-\u202E\uFEFF]/g, '');
+
+  // 萬一貼入的是 base64url，轉回標準 base64 並補齊 padding
+  base64 = base64.replace(/-/g, '+').replace(/_/g, '/');
+  while (base64.length % 4 !== 0) base64 += '=';
+
+  if (!diag.hasBegin || !diag.hasEnd ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(base64) || base64.length < 100) {
+    const err = new Error('PRIVATE_KEY_FORMAT_INVALID');
+    err.code = 'PRIVATE_KEY_FORMAT_INVALID';
+    // 只回傳非敏感的診斷資訊（不含金鑰內容）
+    err.detail = diag;
+    throw err;
+  }
+
+  let binary;
+  try {
+    binary = atob(base64);
+  } catch (_e) {
+    const err = new Error('PRIVATE_KEY_BASE64_DECODE_FAILED');
+    err.code = 'PRIVATE_KEY_BASE64_DECODE_FAILED';
+    err.detail = diag;
+    throw err;
+  }
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
@@ -160,13 +230,25 @@ function pemToPkcs8(pem) {
 
 async function signJwtRs256(privateKeyPem, signingInput) {
   const keyData = pemToPkcs8(privateKeyPem);
-  const key = await crypto.subtle.importKey(
-    'pkcs8',
-    keyData,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
+  let key;
+  try {
+    key = await crypto.subtle.importKey(
+      'pkcs8',
+      keyData,
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+  } catch (e) {
+    // DER 解析失敗：常見於金鑰內容被截斷、貼成非 service account 的金鑰
+    const err = new Error('PRIVATE_KEY_IMPORT_FAILED');
+    err.code = 'PRIVATE_KEY_IMPORT_FAILED';
+    err.detail = Object.assign(
+      { reason: String((e && e.message) || e).slice(0, 120) },
+      privateKeyDiagnostics(normalizePrivateKey(privateKeyPem))
+    );
+    throw err;
+  }
   const sig = await crypto.subtle.sign(
     'RSASSA-PKCS1-v1_5',
     key,

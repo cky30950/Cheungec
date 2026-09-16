@@ -412,7 +412,9 @@ async function sendPush(targets, title, body, data, eventId) {
     });
     const json = await resp.json().catch(() => ({}));
     if (!resp.ok) {
-      console.warn('[FCM] 派發推播失敗:', json && (json.message || json.error) || resp.status);
+      console.warn('[FCM] 派發推播失敗:',
+        json && (json.message || json.error) || resp.status,
+        json && json.detail ? json.detail : '');
     }
     return json;
   } catch (err) {
