@@ -744,17 +744,14 @@ async function handleStaffNotify(context) {
   data.event = data.event || 'general';
   if (!data.url) data.url = '/system.html';
 
-  // 事件去重（120 秒內相同 eventId 只派發一次）
+  // 事件去重（120 秒內相同 eventId 只派發一次）。
+  // 注意：此處只讀取、不寫入。必須等「確認有實際接收對象」後才寫入，
+  // 否則收到者自己分頁發出的無效請求（目標只剩自己→NO_TARGETS）會搶先
+  // 佔用去重額度，導致其他分頁的合法請求被誤判重複而丟棄。
   const dedupeMs = 120000;
   const nowMs = Date.now();
-  if (data.eventId) {
-    if (nowMs - (staffEventStore.get(data.eventId) || 0) < dedupeMs) {
-      return jsonResponse({ ok: true, skipped: 'DEDUPED' });
-    }
-    staffEventStore.set(data.eventId, nowMs);
-    if (staffEventStore.size > 500) {
-      for (const [k, v] of staffEventStore) if (nowMs - v > dedupeMs) staffEventStore.delete(k);
-    }
+  if (data.eventId && nowMs - (staffEventStore.get(data.eventId) || 0) < dedupeMs) {
+    return jsonResponse({ ok: true, skipped: 'DEDUPED' });
   }
 
   const target = body.targets || {};
@@ -796,6 +793,14 @@ async function handleStaffNotify(context) {
         ? { 模式: 'allStaff', 排除人數: exceptUids.length }
         : { 模式: 'uids', 目標uid前綴: uids.map((u) => u.slice(0, 8)) }
     });
+  }
+
+  // 有實際接收裝置，此刻才佔用去重額度
+  if (data.eventId) {
+    staffEventStore.set(data.eventId, nowMs);
+    if (staffEventStore.size > 500) {
+      for (const [k, v] of staffEventStore) if (nowMs - v > dedupeMs) staffEventStore.delete(k);
+    }
   }
   return jsonResponse(await dispatch(accessToken, cfg.projectId, context.request, entries, title, messageBody, data));
 }

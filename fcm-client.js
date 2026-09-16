@@ -366,12 +366,18 @@ async function sendPush(targets, title, body, data, eventId) {
   if (!firebaseUser) return { skipped: true, reason: 'not-authenticated' };
 
   const target = targets || {};
-  const uids = Array.isArray(target.uids)
-    ? target.uids.map((u) => String(u || '').trim()).filter(Boolean).slice(0, 50)
-    : [];
+  const selfUid = getAuthUid();
+  const uids = (Array.isArray(target.uids) ? target.uids : [])
+    .map((u) => String(u || '').trim())
+    .filter(Boolean)
+    // 伺服器本就會排除發送者本人；客戶端先移除，可避免「自己推給自己」的無效請求
+    // 在多位職員同時監聽同一事件時搶先佔用伺服器的去重額度
+    .filter((u) => u !== selfUid)
+    .slice(0, 50);
   const exceptUids = Array.isArray(target.exceptUids)
     ? target.exceptUids.map((u) => String(u || '').trim()).filter(Boolean)
     : [];
+  if (!exceptUids.includes(selfUid)) exceptUids.push(selfUid);
 
   if (!target.allStaff && uids.length === 0) return { skipped: true, reason: 'no-targets' };
 

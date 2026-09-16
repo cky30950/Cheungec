@@ -8078,6 +8078,11 @@ function sendWaitingPush(appointment, patientName) {
     if (!appointment || !window.FCMClient || isGeneralRegistrationAppointment(appointment)) return '';
     const doctorUsername = String(appointment.appointmentDoctor || '').trim();
     if (!doctorUsername) return '';
+    // 醫師本人的分頁不需收到自己診間的候診推播
+    if (currentUserData && currentUserData.position === '醫師' &&
+        String(currentUserData.username || '').trim() === doctorUsername) {
+        return '';
+    }
     const doctors = (Array.isArray(users) ? users : []).filter(
         (u) => u && u.position === '醫師' && String(u.username || '').trim() === doctorUsername
     );
