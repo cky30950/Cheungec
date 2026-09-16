@@ -18,12 +18,10 @@
  *   - 雙方共寫同一文件：videoPresence/<頻道名稱>
  *       { doctor: { at: <Firestore 伺服器時間>, sid, joined },
  *         patient: { at: <Firestore 伺服器時間>, sid, joined } }
- *   - 每 15 秒更新一次自己的心跳（就緒後仍持續，直到 leave），
+ *   - 每 5 秒更新一次自己的心跳（就緒後仍持續，直到 leave），
  *     時間一律用 serverTimestamp，判讀時以同一文件內自己的
  *     伺服器時間為基準，完全不受雙方設備時鐘誤差影響
- *     （首次廣播與 markJoined 皆為即時寫入，故接通不受心跳間隔影響）
- *   - 對方心跳距自己最近一次心跳的伺服器時間在 45 秒內視為在線
- *     （容許約 2 次漏寫及網路抖動）
+ *   - 對方心跳距自己最近一次心跳的伺服器時間在 15 秒內視為在線
  *   - 異常斷線／關閉分頁無法主動清除時，靠心跳停止更新而失效
  *
  * 安全規則（必須在 Firebase Console → Firestore → 規則發布）：
@@ -53,8 +51,8 @@
     var FIRESTORE_MODULE_URL =
         'https://www.gstatic.com/firebasejs/' + FIRESTORE_VERSION + '/firebase-firestore.js';
 
-    var DEFAULT_HEARTBEAT_MS = 15000; // 心跳更新間隔（省 Firestore 寫入額度）
-    var DEFAULT_FRESH_MS = 45000;     // 對方落後自己伺服器時間 45 秒內視為在線（約 2 次心跳容錯）
+    var DEFAULT_HEARTBEAT_MS = 5000;  // 心跳更新間隔
+    var DEFAULT_FRESH_MS = 15000;     // 對方落後自己伺服器時間 15 秒內視為在線
 
     function getFirebase() {
         return (typeof window !== 'undefined' && window.firebase) ? window.firebase : null;

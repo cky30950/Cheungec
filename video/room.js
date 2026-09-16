@@ -19,8 +19,6 @@
     // 加入後遲遲未見醫師的自動掛斷計時器（避免病人單獨在頻道內持續計費）
     var aloneTimer = null;
     var ALONE_LIMIT_MS = 90000;
-    // 上次發送「病人已進入診間」FCM 推播的時間（限流，2 分鐘最多一次）
-    var lastVideoNotifyAt = 0;
     // 自動結束等候時要顯示的原因
     var endReason = '';
     var state = {
@@ -174,28 +172,9 @@
 
         // 病人在頻道外免費等待：看到醫師「已成功加入 Agora」（joined 信號）
         // 才進入頻道——醫師不來就無限等待，完全不計費。
-        // 病人已簽同意書、鏡頭麥克風授權通過，即將開始心跳等待：
-        // 經 Cloudflare Function 推播給負責醫師（後端會驗同意書與醫師在場狀態）
-        function notifyDoctorWaiting() {
-            var now = Date.now();
-            if (now - lastVideoNotifyAt < 120000) return;
-            lastVideoNotifyAt = now;
-            try {
-                var endpoint = new URL('../api/fcm/notify-video', window.location.href).href;
-                fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ channel: state.channel })
-                }).catch(function () { /* 推播失敗不影響看診 */ });
-            } catch (e) { /* ignore */
-            }
-        }
-
         function beginWaiting() {
             if (!callController) return;
             callController.setStatus('connecting', '等待醫師進入診間…');
-            // 通知醫師（fire-and-forget；同意書、限流、醫師是否已在場由後端把關）
-            notifyDoctorWaiting();
 
             function joinNow() {
                 // 等待期間若已離開則不再加入
