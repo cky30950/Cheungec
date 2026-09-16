@@ -441,6 +441,8 @@ async function sendPush(targets, title, body, data, eventId) {
       console.warn('[FCM] 派發推播失敗:',
         json && (json.message || json.error) || resp.status,
         json && json.detail ? json.detail : '');
+    } else {
+      console.info('[FCM] 派發結果:', json);
     }
     return json;
   } catch (err) {
@@ -465,12 +467,45 @@ async function sendPush(targets, title, body, data, eventId) {
   else document.addEventListener('DOMContentLoaded', ensureBellButton);
 })();
 
+// 診斷：回報推播各環節狀態（不回傳 token 本體）
+async function diagnose() {
+  const report = {
+    支援推播: supported,
+    已初始化: initialized,
+    通知授權: (typeof Notification !== 'undefined') ? Notification.permission : 'no-Notification',
+    本機已持有token: !!currentToken,
+    token長度: currentToken ? currentToken.length : 0,
+    登入者: currentUser
+      ? { uid: getAuthUid(), 姓名: currentUser.name, 職位: currentUser.position }
+      : null,
+    ServiceWorker: null
+  };
+  try {
+    const reg = await navigator.serviceWorker.getRegistration(SW_URL);
+    report.ServiceWorker = reg
+      ? { 已註冊: true, scope: reg.scope, active: !!(reg.active || reg.waiting) }
+      : { 已註冊: false };
+  } catch (e) {
+    report.ServiceWorker = { error: String(e && e.message || e) };
+  }
+  console.table([{
+    '支援推播': report.支援推播,
+    '已初始化': report.已初始化,
+    '通知授權': report.通知授權,
+    '本機已持有token': report.本機已持有token,
+    'SW已註冊': report.ServiceWorker && report.ServiceWorker.已註冊,
+    '登入者': report.登入者 ? report.登入者.職位 : null
+  }]);
+  return report;
+}
+
 window.FCMClient = {
   initAfterLogin,
   enable,
   handleLogout,
   sendPush,
   markEventSeen,
+  diagnose,
   isSupported: () => supported,
   isInitialized: () => initialized
 };
