@@ -416,7 +416,8 @@ async function sendPush(targets, title, body, data, eventId) {
     // 鑑權失敗時，強制向 Firebase 重新換發一顆 token 後重試一次。
     // 可自癒「快取中殘留異常來源 token（例如早期 emulator 階段產生的）」。
     const AUTH_ERRORS = ['ID_TOKEN_INVALID', 'ID_TOKEN_MALFORMED', 'ID_TOKEN_EXPIRED',
-      'ID_TOKEN_WRONG_TYPE_OR_PROJECT', 'ID_TOKEN_AUDIENCE_MISMATCH', 'NO_ID_TOKEN'];
+      'ID_TOKEN_NOT_YET_VALID', 'ID_TOKEN_WRONG_TYPE_OR_PROJECT',
+      'ID_TOKEN_AUDIENCE_MISMATCH', 'NO_ID_TOKEN'];
     if (resp.status === 401) {
       const errJson = await resp.json().catch(() => ({}));
       const errCode = errJson && errJson.error;

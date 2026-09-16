@@ -309,24 +309,6 @@ function idTokenShape(idToken) {
   };
 }
 
-// 解出 JWT 宣告（不驗簽章，僅供診斷；真偽仍由 Google tokeninfo 背書）
-function decodeJwtPayload(idToken) {
-  try {
-    const payload = JSON.parse(decodeBase64Url(String(idToken).split('.')[1]));
-    return {
-      iss: typeof payload.iss === 'string' ? payload.iss : null,
-      aud: typeof payload.aud === 'string' ? payload.aud : null,
-      sub: typeof payload.sub === 'string' ? payload.sub.slice(0, 12) : null,
-      iat: Number(payload.iat) || null,
-      exp: Number(payload.exp) || null,
-      ageSeconds: payload.iat ? Math.floor(Date.now() / 1000) - Number(payload.iat) : null,
-      ttlSeconds: payload.exp ? Number(payload.exp) - Math.floor(Date.now() / 1000) : null
-    };
-  } catch (_e) {
-    return null;
-  }
-}
-
 function decodeBase64Url(s) {
   const m = String(s).replace(/-/g, '+').replace(/_/g, '/');
   const padded = m + '='.repeat((4 - (m.length % 4)) % 4);
@@ -336,84 +318,173 @@ function decodeBase64Url(s) {
   return new TextDecoder().decode(bytes);
 }
 
+// ────── Firebase ID token 本機驗證（JWKS + RS256，Google 官方建議做法）──────
+// 注意：www.googleapis.com/oauth2/v3/tokeninfo 對 securetoken.google.com
+// 簽發的 Firebase Auth token 會回 400 Invalid Value，不能用於驗證；
+// 官方文件要求後端自行以 Google 公開金鑰驗 RS256 簽章。
+
+const SECURETOKEN_JWKS_URL =
+  'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+
+function jwksStore() {
+  return globalThis.__fcmJwksStore ||
+    (globalThis.__fcmJwksStore = { keys: null, expiresAt: 0, inflight: null });
+}
+
+// 抓取（並快取）Google securetoken 公鑰集，遵守 Cache-Control max-age
+async function fetchSecureTokenKeys(forceRefresh) {
+  const store = jwksStore();
+  const now = Date.now();
+  if (!forceRefresh && store.keys && store.expiresAt > now) return store.keys;
+  if (store.inflight) return store.inflight;
+
+  store.inflight = (async () => {
+    const resp = await fetch(SECURETOKEN_JWKS_URL);
+    if (!resp.ok) throw new Error('JWKS_FETCH_FAILED(' + resp.status + ')');
+    const data = await resp.json();
+    const keys = new Map();
+    await Promise.all((data.keys || []).map(async (jwk) => {
+      if (jwk.kty !== 'RSA' || !jwk.kid) return;
+      try {
+        const key = await crypto.subtle.importKey(
+          'jwk', jwk,
+          { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+          false, ['verify']
+        );
+        keys.set(jwk.kid, key);
+      } catch (_e) { /* 略過無法匯入的金鑰 */ }
+    }));
+    if (keys.size === 0) throw new Error('JWKS_NO_USABLE_KEYS');
+    const cc = resp.headers.get('cache-control') || '';
+    const maxAge = parseInt((cc.match(/max-age=(\d+)/) || [])[1], 10);
+    store.keys = keys;
+    store.expiresAt = now + (maxAge > 0 ? maxAge : 21600) * 1000;
+    return keys;
+  })();
+
+  try {
+    return await store.inflight;
+  } finally {
+    store.inflight = null;
+  }
+}
+
+function base64UrlToBytes(s) {
+  const m = String(s).replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(m + '='.repeat((4 - (m.length % 4)) % 4));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+// 以 header.kid 對應公鑰驗 RS256；遇到未知 kid（金鑰輪轉）會強制刷新重試一次
+async function verifyTokenSignature(idToken, header) {
+  const parts = idToken.split('.');
+  const data = new TextEncoder().encode(parts[0] + '.' + parts[1]);
+  let signature;
+  try {
+    signature = base64UrlToBytes(parts[2]);
+  } catch (_e) {
+    return { ok: false, reason: 'malformed-signature' };
+  }
+
+  let keys = await fetchSecureTokenKeys(false);
+  let key = keys.get(header.kid);
+  if (!key) {
+    keys = await fetchSecureTokenKeys(true);
+    key = keys.get(header.kid);
+    if (!key) {
+      return { ok: false, reason: 'unknown-kid', knownKids: Array.from(keys.keys()).slice(0, 8) };
+    }
+  }
+  try {
+    const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, signature, data);
+    return valid
+      ? { ok: true }
+      : { ok: false, reason: 'signature-mismatch' };
+  } catch (_e) {
+    return { ok: false, reason: 'verify-error' };
+  }
+}
+
 async function verifyStaffIdToken(accessToken, projectId, idToken) {
   if (!idToken) return { error: jsonResponse({ ok: false, error: 'NO_ID_TOKEN' }, 401) };
 
   const shape = idTokenShape(idToken);
   // Firebase ID token 是三段 RS256 JWT，長度通常 700～1300
   if (shape.segments !== 3 || shape.alg !== 'RS256' || shape.length < 200 || shape.hasWhitespace) {
+    return { error: jsonResponse({ ok: false, error: 'ID_TOKEN_MALFORMED', detail: shape }, 401) };
+  }
+
+  let header;
+  let payload;
+  try {
+    const parts = idToken.split('.');
+    header = JSON.parse(decodeBase64Url(parts[0]));
+    payload = JSON.parse(decodeBase64Url(parts[1]));
+  } catch (_e) {
     return { error: jsonResponse({
       ok: false,
       error: 'ID_TOKEN_MALFORMED',
-      detail: shape
+      detail: Object.assign({}, shape, { reason: 'payload-unparseable' })
     }, 401) };
   }
 
-  const claims = decodeJwtPayload(idToken);
-  if (!claims) {
-    return { error: jsonResponse({
-      ok: false,
-      error: 'ID_TOKEN_MALFORMED',
-      detail: Object.assign(shape, { reason: 'payload-unparseable' })
-    }, 401) };
-  }
-
+  const nowSec = Math.floor(Date.now() / 1000);
   const expectedIss = 'https://securetoken.google.com/' + projectId;
-  // 自訂權杖（custom token）長得像 JWT 但不是 ID token，tokeninfo 一律回 Invalid Value
-  if (claims.iss !== expectedIss || claims.aud !== projectId) {
+  const ttlSeconds = typeof payload.exp === 'number' ? payload.exp - nowSec : null;
+
+  if (payload.iss !== expectedIss || payload.aud !== projectId) {
     return { error: jsonResponse({
       ok: false,
       error: 'ID_TOKEN_WRONG_TYPE_OR_PROJECT',
       message: '送達的不是本專案簽發的 Firebase ID token（可能誤用了 Custom Token 或來自其他專案）。',
-      detail: Object.assign({}, shape, {
-        iss: claims.iss,
-        aud: claims.aud,
-        expectedIss,
-        expectedAud: projectId
-      })
+      detail: {
+        iss: payload.iss ?? null, aud: payload.aud ?? null,
+        expectedIss, expectedAud: projectId
+      }
     }, 401) };
   }
-  if (claims.ttlSeconds !== null && claims.ttlSeconds <= 0) {
+  if (typeof payload.sub !== 'string' || payload.sub.length === 0) {
+    return { error: jsonResponse({
+      ok: false, error: 'ID_TOKEN_MALFORMED', detail: { reason: 'missing-sub' }
+    }, 401) };
+  }
+  if (typeof payload.exp !== 'number' || ttlSeconds <= 0) {
     return { error: jsonResponse({
       ok: false,
       error: 'ID_TOKEN_EXPIRED',
       message: 'ID token 已過期（若剛核發就過期，檢查用戶端裝置時間）。',
-      detail: { ageSeconds: claims.ageSeconds, ttlSeconds: claims.ttlSeconds }
+      detail: { ttlSeconds }
+    }, 401) };
+  }
+  // 容許用戶端與伺服器 60 秒時鐘誤差
+  if (typeof payload.iat === 'number' && payload.iat > nowSec + 60) {
+    return { error: jsonResponse({
+      ok: false,
+      error: 'ID_TOKEN_NOT_YET_VALID',
+      detail: { skewSeconds: payload.iat - nowSec }
     }, 401) };
   }
 
-  const verifyResp = await fetch(
-    'https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=' + encodeURIComponent(idToken)
-  );
-  const info = await verifyResp.json().catch(() => ({}));
-  if (!verifyResp.ok || info.error) {
+  const sig = await verifyTokenSignature(idToken, header);
+  if (!sig.ok) {
     return { error: jsonResponse({
       ok: false,
       error: 'ID_TOKEN_INVALID',
+      message: sig.reason === 'unknown-kid'
+        ? '簽章金鑰不在 Google 公鑰集（token 可能來自 Auth 模擬器或其他環境）。'
+        : 'ID token 簽章驗證失敗。',
       detail: {
-        googleStatus: verifyResp.status,
-        googleError: info.error || null,
-        googleDescription: info.error_description || null,
-        // 宣告看起來正常卻被 Google 拒絕：通常是簽章不符（token 被截斷/竄改）
-        claims: {
-          iss: claims.iss,
-          aud: claims.aud,
-          ageSeconds: claims.ageSeconds,
-          ttlSeconds: claims.ttlSeconds,
-          tokenLength: shape.length
-        }
+        reason: sig.reason,
+        kid: header.kid || null,
+        knownKids: sig.knownKids
       }
     }, 401) };
   }
-  if (info.aud !== projectId) {
-    return { error: jsonResponse({ ok: false, error: 'ID_TOKEN_AUDIENCE_MISMATCH' }, 401) };
-  }
-  if (Number(info.exp) * 1000 < Date.now()) {
-    return { error: jsonResponse({ ok: false, error: 'ID_TOKEN_EXPIRED' }, 401) };
-  }
 
-  // 確認此 uid 在 userAuthIndex 中，且關聯的 users 紀錄未停用
-  const indexPath = `${AUTH_INDEX_COLLECTION}/${encodeURIComponent(info.sub)}`;
+  // 簽章有效：確認此 uid 在 userAuthIndex 中，且關聯的 users 紀錄未停用
+  const indexPath = `${AUTH_INDEX_COLLECTION}/${encodeURIComponent(payload.sub)}`;
   const indexDoc = await fsGet(accessToken, projectId, indexPath);
   if (!indexDoc) {
     return { error: jsonResponse({ ok: false, error: 'USER_NOT_AUTHORIZED' }, 403) };
@@ -425,7 +496,7 @@ async function verifyStaffIdToken(accessToken, projectId, idToken) {
       return { error: jsonResponse({ ok: false, error: 'USER_DISABLED' }, 403) };
     }
   }
-  return { uid: info.sub };
+  return { uid: payload.sub };
 }
 
 // ──────────────────────── Firestore REST 輔助 ──────────────────────
