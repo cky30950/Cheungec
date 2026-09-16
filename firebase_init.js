@@ -48,13 +48,13 @@ import { getAuth, signInWithEmailAndPassword, signOut, setPersistence,
         onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
 // ── FCM Cloud Messaging ──
-// 注意：Firebase v10 modular SDK 中 getToken/onMessage/onTokenRefresh 是獨立函數，
-// 不是 Messaging instance 的方法。getMessaging() 只回傳 messaging 物件。
+// Firebase v10 modular SDK 只导出：getMessaging / getToken / onMessage / deleteToken / isSupported
+// 注意：onTokenRefresh 在 modular SDK 中不存在（只有 compat 版本有）
 import {
   getMessaging,
   getToken,
   onMessage,
-  onTokenRefresh,
+  deleteToken,
   isSupported as messagingIsSupported
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js';
 
@@ -159,7 +159,7 @@ setPersistence(auth, browserSessionPersistence).catch((error) => {
         getMessaging,
         getToken,
         onMessage,
-        onTokenRefresh,
+        deleteToken,
         messagingIsSupported
     };
 

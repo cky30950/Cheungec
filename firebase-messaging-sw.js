@@ -95,4 +95,18 @@ self.addEventListener('activate', function (event) {
   event.waitUntil(self.clients.claim());
 });
 
+// ── Push 訂閱變更（token 輪替） ──
+// 瀏覽器自動更新 push subscription 時，通知前台頁面重新取 token
+self.addEventListener('pushsubscriptionchange', function (event) {
+  console.log('[FCM SW] pushsubscriptionchange：通知前台刷新 token');
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(function (clients) {
+        clients.forEach(function (c) {
+          if (c.postMessage) c.postMessage({ type: 'FCM_TOKEN_REFRESH' });
+        });
+      })
+  );
+});
+
 console.log('[FCM SW] Firebase Messaging Service Worker 已啟動');

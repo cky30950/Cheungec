@@ -218,26 +218,41 @@
     }
   }
 
-  // ── 監聽 token 刷新（瀏覽器自動輪替時） ──
+  // ── 監聽 token 刷新（Firebase v10 modular SDK 沒有 onTokenRefresh，
+  //     改用 Service Worker 的 pushsubscriptionchange 事件） ──
   function setupTokenRefreshListener(swReg) {
     try {
-      const msg = getMessaging();
-      const firebaseOnTokenRefresh = window.firebase && window.firebase.onTokenRefresh;
-      if (!msg || !firebaseOnTokenRefresh) return;
-      // Firebase v10 modular SDK：onTokenRefresh(messaging, observer) 是獨立函數
-      firebaseOnTokenRefresh(msg, function () {
-        console.log('[FCM] Token 刷新中…');
-        getToken(swReg).then(function (newToken) {
-          currentToken = newToken;
-          if (currentUserUid) {
-            saveTokenToFirestore(newToken, currentUserUid);
-          }
-        }).catch(function (err) {
-          console.warn('[FCM] 刷新後重新取 token 失敗：', err);
-        });
+      if (!('serviceWorker' in navigator)) return;
+      navigator.serviceWorker.addEventListener('message', function (event) {
+        // Service Worker 有變化時重新取 token
+        if (event.data && event.data.type === 'FCM_TOKEN_REFRESH') {
+          console.log('[FCM] Service Worker 要求刷新 token…');
+          getToken(swReg).then(function (newToken) {
+            currentToken = newToken;
+            if (currentUserUid) {
+              saveTokenToFirestore(newToken, currentUserUid);
+            }
+          }).catch(function (err) {
+            console.warn('[FCM] 刷新後重新取 token 失敗：', err);
+          });
+        }
       });
+      // 瀏覽器 push 訂閱變更時也重新取 token
+      if (swReg && swReg.pushManager) {
+        swReg.pushManager.addEventListener('pushsubscriptionchange', function () {
+          console.log('[FCM] pushsubscriptionchange：重新取得 token');
+          getToken(swReg).then(function (newToken) {
+            currentToken = newToken;
+            if (currentUserUid) {
+              saveTokenToFirestore(newToken, currentUserUid);
+            }
+          }).catch(function (err) {
+            console.warn('[FCM] pushsubscriptionchange 後取 token 失敗：', err);
+          });
+        });
+      }
     } catch (err) {
-      console.warn('[FCM] onTokenRefresh 設定失敗：', err);
+      console.warn('[FCM] token refresh listener 設定失敗：', err);
     }
   }
 
