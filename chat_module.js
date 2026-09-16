@@ -1035,7 +1035,9 @@
           ? window.firebase.serverTimestamp()
           : clientTimestamp,
         clientTimestamp: clientTimestamp,
-        channelType: channelId === 'public' ? 'public' : 'private'
+        channelType: channelId === 'public' ? 'public' : 'private',
+        // FCM 推播去重 id（接收端摘要監聽到訊息即登記，避免前景重複通知）
+        eventId: messageData && messageData.eventId ? messageData.eventId : ''
       };
     }
 
@@ -1072,7 +1074,48 @@
         text: summary.text || '',
         timestamp: latestTs
       };
+      // 別人的新訊息已即時送達本頁（紅點／音效）→ 登記去重，
+      // 同一訊息的 FCM 前景推播就不再彈重複 toast
+      if (summary.eventId && summary.senderId &&
+          String(summary.senderId) !== String(this.currentUserUid) &&
+          window.FCMClient && typeof window.FCMClient.markEventSeen === 'function') {
+        try { window.FCMClient.markEventSeen(summary.eventId); } catch (_e) {}
+      }
       this.handleIncomingPreview(channelId, this.lastMessageInfo[channelId], latestTs);
+    }
+
+    // 訊息送出後派發 FCM 推播：私人聊天給對方，公頻給全體在職職員
+    dispatchPushNotification(channelId, messageData) {
+      try {
+        if (!window.FCMClient || typeof window.FCMClient.sendPush !== 'function') return;
+        if (!messageData || !messageData.text || !messageData.eventId) return;
+
+        const body = String(messageData.text).slice(0, 120);
+        const senderName = messageData.senderName || '新訊息';
+
+        if (channelId === 'public') {
+          window.FCMClient.sendPush(
+            { allStaff: true, exceptUids: [this.currentUserUid] },
+            `[主頻道] ${senderName}`,
+            body,
+            { event: 'chat_message', chatType: 'public' },
+            messageData.eventId
+          ).catch(() => {});
+          return;
+        }
+
+        const peerUid = this.getChannelPeerUid(channelId);
+        if (!peerUid) return;
+        window.FCMClient.sendPush(
+          { uids: [peerUid] },
+          senderName,
+          body,
+          { event: 'chat_message', chatType: 'private', chatId: channelId },
+          messageData.eventId
+        ).catch(() => {});
+      } catch (err) {
+        console.warn('ChatModule: 派發聊天推播失敗:', err);
+      }
     }
 
     
@@ -1149,13 +1192,17 @@
         ? window.firebase.push(baseRef)
         : null;
       const messageKey = generatedRef && generatedRef.key ? generatedRef.key : String(clientTimestamp);
+      // FCM 推播事件 id：接收端即時監聽到同一訊息時可去重
+      messageData.eventId = `chat:${channelId}:${messageKey}`;
       const rootRef = window.firebase.ref(window.firebase.rtdb);
       const updates = {
         [`${path}/${messageKey}`]: messageData
       };
       this.appendSummaryUpdates(updates, channelId, messageData);
       window.firebase.update(rootRef, updates).then(() => {
-        
+        // 發送 FCM 推播（私人：對方；公頻：全體在職職員）
+        this.dispatchPushNotification(channelId, messageData);
+
         this.messageInput.value = '';
         this.charCount.textContent = '0/500';
         this.sendButton.disabled = true;
