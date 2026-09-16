@@ -309,6 +309,24 @@ function idTokenShape(idToken) {
   };
 }
 
+// 解出 JWT 宣告（不驗簽章，僅供診斷；真偽仍由 Google tokeninfo 背書）
+function decodeJwtPayload(idToken) {
+  try {
+    const payload = JSON.parse(decodeBase64Url(String(idToken).split('.')[1]));
+    return {
+      iss: typeof payload.iss === 'string' ? payload.iss : null,
+      aud: typeof payload.aud === 'string' ? payload.aud : null,
+      sub: typeof payload.sub === 'string' ? payload.sub.slice(0, 12) : null,
+      iat: Number(payload.iat) || null,
+      exp: Number(payload.exp) || null,
+      ageSeconds: payload.iat ? Math.floor(Date.now() / 1000) - Number(payload.iat) : null,
+      ttlSeconds: payload.exp ? Number(payload.exp) - Math.floor(Date.now() / 1000) : null
+    };
+  } catch (_e) {
+    return null;
+  }
+}
+
 function decodeBase64Url(s) {
   const m = String(s).replace(/-/g, '+').replace(/_/g, '/');
   const padded = m + '='.repeat((4 - (m.length % 4)) % 4);
@@ -323,11 +341,44 @@ async function verifyStaffIdToken(accessToken, projectId, idToken) {
 
   const shape = idTokenShape(idToken);
   // Firebase ID token 是三段 RS256 JWT，長度通常 700～1300
-  if (shape.segments !== 3 || shape.alg !== 'RS256' || shape.length < 200) {
+  if (shape.segments !== 3 || shape.alg !== 'RS256' || shape.length < 200 || shape.hasWhitespace) {
     return { error: jsonResponse({
       ok: false,
       error: 'ID_TOKEN_MALFORMED',
       detail: shape
+    }, 401) };
+  }
+
+  const claims = decodeJwtPayload(idToken);
+  if (!claims) {
+    return { error: jsonResponse({
+      ok: false,
+      error: 'ID_TOKEN_MALFORMED',
+      detail: Object.assign(shape, { reason: 'payload-unparseable' })
+    }, 401) };
+  }
+
+  const expectedIss = 'https://securetoken.google.com/' + projectId;
+  // 自訂權杖（custom token）長得像 JWT 但不是 ID token，tokeninfo 一律回 Invalid Value
+  if (claims.iss !== expectedIss || claims.aud !== projectId) {
+    return { error: jsonResponse({
+      ok: false,
+      error: 'ID_TOKEN_WRONG_TYPE_OR_PROJECT',
+      message: '送達的不是本專案簽發的 Firebase ID token（可能誤用了 Custom Token 或來自其他專案）。',
+      detail: Object.assign({}, shape, {
+        iss: claims.iss,
+        aud: claims.aud,
+        expectedIss,
+        expectedAud: projectId
+      })
+    }, 401) };
+  }
+  if (claims.ttlSeconds !== null && claims.ttlSeconds <= 0) {
+    return { error: jsonResponse({
+      ok: false,
+      error: 'ID_TOKEN_EXPIRED',
+      message: 'ID token 已過期（若剛核發就過期，檢查用戶端裝置時間）。',
+      detail: { ageSeconds: claims.ageSeconds, ttlSeconds: claims.ttlSeconds }
     }, 401) };
   }
 
@@ -342,7 +393,15 @@ async function verifyStaffIdToken(accessToken, projectId, idToken) {
       detail: {
         googleStatus: verifyResp.status,
         googleError: info.error || null,
-        googleDescription: info.error_description || null
+        googleDescription: info.error_description || null,
+        // 宣告看起來正常卻被 Google 拒絕：通常是簽章不符（token 被截斷/竄改）
+        claims: {
+          iss: claims.iss,
+          aud: claims.aud,
+          ageSeconds: claims.ageSeconds,
+          ttlSeconds: claims.ttlSeconds,
+          tokenLength: shape.length
+        }
       }
     }, 401) };
   }

@@ -396,20 +396,45 @@ async function sendPush(targets, title, body, data, eventId) {
     return { skipped: true, reason: 'no-id-token' };
   }
 
+  const postNotify = (token) => fetch(NOTIFY_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + token
+    },
+    body: JSON.stringify({
+      targets: target.allStaff ? { allStaff: true, exceptUids } : { uids },
+      title: truncate(title, 100) || '診所系統通知',
+      body: truncate(body, 500) || '',
+      data: cleanData
+    })
+  });
+
   try {
-    const resp = await fetch(NOTIFY_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + idToken
-      },
-      body: JSON.stringify({
-        targets: target.allStaff ? { allStaff: true, exceptUids } : { uids },
-        title: truncate(title, 100) || '診所系統通知',
-        body: truncate(body, 500) || '',
-        data: cleanData
-      })
-    });
+    let resp = await postNotify(idToken);
+
+    // 鑑權失敗時，強制向 Firebase 重新換發一顆 token 後重試一次。
+    // 可自癒「快取中殘留異常來源 token（例如早期 emulator 階段產生的）」。
+    const AUTH_ERRORS = ['ID_TOKEN_INVALID', 'ID_TOKEN_MALFORMED', 'ID_TOKEN_EXPIRED',
+      'ID_TOKEN_WRONG_TYPE_OR_PROJECT', 'ID_TOKEN_AUDIENCE_MISMATCH', 'NO_ID_TOKEN'];
+    if (resp.status === 401) {
+      const errJson = await resp.json().catch(() => ({}));
+      const errCode = errJson && errJson.error;
+      if (AUTH_ERRORS.includes(errCode)) {
+        console.warn('[FCM] ID token 被拒（' + errCode + '），強制刷新後重試一次');
+        let freshToken;
+        try {
+          freshToken = await firebaseUser.getIdToken(true);
+        } catch (_e) {
+          console.warn('[FCM] 強制刷新 token 失敗');
+          return errJson;
+        }
+        resp = await postNotify(freshToken);
+      } else {
+        return errJson;
+      }
+    }
+
     const json = await resp.json().catch(() => ({}));
     if (!resp.ok) {
       console.warn('[FCM] 派發推播失敗:',
