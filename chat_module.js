@@ -1105,7 +1105,15 @@
         }
 
         const peerUid = this.getChannelPeerUid(channelId);
-        if (!peerUid) return;
+        if (!peerUid) {
+          console.warn('[FCM] 聊天推播略過：無法解析對方 uid，頻道 ID =', channelId,
+            '，本人 currentUserUid =', this.currentUserUid);
+          return;
+        }
+        if (!/^[A-Za-z0-9_-]{20,128}$/.test(String(peerUid))) {
+          console.warn('[FCM] 聊天推播警告：對方識別值不像 Firebase Auth uid（可能是舊的內部 user id），' +
+            '對方需重新登入以綁定 Auth。頻道 =', channelId, '，peerUid =', peerUid);
+        }
         window.FCMClient.sendPush(
           { uids: [peerUid] },
           senderName,

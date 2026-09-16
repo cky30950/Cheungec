@@ -8078,10 +8078,21 @@ function sendWaitingPush(appointment, patientName) {
     if (!appointment || !window.FCMClient || isGeneralRegistrationAppointment(appointment)) return '';
     const doctorUsername = String(appointment.appointmentDoctor || '').trim();
     if (!doctorUsername) return '';
+    const doctors = (Array.isArray(users) ? users : []).filter(
+        (u) => u && u.position === '醫師' && String(u.username || '').trim() === doctorUsername
+    );
     const uids = getActiveStaffUids(
         (u) => u.position === '醫師' && String(u.username || '').trim() === doctorUsername
     );
-    if (uids.length === 0) return '';
+    if (uids.length === 0) {
+        if (doctors.length === 0) {
+            console.warn('[FCM] 候診推播略過：本機使用者清單找不到醫師', doctorUsername);
+        } else {
+            console.warn('[FCM] 候診推播略過：醫師帳號缺少 Firebase uid 或已停用',
+                doctors.map((d) => ({ 姓名: d.name, username: d.username, 有uid: !!d.uid, active: d.active !== false })));
+        }
+        return '';
+    }
     const name = patientName || '病人';
     const eventId = `apt-waiting:${appointment.id}:${appointment.arrivedAt || ''}`;
     window.FCMClient.sendPush(
@@ -8099,7 +8110,14 @@ function sendCompletedPush(appointment, patientName) {
     if (!appointment || !window.FCMClient) return '';
     const uids = getActiveStaffUids((u) =>
         ['護理師', '診所管理', '診所助理'].includes(u.position));
-    if (uids.length === 0) return '';
+    if (uids.length === 0) {
+        const nursing = (Array.isArray(users) ? users : []).filter(
+            (u) => u && ['護理師', '診所管理', '診所助理'].includes(u.position));
+        console.warn('[FCM] 完成推播略過：沒有已綁定 Firebase uid 的護理/助理/管理在職帳號。',
+            '符合職位人數:', nursing.length,
+            nursing.map((n) => ({ 姓名: n.name, 有uid: !!n.uid, active: n.active !== false })));
+        return '';
+    }
     const name = patientName || '病人';
     const eventId = `apt-completed:${appointment.id}`;
     window.FCMClient.sendPush(

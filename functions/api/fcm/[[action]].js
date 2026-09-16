@@ -759,27 +759,43 @@ async function handleStaffNotify(context) {
 
   const target = body.targets || {};
   let entries = [];
+  let exceptUids = [];
+  let uids = [];
 
   if (target.allStaff === true) {
-    const exceptUids = Array.isArray(target.exceptUids)
+    exceptUids = Array.isArray(target.exceptUids)
       ? target.exceptUids.map((u) => String(u)).filter((u) => UID_PATTERN.test(u))
       : [];
     exceptUids.push(verified.uid); // 永不推給發送者自己
     entries = await allStaffTokens(accessToken, cfg.projectId, exceptUids);
   } else {
-    const uids = Array.isArray(target.uids)
-      ? target.uids
-          .map((u) => String(u))
-          .filter((u) => UID_PATTERN.test(u) && u !== verified.uid)
+    const rawUids = Array.isArray(target.uids)
+      ? target.uids.map((u) => String(u))
       : [];
+    const invalidUids = rawUids.filter((u) => !UID_PATTERN.test(u));
+    const selfUids = rawUids.filter((u) => UID_PATTERN.test(u) && u === verified.uid);
+    uids = rawUids.filter((u) => UID_PATTERN.test(u) && u !== verified.uid);
     if (uids.length === 0) {
-      return jsonResponse({ ok: true, sent: 0, skipped: 'NO_TARGETS' });
+      return jsonResponse({
+        ok: true, sent: 0, skipped: 'NO_TARGETS',
+        detail: {
+          收到目標數: rawUids.length,
+          格式不符: invalidUids.map((u) => u.slice(0, 12)),
+          發送者本人: selfUids.length,
+          發送者uid前綴: verified.uid.slice(0, 8)
+        }
+      });
     }
     entries = await tokensForUids(accessToken, cfg.projectId, uids);
   }
 
   if (entries.length === 0) {
-    return jsonResponse({ ok: true, sent: 0, skipped: 'NO_TOKENS' });
+    return jsonResponse({
+      ok: true, sent: 0, skipped: 'NO_TOKENS',
+      detail: target.allStaff === true
+        ? { 模式: 'allStaff', 排除人數: exceptUids.length }
+        : { 模式: 'uids', 目標uid前綴: uids.map((u) => u.slice(0, 8)) }
+    });
   }
   return jsonResponse(await dispatch(accessToken, cfg.projectId, context.request, entries, title, messageBody, data));
 }

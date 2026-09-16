@@ -396,6 +396,11 @@ async function sendPush(targets, title, body, data, eventId) {
     return { skipped: true, reason: 'no-id-token' };
   }
 
+  if (!target.allStaff) {
+    console.info('[FCM] 派發目標 uid 前綴:',
+      uids.map((u) => u.slice(0, 8)), '本人 uid 前綴:', getAuthUid().slice(0, 8));
+  }
+
   const postNotify = (token) => fetch(NOTIFY_ENDPOINT, {
     method: 'POST',
     headers: {
