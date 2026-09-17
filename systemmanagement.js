@@ -468,6 +468,33 @@ function diffCollectionAgainstManifest(items, prevMap) {
     return result;
 }
 
+// 收集增量變動的具體文檔：新增/變動文檔（完整 data）+ 刪除的 ID 清單
+// 傳回 { added: [...], changed: [...], removed: [...] }
+function collectIncrementalChanges(items, prevMap) {
+    const result = { added: [], changed: [], removed: [] };
+    const newIds = new Set();
+    if (Array.isArray(items)) {
+        for (const item of items) {
+            if (!item || item.id === undefined || item.id === null) continue;
+            const idStr = String(item.id);
+            newIds.add(idStr);
+            const { id, ...rest } = item;
+            const hash = computeDocHash(rest);
+            if (!prevMap || !prevMap[idStr]) {
+                result.added.push(item);
+            } else if (prevMap[idStr] !== hash) {
+                result.changed.push(item);
+            }
+        }
+    }
+    if (prevMap) {
+        for (const prevId of Object.keys(prevMap)) {
+            if (!newIds.has(prevId)) result.removed.push(prevId);
+        }
+    }
+    return result;
+}
+
 
 async function exportClinicBackup() {
     const button = document.getElementById('backupExportBtn');
@@ -615,85 +642,128 @@ async function exportClinicBackup() {
         }
         stepCount++; updateBackupProgressBar(stepCount, totalSteps);
 
-        // ====== Step 5: 組裝 + 下載 ======
-        appendDetail('<br><span style="color:#6b7280">正在組裝備份檔案...</span>');
-        let rtdbData = null;
-        try {
-            const rtdbSnap = await window.firebase.get(window.firebase.ref(window.firebase.rtdb));
-            const allRtdb = (rtdbSnap && rtdbSnap.exists()) ? rtdbSnap.val() : {};
-            if (allRtdb && typeof allRtdb === 'object') {
-                rtdbData = {};
-                for (const key of Object.keys(allRtdb)) {
-                    if (!['appointments', 'consultations', 'consultation', 'onlineConsultations'].includes(key)) {
-                        rtdbData[key] = allRtdb[key];
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn('讀取 Realtime Database 資料失敗:', e);
+        // ====== Step 5: 組裝備份（增量 or 全量） ======
+        // 先判斷 detailed 模式下有沒有變動
+        let hasAnyChanges = true; // 預設有變動（非 detailed 模式都要全量下載）
+        let incrementalChanges = {};
+        if (baselineMode === 'detailed') {
+            incrementalChanges = {
+                patients: collectIncrementalChanges(patientsData, prevManifest?.patients),
+                consultations: collectIncrementalChanges(consultationsData, prevManifest?.consultations),
+                users: collectIncrementalChanges(usersData, prevManifest?.users),
+                billingItems: collectIncrementalChanges(billingData, prevManifest?.billingItems),
+                patientPackages: collectIncrementalChanges(packageData, prevManifest?.patientPackages)
+            };
+            const totalNew = Object.values(incrementalChanges).reduce((s, c) => s + c.added.length, 0);
+            const totalChanged = Object.values(incrementalChanges).reduce((s, c) => s + c.changed.length, 0);
+            const totalRemoved = Object.values(incrementalChanges).reduce((s, c) => s + c.removed.length, 0);
+            hasAnyChanges = (totalNew + totalChanged + totalRemoved) > 0;
         }
 
-        const backup = { patients: patientsData, consultations: consultationsData, users: usersData, billingItems: billingData, patientPackages: packageData };
-        if (rtdbData) backup.rtdb = rtdbData;
-
-        const json = JSON.stringify(backup, null, 2);
-        const jsonBytes = new Blob([json]).size;
-        const jsonKB = Math.round(jsonBytes / 1024);
-        const jsonMB = (jsonBytes / 1024 / 1024).toFixed(1);
-        const sizeStr = jsonMB >= 1 ? jsonMB + ' MB' : jsonKB + ' KB';
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        let backupType = 'full';     // 'full' 或 'incremental'
+        let downloaded = false;
+        let jsonBytes = 0;
+        let json = '';
         const totalDocs = patientsData.length + consultationsData.length + usersData.length + billingData.length + packageData.length;
 
-        stepCount++; updateBackupProgressBar(stepCount, totalSteps);
-        const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        a.download = `clinic_backup_${timestamp}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showToast(`備份資料已匯出！（${sizeStr}，共 ${totalDocs} 筆）`, 'success');
+        if (baselineMode === 'detailed' && !hasAnyChanges) {
+            // ====== 無變動：跳過下載 ======
+            stepCount++; updateBackupProgressBar(stepCount, totalSteps);
+            setDetail('匯出完成 ✓ 無變動（上次備份後資料未改，已略過下載）');
+            showToast('備份資料無變動，已略過', 'success');
+            downloaded = false;
+            backupType = 'full'; // 雖然沒下載，但邏輯上還是 full 基準線
+            stepCount++; updateBackupProgressBar(stepCount, totalSteps);
+            finishBackupProgressBar(true);
+        } else {
+            // ====== 有變動：增量 or 全量 ======
+            appendDetail(baselineMode === 'detailed'
+                ? '<br><span style="color:#6b7280">正在組裝增量備份...</span>'
+                : '<br><span style="color:#6b7280">正在組裝全量備份...</span>');
 
-        // 顯示檔案資訊（三種模式的不同顯示）
-        if (baselineMode === 'detailed') {
-            // 詳細模式：匯總所有集合的 new/changed/removed
-            const changeItems = [];
-            const totalNew = Object.values(finalDiff).reduce((s, d) => s + d.new, 0);
-            const totalChanged = Object.values(finalDiff).reduce((s, d) => s + d.changed, 0);
-            const totalRemoved = Object.values(finalDiff).reduce((s, d) => s + d.removed, 0);
-            if (totalNew > 0) changeItems.push(`<span style="color:#16a34a">新增 ${totalNew}</span>`);
-            if (totalChanged > 0) changeItems.push(`<span style="color:#2563eb">變動 ${totalChanged}</span>`);
-            if (totalRemoved > 0) changeItems.push(`<span style="color:#dc2626">刪除 ${totalRemoved}</span>`);
-            const changeSummary = changeItems.length > 0 ? changeItems.join(' · ') : '無變動';
-            setDetail(`匯出完成 ✓ ${totalDocs} 筆 · ${sizeStr}<br>📈 自上次備份以來：${changeSummary}`);
-        } else if (baselineMode === 'counts-only') {
-            // 簡單模式：用 Firestore backupMeta.counts 做簡單 +/-
-            const currentCounts = { patients: patientsData.length, consultations: consultationsData.length, users: usersData.length, billingItems: billingData.length, patientPackages: packageData.length };
-            const countParts = [];
-            const labels = { patients: '病人', consultations: '診症', users: '用戶', billingItems: '收費項目', patientPackages: '套票' };
-            for (const [k, label] of Object.entries(labels)) {
-                const prev = prevBackupMeta?.counts?.[k] || 0;
-                const delta = currentCounts[k] - prev;
-                if (delta !== 0) {
-                    const sign = delta > 0 ? '+' : '';
-                    const color = delta > 0 ? '#16a34a' : '#dc2626';
-                    countParts.push(`${label} <span style="color:${color}">${sign}${delta}</span>`);
+            let rtdbData = null;
+            if (baselineMode !== 'detailed') {
+                // counts-only / first-ever 才需要全量讀 RTDB（增量備份不包含 RTDB）
+                try {
+                    const rtdbSnap = await window.firebase.get(window.firebase.ref(window.firebase.rtdb));
+                    const allRtdb = (rtdbSnap && rtdbSnap.exists()) ? rtdbSnap.val() : {};
+                    if (allRtdb && typeof allRtdb === 'object') {
+                        rtdbData = {};
+                        for (const key of Object.keys(allRtdb)) {
+                            if (!['appointments', 'consultations', 'consultation', 'onlineConsultations'].includes(key)) {
+                                rtdbData[key] = allRtdb[key];
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('讀取 Realtime Database 資料失敗:', e);
                 }
             }
-            const summary = countParts.length > 0 ? countParts.join('，') : '無變動';
-            setDetail(`匯出完成 ✓ ${totalDocs} 筆 · ${sizeStr}<br>📈 自上次備份以來：${summary}<br><span style="color:#6b7280;font-size:11px">⚠️ 首次使用新版本，已建立詳細基準線；下次備份開始可顯示逐筆變動（新增/變動/刪除）</span>`);
-        } else {
-            // 真首次備份
-            setDetail(`匯出完成 ✓ ${totalDocs} 筆 · ${sizeStr}<br>📋 首次備份（已記錄基準線，下次備份可顯示變動）`);
+
+            if (baselineMode === 'detailed') {
+                // 生成增量備份：只有變動的文檔
+                backupType = 'incremental';
+                const incBackup = {
+                    type: 'incremental',
+                    timestamp: new Date().toISOString(),
+                    prevManifestTs: prevManifest?._ts || null,
+                    prevBackupFile: prevBackupMeta?.fileName || null,
+                    changes: incrementalChanges
+                };
+                json = JSON.stringify(incBackup, null, 2);
+            } else {
+                // 全量備份
+                backupType = 'full';
+                const fullBackup = { patients: patientsData, consultations: consultationsData, users: usersData, billingItems: billingData, patientPackages: packageData };
+                if (rtdbData) fullBackup.rtdb = rtdbData;
+                json = JSON.stringify(fullBackup, null, 2);
+            }
+
+            jsonBytes = new Blob([json]).size;
+            const jsonKB = Math.round(jsonBytes / 1024);
+            const jsonMB = (jsonBytes / 1024 / 1024).toFixed(1);
+            const sizeStr = jsonMB >= 1 ? jsonMB + ' MB' : jsonKB + ' KB';
+
+            stepCount++; updateBackupProgressBar(stepCount, totalSteps);
+            const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const ext = baselineMode === 'detailed' ? '.delta.json' : '.json';
+            const prefix = baselineMode === 'detailed' ? 'clinic_backup_incremental' : 'clinic_backup';
+            a.download = `${prefix}_${timestamp}${ext}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            downloaded = true;
+
+            // 計算變動統計供顯示
+            if (baselineMode === 'detailed') {
+                const totalNew = Object.values(incrementalChanges).reduce((s, c) => s + c.added.length, 0);
+                const totalChanged = Object.values(incrementalChanges).reduce((s, c) => s + c.changed.length, 0);
+                const totalRemoved = Object.values(incrementalChanges).reduce((s, c) => s + c.removed.length, 0);
+
+                const backupSummary = [];
+                if (totalNew > 0) backupSummary.push(`🟢新增 ${totalNew}`);
+                if (totalChanged > 0) backupSummary.push(`🔵變動 ${totalChanged}`);
+                if (totalRemoved > 0) backupSummary.push(`🔴刪除 ${totalRemoved}`);
+
+                appendDetail(`<br>📉 增量備份 ✓ ${backupSummary.join(' · ')} · ${sizeStr}`);
+                showToast(`增量備份已匯出！（${totalNew + totalChanged + totalRemoved} 筆變動，${sizeStr}）`, 'success');
+                setDetail(`匯出完成 ✓ 增量備份 · ${sizeStr}<br>📈 自上次備份以來：${backupSummary.join(' · ')}<br><span style="color:#6b7280;font-size:11px">💾 只下載了變動的部分，體積大幅縮小</span>`);
+            } else {
+                setDetail(`匯出完成 ✓ ${totalDocs} 筆 · ${sizeStr}<br>📋 ${baselineMode === 'first-ever' ? '首次備份（已記錄基準線）' : '全量備份'}`);
+                showToast(`備份資料已匯出！（${sizeStr}，共 ${totalDocs} 筆）`, 'success');
+            }
+
+            stepCount++; updateBackupProgressBar(stepCount, totalSteps);
+            finishBackupProgressBar(true);
         }
 
         // ====== Step 6: 更新記錄 + 存 manifest ======
-        stepCount++; updateBackupProgressBar(stepCount, totalSteps);
-        finishBackupProgressBar(true);
-
-        // 存 localStorage manifest（下次備份拿來比）
+        // 存 localStorage manifest（每次都要存，就算沒變動也要更新時間戳）
         saveBackupManifest({
             patients: patientsData, consultations: consultationsData,
             users: usersData, billingItems: billingData, patientPackages: packageData
@@ -707,10 +777,7 @@ async function exportClinicBackup() {
                 patientPackages: packageData.length
             };
 
-            // delta 寫入策略：
-            // detailed → 寫 { new, changed, removed } per collection
-            // counts-only → 寫簡單 { patients: +3 } per collection
-            // first-ever → 寫 null
+            // 計算 delta（只有 baselineMode === 'detailed' 時才寫詳細 delta）
             let delta = null;
             if (baselineMode === 'detailed') {
                 const d = {};
@@ -721,7 +788,7 @@ async function exportClinicBackup() {
                     d[colName] = { new: fd.new, changed: fd.changed, removed: fd.removed };
                 }
                 if (Object.keys(d).length > 0) delta = d;
-            } else if (baselineMode === 'counts-only' && prevBackupMeta?.counts) {
+            } else if (prevBackupMeta?.counts) {
                 const d = {};
                 for (const colName of Object.keys(labelMap)) {
                     const prev = prevBackupMeta.counts[colName] || 0;
@@ -737,17 +804,18 @@ async function exportClinicBackup() {
                 {
                     timestamp: window.firebase.serverTimestamp ? window.firebase.serverTimestamp() : new Date(),
                     localTime: new Date().toISOString(),
-                    fileName: `clinic_backup_${timestamp}.json`,
+                    fileName: downloaded ? (baselineMode === 'detailed' ? `clinic_backup_incremental_${timestamp}.delta.json` : `clinic_backup_${timestamp}.json`) : null,
+                    backupType,
                     counts: currentCounts,
                     delta,
                     totalDocs,
-                    fileSizeBytes: jsonBytes
+                    fileSizeBytes: jsonBytes || null
                 }
             );
 
             updateLastBackupInfo({
                 timestamp: new Date(),
-                fileName: `clinic_backup_${timestamp}.json`,
+                fileName: downloaded ? (baselineMode === 'detailed' ? `clinic_backup_incremental_${timestamp}.delta.json` : `clinic_backup_${timestamp}.json`) : null,
                 counts: currentCounts,
                 delta,
                 prevBackupTime: prevBackupMeta?.timestamp || null
@@ -885,6 +953,81 @@ async function handleBackupFile(file) {
     }
 }
 
+// ====== 增量備份匯入：只 apply changes（added/changed → set，removed → delete） ======
+async function importIncrementalBackup(data, progressCallback, totalSteps) {
+    const detailEl = document.getElementById('backupProgressDetail');
+    const setDetail = (html) => { if (detailEl) { detailEl.innerHTML = html; detailEl.classList.remove('hidden'); } };
+    const appendDetail = (html) => setDetail((detailEl?.innerHTML || '') + html);
+
+    const db = window.firebase.db;
+    const labelMap = {
+        patients: '病人資料', consultations: '診症記錄',
+        users: '用戶資料', billingItems: '收費項目', patientPackages: '套票資料'
+    };
+
+    const changes = data.changes || {};
+    let stepCount = 0;
+    let totalOps = 0;
+    let doneOps = 0;
+    setDetail('<span style="color:#6b7280">正在套用增量變動...</span>');
+
+    const processCollection = async (colName, displayName) => {
+        const change = changes[colName];
+        if (!change) return { added: 0, changed: 0, removed: 0 };
+        const added = Array.isArray(change.added) ? change.added : [];
+        const changed = Array.isArray(change.changed) ? change.changed : [];
+        const removed = Array.isArray(change.removed) ? change.removed : [];
+        if (added.length === 0 && changed.length === 0 && removed.length === 0) return { added: 0, changed: 0, removed: 0 };
+
+        // 顯示這集合的變動摘要
+        const parts = [];
+        if (added.length > 0) parts.push(`<span style="color:#16a34a">新增 ${added.length}</span>`);
+        if (changed.length > 0) parts.push(`<span style="color:#2563eb">變動 ${changed.length}</span>`);
+        if (removed.length > 0) parts.push(`<span style="color:#dc2626">刪除 ${removed.length}</span>`);
+        appendDetail(`<br>${displayName}：${parts.join(' · ')}`);
+
+        // 全塞進一個 batch（增量備份的變動量通常不大，一個 batch 就夠）
+        const batch = window.firebase.writeBatch(db);
+        // 先刪除
+        for (const id of removed) {
+            batch.delete(window.firebase.doc(db, colName, String(id)));
+            totalOps++;
+        }
+        // 再寫入（新增 + 變動都用 set）
+        for (const item of [...added, ...changed]) {
+            if (!item || item.id === undefined || item.id === null) continue;
+            const { id, ...rest } = item;
+            batch.set(window.firebase.doc(db, colName, String(id)), rest);
+            totalOps++;
+        }
+
+        await batch.commit();
+        return { added: added.length, changed: changed.length, removed: removed.length };
+    };
+
+    const results = {};
+    for (const colName of Object.keys(labelMap)) {
+        const displayName = labelMap[colName];
+        const r = await processCollection(colName, displayName);
+        results[colName] = r;
+        stepCount++;
+        if (progressCallback) progressCallback(stepCount, totalSteps);
+    }
+
+    // 套票是 nested sub-collection，需要特殊處理
+    // billingItems 也是 nested，但增量備份裡 billingItems 的 added/changed 是全文檔
+    const totalAdded = Object.values(results).reduce((s, r) => s + (r.added || 0), 0);
+    const totalChanged = Object.values(results).reduce((s, r) => s + (r.changed || 0), 0);
+    const totalRemoved = Object.values(results).reduce((s, r) => s + (r.removed || 0), 0);
+
+    appendDetail(`<br><span style="color:#6b7280">正在更新基準線...</span>`);
+    setDetail(`增量匯入完成 ✓ 新增 ${totalAdded} · 變動 ${totalChanged} · 刪除 ${totalRemoved}`);
+
+    // 更新 localStorage manifest（因為匯入改了 Firestore 資料）
+    // 但我們現在手上只有增量變動，沒有全量，所以清掉讓下次全量備份重建
+    try { localStorage.removeItem('clinic_backup_manifest_v1'); } catch (_) {}
+}
+
 
 async function importClinicBackup(data) {
     let progressCallback = null;
@@ -898,6 +1041,15 @@ async function importClinicBackup(data) {
         totalSteps = arguments[2];
     }
     await ensureFirebaseReady();
+
+    // ====== 增量備份偵測 ======
+    if (data && data.type === 'incremental' && data.changes) {
+        console.log('[匯入] 偵測到增量備份格式');
+        if (progressCallback) progressCallback(0, totalSteps);
+        await importIncrementalBackup(data, progressCallback, totalSteps);
+        return;
+    }
+    // 否則走原本的全量 replaceCollection 路徑
     
     
     async function replaceCollection(collectionName, items, onProgress) {
