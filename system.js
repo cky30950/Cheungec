@@ -24033,10 +24033,6 @@ async function ensureFirebaseReady() {
 }
 
 /**
- * ⚠️ 此函數被 systemmanagement.js 的同名函數覆蓋（後載入者勝出）。
- *     systemmanagement.js 版本有完整的 manifest 比較、詳細 delta 計算、
- *     細粒度匯出進度 UI。本版本保留作參考，不再作為主要入口。
- *
  * 匯出診所所有資料（不包含 Realtime Database 的掛號資料）。
  * 讀取各個集合後組成單一 JSON，提供下載。
  */
@@ -24045,26 +24041,45 @@ async function exportClinicBackup() {
     setButtonLoading(button);
     try {
         await ensureFirebaseReady();
-        // 繞過應用層快取，直接調 getDocs 讀取全量。
-        // Firebase persistentLocalCache 會自動緩存完整查詢結果到 IndexedDB。
-        const db = window.firebase.db;
-        const col = (name) => window.firebase.collection(db, name);
-
-        let patientsData = [];
-        let consultationsData = [];
+        // 讀取病人、診症記錄與用戶資料
+        // 讀取病人與診症資料，並透過 fetchUsers() 取得用戶列表
+        const [patientsRes, consultationsRes] = await Promise.all([
+            // 強制刷新以取得最新病人資料
+            safeGetPatients(true),
+            (async () => {
+                // 確保資料管理器已準備好
+                await waitForFirebaseDataManager();
+                /*
+                 * 讀取診症記錄時也需要傳入 forceRefresh=true，
+                 * 以避免回傳的是快取中的舊資料。
+                 */
+                return await window.firebaseDataManager.getConsultations(true);
+            })()
+        ]);
+        const patientsData = patientsRes && patientsRes.success && Array.isArray(patientsRes.data) ? patientsRes.data : [];
+        // 若診症記錄有多頁，必須依序載入所有頁面。先取得第一頁資料。
+        let consultationsData = consultationsRes && consultationsRes.success && Array.isArray(consultationsRes.data) ? consultationsRes.data.slice() : [];
         try {
-            const [patientsSnap, consultationsSnap] = await Promise.all([
-                window.firebase.getDocs(col('patients')),
-                window.firebase.getDocs(col('consultations'))
-            ]);
-            patientsSnap.forEach((docSnap) => {
-                patientsData.push({ id: docSnap.id, ...docSnap.data() });
-            });
-            consultationsSnap.forEach((docSnap) => {
-                consultationsData.push({ id: docSnap.id, ...docSnap.data() });
-            });
-        } catch (_fetchErr) {
-            console.error('讀取病人或診症資料失敗:', _fetchErr);
+            let hasMore = consultationsRes && consultationsRes.success && consultationsRes.hasMore;
+            const seen = new Set(consultationsData.map(c => String(c.id)));
+            while (hasMore) {
+                const nextRes = await window.firebaseDataManager.getConsultationsNextPage();
+                if (nextRes && nextRes.success && Array.isArray(nextRes.data)) {
+                    for (const item of nextRes.data) {
+                        const idStr = String(item.id);
+                        if (!seen.has(idStr)) {
+                            consultationsData.push(item);
+                            seen.add(idStr);
+                        }
+                    }
+                    hasMore = !!nextRes.hasMore;
+                } else {
+                    hasMore = false;
+                }
+            }
+        } catch (_pageErr) {
+            // 若載入下一頁時發生錯誤，保留已獲得的資料並停止
+            console.warn('讀取診症記錄全部頁面失敗，僅匯出部分資料:', _pageErr);
         }
         // 取得用戶列表；為確保包含個人設置（personalSettings），直接從 Firestore 讀取
         // 不使用快取中的 trimmed 資料，以便包含所有欄位
@@ -24082,7 +24097,8 @@ async function exportClinicBackup() {
         }
         // 讀取收費項目時強制刷新，避免使用快取中的舊資料。
         if (typeof initBillingItems === 'function') {
-            await initBillingItems();
+            // 強制從 Firestore 重新讀取收費項目，以確保備份內容為最新
+            await initBillingItems(true);
         }
         // 讀取所有套票資料
         let packageData = [];
@@ -24147,46 +24163,6 @@ async function exportClinicBackup() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         showToast('備份資料已匯出！', 'success');
-
-        // 備份完更新 backupMeta（非阻塞，失敗不影響下載）
-        try {
-            const currentCounts = {
-                patients: patientsData.length,
-                consultations: consultationsData.length,
-                users: usersData.length,
-                billingItems: billingData.length,
-                patientPackages: packageData.length
-            };
-            // 計算與上次備份的差異
-            let delta = null;
-            try {
-                const prevSnap = await window.firebase.getDoc(
-                    window.firebase.doc(window.firebase.db, 'backupMeta', 'lastBackup')
-                );
-                if (prevSnap && prevSnap.exists()) {
-                    const prevCounts = (prevSnap.data() || {}).counts || {};
-                    const d = {};
-                    for (const k of ['patients','consultations','users','billingItems','patientPackages']) {
-                        const diff = (currentCounts[k] || 0) - (prevCounts[k] || 0);
-                        if (diff !== 0) d[k] = diff;
-                    }
-                    if (Object.keys(d).length > 0) delta = d;
-                }
-            } catch (_dErr) {}
-
-            await window.firebase.setDoc(
-                window.firebase.doc(window.firebase.db, 'backupMeta', 'lastBackup'),
-                {
-                    timestamp: window.firebase.serverTimestamp ? window.firebase.serverTimestamp() : new Date(),
-                    localTime: new Date().toISOString(),
-                    fileName: `clinic_backup_${timestamp}.json`,
-                    counts: currentCounts,
-                    delta
-                }
-            );
-        } catch (_metaErr) {
-            console.warn('更新備份記錄失敗（不影響備份本身）:', _metaErr);
-        }
     } catch (error) {
         console.error('匯出備份失敗:', error);
         showToast('匯出備份失敗，請稍後再試', 'error');
