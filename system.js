@@ -24041,39 +24041,26 @@ async function exportClinicBackup() {
     setButtonLoading(button);
     try {
         await ensureFirebaseReady();
-        // 讀取病人、診症記錄與用戶資料
-        // 讀取病人與診症資料，並透過 fetchUsers() 取得用戶列表
-        const [patientsRes, consultationsRes] = await Promise.all([
-            safeGetPatients(),
-            (async () => {
-                await waitForFirebaseDataManager();
-                return await window.firebaseDataManager.getConsultations();
-            })()
-        ]);
-        const patientsData = patientsRes && patientsRes.success && Array.isArray(patientsRes.data) ? patientsRes.data : [];
-        // 若診症記錄有多頁，必須依序載入所有頁面。先取得第一頁資料。
-        let consultationsData = consultationsRes && consultationsRes.success && Array.isArray(consultationsRes.data) ? consultationsRes.data.slice() : [];
+        // 繞過應用層快取，直接調 getDocs 讀取全量。
+        // Firebase persistentLocalCache 會自動緩存完整查詢結果到 IndexedDB。
+        const db = window.firebase.db;
+        const col = (name) => window.firebase.collection(db, name);
+
+        let patientsData = [];
+        let consultationsData = [];
         try {
-            let hasMore = consultationsRes && consultationsRes.success && consultationsRes.hasMore;
-            const seen = new Set(consultationsData.map(c => String(c.id)));
-            while (hasMore) {
-                const nextRes = await window.firebaseDataManager.getConsultationsNextPage();
-                if (nextRes && nextRes.success && Array.isArray(nextRes.data)) {
-                    for (const item of nextRes.data) {
-                        const idStr = String(item.id);
-                        if (!seen.has(idStr)) {
-                            consultationsData.push(item);
-                            seen.add(idStr);
-                        }
-                    }
-                    hasMore = !!nextRes.hasMore;
-                } else {
-                    hasMore = false;
-                }
-            }
-        } catch (_pageErr) {
-            // 若載入下一頁時發生錯誤，保留已獲得的資料並停止
-            console.warn('讀取診症記錄全部頁面失敗，僅匯出部分資料:', _pageErr);
+            const [patientsSnap, consultationsSnap] = await Promise.all([
+                window.firebase.getDocs(col('patients')),
+                window.firebase.getDocs(col('consultations'))
+            ]);
+            patientsSnap.forEach((docSnap) => {
+                patientsData.push({ id: docSnap.id, ...docSnap.data() });
+            });
+            consultationsSnap.forEach((docSnap) => {
+                consultationsData.push({ id: docSnap.id, ...docSnap.data() });
+            });
+        } catch (_fetchErr) {
+            console.error('讀取病人或診症資料失敗:', _fetchErr);
         }
         // 取得用戶列表；為確保包含個人設置（personalSettings），直接從 Firestore 讀取
         // 不使用快取中的 trimmed 資料，以便包含所有欄位

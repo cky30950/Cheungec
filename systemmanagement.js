@@ -344,37 +344,30 @@ async function exportClinicBackup() {
         let totalStepsForBackupExport = 5;
         let stepCount = 0;
         showBackupProgressBar(totalStepsForBackupExport);
-        
-        
-        const [patientsRes, consultationsRes] = await Promise.all([
-            
-            safeGetPatients(),
-            (async () => {
-                
-                await waitForFirebaseDataManager();
-                
-                return await window.firebaseDataManager.getConsultations();
-            })()
-        ]);
-        const patientsData = patientsRes && patientsRes.success && Array.isArray(patientsRes.data) ? patientsRes.data : [];
-        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
-        
-        let consultationsData = consultationsRes && consultationsRes.success && Array.isArray(consultationsRes.data) ? consultationsRes.data.slice() : [];
+
+        // 繞過應用層快取，直接調 getDocs 讀取全量。
+        // Firebase persistentLocalCache 會自動緩存完整查詢結果到 IndexedDB：
+        //   - 第一次備份：正常讀 Firestore
+        //   - 第二次起（同一瀏覽器）：自動從 IndexedDB 返回，只有變動的文檔才查 Firestore
+        // 應用層快取（patientsCache, consultationsCache）是 trimmed/partial 的，不能依賴。
+        const db = window.firebase.db;
+        const col = (name) => window.firebase.collection(db, name);
+
+        let patientsData = [];
+        let consultationsData = [];
         try {
-            
-            let hasMore = consultationsRes && consultationsRes.success && consultationsRes.hasMore;
-            while (hasMore) {
-                const nextRes = await window.firebaseDataManager.getConsultationsNextPage();
-                if (nextRes && nextRes.success && Array.isArray(nextRes.data)) {
-                    consultationsData = nextRes.data.slice();
-                    hasMore = nextRes.hasMore;
-                } else {
-                    hasMore = false;
-                }
-            }
-        } catch (_pageErr) {
-            
-            console.warn('讀取診症記錄全部頁面失敗，僅匯出部分資料:', _pageErr);
+            const [patientsSnap, consultationsSnap] = await Promise.all([
+                window.firebase.getDocs(col('patients')),
+                window.firebase.getDocs(col('consultations'))
+            ]);
+            patientsSnap.forEach((docSnap) => {
+                patientsData.push({ id: docSnap.id, ...docSnap.data() });
+            });
+            consultationsSnap.forEach((docSnap) => {
+                consultationsData.push({ id: docSnap.id, ...docSnap.data() });
+            });
+        } catch (_fetchErr) {
+            console.error('讀取病人或診症資料失敗:', _fetchErr);
         }
         stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
         
