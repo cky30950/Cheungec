@@ -5617,6 +5617,147 @@ function generateSearchKeywords(patient = {}) {
     return Array.from(keywords);
 }
 
+/**
+ * 為診症記錄生成搜尋關鍵字。
+ * 覆蓋：病歷編號、病人 ID、病人編號、病人姓名、醫師（字串或物件）、主訴/診斷。
+ * 所有欄位轉小寫，編號/姓名做子字串展開，長文字只保留完整字。
+ *
+ * @param {object} consultation 診症記錄物件
+ * @returns {string[]} 關鍵字陣列
+ */
+function generateConsultationSearchKeywords(consultation = {}) {
+    const keywords = new Set();
+
+    const addSubstrings = (value, opts = {}) => {
+        if (!value) return;
+        const { minLen = 2, maxLen = 8, trim = true, dedupePhone = false } = opts;
+        let s = trim ? String(value).replace(/\s+/g, '').toLowerCase() : String(value).toLowerCase();
+        if (!s) return;
+        keywords.add(s);
+        if (s.length >= 4 && dedupePhone) keywords.add(s.slice(-4));
+        const maxStart = Math.min(s.length, maxLen);
+        for (let start = 0; start < s.length; start++) {
+            for (let end = start + minLen; end <= Math.min(start + maxLen, s.length); end++) {
+                const sub = s.slice(start, end);
+                if (sub) keywords.add(sub);
+            }
+        }
+    };
+
+    const addPlain = (value) => {
+        if (value) {
+            const s = String(value).toLowerCase().trim();
+            if (s) keywords.add(s);
+        }
+    };
+
+    // ① 病歷編號（最重要）
+    if (consultation.medicalRecordNumber) {
+        addSubstrings(consultation.medicalRecordNumber, { minLen: 2, maxLen: 20 });
+    }
+
+    // ② 病人 ID（UUID，只加完整值，不做子字串）
+    addPlain(consultation.patientId);
+
+    // ③ 病人編號
+    if (consultation.patientNumber) {
+        addSubstrings(consultation.patientNumber, { minLen: 3, maxLen: 12, dedupePhone: true });
+    }
+
+    // ④ 病人姓名（多種可能欄位）
+    const patientNameFields = [
+        consultation.patientName,
+        consultation.patient && consultation.patient.name,
+    ].filter(Boolean);
+    for (const name of patientNameFields) {
+        addSubstrings(name, { minLen: 1, maxLen: 20 });
+    }
+
+    // ⑤ 醫師（可能是字串 username，或物件有 username/displayName/fullName/name/email）
+    const doctorRaw = consultation.doctor;
+    if (doctorRaw) {
+        if (typeof doctorRaw === 'string') {
+            addSubstrings(doctorRaw, { minLen: 2, maxLen: 20 });
+        } else if (typeof doctorRaw === 'object') {
+            for (const f of ['username', 'displayName', 'fullName', 'name', 'email']) {
+                if (doctorRaw[f]) addSubstrings(doctorRaw[f], { minLen: 2, maxLen: 20 });
+            }
+        }
+    }
+
+    // ⑥ 主訴 / 診斷（長文字，只保留完整字，不做子字串以免爆炸）
+    addPlain(consultation.chiefComplaint);
+    addPlain(consultation.diagnosis);
+
+    return Array.from(keywords);
+}
+
+/**
+ * 一次性歷史資料回填：掃描所有 consultations，為缺少 searchKeywords 的舊文檔補寫。
+ * 執行方式：在瀏覽器 Console 執行 `await window.backfillConsultationSearchKeywords()`
+ * 支援中斷後續跑：傳入上次最後處理的 doc id：
+ *   await window.backfillConsultationSearchKeywords('lastDocIdFromPrevRun')
+ */
+window.backfillConsultationSearchKeywords = async function(startAfterDocId = null) {
+    await waitForFirebaseDb();
+    const PAGE_SIZE = 500;
+    const col = window.firebase.collection(window.firebase.db, 'consultations');
+
+    let cursorQuery = window.firebase.firestoreQuery(col, window.firebase.limit(PAGE_SIZE));
+    if (startAfterDocId) {
+        const startDoc = await window.firebase.getDoc(
+            window.firebase.doc(window.firebase.db, 'consultations', startAfterDocId)
+        );
+        if (startDoc.exists()) {
+            cursorQuery = window.firebase.firestoreQuery(
+                col,
+                window.firebase.startAfter(startDoc),
+                window.firebase.limit(PAGE_SIZE)
+            );
+        } else {
+            console.warn('[backfill] startAfterDocId 不存在，從頭開始');
+        }
+    }
+
+    let totalScanned = 0;
+    let totalBackfilled = 0;
+    let lastProcessedId = null;
+
+    while (true) {
+        const snap = await window.firebase.getDocs(cursorQuery);
+        const docs = snap.docs;
+        if (docs.length === 0) break;
+
+        for (const doc of docs) {
+            lastProcessedId = doc.id;
+            totalScanned++;
+            const data = doc.data();
+            if (!Array.isArray(data.searchKeywords) || data.searchKeywords.length === 0) {
+                const newKeywords = generateConsultationSearchKeywords(data);
+                if (newKeywords.length > 0) {
+                    await window.firebase.updateDoc(doc.ref, { searchKeywords: newKeywords });
+                    totalBackfilled++;
+                }
+            }
+        }
+
+        console.log(`[backfill] 掃描 ${totalScanned}，回填 ${totalBackfilled}，最後處理 ${lastProcessedId}`);
+
+        if (docs.length < PAGE_SIZE) break;
+
+        // 下一頁
+        cursorQuery = window.firebase.firestoreQuery(
+            col,
+            window.firebase.startAfter(docs[docs.length - 1]),
+            window.firebase.limit(PAGE_SIZE)
+        );
+    }
+
+    const result = { totalScanned, totalBackfilled, lastProcessedId };
+    console.log('[backfill] 完成', result);
+    return result;
+};
+
 
 
 async function waitForFirebaseDataManager() {
@@ -26805,7 +26946,7 @@ class FirebaseDataManager {
                 return { success: true, data: [] };
             }
             const results = [];
-            // 透過 searchKeywords 進行查詢
+            // 透過 searchKeywords 進行查詢（主力，精簡且高效）
             try {
                 const colRef = window.firebase.collection(window.firebase.db, 'patients');
                 const q = window.firebase.query(
@@ -26820,51 +26961,45 @@ class FirebaseDataManager {
             } catch (err) {
                 console.error('搜尋病人時發生錯誤:', err);
             }
+
             /*
-             * 透過 searchKeywords 查詢後，我們還需要在本地快取中進行補強搜尋。
-             * 過去僅當 Firestore 查詢結果不足時才進行快取搜尋，這會導致當
-             * searchKeywords 中沒有包含使用者輸入的字串時，若目前快取尚未載入，
-             * 使用者輸入的電話或病人編號片段等條件無法被匹配到。
-             * 為了解決這個問題，我們改為總是載入快取（若尚未存在），並在
-             * 本地資料上比對名稱、電話、身分證與病人編號等欄位是否包含輸入字串。
+             * 本地補強搜尋：只有當 searchKeywords 結果不足時才執行。
+             * 先嘗試用現有快取（非強制刷新）做本地補強；若快取不存在再考慮遠端讀取。
+             * 這避免每次搜尋都觸發全量 getPatients(true)。
              */
-            let localPatients = [];
-            try {
-                // 搜尋時若只有 localStorage 快取，先同步一次遠端清單，避免舊資料漏搜。
-                const shouldRefreshPatients =
-                    !Array.isArray(this.patientsCache)
-                    || this.patientsCacheSource !== 'remote';
-                if (shouldRefreshPatients) {
-                    const patientRes = await this.getPatients(true);
-                    if (patientRes && patientRes.success && Array.isArray(patientRes.data)) {
-                        localPatients = patientRes.data;
-                        this.patientsCache = patientRes.data;
-                        this.patientsCacheSource = 'remote';
-                        this.patientsCacheFetchedAt = Date.now();
+            if (results.length < limit) {
+                let localPatients = [];
+                try {
+                    const hasCache = Array.isArray(this.patientsCache) && this.patientsCache.length > 0;
+                    if (hasCache) {
+                        // 有快取 → 直接用，不強制刷新
+                        localPatients = this.patientsCache;
+                    } else {
+                        // 無快取 → 用非強制模式（優先用 localStorage），失敗才遠端讀取
+                        const patientRes = await this.getPatients(false);
+                        if (patientRes && patientRes.success && Array.isArray(patientRes.data)) {
+                            localPatients = patientRes.data;
+                        }
                     }
-                } else {
-                    localPatients = this.patientsCache;
+                } catch (cacheErr) {
+                    console.error('讀取病人快取時發生錯誤:', cacheErr);
+                    localPatients = Array.isArray(this.patientsCache) ? this.patientsCache : [];
                 }
-            } catch (cacheErr) {
-                console.error('讀取病人快取時發生錯誤:', cacheErr);
-                localPatients = Array.isArray(this.patientsCache) ? this.patientsCache : [];
-            }
-            // 在本地資料中補強搜尋，避免重複加入已在 results 中的病人。
-            if (Array.isArray(localPatients) && localPatients.length > 0) {
-                const seen = new Set(results.map(p => String(p.id)));
-                const low = searchTerm;
-                for (const p of localPatients) {
-                    // 控制返回數量不超過指定 limit
-                    if (results.length >= limit) break;
-                    if (seen.has(String(p.id))) continue;
-                    // 比對姓名、電話、身分證字號與病人編號欄位
-                    const nameMatch = p.name && String(p.name).toLowerCase().includes(low);
-                    const phoneMatch = p.phone && String(p.phone).toLowerCase().includes(low);
-                    const idMatch = p.idCard && String(p.idCard).toLowerCase().includes(low);
-                    const numberMatch = p.patientNumber && String(p.patientNumber).toLowerCase().includes(low);
-                    if (nameMatch || phoneMatch || idMatch || numberMatch) {
-                        results.push(p);
-                        seen.add(String(p.id));
+                // 在本地資料中補強搜尋，避免重複加入已在 results 中的病人。
+                if (Array.isArray(localPatients) && localPatients.length > 0) {
+                    const seen = new Set(results.map(p => String(p.id)));
+                    const low = searchTerm;
+                    for (const p of localPatients) {
+                        if (results.length >= limit) break;
+                        if (seen.has(String(p.id))) continue;
+                        const nameMatch = p.name && String(p.name).toLowerCase().includes(low);
+                        const phoneMatch = p.phone && String(p.phone).toLowerCase().includes(low);
+                        const idMatch = p.idCard && String(p.idCard).toLowerCase().includes(low);
+                        const numberMatch = p.patientNumber && String(p.patientNumber).toLowerCase().includes(low);
+                        if (nameMatch || phoneMatch || idMatch || numberMatch) {
+                            results.push(p);
+                            seen.add(String(p.id));
+                        }
                     }
                 }
             }
@@ -26894,13 +27029,15 @@ class FirebaseDataManager {
             }
             const createdAt = new Date();
             const sortDate = getConsultationEffectiveDate({ ...dataToWrite, createdAt }, createdAt);
+            const searchKeywords = generateConsultationSearchKeywords({ ...dataToWrite, createdAt, sortDate });
             const docRef = await window.firebase.addDoc(
                 window.firebase.collection(window.firebase.db, 'consultations'),
                 {
                     ...dataToWrite,
                     createdAt,
                     sortDate: sortDate || createdAt,
-                    createdBy: currentUser
+                    createdBy: currentUser,
+                    searchKeywords
                 }
             );
             try {
@@ -27950,13 +28087,15 @@ class FirebaseDataManager {
             } catch (_existingErr) {}
             let temporalBase = { ...(existingRecord || {}), ...dataToWrite, updatedAt };
             const sortDate = getConsultationEffectiveDate(temporalBase, updatedAt);
+            const searchKeywords = generateConsultationSearchKeywords({ ...temporalBase, sortDate: sortDate || updatedAt });
             await window.firebase.updateDoc(
                 window.firebase.doc(window.firebase.db, 'consultations', consultationId),
                 {
                     ...dataToWrite,
                     updatedAt,
                     sortDate: sortDate || updatedAt,
-                    updatedBy: currentUser
+                    updatedBy: currentUser,
+                    searchKeywords
                 }
             );
             try {
@@ -30482,6 +30621,8 @@ async function searchMedicalRecords(term, limitCount = 50) {
         const seen = new Set();
         let out = [];
         if (!lc) return out;
+
+        // ① 快速路徑：輸入剛好是 consultation document ID
         try {
             const dref = window.firebase.doc(window.firebase.db, 'consultations', lc);
             const dsnap = await window.firebase.getDoc(dref);
@@ -30491,15 +30632,62 @@ async function searchMedicalRecords(term, limitCount = 50) {
                 seen.add(String(rec.id));
             }
         } catch (_e) {}
+
+        // ② 主力：透過 searchKeywords array-contains 查詢（新資料都有這個欄位）
         try {
             const col = window.firebase.collection(window.firebase.db, 'consultations');
-            const q1 = window.firebase.firestoreQuery(
+            const q = window.firebase.firestoreQuery(
                 col,
-                window.firebase.where('medicalRecordNumber', '==', term),
-                window.firebase.limit(Math.max(1, Math.min(20, limitCount)))
+                window.firebase.where('searchKeywords', 'array-contains', lc),
+                window.firebase.limit(limitCount)
             );
-            const s1 = await window.firebase.getDocs(q1);
-            s1.forEach(d => {
+            const snap = await window.firebase.getDocs(q);
+            snap.forEach(d => {
+                const id = String(d.id);
+                if (!seen.has(id)) {
+                    out.push({ id: d.id, ...d.data() });
+                    seen.add(id);
+                }
+            });
+        } catch (_e) {}
+
+        // ③ 回退：如果 searchKeywords 沒結果（舊資料沒有這個欄位），用舊邏輯補查
+        if (out.length < limitCount) {
+            try {
+                await searchMedicalRecordsLegacy(lc, limitCount, out, seen);
+            } catch (_e) {}
+        }
+
+        out = out.filter(rec => canCurrentUserViewConsultationEntry(rec));
+        try {
+            out = sortMedicalRecordsBySortDateDesc(out);
+        } catch (_e) {}
+        return out;
+    } catch (_err) {
+        return [];
+    }
+}
+
+/**
+ * 舊版病歷搜尋邏輯。只在 searchKeywords array-contains 無法滿足結果時作為回退使用。
+ * 包含：medicalRecordNumber 精確/前綴/大小寫、病人姓名/編號/ID 反查、醫師姓名反查。
+ */
+async function searchMedicalRecordsLegacy(term, limitCount, out, seen) {
+    const termUpper = term.toUpperCase();
+
+    const col = window.firebase.collection(window.firebase.db, 'consultations');
+
+    // medicalRecordNumber 精確（原始 + 大寫）
+    for (const exact of [term, termUpper]) {
+        if (out.length >= limitCount) break;
+        try {
+            const q = window.firebase.firestoreQuery(
+                col,
+                window.firebase.where('medicalRecordNumber', '==', exact),
+                window.firebase.limit(Math.max(1, Math.min(20, limitCount - out.length)))
+            );
+            const snap = await window.firebase.getDocs(q);
+            snap.forEach(d => {
                 const id = String(d.id);
                 if (!seen.has(id) && out.length < limitCount) {
                     out.push({ id: d.id, ...d.data() });
@@ -30507,37 +30695,21 @@ async function searchMedicalRecords(term, limitCount = 50) {
                 }
             });
         } catch (_e) {}
+    }
+
+    // medicalRecordNumber 前綴（大寫 + 原始）
+    for (const prefix of [termUpper, term]) {
+        if (out.length >= limitCount) break;
         try {
-            const termUpper = (term || '').toUpperCase();
-            if (termUpper && termUpper !== term) {
-                const col = window.firebase.collection(window.firebase.db, 'consultations');
-                const q1u = window.firebase.firestoreQuery(
-                    col,
-                    window.firebase.where('medicalRecordNumber', '==', termUpper),
-                    window.firebase.limit(Math.max(1, Math.min(20, limitCount)))
-                );
-                const s1u = await window.firebase.getDocs(q1u);
-                s1u.forEach(d => {
-                    const id = String(d.id);
-                    if (!seen.has(id) && out.length < limitCount) {
-                        out.push({ id: d.id, ...d.data() });
-                        seen.add(id);
-                    }
-                });
-            }
-        } catch (_e) {}
-        try {
-            const termUpper = (term || '').toUpperCase();
-            const col = window.firebase.collection(window.firebase.db, 'consultations');
-            const qPref = window.firebase.firestoreQuery(
+            const q = window.firebase.firestoreQuery(
                 col,
                 window.firebase.orderBy('medicalRecordNumber', 'asc'),
-                window.firebase.startAt(termUpper),
-                window.firebase.endAt(termUpper + '\uf8ff'),
-                window.firebase.limit(Math.max(1, Math.min(20, limitCount)))
+                window.firebase.startAt(prefix),
+                window.firebase.endAt(prefix + '\uf8ff'),
+                window.firebase.limit(Math.max(1, Math.min(20, limitCount - out.length)))
             );
-            const sPref = await window.firebase.getDocs(qPref);
-            sPref.forEach(d => {
+            const snap = await window.firebase.getDocs(q);
+            snap.forEach(d => {
                 const id = String(d.id);
                 if (!seen.has(id) && out.length < limitCount) {
                     out.push({ id: d.id, ...d.data() });
@@ -30545,25 +30717,11 @@ async function searchMedicalRecords(term, limitCount = 50) {
                 }
             });
         } catch (_e) {}
-        try {
-            const col = window.firebase.collection(window.firebase.db, 'consultations');
-            const qPrefRaw = window.firebase.firestoreQuery(
-                col,
-                window.firebase.orderBy('medicalRecordNumber', 'asc'),
-                window.firebase.startAt(term),
-                window.firebase.endAt(term + '\uf8ff'),
-                window.firebase.limit(Math.max(1, Math.min(20, limitCount)))
-            );
-            const sPrefRaw = await window.firebase.getDocs(qPrefRaw);
-            sPrefRaw.forEach(d => {
-                const id = String(d.id);
-                if (!seen.has(id) && out.length < limitCount) {
-                    out.push({ id: d.id, ...d.data() });
-                    seen.add(id);
-                }
-            });
-        } catch (_e) {}
-        let patientIds = [];
+    }
+
+    // 病人反查（先用 searchPatients 拿到 patientIds）
+    let patientIds = [];
+    if (out.length < limitCount) {
         try {
             const pres = await (window.firebaseDataManager && typeof window.firebaseDataManager.searchPatients === 'function'
                 ? window.firebaseDataManager.searchPatients(term, 10)
@@ -30575,14 +30733,13 @@ async function searchMedicalRecords(term, limitCount = 50) {
         for (const pid of patientIds) {
             if (out.length >= limitCount) break;
             try {
-                const col = window.firebase.collection(window.firebase.db, 'consultations');
-                const q2 = window.firebase.firestoreQuery(
+                const q = window.firebase.firestoreQuery(
                     col,
                     window.firebase.where('patientId', '==', pid),
                     window.firebase.limit(Math.max(1, Math.min(10, limitCount - out.length)))
                 );
-                const s2 = await window.firebase.getDocs(q2);
-                s2.forEach(d => {
+                const snap = await window.firebase.getDocs(q);
+                snap.forEach(d => {
                     const id = String(d.id);
                     if (!seen.has(id) && out.length < limitCount) {
                         out.push({ id: d.id, ...d.data() });
@@ -30591,7 +30748,10 @@ async function searchMedicalRecords(term, limitCount = 50) {
                 });
             } catch (_e) {}
         }
-        // 依醫師名稱搜尋：先在用戶清單中比對名稱/顯示名/帳號，取得對應 username 清單
+    }
+
+    // 醫師反查
+    if (out.length < limitCount) {
         let doctorUsernames = [];
         try {
             const ures = await (window.firebaseDataManager && typeof window.firebaseDataManager.getUsers === 'function'
@@ -30601,7 +30761,7 @@ async function searchMedicalRecords(term, limitCount = 50) {
             const seenUser = new Set();
             usersArr.forEach(u => {
                 const fields = [u.displayName, u.fullName, u.name, u.username, u.email].map(x => String(x || '').toLowerCase());
-                if (fields.some(v => v && v.includes(lc))) {
+                if (fields.some(v => v && v.includes(term))) {
                     const uname = String(u.username || '').trim();
                     if (uname && !seenUser.has(uname)) {
                         doctorUsernames.push(uname);
@@ -30613,7 +30773,6 @@ async function searchMedicalRecords(term, limitCount = 50) {
         for (const uname of doctorUsernames.slice(0, 10)) {
             if (out.length >= limitCount) break;
             try {
-                const col = window.firebase.collection(window.firebase.db, 'consultations');
                 // doctor 可能是字串 username
                 const qA = window.firebase.firestoreQuery(
                     col,
@@ -30645,13 +30804,6 @@ async function searchMedicalRecords(term, limitCount = 50) {
                 });
             } catch (_e) {}
         }
-        out = out.filter(rec => canCurrentUserViewConsultationEntry(rec));
-        try {
-            out = sortMedicalRecordsBySortDateDesc(out);
-        } catch (_e) {}
-        return out;
-    } catch (_err) {
-        return [];
     }
 }
 
