@@ -24033,6 +24033,10 @@ async function ensureFirebaseReady() {
 }
 
 /**
+ * ⚠️ 此函數被 systemmanagement.js 的同名函數覆蓋（後載入者勝出）。
+ *     systemmanagement.js 版本有完整的 manifest 比較、詳細 delta 計算、
+ *     細粒度匯出進度 UI。本版本保留作參考，不再作為主要入口。
+ *
  * 匯出診所所有資料（不包含 Realtime Database 的掛號資料）。
  * 讀取各個集合後組成單一 JSON，提供下載。
  */
