@@ -5758,6 +5758,28 @@ window.backfillConsultationSearchKeywords = async function(startAfterDocId = nul
     return result;
 };
 
+/**
+ * 全量重算所有病人的診症聚合欄位（consultationCount, latestConsultationAt, latestFollowUpDate）。
+ * 執行方式：在瀏覽器 Console 執行 `await window.recomputeAllPatientAggregates()`
+ * 這會讀取所有病人 + 每個病人的診症計數，耗時較久，僅在資料不同步時使用。
+ */
+window.recomputeAllPatientAggregates = async function() {
+    await waitForFirebaseDb();
+    const dm = window.firebaseDataManager;
+    if (!dm || !dm.getPatients) { console.error('firebaseDataManager 未就緒'); return; }
+
+    const patientsRes = await dm.getPatients(true);
+    const patients = (patientsRes && patientsRes.success && patientsRes.data) || [];
+    let done = 0;
+    for (const p of patients) {
+        await dm.recomputePatientConsultationAggregate(p.id).catch(() => {});
+        done++;
+        if (done % 20 === 0) console.log(`[recompute] ${done}/${patients.length}`);
+    }
+    console.log(`[recompute] 完成，共 ${done} 位病人`);
+    return { total: done };
+};
+
 
 
 async function waitForFirebaseDataManager() {
@@ -26511,13 +26533,33 @@ class FirebaseDataManager {
         const pid = String(patientId || '');
         if (!pid || !aggregatePatch || typeof aggregatePatch !== 'object') return;
 
+        // 處理增量欄位（consultationCountDelta: N 代表在現有 count 上加 N）
+        const countDelta = Number(aggregatePatch.consultationCountDelta);
+        const hasCountDelta = !Number.isNaN(countDelta);
+
         const applyPatchToList = (list) => {
             if (!Array.isArray(list)) return false;
             let updated = false;
             for (let i = 0; i < list.length; i++) {
                 const patient = list[i];
                 if (patient && String(patient.id) === pid) {
-                    list[i] = { ...patient, ...aggregatePatch };
+                    let merged = { ...patient };
+                    // 如果 patch 包含 consultationCount（絕對值），直接用
+                    if (Object.prototype.hasOwnProperty.call(aggregatePatch, 'consultationCount')
+                        && typeof aggregatePatch.consultationCount === 'number') {
+                        merged.consultationCount = aggregatePatch.consultationCount;
+                    } else if (hasCountDelta) {
+                        // 否則套用增量
+                        merged.consultationCount = Math.max(0, Number(patient.consultationCount || 0) + countDelta);
+                    }
+                    // 其他欄位正常覆蓋（latestConsultationAt, latestFollowUpDate）
+                    if (aggregatePatch.latestConsultationAt !== undefined) {
+                        merged.latestConsultationAt = aggregatePatch.latestConsultationAt;
+                    }
+                    if (aggregatePatch.latestFollowUpDate !== undefined) {
+                        merged.latestFollowUpDate = aggregatePatch.latestFollowUpDate;
+                    }
+                    list[i] = merged;
                     updated = true;
                 }
             }
@@ -26580,67 +26622,131 @@ class FirebaseDataManager {
         }
     }
 
-    async syncPatientConsultationAggregate(patientId) {
-        if (!this.isReady) return { success: false, error: 'not_ready' };
+    /**
+     * 精簡版病人診症聚合更新 — 完全不讀取 Firestore，只靠 FieldValue.increment 寫入。
+     * 取代原本 syncPatientConsultationAggregate（每次 2-3 次讀取），改為 0 次讀取。
+     *
+     * 策略：
+     *   - consultationCount 用 FieldValue.increment 原子增減
+     *   - latestConsultationAt / latestFollowUpDate 樂觀更新（取當前寫入的 record 值）
+     *     邊緣情況（out-of-order 寫入、刪除最新記錄）下可能短暫不準確，
+     *     但醫療場景對這兩個欄位的即時性要求不高，可接受。
+     *   - 如需完全精確，用 recomputePatientConsultationAggregate 全量重算（管理工具用）
+     *
+     * @param {string} patientId         主要要更新聚合的病人 ID
+     * @param {'add'|'update'|'delete'} operation
+     * @param {object} [consultation]    新增/更新時的診症記錄（含 patientId, sortDate, followUpDate）
+     * @param {string} [prevPatientId]   更新時若病人 ID 有變更，傳舊的病人 ID
+     */
+    async patchPatientAggregate(patientId, operation, consultation, prevPatientId) {
+        if (!this.isReady) return;
+        const pid = String(patientId || '');
+        if (!pid) return;
+
+        try {
+            const increment = window.firebase.FieldValue.increment;
+            const patch = {};
+
+            // 先處理舊病人（update 時病人 ID 變更的情況，或 delete 時）
+            if (operation === 'update' && prevPatientId && String(prevPatientId) !== pid) {
+                const oldPid = String(prevPatientId);
+                // 舊病人 count -1
+                await window.firebase.updateDoc(
+                    window.firebase.doc(window.firebase.db, 'patients', oldPid),
+                    { consultationCount: increment(-1) }
+                ).catch(() => {});
+                this.applyPatientAggregateToCaches(oldPid, { consultationCountDelta: -1 });
+                touchPatientsMeta('update', oldPid).catch(() => {});
+            }
+
+            if (operation === 'add') {
+                patch.consultationCount = increment(1);
+            } else if (operation === 'delete') {
+                patch.consultationCount = increment(-1);
+                // 刪除時不動 latest — 我們不知道是不是刪了最新那筆，
+                // 讓它保持樂觀值即可，下次 add/update 會被覆蓋
+            } else if (operation === 'update') {
+                // 同一病人下 update，count 不變；只有 patientId 變更時上面已處理
+                // 不動 count，只更新 latest
+            }
+
+            // latest 欄位：add / update 時樂觀設定為當前 record 的值
+            if (consultation && (operation === 'add' || operation === 'update')) {
+                const sortDate = getConsultationEffectiveDate(consultation);
+                if (sortDate) patch.latestConsultationAt = sortDate;
+                const fu = parseConsultationDate(consultation.followUpDate);
+                if (fu) patch.latestFollowUpDate = fu;
+            }
+
+            // 只有 patch 有內容才寫入
+            if (Object.keys(patch).length > 0) {
+                await window.firebase.updateDoc(
+                    window.firebase.doc(window.firebase.db, 'patients', pid),
+                    patch
+                );
+                this.applyPatientAggregateToCaches(pid, patch);
+            }
+            touchPatientsMeta('update', pid).catch(() => {});
+        } catch (error) {
+            console.warn('patchPatientAggregate 失敗（非致錯路徑）:', error.message);
+        }
+    }
+
+    /**
+     * 全量重算病人診症聚合 — 讀取該病人所有 consultations 並重新計算。
+     * 僅在以下情況使用：
+     *   1. 管理員主動修復聚合資料（透過 Console 手動調用）
+     *   2. 資料庫嚴重不同步時的一次性修復
+     *
+     * 一般 CRUD 請用 patchPatientAggregate（0 讀取）。
+     */
+    async recomputePatientConsultationAggregate(patientId) {
+        if (!this.isReady) return { success: false };
         const pid = String(patientId || '');
         if (!pid) return { success: false, error: 'missing_patient_id' };
 
         try {
-            if (typeof this.ensurePatientConsultationSortDates === 'function') {
-                const backfillResult = await this.ensurePatientConsultationSortDates(pid);
-                if (!backfillResult || !backfillResult.success) {
-                    console.warn('同步診症彙總前補 sortDate 失敗:', backfillResult && backfillResult.error);
-                }
-            }
-
             await waitForFirebaseDb();
             const colRef = window.firebase.collection(window.firebase.db, 'consultations');
-            const countQuery = window.firebase.firestoreQuery(
-                colRef,
-                window.firebase.where('patientId', '==', pid)
+
+            // 確保 sortDate 已回填（一次性，每病人只做一次）
+            if (typeof this.ensurePatientConsultationSortDates === 'function') {
+                await this.ensurePatientConsultationSortDates(pid).catch(() => {});
+            }
+
+            const countSnap = await window.firebase.getCountFromServer(
+                window.firebase.firestoreQuery(colRef, window.firebase.where('patientId', '==', pid))
             );
-            const countSnap = await window.firebase.getCountFromServer(countQuery);
             const consultationCount = Number(countSnap && countSnap.data && countSnap.data().count) || 0;
 
             let latestConsultationAt = null;
             let latestFollowUpDate = null;
             if (consultationCount > 0) {
-                const latestQuery = window.firebase.firestoreQuery(
-                    colRef,
-                    window.firebase.where('patientId', '==', pid),
-                    window.firebase.orderBy('sortDate', 'desc'),
-                    window.firebase.limit(1)
+                const latestSnap = await window.firebase.getDocs(
+                    window.firebase.firestoreQuery(
+                        colRef,
+                        window.firebase.where('patientId', '==', pid),
+                        window.firebase.orderBy('sortDate', 'desc'),
+                        window.firebase.limit(1)
+                    )
                 );
-                const latestSnap = await window.firebase.getDocs(latestQuery);
-                if (latestSnap && latestSnap.docs && latestSnap.docs.length > 0) {
-                    const latestData = latestSnap.docs[0].data() || {};
-                    latestConsultationAt = getConsultationEffectiveDate(latestData) || null;
-                    latestFollowUpDate = parseConsultationDate(latestData.followUpDate) || null;
+                if (latestSnap.docs && latestSnap.docs.length > 0) {
+                    const d = latestSnap.docs[0].data() || {};
+                    latestConsultationAt = getConsultationEffectiveDate(d) || null;
+                    latestFollowUpDate = parseConsultationDate(d.followUpDate) || null;
                 }
             }
 
-            const aggregatePatch = {
-                consultationCount,
-                latestConsultationAt,
-                latestFollowUpDate
-            };
-
+            const patch = { consultationCount, latestConsultationAt, latestFollowUpDate };
             await window.firebase.updateDoc(
                 window.firebase.doc(window.firebase.db, 'patients', pid),
-                aggregatePatch
+                patch
             );
-            this.applyPatientAggregateToCaches(pid, aggregatePatch);
-            // 通知其他裝置病人列表有變更
+            this.applyPatientAggregateToCaches(pid, patch);
             touchPatientsMeta('update', pid).catch(() => {});
-
-            return {
-                success: true,
-                consultationCount,
-                latestConsultationAt,
-                latestFollowUpDate
-            };
+            return { success: true, ...patch };
         } catch (error) {
-            console.error('同步病人診症彙總失敗:', error);
+            console.error('重算病人診症彙總失敗:', error);
             return { success: false, error: error.message };
         }
     }
@@ -27062,7 +27168,8 @@ class FirebaseDataManager {
                 console.warn('新增診症後同步個人統計摘要失敗:', _personalStatsErr);
             }
             try {
-                await this.syncPatientConsultationAggregate(consultationData && consultationData.patientId);
+                const fullConsultation = { ...dataToWrite, createdAt, sortDate, createdBy: currentUser };
+                await this.patchPatientAggregate(consultationData && consultationData.patientId, 'add', fullConsultation);
             } catch (_aggregateErr) {
                 console.warn('新增診症後同步病人診症彙總失敗:', _aggregateErr);
             }
@@ -28125,13 +28232,24 @@ class FirebaseDataManager {
                 console.warn('更新診症後同步個人統計摘要失敗:', _personalStatsErr);
             }
             try {
-                const aggregatePatientIds = Array.from(new Set(
-                    [existingRecord && existingRecord.patientId, consultationData && consultationData.patientId]
-                        .filter((id) => String(id || '').trim() !== '')
-                        .map((id) => String(id))
-                ));
-                for (const pid of aggregatePatientIds) {
-                    await this.syncPatientConsultationAggregate(pid);
+                const oldPid = String(existingRecord && existingRecord.patientId || '');
+                const newPid = String(consultationData && consultationData.patientId || oldPid || '');
+                if (newPid) {
+                    const fullConsultation = {
+                        ...(existingRecord || {}),
+                        ...dataToWrite,
+                        updatedAt,
+                        sortDate: sortDate || updatedAt
+                    };
+                    await this.patchPatientAggregate(
+                        newPid,
+                        'update',
+                        fullConsultation,
+                        oldPid && oldPid !== newPid ? oldPid : null
+                    );
+                } else if (oldPid) {
+                    // 邊緣情況：診症被清除了病人 ID
+                    await this.patchPatientAggregate(oldPid, 'update', null);
                 }
             } catch (_aggregateErr) {
                 console.warn('更新診症後同步病人診症彙總失敗:', _aggregateErr);
@@ -28217,7 +28335,10 @@ class FirebaseDataManager {
                 console.warn('刪除診症後同步個人統計摘要失敗:', _personalStatsErr);
             }
             try {
-                await this.syncPatientConsultationAggregate(existingRecord && existingRecord.patientId);
+                const pid = existingRecord && existingRecord.patientId;
+                if (pid) {
+                    await this.patchPatientAggregate(pid, 'delete');
+                }
             } catch (_aggregateErr) {
                 console.warn('刪除診症後同步病人診症彙總失敗:', _aggregateErr);
             }

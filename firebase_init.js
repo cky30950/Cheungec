@@ -23,7 +23,8 @@ import {
   persistentMultipleTabManager
   ,
   
-  writeBatch
+  writeBatch,
+  FieldValue
   
   , onSnapshot
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
@@ -94,6 +95,9 @@ setPersistence(auth, browserSessionPersistence).catch((error) => {
         
         writeBatch,
         
+        FieldValue,
+        increment: FieldValue.increment,
+
         firestoreQuery: query,
         where,
         orderBy,
