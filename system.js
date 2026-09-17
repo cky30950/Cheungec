@@ -3364,18 +3364,19 @@ async function attachPatientListListener() {
         
         if (patientListListenerAttached) return;
         
-        const colRef = window.firebase.collection(window.firebase.db, 'patients');
-        let q;
-        try {
-            
-            q = window.firebase.firestoreQuery(colRef, window.firebase.orderBy('createdAt', 'desc'), window.firebase.limit(50));
-        } catch (_e) {
-            
-            q = colRef;
-        }
+        // 監聽 patientsMeta/lastChange 單一文檔，而非整個 patients 集合。
+        // 任何病人 CRUD 操作都會先 touchPatientsMeta 更新此文檔，
+        // 因此 onSnapshot 能精準觸發且讀取量恒定（初始 1 次 + 每次變更 1 次）。
+        let isInitialSnapshot = true;
+        const metaDocRef = window.firebase.doc(window.firebase.db, 'patientsMeta', 'lastChange');
         
-        patientListUnsubscribe = window.firebase.onSnapshot(q, (snapshot) => {
+        patientListUnsubscribe = window.firebase.onSnapshot(metaDocRef, (snapshot) => {
             try {
+                // 忽略第一次回調（監聽器建立時的初始狀態，不一定有文檔存在）
+                if (isInitialSnapshot) {
+                    isInitialSnapshot = false;
+                    return;
+                }
                 
                 patientCache = null;
                 patientPagesCache = {};
@@ -3423,6 +3424,32 @@ function detachPatientListListener() {
         }
         patientListListenerAttached = false;
         patientListUnsubscribe = null;
+    }
+}
+
+/**
+ * 更新 patientsMeta/lastChange 文檔，用於觸發跨裝置即時更新通知。
+ * 病人 CRUD 操作都應調用此函數，onSnapshot 只監聽這一個文檔，
+ * 確保讀取量恒定（初始 1 次 + 每次變更 1 次），且無論病人是否在
+ * 監聽範圍內都能觸發通知。
+ *
+ * @param {string} operation 操作類型：'create' | 'update' | 'delete'
+ * @param {string} patientId 病人文檔 ID（可選）
+ */
+async function touchPatientsMeta(operation, patientId) {
+    try {
+        await waitForFirebaseDb();
+        await window.firebase.setDoc(
+            window.firebase.doc(window.firebase.db, 'patientsMeta', 'lastChange'),
+            {
+                timestamp: new Date(),
+                operation: operation || 'update',
+                patientId: patientId || null
+            },
+            { merge: true }
+        );
+    } catch (_e) {
+        // metadata 寫入失敗不影響主要操作，靜默處理
     }
 }
 
@@ -26462,6 +26489,8 @@ class FirebaseDataManager {
                 aggregatePatch
             );
             this.applyPatientAggregateToCaches(pid, aggregatePatch);
+            // 通知其他裝置病人列表有變更
+            touchPatientsMeta('update', pid).catch(() => {});
 
             return {
                 success: true,
@@ -26613,6 +26642,8 @@ class FirebaseDataManager {
             );
             
             console.log('病人數據已添加到 Firebase:', docRef.id);
+            // 通知其他裝置病人列表有變更
+            touchPatientsMeta('create', docRef.id).catch(() => {});
             // 新增病人後清除緩存並移除本地存檔，讓下一次讀取時重新載入
             this.patientsCache = null;
             this.patientsCacheSource = 'none';
@@ -26711,6 +26742,8 @@ class FirebaseDataManager {
                     updatedBy: currentUser || 'system'
                 }
             );
+            // 通知其他裝置病人列表有變更
+            touchPatientsMeta('update', patientId).catch(() => {});
             // 更新病人資料後清除緩存並移除本地存檔，讓下一次讀取時重新載入
             this.patientsCache = null;
             this.patientsCacheSource = 'none';
@@ -26732,6 +26765,8 @@ class FirebaseDataManager {
             await window.firebase.deleteDoc(
                 window.firebase.doc(window.firebase.db, 'patients', patientId)
             );
+            // 通知其他裝置病人列表有變更
+            touchPatientsMeta('delete', patientId).catch(() => {});
             // 刪除病人後清除緩存並移除本地存檔
             this.patientsCache = null;
             this.patientsCacheSource = 'none';
@@ -28889,6 +28924,8 @@ class FirebaseDataManager {
                     updatedAt: new Date(),
                     updatedBy: currentUser || 'system'
                 });
+                // 通知其他裝置病人列表有變更
+                touchPatientsMeta('update', patientId).catch(() => {});
             } catch (updateErr) {
                 console.error('更新病人套票彙總欄位失敗:', updateErr);
                 return { success: false, error: updateErr.message };
