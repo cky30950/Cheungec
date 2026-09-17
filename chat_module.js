@@ -1179,43 +1179,6 @@
             this.updateNewMessageIndicators();
           }
         }
-        
-        // ── FCM Cloud Messaging：發送推播通知 ──
-        try {
-          if (window.FCM) {
-            const senderName = messageData.senderName || '新訊息';
-            const snippet = (messageData.text || '').substring(0, 100);
-            
-            if (channelId !== 'public') {
-              // 私人聊天 → 通知對方
-              const peerUid = this.getChannelPeerUid(channelId);
-              if (peerUid && String(peerUid) !== String(this.currentUserUid)) {
-                window.FCM.notifyChatPeer(
-                  peerUid,
-                  `${senderName} 傳送新訊息`,
-                  snippet,
-                  {
-                    tag: 'chat-' + channelId,
-                    type: 'chat',
-                    channelId: channelId
-                  }
-                ).catch(function (_err) { /* 推播失敗不阻斷 */ });
-              }
-            } else {
-              // 主頻道 → 通知所有 staff 角色
-              window.FCM.notifyStaff(
-                `${senderName} 在主頻道發言`,
-                snippet,
-                {
-                  tag: 'chat-public-' + Date.now(),
-                  type: 'chat',
-                  channelId: 'public'
-                }
-              ).catch(function (_err) { /* 推播失敗不阻斷 */ });
-            }
-          }
-        } catch (_fcmErr) { /* FCM 失敗不阻斷聊天 */ }
-        
       }).catch((err) => {
         console.error('ChatModule: failed to send message', err);
       });
