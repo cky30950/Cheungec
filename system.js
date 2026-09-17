@@ -24146,19 +24146,38 @@ async function exportClinicBackup() {
 
         // 備份完更新 backupMeta（非阻塞，失敗不影響下載）
         try {
+            const currentCounts = {
+                patients: patientsData.length,
+                consultations: consultationsData.length,
+                users: usersData.length,
+                billingItems: billingData.length,
+                patientPackages: packageData.length
+            };
+            // 計算與上次備份的差異
+            let delta = null;
+            try {
+                const prevSnap = await window.firebase.getDoc(
+                    window.firebase.doc(window.firebase.db, 'backupMeta', 'lastBackup')
+                );
+                if (prevSnap && prevSnap.exists()) {
+                    const prevCounts = (prevSnap.data() || {}).counts || {};
+                    const d = {};
+                    for (const k of ['patients','consultations','users','billingItems','patientPackages']) {
+                        const diff = (currentCounts[k] || 0) - (prevCounts[k] || 0);
+                        if (diff !== 0) d[k] = diff;
+                    }
+                    if (Object.keys(d).length > 0) delta = d;
+                }
+            } catch (_dErr) {}
+
             await window.firebase.setDoc(
                 window.firebase.doc(window.firebase.db, 'backupMeta', 'lastBackup'),
                 {
                     timestamp: window.firebase.serverTimestamp ? window.firebase.serverTimestamp() : new Date(),
                     localTime: new Date().toISOString(),
                     fileName: `clinic_backup_${timestamp}.json`,
-                    counts: {
-                        patients: patientsData.length,
-                        consultations: consultationsData.length,
-                        users: usersData.length,
-                        billingItems: billingData.length,
-                        patientPackages: packageData.length
-                    }
+                    counts: currentCounts,
+                    delta
                 }
             );
         } catch (_metaErr) {

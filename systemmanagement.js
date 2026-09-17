@@ -624,8 +624,15 @@ async function handleBackupFile(file) {
         showToast('備份資料匯入完成！', 'success');
         finishBackupProgressBar(true);
 
-        // 匯入完更新備份記錄
+        // 匯入完更新備份記錄（使用匯入的備份檔案中的數量）
         try {
+            const importedCounts = {
+                patients: Array.isArray(data.patients) ? data.patients.length : 0,
+                consultations: Array.isArray(data.consultations) ? data.consultations.length : 0,
+                users: Array.isArray(data.users) ? data.users.length : 0,
+                billingItems: Array.isArray(data.billingItems) ? data.billingItems.length : 0,
+                patientPackages: Array.isArray(data.patientPackages) ? data.patientPackages.length : 0
+            };
             await window.firebase.setDoc(
                 window.firebase.doc(window.firebase.db, 'backupMeta', 'lastBackup'),
                 {
@@ -634,7 +641,7 @@ async function handleBackupFile(file) {
                     fileName: null,
                     importedAt: new Date().toISOString(),
                     importedFrom: file.name,
-                    counts: null,
+                    counts: importedCounts,
                     delta: null
                 }
             );
@@ -813,8 +820,12 @@ async function importClinicBackup(data) {
             throw err;
         }
     }
-    async function replaceClinicBillingItems(items) {
+    async function replaceClinicBillingItems(items, onProgress) {
+        const displayName = '收費項目';
         try {
+            if (typeof onProgress === 'function') {
+                onProgress({ phase: 'start', collection: 'billingItems', displayName, message: `正在處理 ${displayName}...` });
+            }
             await waitForFirebaseDb();
             const clinicId = localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
             const clinicCol = window.firebase.collection(window.firebase.db, 'clinics', clinicId, 'billingItems');
@@ -835,42 +846,87 @@ async function importClinicBackup(data) {
                     else newClinicIds.add(idStr);
                 });
             }
+
+            // 計算差異
+            const idsToDelete = [];
+            existingClinicIds.forEach(id => { if (!newClinicIds.has(id)) idsToDelete.push(id); });
+            existingGlobalIds.forEach(id => { if (!newGlobalIds.has(id)) idsToDelete.push(id); });
+
+            let addedCount = 0;
+            let updatedCount = 0;
+            if (Array.isArray(items)) {
+                for (const it of items) {
+                    if (!it || it.id === undefined || it.id === null) continue;
+                    const idStr = String(it.id);
+                    const wasExisting = existingClinicIds.has(idStr) || existingGlobalIds.has(idStr);
+                    if (wasExisting) updatedCount++;
+                    else addedCount++;
+                }
+            }
+            const deletedCount = idsToDelete.length;
+            const totalOps = addedCount + updatedCount + deletedCount;
+            let doneOps = 0;
+
+            if (typeof onProgress === 'function') {
+                const parts = [];
+                if (addedCount > 0) parts.push(`<span style="color:#16a34a">新增 ${addedCount}</span>`);
+                if (updatedCount > 0) parts.push(`<span style="color:#2563eb">更新 ${updatedCount}</span>`);
+                if (deletedCount > 0) parts.push(`<span style="color:#dc2626">刪除 ${deletedCount}</span>`);
+                onProgress({
+                    phase: 'analyzed', collection: 'billingItems', displayName,
+                    added: addedCount, updated: updatedCount, deleted: deletedCount,
+                    message: `${displayName}：${parts.length > 0 ? parts.join(' · ') : '無變動'}`
+                });
+            }
+
             const batch = window.firebase.writeBatch(window.firebase.db);
             let opCount = 0;
             const commitIfNeeded = async () => {
                 if (opCount > 0) {
                     await batch.commit();
+                    batch = window.firebase.writeBatch(window.firebase.db);
                     opCount = 0;
                 }
+                if (typeof onProgress === 'function' && totalOps > 0) {
+                    const percent = Math.round((doneOps / totalOps) * 100);
+                    onProgress({
+                        phase: 'writing', collection: 'billingItems', displayName,
+                        done: doneOps, total: totalOps, percent,
+                        added: addedCount, updated: updatedCount, deleted: deletedCount
+                    });
+                }
             };
-            existingClinicIds.forEach(id => {
-                if (!newClinicIds.has(id)) {
-                    batch.delete(window.firebase.doc(window.firebase.db, 'clinics', clinicId, 'billingItems', id));
-                    opCount++;
-                }
-            });
-            existingGlobalIds.forEach(id => {
-                if (!newGlobalIds.has(id)) {
-                    batch.delete(window.firebase.doc(window.firebase.db, 'globalBillingItems', id));
-                    opCount++;
-                }
-            });
+
+            // 先刪除
+            for (const id of idsToDelete) {
+                const isGlobal = existingGlobalIds.has(id);
+                const docRef = isGlobal
+                    ? window.firebase.doc(window.firebase.db, 'globalBillingItems', id)
+                    : window.firebase.doc(window.firebase.db, 'clinics', clinicId, 'billingItems', id);
+                batch.delete(docRef);
+                opCount++; doneOps++;
+                if (opCount >= 500) await commitIfNeeded();
+            }
+            // 再寫入
             if (Array.isArray(items)) {
                 for (const it of items) {
                     if (!it || it.id === undefined || it.id === null) continue;
                     const { id, ...rest } = it || {};
                     const dataToWrite = { ...rest };
                     const idStr = String(it.id);
-                    if (it.shared) {
-                        batch.set(window.firebase.doc(window.firebase.db, 'globalBillingItems', idStr), dataToWrite);
-                    } else {
-                        batch.set(window.firebase.doc(window.firebase.db, 'clinics', clinicId, 'billingItems', idStr), dataToWrite);
-                    }
-                    opCount++;
+                    const docRef = it.shared
+                        ? window.firebase.doc(window.firebase.db, 'globalBillingItems', idStr)
+                        : window.firebase.doc(window.firebase.db, 'clinics', clinicId, 'billingItems', idStr);
+                    batch.set(docRef, dataToWrite);
+                    opCount++; doneOps++;
                     if (opCount >= 500) await commitIfNeeded();
                 }
             }
             await commitIfNeeded();
+
+            if (typeof onProgress === 'function') {
+                onProgress({ phase: 'done', collection: 'billingItems', displayName, added: addedCount, updated: updatedCount, deleted: deletedCount });
+            }
         } catch (err) {
             console.error('更新收費項目資料時發生錯誤:', err);
         }
@@ -980,7 +1036,7 @@ async function importClinicBackup(data) {
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
-    await replaceClinicBillingItems(Array.isArray(data.billingItems) ? data.billingItems : []);
+    await replaceClinicBillingItems(Array.isArray(data.billingItems) ? data.billingItems : [], handleReplaceProgress);
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
