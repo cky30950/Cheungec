@@ -24044,16 +24044,10 @@ async function exportClinicBackup() {
         // 讀取病人、診症記錄與用戶資料
         // 讀取病人與診症資料，並透過 fetchUsers() 取得用戶列表
         const [patientsRes, consultationsRes] = await Promise.all([
-            // 強制刷新以取得最新病人資料
-            safeGetPatients(true),
+            safeGetPatients(),
             (async () => {
-                // 確保資料管理器已準備好
                 await waitForFirebaseDataManager();
-                /*
-                 * 讀取診症記錄時也需要傳入 forceRefresh=true，
-                 * 以避免回傳的是快取中的舊資料。
-                 */
-                return await window.firebaseDataManager.getConsultations(true);
+                return await window.firebaseDataManager.getConsultations();
             })()
         ]);
         const patientsData = patientsRes && patientsRes.success && Array.isArray(patientsRes.data) ? patientsRes.data : [];
@@ -24097,8 +24091,7 @@ async function exportClinicBackup() {
         }
         // 讀取收費項目時強制刷新，避免使用快取中的舊資料。
         if (typeof initBillingItems === 'function') {
-            // 強制從 Firestore 重新讀取收費項目，以確保備份內容為最新
-            await initBillingItems(true);
+            await initBillingItems();
         }
         // 讀取所有套票資料
         let packageData = [];
@@ -24163,6 +24156,27 @@ async function exportClinicBackup() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         showToast('備份資料已匯出！', 'success');
+
+        // 備份完更新 backupMeta（非阻塞，失敗不影響下載）
+        try {
+            await window.firebase.setDoc(
+                window.firebase.doc(window.firebase.db, 'backupMeta', 'lastBackup'),
+                {
+                    timestamp: window.firebase.serverTimestamp ? window.firebase.serverTimestamp() : new Date(),
+                    localTime: new Date().toISOString(),
+                    fileName: `clinic_backup_${timestamp}.json`,
+                    counts: {
+                        patients: patientsData.length,
+                        consultations: consultationsData.length,
+                        users: usersData.length,
+                        billingItems: billingData.length,
+                        patientPackages: packageData.length
+                    }
+                }
+            );
+        } catch (_metaErr) {
+            console.warn('更新備份記錄失敗（不影響備份本身）:', _metaErr);
+        }
     } catch (error) {
         console.error('匯出備份失敗:', error);
         showToast('匯出備份失敗，請稍後再試', 'error');

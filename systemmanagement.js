@@ -270,6 +270,72 @@ async function ensureFirebaseReady() {
 }
 
 
+/**
+ * 載入上次備份資訊並顯示在 UI 上。
+ * 非阻塞，失敗時 UI 保持隱藏狀態。
+ */
+async function loadLastBackupInfo() {
+    const infoEl = document.getElementById('lastBackupInfo');
+    if (!infoEl) return;
+    try {
+        await ensureFirebaseReady();
+        const docSnap = await window.firebase.getDoc(
+            window.firebase.doc(window.firebase.db, 'backupMeta', 'lastBackup')
+        );
+        if (docSnap && docSnap.exists()) {
+            const data = docSnap.data() || {};
+            updateLastBackupInfo({
+                timestamp: data.timestamp ? (data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp)) : null,
+                fileName: data.fileName,
+                counts: data.counts
+            });
+        }
+    } catch (_e) {
+        // 備份資訊讀取失敗不影響主流程
+    }
+}
+
+/**
+ * 更新 UI 顯示上次備份資訊。
+ */
+function updateLastBackupInfo(info) {
+    const infoEl = document.getElementById('lastBackupInfo');
+    if (!infoEl || !info) return;
+
+    const ts = info.timestamp ? (info.timestamp instanceof Date ? info.timestamp : new Date(info.timestamp)) : null;
+    if (!ts || isNaN(ts.getTime())) {
+        infoEl.classList.add('hidden');
+        return;
+    }
+
+    const now = new Date();
+    const diffMs = now - ts;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    let timeLabel;
+    if (diffMs < 60000) timeLabel = '剛剛';
+    else if (diffMs < 3600000) timeLabel = `${Math.floor(diffMs / 60000)} 分鐘前`;
+    else if (diffMs < 86400000) timeLabel = `${Math.floor(diffMs / 3600000)} 小時前`;
+    else if (diffDays === 1) timeLabel = '昨天';
+    else timeLabel = `${diffDays} 天前`;
+
+    const dateStr = ts.toLocaleString('zh-TW', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+    });
+
+    let countsStr = '';
+    if (info.counts) {
+        const parts = [];
+        if (info.counts.patients !== undefined) parts.push(`病人 ${info.counts.patients}`);
+        if (info.counts.consultations !== undefined) parts.push(`診症 ${info.counts.consultations}`);
+        if (info.counts.users !== undefined) parts.push(`用戶 ${info.counts.users}`);
+        countsStr = parts.length ? ` · ${parts.join(' / ')}` : '';
+    }
+
+    infoEl.textContent = `上次備份：${dateStr}（${timeLabel}）${countsStr}`;
+    infoEl.classList.remove('hidden');
+}
+
 async function exportClinicBackup() {
     const button = document.getElementById('backupExportBtn');
     setButtonLoading(button);
@@ -282,12 +348,12 @@ async function exportClinicBackup() {
         
         const [patientsRes, consultationsRes] = await Promise.all([
             
-            safeGetPatients(true),
+            safeGetPatients(),
             (async () => {
                 
                 await waitForFirebaseDataManager();
                 
-                return await window.firebaseDataManager.getConsultations(true);
+                return await window.firebaseDataManager.getConsultations();
             })()
         ]);
         const patientsData = patientsRes && patientsRes.success && Array.isArray(patientsRes.data) ? patientsRes.data : [];
@@ -329,7 +395,7 @@ async function exportClinicBackup() {
         
         if (typeof initBillingItems === 'function') {
             
-            await initBillingItems(true);
+            await initBillingItems();
         }
         stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
         
@@ -391,6 +457,36 @@ async function exportClinicBackup() {
         URL.revokeObjectURL(url);
         showToast('備份資料已匯出！', 'success');
         finishBackupProgressBar(true);
+
+        // 備份完更新 backupMeta（非阻塞，失敗不影響下載）
+        try {
+            await window.firebase.setDoc(
+                window.firebase.doc(window.firebase.db, 'backupMeta', 'lastBackup'),
+                {
+                    timestamp: window.firebase.serverTimestamp ? window.firebase.serverTimestamp() : new Date(),
+                    localTime: new Date().toISOString(),
+                    fileName: `clinic_backup_${timestamp}.json`,
+                    counts: {
+                        patients: patientsData.length,
+                        consultations: consultationsData.length,
+                        users: usersData.length,
+                        billingItems: billingData.length,
+                        patientPackages: packageData.length
+                    }
+                }
+            );
+            updateLastBackupInfo({
+                timestamp: new Date(),
+                fileName: `clinic_backup_${timestamp}.json`,
+                counts: {
+                    patients: patientsData.length,
+                    consultations: consultationsData.length,
+                    users: usersData.length
+                }
+            });
+        } catch (_metaErr) {
+            console.warn('更新備份記錄失敗（不影響備份本身）:', _metaErr);
+        }
     } catch (error) {
         console.error('匯出備份失敗:', error);
         showToast('匯出備份失敗，請稍後再試', 'error');
@@ -1737,4 +1833,6 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (e) {
         console.error('初始化診所設定顯示失敗:', e);
     }
+    // 顯示上次備份資訊（非阻塞）
+    loadLastBackupInfo();
 });
