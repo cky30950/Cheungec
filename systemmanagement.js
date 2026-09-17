@@ -287,7 +287,8 @@ async function loadLastBackupInfo() {
             updateLastBackupInfo({
                 timestamp: data.timestamp ? (data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp)) : null,
                 fileName: data.fileName,
-                counts: data.counts
+                counts: data.counts,
+                delta: data.delta || null
             });
         }
     } catch (_e) {
@@ -296,7 +297,10 @@ async function loadLastBackupInfo() {
 }
 
 /**
- * 更新 UI 顯示上次備份資訊。
+ * 更新 UI 顯示上次備份資訊，包含：
+ * - 備份時間 + 相對時間（剛剛 / 2 小時前 / 3 天前）
+ * - 各集合文檔數量
+ * - 自上次備份以來的變動（delta）
  */
 function updateLastBackupInfo(info) {
     const infoEl = document.getElementById('lastBackupInfo');
@@ -323,6 +327,7 @@ function updateLastBackupInfo(info) {
         hour: '2-digit', minute: '2-digit'
     });
 
+    // 組合數量顯示
     let countsStr = '';
     if (info.counts) {
         const parts = [];
@@ -332,7 +337,33 @@ function updateLastBackupInfo(info) {
         countsStr = parts.length ? ` · ${parts.join(' / ')}` : '';
     }
 
-    infoEl.textContent = `上次備份：${dateStr}（${timeLabel}）${countsStr}`;
+    // 組合 delta 顯示（自上次備份以來的變動）
+    let deltaStr = '';
+    if (info.delta && typeof info.delta === 'object') {
+        const deltaParts = [];
+        const labels = {
+            patients: '病人',
+            consultations: '診症',
+            users: '用戶',
+            billingItems: '收費項目',
+            patientPackages: '套票'
+        };
+        const keys = Object.keys(info.delta);
+        if (keys.length > 0) {
+            for (const k of keys) {
+                const v = info.delta[k];
+                const sign = v > 0 ? '+' : '';
+                deltaParts.push(`${labels[k] || k} ${sign}${v}`);
+            }
+            deltaStr = `\n📈 自上次備份以來：${deltaParts.join('，')}`;
+        }
+    } else if (info.prevBackupTime) {
+        deltaStr = '\n（首次備份，無變動資訊）';
+    }
+
+    infoEl.innerHTML =
+        `<div>上次備份：${dateStr}（${timeLabel}）${countsStr}</div>` +
+        (deltaStr ? `<div style="margin-top:2px">${deltaStr.replace(/\n/g, '')}</div>` : '');
     infoEl.classList.remove('hidden');
 }
 
@@ -451,31 +482,57 @@ async function exportClinicBackup() {
         showToast('備份資料已匯出！', 'success');
         finishBackupProgressBar(true);
 
-        // 備份完更新 backupMeta（非阻塞，失敗不影響下載）
+        // 備份完更新 backupMeta，同時計算與上次備份的差異
         try {
+            const currentCounts = {
+                patients: patientsData.length,
+                consultations: consultationsData.length,
+                users: usersData.length,
+                billingItems: billingData.length,
+                patientPackages: packageData.length
+            };
+
+            // 讀取上次備份記錄以計算差異
+            let delta = null;
+            let prevBackupTime = null;
+            try {
+                const prevSnap = await window.firebase.getDoc(
+                    window.firebase.doc(window.firebase.db, 'backupMeta', 'lastBackup')
+                );
+                if (prevSnap && prevSnap.exists()) {
+                    const prev = prevSnap.data() || {};
+                    const prevCounts = prev.counts || {};
+                    delta = {};
+                    const keys = ['patients', 'consultations', 'users', 'billingItems', 'patientPackages'];
+                    for (const k of keys) {
+                        const diff = (currentCounts[k] || 0) - (prevCounts[k] || 0);
+                        if (diff !== 0) delta[k] = diff;
+                    }
+                    prevBackupTime = prev.timestamp
+                        ? (prev.timestamp.toDate ? prev.timestamp.toDate() : new Date(prev.timestamp))
+                        : null;
+                }
+            } catch (_prevErr) {
+                // 首次備份或讀取失敗，delta 保持 null
+            }
+
             await window.firebase.setDoc(
                 window.firebase.doc(window.firebase.db, 'backupMeta', 'lastBackup'),
                 {
                     timestamp: window.firebase.serverTimestamp ? window.firebase.serverTimestamp() : new Date(),
                     localTime: new Date().toISOString(),
                     fileName: `clinic_backup_${timestamp}.json`,
-                    counts: {
-                        patients: patientsData.length,
-                        consultations: consultationsData.length,
-                        users: usersData.length,
-                        billingItems: billingData.length,
-                        patientPackages: packageData.length
-                    }
+                    counts: currentCounts,
+                    delta
                 }
             );
+
             updateLastBackupInfo({
                 timestamp: new Date(),
                 fileName: `clinic_backup_${timestamp}.json`,
-                counts: {
-                    patients: patientsData.length,
-                    consultations: consultationsData.length,
-                    users: usersData.length
-                }
+                counts: currentCounts,
+                delta,
+                prevBackupTime
             });
         } catch (_metaErr) {
             console.warn('更新備份記錄失敗（不影響備份本身）:', _metaErr);
@@ -530,12 +587,58 @@ async function handleBackupFile(file) {
     
     showBackupProgressBar(totalStepsForBackupImport);
     try {
-        
+        // 詳細進度回調 — 更新 backupProgressDetail 元素
+        const detailProgress = (info) => {
+            const detailEl = document.getElementById('backupProgressDetail');
+            if (!detailEl) return;
+
+            if (info.phase === 'analyzed') {
+                detailEl.innerHTML = info.message;
+                detailEl.classList.remove('hidden');
+            } else if (info.phase === 'writing') {
+                const percent = info.percent || 0;
+                const done = info.done || 0;
+                const total = info.total || 0;
+                const adds = info.added || 0;
+                const upds = info.updated || 0;
+                const dels = info.deleted || 0;
+                const parts = [];
+                if (adds > 0) parts.push(`<span style="color:#16a34a">新增</span>`);
+                if (upds > 0) parts.push(`<span style="color:#2563eb">更新</span>`);
+                if (dels > 0) parts.push(`<span style="color:#dc2626">刪除</span>`);
+                detailEl.innerHTML = `正在寫入 ${info.displayName}：${parts.join(' / ')} · ${done}/${total}（${percent}%）`;
+                detailEl.classList.remove('hidden');
+            } else if (info.phase === 'done') {
+                const parts = [];
+                if (info.added > 0) parts.push(`<span style="color:#16a34a">新增 ${info.added}</span>`);
+                if (info.updated > 0) parts.push(`<span style="color:#2563eb">更新 ${info.updated}</span>`);
+                if (info.deleted > 0) parts.push(`<span style="color:#dc2626">刪除 ${info.deleted}</span>`);
+                detailEl.innerHTML = `${info.displayName} ✓ ${parts.length > 0 ? parts.join(' · ') : '無變動'}`;
+                detailEl.classList.remove('hidden');
+            }
+        };
+
         await importClinicBackup(data, function(step, total) {
             updateBackupProgressBar(step, total);
-        }, totalStepsForBackupImport);
+        }, totalStepsForBackupImport, detailProgress);
         showToast('備份資料匯入完成！', 'success');
         finishBackupProgressBar(true);
+
+        // 匯入完更新備份記錄
+        try {
+            await window.firebase.setDoc(
+                window.firebase.doc(window.firebase.db, 'backupMeta', 'lastBackup'),
+                {
+                    timestamp: window.firebase.serverTimestamp ? window.firebase.serverTimestamp() : new Date(),
+                    localTime: new Date().toISOString(),
+                    fileName: null,
+                    importedAt: new Date().toISOString(),
+                    importedFrom: file.name,
+                    counts: null,
+                    delta: null
+                }
+            );
+        } catch (_metaErr) {}
     } catch (error) {
         console.error('匯入備份失敗:', error);
         showToast('匯入備份失敗，請確認檔案格式是否正確', 'error');
@@ -561,16 +664,28 @@ async function importClinicBackup(data) {
     await ensureFirebaseReady();
     
     
-    async function replaceCollection(collectionName, items) {
+    async function replaceCollection(collectionName, items, onProgress) {
         const colRef = window.firebase.collection(window.firebase.db, collectionName);
+        const labelMap = {
+            patients: '病人資料',
+            consultations: '診症記錄',
+            users: '用戶資料',
+            patientPackages: '套票資料'
+        };
+        const displayName = labelMap[collectionName] || collectionName;
+
         try {
-            
+            // 顯示「正在讀取現有資料...」
+            if (typeof onProgress === 'function') {
+                onProgress({ phase: 'start', collection: collectionName, displayName, message: `正在處理 ${displayName}...` });
+            }
+
             const snap = await window.firebase.getDocs(colRef);
             const existingIds = new Set();
             snap.forEach((docSnap) => {
                 existingIds.add(docSnap.id);
             });
-            
+
             const newIds = new Set();
             if (Array.isArray(items)) {
                 items.forEach(item => {
@@ -579,16 +694,65 @@ async function importClinicBackup(data) {
                     }
                 });
             }
-            
+
+            // 計算差異
             const idsToDelete = [];
+            let addedCount = 0;
+            let updatedCount = 0;
+            const itemIdList = new Map();
+            if (Array.isArray(items)) {
+                for (const item of items) {
+                    if (!item || item.id === undefined || item.id === null) continue;
+                    const idStr = String(item.id);
+                    if (existingIds.has(idStr)) {
+                        updatedCount++;
+                    } else {
+                        addedCount++;
+                    }
+                    itemIdList.set(idStr, item);
+                }
+            }
             existingIds.forEach(id => {
                 if (!newIds.has(id)) {
                     idsToDelete.push(id);
                 }
             });
-            
+            const deletedCount = idsToDelete.length;
+
+            const totalOps = addedCount + updatedCount + deletedCount;
+            let doneOps = 0;
+
+            // 顯示預估
+            if (typeof onProgress === 'function') {
+                const parts = [];
+                if (addedCount > 0) parts.push(`<span style="color:#16a34a">新增 ${addedCount}</span>`);
+                if (updatedCount > 0) parts.push(`<span style="color:#2563eb">更新 ${updatedCount}</span>`);
+                if (deletedCount > 0) parts.push(`<span style="color:#dc2626">刪除 ${deletedCount}</span>`);
+                const summary = parts.length > 0 ? parts.join(' · ') : '無變動';
+                onProgress({
+                    phase: 'analyzed',
+                    collection: collectionName,
+                    displayName,
+                    added: addedCount, updated: updatedCount, deleted: deletedCount,
+                    message: `${displayName}：${summary}`
+                });
+            }
+
+            // 批次寫入
             let batch = window.firebase.writeBatch(window.firebase.db);
             let opCount = 0;
+            const reportBatchProgress = () => {
+                if (typeof onProgress === 'function' && totalOps > 0) {
+                    const percent = Math.round((doneOps / totalOps) * 100);
+                    onProgress({
+                        phase: 'writing',
+                        collection: collectionName,
+                        displayName,
+                        done: doneOps, total: totalOps, percent,
+                        added: addedCount, updated: updatedCount, deleted: deletedCount
+                    });
+                }
+            };
             const commitBatch = async () => {
                 if (opCount > 0) {
                     await batch.commit();
@@ -596,22 +760,25 @@ async function importClinicBackup(data) {
                     opCount = 0;
                 }
             };
-            
+
+            // 先刪除
             for (const id of idsToDelete) {
                 const docRef = window.firebase.doc(window.firebase.db, collectionName, id);
                 batch.delete(docRef);
                 opCount++;
+                doneOps++;
                 if (opCount >= 500) {
                     await commitBatch();
+                    reportBatchProgress();
                 }
             }
-            
+
+            // 再寫入（新增 + 更新都用 set）
             if (Array.isArray(items)) {
                 for (const item of items) {
                     if (!item || item.id === undefined || item.id === null) continue;
                     const idStr = String(item.id);
                     const docRef = window.firebase.doc(window.firebase.db, collectionName, idStr);
-                    
                     let dataToWrite;
                     try {
                         const { id, ...rest } = item || {};
@@ -621,15 +788,29 @@ async function importClinicBackup(data) {
                     }
                     batch.set(docRef, dataToWrite);
                     opCount++;
+                    doneOps++;
                     if (opCount >= 500) {
                         await commitBatch();
+                        reportBatchProgress();
                     }
                 }
             }
-            
+
             await commitBatch();
+            reportBatchProgress();
+
+            if (typeof onProgress === 'function') {
+                onProgress({
+                    phase: 'done',
+                    collection: collectionName,
+                    displayName,
+                    added: addedCount, updated: updatedCount, deleted: deletedCount,
+                    message: `${displayName} 完成`
+                });
+            }
         } catch (err) {
             console.error('更新 ' + collectionName + ' 資料時發生錯誤:', err);
+            throw err;
         }
     }
     async function replaceClinicBillingItems(items) {
@@ -772,18 +953,30 @@ async function importClinicBackup(data) {
     }
     
     let stepCount = 0;
-    
-    await replaceCollection('patients', Array.isArray(data.patients) ? data.patients : []);
+
+    // 細粒度進度回調 — 由 handleBackupFile 透過第四個參數傳入
+    const detailProgress = arguments.length >= 4 && typeof arguments[3] === 'function'
+        ? arguments[3]
+        : null;
+
+    const handleReplaceProgress = (info) => {
+        if (detailProgress) detailProgress(info);
+        if (info.phase === 'analyzed') {
+            console.log(`[匯入] ${info.displayName}：新增 ${info.added || 0} · 更新 ${info.updated || 0} · 刪除 ${info.deleted || 0}`);
+        }
+    };
+
+    await replaceCollection('patients', Array.isArray(data.patients) ? data.patients : [], handleReplaceProgress);
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
     const normalizedConsultations = normalizeConsultations(Array.isArray(data.consultations) ? data.consultations : []);
     const enrichedConsultations = enrichConsultationsWithPatientName(normalizedConsultations, Array.isArray(data.patients) ? data.patients : []);
-    await replaceCollection('consultations', enrichedConsultations);
+    await replaceCollection('consultations', enrichedConsultations, handleReplaceProgress);
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
-    await replaceCollection('users', Array.isArray(data.users) ? data.users : []);
+    await replaceCollection('users', Array.isArray(data.users) ? data.users : [], handleReplaceProgress);
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
@@ -791,7 +984,7 @@ async function importClinicBackup(data) {
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
-    await replaceCollection('patientPackages', Array.isArray(data.patientPackages) ? data.patientPackages : []);
+    await replaceCollection('patientPackages', Array.isArray(data.patientPackages) ? data.patientPackages : [], handleReplaceProgress);
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
     
