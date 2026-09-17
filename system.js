@@ -24320,6 +24320,106 @@ async function syncCloudBackup(forceBaseline) {
 }
 
 /**
+ * 一次性 backfill：為所有缺少 updatedAt 的舊文件補上更新時間。
+ * 每份文件會產生 1 次 Firestore 寫入計費，只需在首次啟用雲端備份前執行一次。
+ * 完成後應立即執行一次完整同步（baseline）。
+ */
+async function runCloudBackupBackfill() {
+    const button = document.getElementById('backupBackfillBtn');
+    const progressContainer = document.getElementById('backupProgressContainer');
+    const progressText = document.getElementById('backupProgressText');
+    const progressBar = document.getElementById('backupProgressBar');
+
+    const confirmed = confirm(
+        '此操作會為系統內所有舊資料逐筆補上「更新時間」，只需執行一次。\n\n' +
+        '注意：\n' +
+        '・每份現有文件會產生 1 次 Firestore 寫入（文件愈多費用愈高，通常只是港幣幾角以內）\n' +
+        '・執行期間請勿關閉頁面，資料量大時需時數分鐘\n' +
+        '・完成後請再按一次「立即同步雲端備份」\n\n' +
+        '確定現在執行？'
+    );
+    if (!confirmed) return;
+
+    if (button) button.disabled = true;
+    try {
+        if (progressContainer) progressContainer.classList.remove('hidden');
+        if (progressBar) progressBar.style.width = '5%';
+        if (progressText) progressText.textContent = '正在讀取需要補登的資料集合…';
+
+        // 先取待處理集合清單
+        const sourceList = await callBackupApi('/backfill');
+        const collections = Array.isArray(sourceList.collections) ? sourceList.collections : [];
+        if (collections.length === 0) {
+            if (progressText) progressText.textContent = '沒有需要補登的集合。';
+            showToast('所有資料已有更新時間，無需補登', 'success');
+            return;
+        }
+
+        const perCollection = {};
+        let grandTotal = 0;
+        let processedCollections = 0;
+
+        for (const collection of collections) {
+            let after = null;
+            let collectionTotal = 0;
+            // 單一集合分頁迴圈：每批最多 450 筆，直到該集合 done
+            for (let guard = 0; guard < 10000; guard++) {
+                const batch = await callBackupApi('/backfill', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ collection, after, limit: 450 })
+                });
+                collectionTotal += Number(batch.patched) || 0;
+                grandTotal += Number(batch.patched) || 0;
+                if (progressBar) {
+                    progressBar.style.width =
+                        Math.min(95, Math.round(((processedCollections + 1) / collections.length) * 95)) + '%';
+                }
+                if (progressText) {
+                    progressText.textContent =
+                        `正在補登「${collection}」… 本集合已 ${collectionTotal} 筆（整體 ${grandTotal} 筆），請勿關閉頁面`;
+                }
+                if (batch.done) break;
+                after = batch.after;
+                // 讓瀏覽器有機會更新畫面
+                await new Promise(resolve => setTimeout(resolve, 30));
+            }
+            perCollection[collection] = collectionTotal;
+            processedCollections++;
+        }
+
+        if (progressBar) progressBar.style.width = '100%';
+        if (progressText) {
+            const detail = Object.entries(perCollection)
+                .map(([key, count]) => `${key}: ${count} 筆`)
+                .join('、');
+            progressText.textContent = `補登完成，共更新 ${grandTotal} 筆。${detail}`;
+        }
+        showToast(grandTotal > 0 ? `更新時間補登完成（${grandTotal} 筆）！` : '所有文件已有更新時間，無需補登', 'success');
+
+        const runBaseline = confirm(
+            `補登完成，共更新 ${grandTotal} 筆文件。\n\n` +
+            '是否立即執行一次完整雲端同步？（會全量讀取一次，建議立即做）'
+        );
+        if (runBaseline) {
+            await syncCloudBackup(true);
+        } else {
+            await refreshCloudBackupStatus();
+        }
+    } catch (error) {
+        console.error('補登更新時間失敗:', error);
+        if (progressText) progressText.textContent = '補登失敗：' + (error.message || error);
+        showToast('補登更新時間失敗：' + (error.message || error), 'error');
+    } finally {
+        if (button) button.disabled = false;
+        setTimeout(() => {
+            if (progressContainer) progressContainer.classList.add('hidden');
+            if (progressBar) progressBar.style.width = '0%';
+        }, 8000);
+    }
+}
+
+/**
  * 由 R2 下載最新備份檔（零 Firestore 讀取）。
  * R2 尚無備份或端點無法使用時，徵得同意後退回舊版全量匯出。
  */

@@ -2610,6 +2610,9 @@
                             <button id="backupImportBtn" onclick="triggerBackupImport()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-200">
                                 匯入備份
                             </button>
+                            <button id="backupBackfillBtn" onclick="runCloudBackupBackfill()" class="bg-gray-400 hover:bg-gray-500 text-white py-2 px-4 rounded-lg transition duration-200 text-sm" title="首次啟用雲端備份前執行一次，為舊資料補上更新時間">
+                                補登更新時間（僅首次）
+                            </button>
                             <input type="file" id="backupFileInput" accept=".json" class="hidden" onchange="handleBackupFile(this.files[0])">
                         </div>
                         <p id="backupCloudStatus" class="mt-3 text-xs text-gray-500">正在讀取雲端備份狀態…</p>
