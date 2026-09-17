@@ -24171,6 +24171,239 @@ async function exportClinicBackup() {
     }
 }
 
+// ================== 雲端備份（Cloudflare R2）相關函式 ==================
+/**
+ * 雲端備份端點（Cloudflare Pages Functions）。
+ * 同步在伺服器端以 Service Account 讀 Firestore，下載只經 R2，不產生 Firestore 讀取。
+ */
+const CLOUD_BACKUP_BASE = '/api/backup';
+
+async function getBackupAuthToken() {
+    await ensureFirebaseReady();
+    const user = window.firebase && window.firebase.auth && window.firebase.auth.currentUser;
+    if (!user) throw new Error('尚未登入，無法操作雲端備份');
+    return user.getIdToken();
+}
+
+async function callBackupApi(path, fetchOptions) {
+    const token = await getBackupAuthToken();
+    const response = await fetch(CLOUD_BACKUP_BASE + path, Object.assign({
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + token }
+    }, fetchOptions, {
+        headers: Object.assign(
+            { 'Authorization': 'Bearer ' + token },
+            (fetchOptions && fetchOptions.headers) || {}
+        )
+    }));
+    let data = null;
+    try {
+        data = await response.json();
+    } catch (_parseErr) {
+        data = null;
+    }
+    if (!response.ok) {
+        const error = new Error((data && data.message) || ('雲端備份服務回應異常（HTTP ' + response.status + '）'));
+        error.status = response.status;
+        error.code = data && data.error;
+        throw error;
+    }
+    return data;
+}
+
+function formatBackupDateTime(iso) {
+    if (!iso) return '尚未執行';
+    const date = new Date(iso);
+    if (isNaN(date.getTime())) return String(iso);
+    return date.toLocaleString('zh-Hant-HK', {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+    });
+}
+
+function setBackupCloudStatus(message, tone) {
+    const el = document.getElementById('backupCloudStatus');
+    if (!el) return;
+    el.textContent = message;
+    el.classList.remove('text-gray-500', 'text-green-600', 'text-red-600', 'text-amber-600');
+    el.classList.add(tone === 'success'
+        ? 'text-green-600'
+        : tone === 'error'
+            ? 'text-red-600'
+            : tone === 'warn'
+                ? 'text-amber-600'
+                : 'text-gray-500');
+}
+
+/**
+ * 讀取並顯示最近雲端備份狀態。
+ */
+async function refreshCloudBackupStatus() {
+    try {
+        const status = await callBackupApi('/status');
+        const lastRun = status.lastRun || {};
+        const lines = [];
+        lines.push('最近備份檔：' + (status.lastExportFileName
+            ? `${status.lastExportFileName}（${formatBackupDateTime(status.lastExportAt)}）`
+            : '尚無備份檔'));
+        if (lastRun.at) {
+            const stateText = lastRun.status === 'success'
+                ? '成功'
+                : lastRun.status === 'partial'
+                    ? '部分成功'
+                    : '失敗';
+            lines.push(`最近同步：${formatBackupDateTime(lastRun.at)}・${stateText}` +
+                (typeof lastRun.firestoreReads === 'number' ? `・本次 Firestore 讀取 ${lastRun.firestoreReads} 次` : ''));
+        }
+        if (lastRun.status === 'partial' && Array.isArray(lastRun.failures) && lastRun.failures.length) {
+            lines.push('失敗項目：' + lastRun.failures.map(f => f.source).join('、'));
+        }
+        setBackupCloudStatus(lines.join('　｜　'), lastRun.status === 'success' ? 'success' : 'warn');
+        return status;
+    } catch (error) {
+        // 未登入時不顯示錯誤（系統頁可能先載入、稍後才登入）
+        if (/尚未登入/.test(String(error.message || ''))) {
+            setBackupCloudStatus('登入後可查看雲端備份狀態');
+        } else {
+            setBackupCloudStatus('無法讀取雲端備份狀態：' + (error.message || error), 'error');
+        }
+        return null;
+    }
+}
+
+/**
+ * 手動觸發 Firestore → R2 同步。
+ * @param {boolean} forceBaseline true 時強制全部集合全量讀取（可用於立即校正刪除）
+ */
+async function syncCloudBackup(forceBaseline) {
+    const button = document.getElementById('backupSyncBtn');
+    if (button) button.disabled = true;
+    const progressContainer = document.getElementById('backupProgressContainer');
+    const progressText = document.getElementById('backupProgressText');
+    const progressBar = document.getElementById('backupProgressBar');
+    try {
+        if (progressContainer) progressContainer.classList.remove('hidden');
+        if (progressBar) progressBar.style.width = '30%';
+        if (progressText) {
+            progressText.textContent = forceBaseline
+                ? '正在執行完整比對同步，需時較長，請勿關閉頁面…'
+                : '正在同步增量資料至雲端備份，請稍候…';
+        }
+        setBackupCloudStatus('同步進行中…');
+
+        const result = await callBackupApi('/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ forceBaseline: !!forceBaseline })
+        });
+        if (progressBar) progressBar.style.width = '100%';
+        if (progressText) {
+            const summary = `同步完成（${result.status === 'partial' ? '部分成功' : '成功'}），本次 Firestore 讀取 ${result.firestoreReads} 次，備份檔：${result.exportFileName}`;
+            progressText.textContent = summary;
+        }
+        showToast(result.status === 'partial'
+            ? '雲端備份部分完成，部份資料同步失敗，請查看狀態列'
+            : '雲端備份同步完成！', result.status === 'partial' ? 'error' : 'success');
+        await refreshCloudBackupStatus();
+    } catch (error) {
+        console.error('雲端備份同步失敗:', error);
+        if (progressText) progressText.textContent = '同步失敗：' + (error.message || error);
+        setBackupCloudStatus('同步失敗：' + (error.message || error), 'error');
+        showToast('雲端備份同步失敗，請稍後再試', 'error');
+    } finally {
+        if (button) button.disabled = false;
+        setTimeout(() => {
+            if (progressContainer) progressContainer.classList.add('hidden');
+            if (progressBar) progressBar.style.width = '0%';
+        }, 4000);
+    }
+}
+
+/**
+ * 由 R2 下載最新備份檔（零 Firestore 讀取）。
+ * R2 尚無備份或端點無法使用時，徵得同意後退回舊版全量匯出。
+ */
+async function exportClinicBackupFromCloud() {
+    const button = document.getElementById('backupExportBtn');
+    if (button) button.disabled = true;
+    try {
+        const token = await getBackupAuthToken();
+        const response = await fetch(`${CLOUD_BACKUP_BASE}/download?key=latest`, {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        if (!response.ok) {
+            let data = null;
+            try { data = await response.json(); } catch (_e) { data = null; }
+            // 404＝雲端未有備份；其他錯誤（如 401/403）直接顯示，不默默退回全量
+            if (response.status === 404 && data && data.error === 'NO_BACKUP_AVAILABLE') {
+                const agreed = confirm('雲端尚未有備份檔。\n\n是否改為立即從系統讀取最新資料，執行一次完整匯出？（會產生 Firestore 讀取）');
+                if (agreed) await exportClinicBackup();
+                return;
+            }
+            throw new Error((data && data.message) || ('下載失敗（HTTP ' + response.status + '）'));
+        }
+
+        const blob = await response.blob();
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const nameMatch = disposition.match(/filename="?([^"]+)"?/);
+        const fileName = nameMatch ? nameMatch[1]
+            : `clinic_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('雲端備份已下載！', 'success');
+    } catch (error) {
+        console.error('下載雲端備份失敗:', error);
+        // 網路或服務異常時提供舊路徑後盾
+        const agreed = confirm('下載雲端備份失敗：' + (error.message || error) +
+            '\n\n是否改為立即從系統讀取最新資料，執行一次完整匯出？（會產生 Firestore 讀取）');
+        if (agreed) {
+            try {
+                await exportClinicBackup();
+            } catch (fallbackError) {
+                console.error('備援完整匯出也失敗:', fallbackError);
+                showToast('備份下載失敗，請稍後再試', 'error');
+            }
+        }
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+// 打開系統管理頁面後自動刷新一次雲端備份狀態；未登入則等首次登入後刷新
+(function scheduleCloudStatusAutoRefresh() {
+    function runWhenReady() {
+        const auth = window.firebase && window.firebase.auth;
+        if (auth && auth.currentUser) {
+            refreshCloudBackupStatus();
+            return true;
+        }
+        return false;
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!runWhenReady() && window.firebase && window.firebase.onAuthStateChanged && window.firebase.auth) {
+                const unsubscribe = window.firebase.onAuthStateChanged(window.firebase.auth, (user) => {
+                    if (user) {
+                        refreshCloudBackupStatus();
+                        try { unsubscribe(); } catch (_e) {}
+                    }
+                });
+            }
+        });
+    } else {
+        runWhenReady();
+    }
+})();
+
 /**
  * 觸發備份檔案匯入流程：清空檔案輸入框並打開檔案選擇視窗。
  */
@@ -24313,6 +24546,14 @@ async function importClinicBackup(data) {
                     } catch (_omitErr) {
                         dataToWrite = item;
                     }
+                    // 備份檔內 updatedAt 經 JSON 往返後只餘 {seconds,nanoseconds} 普通物件，
+                    // 直接寫回會破壞增量備份的 Timestamp 查詢；交由 writeBatch 攔截器
+                    // 補上真正的 Firestore serverTimestamp
+                    try {
+                        if (Object.prototype.hasOwnProperty.call(dataToWrite, 'updatedAt')) {
+                            delete dataToWrite.updatedAt;
+                        }
+                    } catch (_tsErr) {}
                     if (collectionName === 'consultations') {
                         const sortDate = getConsultationEffectiveDate(dataToWrite, new Date(0));
                         if (sortDate && !isNaN(sortDate.getTime())) {

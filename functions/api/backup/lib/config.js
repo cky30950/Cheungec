@@ -1,0 +1,73 @@
+/* ============================================================
+ * R2 備份設定
+ * ------------------------------------------------------------
+ * R2 物件佈局：
+ *   state/sync-state.json          同步狀態（watermark、計數、歷史）
+ *   snapshots/<key>.json           各集合最新完整快照（delta 合併）
+ *   exports/clinic_backup_*.json   組裝好、可供下載的備份檔（保留 N 份）
+ *
+ * 同步策略：
+ *  - 大集合（patients / consultations / patientPackageHistory）：
+ *      每日只讀 updatedAt 之後的增量；距上次 baseline ≥ 7 日時自動全量，
+ *      全量會自然排除已被硬刪除的文件。
+ *  - 小集合（users / 收費項目 / 套票）：每次都全量讀取，
+ *      讀取量極小，但刪除可以即時反映。
+ * ============================================================ */
+
+export const STATE_KEY = 'state/sync-state.json';
+export const SNAPSHOT_PREFIX = 'snapshots/';
+export const EXPORT_PREFIX = 'exports/';
+
+// 備份檔保留份數（每次同步產生一份）
+export const EXPORT_RETENTION = 14;
+
+// 大集合全量 baseline 間隔（7 日）
+export const BASELINE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+
+// 單集合快照保險上限（筆數），超過只跳過組裝並警告，不影響同步
+export const EXPORT_DOC_SOFT_LIMIT = 200000;
+
+/**
+ * 頂層集合定義。
+ * key：R2 快照與匯出檔使用的名稱（與舊版備份 JSON 欄位對齊）
+ */
+export const TOP_COLLECTIONS = [
+    { key: 'patients', collectionId: 'patients', alwaysFull: false },
+    { key: 'consultations', collectionId: 'consultations', alwaysFull: false },
+    { key: 'users', collectionId: 'users', alwaysFull: true },
+    { key: 'patientPackages', collectionId: 'patientPackages', alwaysFull: true },
+    { key: 'patientPackageHistory', collectionId: 'patientPackageHistory', alwaysFull: false },
+    { key: 'globalBillingItems', collectionId: 'globalBillingItems', alwaysFull: true }
+];
+
+// 匯出檔中「billingItems」＝全域收費項目＋各診所非公費項目
+export const BILLING_EXPORT_KEY = 'billingItems';
+
+export function snapshotKey(sourceKey) {
+    return SNAPSHOT_PREFIX + String(sourceKey).replace(/[\\/]/g, '__') + '.json';
+}
+
+export function clinicBillingKey(clinicId) {
+    return `clinics__${clinicId}__billingItems`;
+}
+
+export function isClinicBillingKey(key) {
+    return /^clinics__.+__billingItems$/.test(String(key));
+}
+
+export function clinicIdFromKey(key) {
+    const match = String(key).match(/^clinics__(.+)__billingItems$/);
+    return match ? match[1] : null;
+}
+
+/**
+ * 產生備份檔的 R2 key（UTC 時間，檔名與舊版 clinic_backup_ 一致）。
+ */
+export function buildExportKey(date) {
+    const ts = (date || new Date()).toISOString().replace(/[:.]/g, '-');
+    return `${EXPORT_PREFIX}clinic_backup_${ts}.json`;
+}
+
+export function downloadFileNameFromKey(key) {
+    return String(key).startsWith(EXPORT_PREFIX) ? String(key).slice(EXPORT_PREFIX.length) : key;
+}

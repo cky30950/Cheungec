@@ -530,6 +530,9 @@ async function importClinicBackup(data) {
                     } catch (_omitErr) {
                         dataToWrite = item;
                     }
+                    // 備份 JSON 內 updatedAt 非 Firestore Timestamp，還原時移除，
+                    // 由 writeBatch 攔截器補上 serverTimestamp，維持增量備份一致
+                    try { delete dataToWrite.updatedAt; } catch (_e) {}
                     batch.set(docRef, dataToWrite);
                     opCount++;
                     if (opCount >= 500) {
@@ -590,6 +593,8 @@ async function importClinicBackup(data) {
                     if (!it || it.id === undefined || it.id === null) continue;
                     const { id, ...rest } = it || {};
                     const dataToWrite = { ...rest };
+                    // 同上：移除備份 JSON 版 updatedAt，由攔截器補 serverTimestamp
+                    try { delete dataToWrite.updatedAt; } catch (_e) {}
                     const idStr = String(it.id);
                     if (it.shared) {
                         batch.set(window.firebase.doc(window.firebase.db, 'globalBillingItems', idStr), dataToWrite);

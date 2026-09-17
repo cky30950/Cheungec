@@ -1,0 +1,28 @@
+# ============================================================
+# Cloudflare Pages 設定
+# ------------------------------------------------------------
+# 首次使用：
+#  1. 在 Cloudflare R2 建立 bucket（名稱與下方 bucket_name 一致）
+#  2. Pages 專案 → Settings → Variables and Secrets：
+#       FIREBASE_SERVICE_ACCOUNT = 服務帳戶 JSON 整串（設為「加密」Secret）
+#       BACKUP_CRON_SECRET       = 自訂一組隨機密碼（選填，外部排程用）
+#       FIREBASE_RTDB_URL        = 選填，預設用 project_id 推導
+#  3. Pages 專案 → Settings → Functions → Cron Triggers
+#     確認每日排程已生效（或由外部排程呼叫 /api/backup/sync）
+#
+# 注意：若此 wrangler.toml 與 Dashboard 既有設定衝突，
+# 以 Dashboard 顯示為準，或用 `wrangler pages download config` 產生。
+# ============================================================
+
+name = "clinic-system"
+pages_build_output_dir = "."
+compatibility_date = "2026-09-18"
+
+# R2 bucket 綁定：Function 內以 env.BACKUP_BUCKET 存取
+[[r2_buckets]]
+binding = "BACKUP_BUCKET"
+bucket_name = "clinic-backups"
+
+# 每日 19:17 UTC（香港時間 03:17）執行備份同步
+[triggers]
+crons = ["17 19 * * *"]

@@ -2599,16 +2599,20 @@
 
                     <div class="bg-gray-50 rounded-lg p-6 md:col-start-2">
                         <h3 class="text-lg font-semibold mb-4">資料備份與還原</h3>
-                        <p class="text-sm text-gray-600 mb-4">您可以匯出目前診所資料備份（包含所有功能資料，不含模板庫及穴位庫），或匯入之前的備份檔案。實時掛號及問診資料不包含在備份中。</p>
-                        <div class="flex flex-col md:flex-row gap-4">
-                            <button id="backupExportBtn" onclick="exportClinicBackup()" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition duration-200">
-                                匯出備份
+                        <p class="text-sm text-gray-600 mb-4">系統每日會自動將資料增量備份至雲端（Cloudflare R2），並每週進行一次完整比對。您可隨時手動同步，或直接下載雲端備份檔（下載不會額外讀取 Firestore）。實時掛號及問診資料不包含在備份中。</p>
+                        <div class="flex flex-col md:flex-row gap-4 flex-wrap">
+                            <button id="backupSyncBtn" onclick="syncCloudBackup(false)" class="bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg transition duration-200">
+                                立即同步雲端備份
+                            </button>
+                            <button id="backupExportBtn" onclick="exportClinicBackupFromCloud()" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition duration-200">
+                                下載雲端備份
                             </button>
                             <button id="backupImportBtn" onclick="triggerBackupImport()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-200">
                                 匯入備份
                             </button>
                             <input type="file" id="backupFileInput" accept=".json" class="hidden" onchange="handleBackupFile(this.files[0])">
                         </div>
+                        <p id="backupCloudStatus" class="mt-3 text-xs text-gray-500">正在讀取雲端備份狀態…</p>
                         <div id="backupProgressContainer" class="hidden mt-4">
                             <div class="w-full bg-gray-200 rounded-full h-2.5">
                                 <div id="backupProgressBar" class="bg-blue-600 h-2.5 rounded-full" style="width:0%"></div>
