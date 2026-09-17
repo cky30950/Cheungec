@@ -492,9 +492,61 @@ async function exportClinicBackup() {
         let stepCount = 0;
         showBackupProgressBar(totalSteps);
 
-        // 讀取上次 manifest 供變動比較
+        // 三層基準線檢查：
+        // 1. localStorage manifest（最新，最準確，有逐筆 new/changed/removed）
+        // 2. Firestore backupMeta.counts（舊備份也會有，只有數量差 +/-）
+        // 3. 都沒有 → 真首次備份
         const prevManifest = loadBackupManifest();
         const hasPrevManifest = !!prevManifest;
+        let prevBackupMeta = null;   // { counts, timestamp }
+        let hasPrevBackupMeta = false;
+
+        // 同時讀 Firestore backupMeta 當 fallback（如果 localStorage 沒有的話）
+        try {
+            const prevSnap = await window.firebase.getDoc(
+                window.firebase.doc(window.firebase.db, 'backupMeta', 'lastBackup')
+            );
+            if (prevSnap && prevSnap.exists()) {
+                const prev = prevSnap.data() || {};
+                prevBackupMeta = {
+                    counts: prev.counts || null,
+                    timestamp: prev.timestamp
+                        ? (prev.timestamp.toDate ? prev.timestamp.toDate() : new Date(prev.timestamp))
+                        : null
+                };
+                hasPrevBackupMeta = true;
+            }
+        } catch (_) { /* 可能是舊版 Security Rules 不允許，靜默 */ }
+
+        // 決定用哪個基準線做比較
+        // hasPrevManifest → 詳細比較（逐筆 new/changed/removed）
+        // !hasPrevManifest && hasPrevBackupMeta → 簡單比較（只有數量 +/-）
+        // 都沒有 → 真首次備份
+        const baselineMode = hasPrevManifest ? 'detailed'
+            : hasPrevBackupMeta ? 'counts-only'
+            : 'first-ever';
+
+        // 統一的集合變動摘要 helper
+        const buildCollectionSummary = (items, prevMap, colKey, displayName) => {
+            const diff = diffCollectionAgainstManifest(items, prevMap);
+            const total = diff.total;
+            const parts = [];
+            if (baselineMode === 'detailed') {
+                if (diff.new > 0) parts.push(`<span style="color:#16a34a">新增 ${diff.new}</span>`);
+                if (diff.changed > 0) parts.push(`<span style="color:#2563eb">變動 ${diff.changed}</span>`);
+                if (diff.removed > 0) parts.push(`<span style="color:#dc2626">刪除 ${diff.removed}</span>`);
+            } else if (baselineMode === 'counts-only') {
+                const prevCount = prevBackupMeta?.counts?.[colKey] || 0;
+                const delta = total - prevCount;
+                if (delta !== 0) {
+                    const sign = delta > 0 ? '+' : '';
+                    parts.push(`<span style="${delta > 0 ? 'color:#16a34a' : 'color:#dc2626'}">${sign}${delta}</span>`);
+                }
+            }
+            const summary = parts.length > 0 ? ' · ' + parts.join(' · ')
+                : (baselineMode !== 'first-ever' ? ' · 無變動' : '');
+            return { text: `${displayName} ✓ ${total} 筆${summary}`, diff };
+        };
 
         const db = window.firebase.db;
         const col = (name) => window.firebase.collection(db, name);
@@ -502,6 +554,7 @@ async function exportClinicBackup() {
         // ====== Step 1: 病人 + 診症（並行讀取） ======
         let patientsData = [];
         let consultationsData = [];
+        let finalDiff = {}; // 收集所有集合的 diff 供後續使用
         try {
             setDetail('<span style="color:#6b7280">正在讀取病人資料 + 診症記錄...</span>');
             const [patientsSnap, consultationsSnap] = await Promise.all([
@@ -511,18 +564,11 @@ async function exportClinicBackup() {
             patientsSnap.forEach((docSnap) => { patientsData.push({ id: docSnap.id, ...docSnap.data() }); });
             consultationsSnap.forEach((docSnap) => { consultationsData.push({ id: docSnap.id, ...docSnap.data() }); });
 
-            // 變動比較
-            const pDiff = diffCollectionAgainstManifest(patientsData, prevManifest?.patients);
-            const cDiff = diffCollectionAgainstManifest(consultationsData, prevManifest?.consultations);
-            const buildSummary = (diff, displayName) => {
-                const parts = [];
-                if (diff.new > 0) parts.push(`<span style="color:#16a34a">新增 ${diff.new}</span>`);
-                if (diff.changed > 0) parts.push(`<span style="color:#2563eb">變動 ${diff.changed}</span>`);
-                if (diff.removed > 0) parts.push(`<span style="color:#dc2626">刪除 ${diff.removed}</span>`);
-                const summary = parts.length > 0 ? parts.join(' · ') : (hasPrevManifest ? '無變動' : '首次備份');
-                return `${displayName} ✓ ${diff.total} 筆${hasPrevManifest ? ' · ' + summary : ''}`;
-            };
-            setDetail(buildSummary(pDiff, '病人資料') + '<br>' + buildSummary(cDiff, '診症記錄'));
+            const p = buildCollectionSummary(patientsData, prevManifest?.patients, 'patients', '病人資料');
+            const c = buildCollectionSummary(consultationsData, prevManifest?.consultations, 'consultations', '診症記錄');
+            finalDiff.patients = p.diff;
+            finalDiff.consultations = c.diff;
+            setDetail(p.text + '<br>' + c.text);
         } catch (_fetchErr) {
             console.error('讀取病人或診症資料失敗:', _fetchErr);
             setDetail('<span style="color:#dc2626">病人/診症讀取失敗</span>');
@@ -535,13 +581,9 @@ async function exportClinicBackup() {
             appendDetail('<br><span style="color:#6b7280">正在讀取用戶資料...</span>');
             const userSnap = await window.firebase.getDocs(col('users'));
             userSnap.forEach((docSnap) => { usersData.push({ id: docSnap.id, ...docSnap.data() }); });
-            const uDiff = diffCollectionAgainstManifest(usersData, prevManifest?.users);
-            const uParts = [];
-            if (uDiff.new > 0) uParts.push(`<span style="color:#16a34a">新增 ${uDiff.new}</span>`);
-            if (uDiff.changed > 0) uParts.push(`<span style="color:#2563eb">變動 ${uDiff.changed}</span>`);
-            if (uDiff.removed > 0) uParts.push(`<span style="color:#dc2626">刪除 ${uDiff.removed}</span>`);
-            const uSummary = uParts.length > 0 ? ' · ' + uParts.join(' · ') : (hasPrevManifest ? ' · 無變動' : '');
-            appendDetail('<br>用戶資料 ✓ ' + usersData.length + ' 筆' + uSummary);
+            const u = buildCollectionSummary(usersData, prevManifest?.users, 'users', '用戶資料');
+            finalDiff.users = u.diff;
+            appendDetail('<br>' + u.text);
         } catch (_fetchErr) {
             console.warn('匯出備份時取得用戶列表失敗，將不包含用戶資料');
             appendDetail('<br><span style="color:#dc2626">用戶讀取失敗（略過）</span>');
@@ -554,13 +596,9 @@ async function exportClinicBackup() {
             await initBillingItems();
         }
         const billingData = Array.isArray(billingItems) ? billingItems : [];
-        const bDiff = diffCollectionAgainstManifest(billingData, prevManifest?.billingItems);
-        const bParts = [];
-        if (bDiff.new > 0) bParts.push(`<span style="color:#16a34a">新增 ${bDiff.new}</span>`);
-        if (bDiff.changed > 0) bParts.push(`<span style="color:#2563eb">變動 ${bDiff.changed}</span>`);
-        if (bDiff.removed > 0) bParts.push(`<span style="color:#dc2626">刪除 ${bDiff.removed}</span>`);
-        const bSummary = bParts.length > 0 ? ' · ' + bParts.join(' · ') : (hasPrevManifest ? ' · 無變動' : '');
-        appendDetail('<br>收費項目 ✓ ' + billingData.length + ' 筆' + bSummary);
+        const b = buildCollectionSummary(billingData, prevManifest?.billingItems, 'billingItems', '收費項目');
+        finalDiff.billingItems = b.diff;
+        appendDetail('<br>' + b.text);
         stepCount++; updateBackupProgressBar(stepCount, totalSteps);
 
         // ====== Step 4: 套票 ======
@@ -568,13 +606,9 @@ async function exportClinicBackup() {
         try {
             const snapshot = await window.firebase.getDocs(col('patientPackages'));
             snapshot.forEach((docSnap) => { packageData.push({ id: docSnap.id, ...docSnap.data() }); });
-            const pkDiff = diffCollectionAgainstManifest(packageData, prevManifest?.patientPackages);
-            const pkParts = [];
-            if (pkDiff.new > 0) pkParts.push(`<span style="color:#16a34a">新增 ${pkDiff.new}</span>`);
-            if (pkDiff.changed > 0) pkParts.push(`<span style="color:#2563eb">變動 ${pkDiff.changed}</span>`);
-            if (pkDiff.removed > 0) pkParts.push(`<span style="color:#dc2626">刪除 ${pkDiff.removed}</span>`);
-            const pkSummary = pkParts.length > 0 ? ' · ' + pkParts.join(' · ') : (hasPrevManifest ? ' · 無變動' : '');
-            appendDetail('<br>套票資料 ✓ ' + packageData.length + ' 筆' + pkSummary);
+            const pk = buildCollectionSummary(packageData, prevManifest?.patientPackages, 'patientPackages', '套票資料');
+            finalDiff.patientPackages = pk.diff;
+            appendDetail('<br>' + pk.text);
         } catch (e) {
             console.error('讀取套票資料失敗:', e);
             appendDetail('<br><span style="color:#dc2626">套票讀取失敗</span>');
@@ -622,23 +656,38 @@ async function exportClinicBackup() {
         URL.revokeObjectURL(url);
         showToast(`備份資料已匯出！（${sizeStr}，共 ${totalDocs} 筆）`, 'success');
 
-        // 顯示檔案資訊
-        const finalDiff = {
-            patients: diffCollectionAgainstManifest(patientsData, prevManifest?.patients),
-            consultations: diffCollectionAgainstManifest(consultationsData, prevManifest?.consultations),
-            users: diffCollectionAgainstManifest(usersData, prevManifest?.users),
-            billingItems: diffCollectionAgainstManifest(billingData, prevManifest?.billingItems),
-            patientPackages: diffCollectionAgainstManifest(packageData, prevManifest?.patientPackages)
-        };
-        const changeItems = [];
-        const totalNew = Object.values(finalDiff).reduce((s, d) => s + d.new, 0);
-        const totalChanged = Object.values(finalDiff).reduce((s, d) => s + d.changed, 0);
-        const totalRemoved = Object.values(finalDiff).reduce((s, d) => s + d.removed, 0);
-        if (totalNew > 0) changeItems.push(`<span style="color:#16a34a">新增 ${totalNew}</span>`);
-        if (totalChanged > 0) changeItems.push(`<span style="color:#2563eb">變動 ${totalChanged}</span>`);
-        if (totalRemoved > 0) changeItems.push(`<span style="color:#dc2626">刪除 ${totalRemoved}</span>`);
-        const changeSummary = changeItems.length > 0 ? changeItems.join(' · ') : (hasPrevManifest ? '無變動' : '首次備份');
-        setDetail(`匯出完成 ✓ ${totalDocs} 筆 · ${sizeStr}<br>${hasPrevManifest ? '📈 自上次備份以來：' + changeSummary : '📋 首次備份（已記錄基準線）'}`);
+        // 顯示檔案資訊（三種模式的不同顯示）
+        if (baselineMode === 'detailed') {
+            // 詳細模式：匯總所有集合的 new/changed/removed
+            const changeItems = [];
+            const totalNew = Object.values(finalDiff).reduce((s, d) => s + d.new, 0);
+            const totalChanged = Object.values(finalDiff).reduce((s, d) => s + d.changed, 0);
+            const totalRemoved = Object.values(finalDiff).reduce((s, d) => s + d.removed, 0);
+            if (totalNew > 0) changeItems.push(`<span style="color:#16a34a">新增 ${totalNew}</span>`);
+            if (totalChanged > 0) changeItems.push(`<span style="color:#2563eb">變動 ${totalChanged}</span>`);
+            if (totalRemoved > 0) changeItems.push(`<span style="color:#dc2626">刪除 ${totalRemoved}</span>`);
+            const changeSummary = changeItems.length > 0 ? changeItems.join(' · ') : '無變動';
+            setDetail(`匯出完成 ✓ ${totalDocs} 筆 · ${sizeStr}<br>📈 自上次備份以來：${changeSummary}`);
+        } else if (baselineMode === 'counts-only') {
+            // 簡單模式：用 Firestore backupMeta.counts 做簡單 +/-
+            const currentCounts = { patients: patientsData.length, consultations: consultationsData.length, users: usersData.length, billingItems: billingData.length, patientPackages: packageData.length };
+            const countParts = [];
+            const labels = { patients: '病人', consultations: '診症', users: '用戶', billingItems: '收費項目', patientPackages: '套票' };
+            for (const [k, label] of Object.entries(labels)) {
+                const prev = prevBackupMeta?.counts?.[k] || 0;
+                const delta = currentCounts[k] - prev;
+                if (delta !== 0) {
+                    const sign = delta > 0 ? '+' : '';
+                    const color = delta > 0 ? '#16a34a' : '#dc2626';
+                    countParts.push(`${label} <span style="color:${color}">${sign}${delta}</span>`);
+                }
+            }
+            const summary = countParts.length > 0 ? countParts.join('，') : '無變動';
+            setDetail(`匯出完成 ✓ ${totalDocs} 筆 · ${sizeStr}<br>📈 自上次備份以來：${summary}<br><span style="color:#6b7280;font-size:11px">⚠️ 首次使用新版本，已建立詳細基準線；下次備份開始可顯示逐筆變動（新增/變動/刪除）</span>`);
+        } else {
+            // 真首次備份
+            setDetail(`匯出完成 ✓ ${totalDocs} 筆 · ${sizeStr}<br>📋 首次備份（已記錄基準線，下次備份可顯示變動）`);
+        }
 
         // ====== Step 6: 更新記錄 + 存 manifest ======
         stepCount++; updateBackupProgressBar(stepCount, totalSteps);
@@ -658,32 +707,30 @@ async function exportClinicBackup() {
                 patientPackages: packageData.length
             };
 
-            // 詳細 delta（用 manifest 比對的結果）
+            // delta 寫入策略：
+            // detailed → 寫 { new, changed, removed } per collection
+            // counts-only → 寫簡單 { patients: +3 } per collection
+            // first-ever → 寫 null
             let delta = null;
-            if (hasPrevManifest) {
+            if (baselineMode === 'detailed') {
                 const d = {};
-                for (const [colName, label] of Object.entries(labelMap)) {
+                for (const colName of Object.keys(labelMap)) {
                     const fd = finalDiff[colName];
                     if (!fd) continue;
                     if (fd.new === 0 && fd.changed === 0 && fd.removed === 0) continue;
                     d[colName] = { new: fd.new, changed: fd.changed, removed: fd.removed };
                 }
                 if (Object.keys(d).length > 0) delta = d;
-            }
-
-            // 同時讀取 Firestore 裡的上次備份時間供 UI 顯示
-            let prevBackupTime = null;
-            try {
-                const prevSnap = await window.firebase.getDoc(
-                    window.firebase.doc(window.firebase.db, 'backupMeta', 'lastBackup')
-                );
-                if (prevSnap && prevSnap.exists()) {
-                    const prev = prevSnap.data() || {};
-                    prevBackupTime = prev.timestamp
-                        ? (prev.timestamp.toDate ? prev.timestamp.toDate() : new Date(prev.timestamp))
-                        : null;
+            } else if (baselineMode === 'counts-only' && prevBackupMeta?.counts) {
+                const d = {};
+                for (const colName of Object.keys(labelMap)) {
+                    const prev = prevBackupMeta.counts[colName] || 0;
+                    const curr = currentCounts[colName] || 0;
+                    const diff = curr - prev;
+                    if (diff !== 0) d[colName] = diff;
                 }
-            } catch (_) {}
+                if (Object.keys(d).length > 0) delta = d;
+            }
 
             await window.firebase.setDoc(
                 window.firebase.doc(window.firebase.db, 'backupMeta', 'lastBackup'),
@@ -703,7 +750,7 @@ async function exportClinicBackup() {
                 fileName: `clinic_backup_${timestamp}.json`,
                 counts: currentCounts,
                 delta,
-                prevBackupTime
+                prevBackupTime: prevBackupMeta?.timestamp || null
             });
         } catch (_metaErr) {
             console.warn('更新備份記錄失敗（不影響備份本身）:', _metaErr);
