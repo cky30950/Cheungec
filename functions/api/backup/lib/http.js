@@ -3,6 +3,7 @@
  * ============================================================ */
 
 import { requireAdmin, getAccessToken, getServiceAccount } from './google-auth.js';
+import { FirestoreClient } from './firestore.js';
 
 export function corsHeaders() {
     return {
@@ -26,20 +27,75 @@ export function optionsResponse() {
 
 /**
  * 管理員驗證；成功回傳 {uid, email, via}，失敗拋出帶 status 的錯誤。
+ *
+ * users 集合文件 ID 是 Firestore 自動 ID（非 Auth uid），需依前端
+ * fetchAuthorizedUserByUidOrEmail 相同順序解析：
+ *   1. userAuthIndex/{uid} 之 userId 欄位 → users/{userId}
+ *   2. users where uid == Auth uid
+ *   3. users where email == token 內 email
  */
 export async function authenticateAdmin(request, env) {
     try {
-        const admin = await requireAdmin(request, env, async (uid) => {
+        const admin = await requireAdmin(request, env, async (claims) => {
             const auth = await getAccessToken(env);
-            const url = `https://firestore.googleapis.com/v1/projects/${auth.projectId}/databases/(default)/documents/users/${encodeURIComponent(uid)}`;
-            const response = await fetch(url, {
-                headers: { 'Authorization': `Bearer ${auth.token}` }
-            });
-            if (!response.ok) return null;
-            const doc = await response.json();
-            const fields = doc.fields || {};
-            const position = fields.position && fields.position.stringValue;
-            return position ? { position } : null;
+            const client = new FirestoreClient(
+                auth.token,
+                auth.projectId,
+                env.FIREBASE_RTDB_URL || ''
+            );
+            const uid = claims.sub;
+            let userData = null;
+
+            // 1. 授權索引：userAuthIndex/{uid} -> users/{userId}
+            try {
+                const indexDoc = await client.getDocument(
+                    `userAuthIndex/${encodeURIComponent(uid)}`
+                );
+                const userId = indexDoc && indexDoc.data && indexDoc.data.userId;
+                if (userId) {
+                    const target = await client.getDocument(
+                        `users/${encodeURIComponent(String(userId))}`
+                    );
+                    if (target) userData = target.data;
+                }
+            } catch (error) {
+                // 索引缺失或異常時退回舊式查詢
+                console.warn('讀取 userAuthIndex 失敗，嘗試舊式解析:', error.message);
+            }
+
+            // 2. users where uid == Auth uid
+            if (!userData) {
+                const byUid = await client.queryCollection({
+                    collectionId: 'users',
+                    where: {
+                        fieldFilter: {
+                            field: { fieldPath: 'uid' },
+                            op: 'EQUAL',
+                            value: { stringValue: uid }
+                        }
+                    },
+                    limit: 1
+                });
+                if (byUid.docs[0]) userData = byUid.docs[0].data;
+            }
+
+            // 3. users where email == token email
+            if (!userData && claims.email) {
+                const byEmail = await client.queryCollection({
+                    collectionId: 'users',
+                    where: {
+                        fieldFilter: {
+                            field: { fieldPath: 'email' },
+                            op: 'EQUAL',
+                            value: { stringValue: String(claims.email).trim() }
+                        }
+                    },
+                    limit: 1
+                });
+                if (byEmail.docs[0]) userData = byEmail.docs[0].data;
+            }
+
+            return userData;
         });
         return admin;
     } catch (error) {

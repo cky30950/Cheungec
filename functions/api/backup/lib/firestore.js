@@ -56,6 +56,22 @@ export class FirestoreClient {
     }
 
     /**
+     * 讀取單一文件，路徑相對於 documents（如 userAuthIndex/abc、users/xyz）。
+     * 不存在時回傳 null。
+     */
+    async getDocument(docPath) {
+        const response = await fetch(`${this.documentsPath()}/${docPath}`, {
+            headers: { 'Authorization': `Bearer ${this.token}` }
+        });
+        if (response.status === 404) return null;
+        const text = await response.text();
+        if (!response.ok) {
+            throw new Error(`讀取文件 ${docPath} 失敗 (HTTP ${response.status}): ${text.slice(0, 200)}`);
+        }
+        return normalizeDocument(JSON.parse(text));
+    }
+
+    /**
      * 疊代查詢結果，自動分頁。
      * @param {object} options
      * @param {string} options.collectionId collectionId（如 patients）
@@ -63,6 +79,7 @@ export class FirestoreClient {
      * @param {object} [options.where] structuredQuery Filter
      * @param {Array}  [options.orderBy] structuredQuery OrderBy 陣列
      * @param {object} [options.startAt] 起點 cursor（{values, before}）
+     * @param {number} [options.limit] 單頁上限（預設 300）
      * @param {function} [options.onDoc] 每筆文件回調（可避免大量結果常駐記憶體）
      * @returns {Promise<{docs: Array, nextCursor: object|null, readTime: string|null}>}
      */
@@ -73,6 +90,7 @@ export class FirestoreClient {
             where = null,
             orderBy = [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }],
             startAt = null,
+            limit: pageLimit = PAGE_SIZE,
             onDoc = null
         } = options;
 
@@ -89,7 +107,7 @@ export class FirestoreClient {
             const structuredQuery = {
                 from: [{ collectionId }],
                 orderBy,
-                limit: PAGE_SIZE
+                limit: pageLimit
             };
             if (where) structuredQuery.where = where;
             if (cursor) structuredQuery.startAt = cursor;
@@ -106,7 +124,7 @@ export class FirestoreClient {
                 collected.push(doc);
             }
 
-            if (pageDocs.length < PAGE_SIZE) {
+            if (pageDocs.length < pageLimit) {
                 return { docs: collected, nextCursor: null, readTime: lastReadTime };
             }
 

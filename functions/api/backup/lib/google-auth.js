@@ -238,11 +238,12 @@ export function extractBearerToken(request) {
 /**
  * 完整管理員驗證：ID Token 有效，且符合以下任一：
  *  - custom claims: admin === true 或 role === 'admin'
- *  - users/{uid} 之 position === '診所管理'（與前端 hasAdminRole 對齊）
+ *  - users 文件（經 userAuthIndex／uid／email 解析）之 position === '診所管理'
  *
  * @param {Request} request
  * @param {object} env Pages 環境
- * @param {Function} [getUserDoc] 選注入：(token, projectId) => users 文件資料
+ * @param {Function} [getUserDoc] 選注入：(claims) => users 文件資料
+ *   （users 文件 ID 為 Firestore 自動 ID，需經 userAuthIndex／uid／email 解析）
  * @returns {Promise<{uid:string, email:string, claims:object, via:string}>}
  */
 export async function requireAdmin(request, env, getUserDoc) {
@@ -255,7 +256,12 @@ export async function requireAdmin(request, env, getUserDoc) {
         return { uid: claims.sub, email: claims.email || '', claims, via: 'claims' };
     }
     if (typeof getUserDoc === 'function') {
-        const userDoc = await getUserDoc(claims.sub, sa.project_id);
+        const userDoc = await getUserDoc(claims);
+        if (userDoc && userDoc.active === false) {
+            const err = new Error('帳號已停用');
+            err.status = 403;
+            throw err;
+        }
         const position = userDoc && userDoc.position ? String(userDoc.position).trim() : '';
         if (position === '診所管理') {
             return { uid: claims.sub, email: claims.email || '', claims, via: 'position' };
