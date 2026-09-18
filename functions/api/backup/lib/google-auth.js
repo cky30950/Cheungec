@@ -85,7 +85,7 @@ async function importPkcs8Pem(pem) {
     return crypto.subtle.importKey(
         'pkcs8',
         derBytes,
-        { name: 'RSASSA-PKCS1-V1_5', hash: 'SHA-256' },
+        { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
         false,
         ['sign']
     );
@@ -102,7 +102,7 @@ async function signJwtRs256(payload, privateKeyPem) {
     const signingInput = `${headerPart}.${payloadPart}`;
     const key = await importPkcs8Pem(privateKeyPem);
     const signature = await crypto.subtle.sign(
-        'RSASSA-PKCS1-V1_5',
+        'RSASSA-PKCS1-v1_5',
         key,
         new TextEncoder().encode(signingInput)
     );
@@ -169,7 +169,7 @@ async function fetchSecureTokenKeys() {
         keys.set(jwk.kid, await crypto.subtle.importKey(
             'jwk',
             jwk,
-            { name: 'RSASSA-PKCS1-V1_5', hash: 'SHA-256' },
+            { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
             false,
             ['verify']
         ));
@@ -205,7 +205,7 @@ export async function verifyIdToken(token, projectId) {
     let valid = false;
     try {
         valid = await crypto.subtle.verify(
-            'RSASSA-PKCS1-V1_5',
+            'RSASSA-PKCS1-v1_5',
             publicKey,
             signature,
             signingInput
