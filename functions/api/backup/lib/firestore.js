@@ -7,7 +7,6 @@
  *  - queryCollection()：分頁疊代任意 collection（頂層或診所子集合）
  *  - queryChangedSince()：以 updatedAt + __name__ 雙排序做增量查詢
  *  - listClinicIds()：列岀所有診所（用於備份 clinics/{id}/billingItems）
- *  - patchDocUpdatedAt()：backfill 用，為缺 updatedAt 嘅文件補時間戳
  *  - fetchRtdbSnapshot()：讀取 Realtime Database（排除即時掛號節點）
  * ============================================================ */
 
@@ -69,57 +68,6 @@ export class FirestoreClient {
             throw new Error(`讀取文件 ${docPath} 失敗 (HTTP ${response.status}): ${text.slice(0, 200)}`);
         }
         return normalizeDocument(JSON.parse(text));
-    }
-
-    /**
-     * 低成本計數（aggregation query），每 1000 筆匹配僅算 1 次讀取。
-     * @param {object} options 同 queryCollection（collectionId/parentDocPath/where）
-     * @returns {Promise<number>}
-     */
-    async countQuery(options) {
-        const { collectionId, parentDocPath = '', where = null } = options;
-        const parent = parentDocPath
-            ? `${this.documentsPath()}/${parentDocPath}`
-            : this.documentsPath();
-
-        const structuredQuery = { from: [{ collectionId }] };
-        if (where) structuredQuery.where = where;
-
-        const response = await fetch(`${parent}:runAggregationQuery`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${this.token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                structuredAggregationQuery: {
-                    structuredQuery,
-                    aggregations: [{ alias: 'count', count: {} }]
-                }
-            })
-        });
-        const text = await response.text();
-        let data;
-        try {
-            data = text ? JSON.parse(text) : [];
-        } catch (error) {
-            throw new Error(`Firestore 聚合回應無法解析 (HTTP ${response.status}): ${text.slice(0, 300)}`);
-        }
-        if (!response.ok) {
-            const message = data && data.error && data.error.message
-                ? data.error.message
-                : `HTTP ${response.status}`;
-            throw new Error(`Firestore runAggregation 失敗: ${message}`);
-        }
-        const rows = Array.isArray(data) ? data : [data];
-        // 查詢本身出錯時（例如需要複合索引），錯誤會夾在結果列中
-        for (const row of rows) {
-            if (row && row.error) {
-                throw new Error(`Firestore 聚合查詢錯誤: ${row.error.message || JSON.stringify(row.error).slice(0, 300)}`);
-            }
-        }
-        const hit = rows.find((row) => row && row.aggregateFields && row.aggregateFields.count);
-        return hit ? Number(hit.aggregateFields.count.integerValue || 0) : 0;
     }
 
     /**
@@ -264,29 +212,6 @@ export class FirestoreClient {
             pageToken = data.nextPageToken;
         }
         return ids;
-    }
-
-    /**
-     * 為單一文件補上 updatedAt（backfill）。時間戳由本端產生，
-     * 僅對「完全沒有 updatedAt」嘅文件使用，故鐘點細微差異可接受。
-     */
-    async patchDocUpdatedAt(docName, timestampRfc3339) {
-        const url = `${FIRESTORE_BASE}/${docName}?updateMask.fieldPaths=updatedAt`;
-        const response = await fetch(url, {
-            method: 'PATCH',
-            headers: {
-                'Authorization': `Bearer ${this.token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                fields: { updatedAt: { timestampValue: timestampRfc3339 } }
-            })
-        });
-        if (!response.ok) {
-            const text = await response.text();
-            throw new Error(`補 updatedAt 失敗 (${docName}): ${text.slice(0, 200)}`);
-        }
-        return response.json();
     }
 
     /**
