@@ -19,14 +19,16 @@ const FIREBASE_SCOPES = [
     'https://www.googleapis.com/auth/userinfo.email'
 ].join(' ');
 
-const SECURETOKEN_CERTS_URL =
-    'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
+// 注意：必須使用 JWKS 端點而非 x509 PEM 端點——Cloudflare Workers/Pages
+// 的 Web Crypto 不支援 importKey('x509')，只支援標準 'jwk' / 'spki'。
+const SECURETOKEN_JWKS_URL =
+    'https://www.googleapis.com/robot/v1/metadata/jwk/securetoken@system.gserviceaccount.com';
 
 // 模組級 token 快取（同一 isolate 復用）
 let cachedAccessToken = null;
 
-// ID Token 公鑰快取
-let cachedCerts = null;
+// ID Token 公鑰快取（kid -> CryptoKey）
+let cachedJwks = null;
 let cachedCertsExpiry = 0;
 
 function base64UrlEncode(bytes) {
@@ -149,22 +151,35 @@ export async function getAccessToken(env) {
     return cachedAccessToken;
 }
 
-async function fetchSecureTokenCerts() {
+async function fetchSecureTokenKeys() {
     const nowMs = Date.now();
-    if (cachedCerts && nowMs < cachedCertsExpiry) return cachedCerts;
+    if (cachedJwks && nowMs < cachedCertsExpiry) return cachedJwks;
 
-    const response = await fetch(SECURETOKEN_CERTS_URL);
+    const response = await fetch(SECURETOKEN_JWKS_URL);
     if (!response.ok) {
         throw new Error('取得 Firebase ID Token 公鑰失敗: HTTP ' + response.status);
     }
-    const certs = await response.json();
-    // 回應快取時間以 Cache-Control max-age 為準，預設 1 小時
+    const jwks = await response.json();
+    if (!jwks || !Array.isArray(jwks.keys)) {
+        throw new Error('Firebase JWKS 回應格式異常');
+    }
+    // 預先匯入成 CryptoKey，回應快取時間以 Cache-Control max-age 為準（預設 1 小時）
+    const keys = new Map();
+    await Promise.all(jwks.keys.map(async (jwk) => {
+        keys.set(jwk.kid, await crypto.subtle.importKey(
+            'jwk',
+            jwk,
+            { name: 'RSASSA-PKCS1-V1_5', hash: 'SHA-256' },
+            false,
+            ['verify']
+        ));
+    }));
     const cacheControl = response.headers.get('Cache-Control') || '';
     const maxAgeMatch = cacheControl.match(/max-age=(\d+)/);
     const maxAgeSec = maxAgeMatch ? Number(maxAgeMatch[1]) : 3600;
-    cachedCerts = certs;
+    cachedJwks = keys;
     cachedCertsExpiry = nowMs + maxAgeSec * 1000;
-    return certs;
+    return keys;
 }
 
 /**
@@ -181,9 +196,9 @@ export async function verifyIdToken(token, projectId) {
     const header = JSON.parse(new TextDecoder().decode(base64UrlDecode(parts[0])));
     const payload = JSON.parse(new TextDecoder().decode(base64UrlDecode(parts[1])));
 
-    const certs = await fetchSecureTokenCerts();
-    const pem = certs[header.kid];
-    if (!pem) throw new Error('ID Token 使用未知公鑰（kid 不符）');
+    const keys = await fetchSecureTokenKeys();
+    const publicKey = keys.get(header.kid);
+    if (!publicKey) throw new Error('ID Token 使用未知公鑰（kid 不符）');
 
     const signature = base64UrlDecode(parts[2]);
     const signingInput = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
@@ -191,7 +206,7 @@ export async function verifyIdToken(token, projectId) {
     try {
         valid = await crypto.subtle.verify(
             'RSASSA-PKCS1-V1_5',
-            await importX509Pem(pem),
+            publicKey,
             signature,
             signingInput
         );
@@ -209,19 +224,6 @@ export async function verifyIdToken(token, projectId) {
     }
     if (!payload.sub) throw new Error('ID Token 缺少使用者識別');
     return payload;
-}
-
-async function importX509Pem(pem) {
-    const derBase64 = String(pem).replace(/-----BEGIN [^-]+-----/, '')
-        .replace(/-----END [^-]+-----/, '')
-        .replace(/\s+/g, '');
-    return crypto.subtle.importKey(
-        'x509',
-        base64UrlDecode(derBase64),
-        { name: 'RSASSA-PKCS1-V1_5', hash: 'SHA-256' },
-        false,
-        ['verify']
-    );
 }
 
 /**
