@@ -85,7 +85,7 @@ export class FirestoreClient {
         const structuredQuery = { from: [{ collectionId }] };
         if (where) structuredQuery.where = where;
 
-        const response = await fetch(`${parent}:runAggregation`, {
+        const response = await fetch(`${parent}:runAggregationQuery`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${this.token}`,
