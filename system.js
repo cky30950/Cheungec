@@ -24389,21 +24389,49 @@ async function runCloudBackupBackfill() {
         }
 
         if (progressBar) progressBar.style.width = '100%';
+
+        // 零補登時自動跑診斷：逐集合比對「總數 vs 缺 updatedAt 數」，
+        // 用低成本聚合計數，確認 0 筆是真實結果而非查詢靜默失敗。
+        let diagnosticReport = null;
+        if (grandTotal === 0) {
+            if (progressText) progressText.textContent = '所有集合均無缺漏，正在核對各集合文件數量…';
+            try {
+                const diagnostic = await callBackupApi('/backfill?diagnostic=1');
+                diagnosticReport = Array.isArray(diagnostic.report) ? diagnostic.report : null;
+            } catch (diagError) {
+                console.warn('補登診斷失敗:', diagError);
+            }
+        }
+
         if (progressText) {
-            const detail = Object.entries(perCollection)
-                .map(([key, count]) => `${key}: ${count} 筆`)
-                .join('、');
-            progressText.textContent = `補登完成，共更新 ${grandTotal} 筆。${detail}`;
+            if (diagnosticReport) {
+                const lines = diagnosticReport.map((item) =>
+                    `・${item.key}：共 ${item.total} 筆，缺 updatedAt ${item.missingUpdatedAt} 筆`
+                );
+                progressText.style.whiteSpace = 'pre-line';
+                progressText.textContent =
+                    `補登 0 筆，已核對各集合（總數／缺更新時間）：\n${lines.join('\n')}`;
+            } else {
+                const detail = Object.entries(perCollection)
+                    .map(([key, count]) => `${key}: ${count} 筆`)
+                    .join('、');
+                progressText.textContent = `補登完成，共更新 ${grandTotal} 筆。${detail}`;
+            }
         }
         showToast(grandTotal > 0 ? `更新時間補登完成（${grandTotal} 筆）！` : '所有文件已有更新時間，無需補登', 'success');
 
-        const runBaseline = confirm(
-            `補登完成，共更新 ${grandTotal} 筆文件。\n\n` +
-            '是否立即執行一次完整雲端同步？（會全量讀取一次，建議立即做）'
-        );
-        if (runBaseline) {
-            await syncCloudBackup(true);
+        if (grandTotal > 0) {
+            const runBaseline = confirm(
+                `補登完成，共更新 ${grandTotal} 筆文件。\n\n` +
+                '是否立即執行一次完整雲端同步？（會全量讀取一次，建議立即做）'
+            );
+            if (runBaseline) {
+                await syncCloudBackup(true);
+            } else {
+                await refreshCloudBackupStatus();
+            }
         } else {
+            // 0 筆屬正常：所有文件既有 updatedAt，直接刷新狀態即可，無需再跑 baseline
             await refreshCloudBackupStatus();
         }
     } catch (error) {
@@ -24415,7 +24443,8 @@ async function runCloudBackupBackfill() {
         setTimeout(() => {
             if (progressContainer) progressContainer.classList.add('hidden');
             if (progressBar) progressBar.style.width = '0%';
-        }, 8000);
+            if (progressText) progressText.style.whiteSpace = '';
+        }, 60000);
     }
 }
 

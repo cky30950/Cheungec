@@ -72,6 +72,57 @@ export class FirestoreClient {
     }
 
     /**
+     * 低成本計數（aggregation query），每 1000 筆匹配僅算 1 次讀取。
+     * @param {object} options 同 queryCollection（collectionId/parentDocPath/where）
+     * @returns {Promise<number>}
+     */
+    async countQuery(options) {
+        const { collectionId, parentDocPath = '', where = null } = options;
+        const parent = parentDocPath
+            ? `${this.documentsPath()}/${parentDocPath}`
+            : this.documentsPath();
+
+        const structuredQuery = { from: [{ collectionId }] };
+        if (where) structuredQuery.where = where;
+
+        const response = await fetch(`${parent}:runAggregation`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${this.token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                structuredAggregationQuery: {
+                    structuredQuery,
+                    aggregations: [{ alias: 'count', count: {} }]
+                }
+            })
+        });
+        const text = await response.text();
+        let data;
+        try {
+            data = text ? JSON.parse(text) : [];
+        } catch (error) {
+            throw new Error(`Firestore 聚合回應無法解析 (HTTP ${response.status}): ${text.slice(0, 300)}`);
+        }
+        if (!response.ok) {
+            const message = data && data.error && data.error.message
+                ? data.error.message
+                : `HTTP ${response.status}`;
+            throw new Error(`Firestore runAggregation 失敗: ${message}`);
+        }
+        const rows = Array.isArray(data) ? data : [data];
+        // 查詢本身出錯時（例如需要複合索引），錯誤會夾在結果列中
+        for (const row of rows) {
+            if (row && row.error) {
+                throw new Error(`Firestore 聚合查詢錯誤: ${row.error.message || JSON.stringify(row.error).slice(0, 300)}`);
+            }
+        }
+        const hit = rows.find((row) => row && row.aggregateFields && row.aggregateFields.count);
+        return hit ? Number(hit.aggregateFields.count.integerValue || 0) : 0;
+    }
+
+    /**
      * 疊代查詢結果，自動分頁。
      * @param {object} options
      * @param {string} options.collectionId collectionId（如 patients）

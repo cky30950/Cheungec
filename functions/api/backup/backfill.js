@@ -26,6 +26,13 @@ export function onRequestOptions() {
 
 const COMMIT_CHUNK = 450; // :commit 上限 500，保留餘裕
 
+const MISSING_UPDATED_AT_WHERE = {
+    unaryFilter: {
+        field: { fieldPath: 'updatedAt' },
+        op: 'IS_NULL'
+    }
+};
+
 async function listSources(client) {
     const clinicIds = await client.listClinicIds();
     const sources = TOP_COLLECTIONS.map((s) => ({
@@ -53,12 +60,7 @@ async function patchOneBatch(client, source, after, limit) {
 
     const structuredQuery = {
         from: [{ collectionId: source.collectionId }],
-        where: {
-            unaryFilter: {
-                field: { fieldPath: 'updatedAt' },
-                op: 'IS_NULL'
-            }
-        },
+        where: MISSING_UPDATED_AT_WHERE,
         orderBy: [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }],
         limit
     };
@@ -78,8 +80,17 @@ async function patchOneBatch(client, source, after, limit) {
     if (!queryResponse.ok) {
         throw new Error((rows && rows.error && rows.error.message) || ('HTTP ' + queryResponse.status));
     }
+    const rowList = Array.isArray(rows) ? rows : [rows];
 
-    const docs = (Array.isArray(rows) ? rows : [rows])
+    // 查詢本身出錯時（例如缺少複合索引），錯誤會夾在 HTTP 200 的結果列中，
+    // 不可靜默當成 0 筆，否則會誤報「無需補登」。
+    for (const row of rowList) {
+        if (row && row.error) {
+            throw new Error('補登查詢失敗: ' + (row.error.message || JSON.stringify(row.error).slice(0, 300)));
+        }
+    }
+
+    const docs = rowList
         .filter((row) => row && row.document)
         .map((row) => row.document);
 
@@ -128,7 +139,26 @@ export async function onRequestGet(context) {
         const auth = await getAccessToken(env);
         const client = new FirestoreClient(auth.token, auth.projectId, env.FIREBASE_RTDB_URL || '');
         const sources = await listSources(client);
-        return jsonResponse({ collections: sources.map((s) => s.key) });
+
+        const diagnostic = new URL(request.url).searchParams.get('diagnostic') === '1';
+        if (!diagnostic) {
+            return jsonResponse({ collections: sources.map((s) => s.key) });
+        }
+
+        // 診斷：逐集合回報總數與缺 updatedAt 數（聚合計數，成本極低）
+        const report = [];
+        for (const source of sources) {
+            const baseOpts = {
+                collectionId: source.collectionId,
+                parentDocPath: source.parentDocPath || ''
+            };
+            const [total, missing] = await Promise.all([
+                client.countQuery(baseOpts),
+                client.countQuery(Object.assign({}, baseOpts, { where: MISSING_UPDATED_AT_WHERE }))
+            ]);
+            report.push({ key: source.key, total, missingUpdatedAt: missing });
+        }
+        return jsonResponse({ report });
     } catch (error) {
         return new Response(JSON.stringify({
             error: 'BACKFILL_LIST_FAILED',
