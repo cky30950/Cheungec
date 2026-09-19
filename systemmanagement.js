@@ -427,8 +427,7 @@ async function handleBackupFile(file) {
     let totalStepsForBackupImport = 5;
     let data;
     try {
-        const text = await file.text();
-        data = JSON.parse(text);
+        data = await parseBackupFileJson(file);
         if (data && typeof data.rtdb === 'object' && data.rtdb !== null) {
             totalStepsForBackupImport++;
         }

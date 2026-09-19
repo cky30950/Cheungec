@@ -62,12 +62,20 @@ export function clinicIdFromKey(key) {
 
 /**
  * 產生備份檔的 R2 key（UTC 時間，檔名與舊版 clinic_backup_ 一致）。
+ * 匯出檔統一以 gzip 儲存（.json.gz），可大幅縮減 R2 容量。
  */
 export function buildExportKey(date) {
     const ts = (date || new Date()).toISOString().replace(/[:.]/g, '-');
-    return `${EXPORT_PREFIX}clinic_backup_${ts}.json`;
+    return `${EXPORT_PREFIX}clinic_backup_${ts}.json.gz`;
 }
 
 export function downloadFileNameFromKey(key) {
     return String(key).startsWith(EXPORT_PREFIX) ? String(key).slice(EXPORT_PREFIX.length) : key;
 }
+
+/** 判斷 R2 備份檔是否為 gzip 格式（新格式 .json.gz，舊檔為 .json） */
+export function isGzipExportKey(key) {
+    return String(key).endsWith('.gz');
+}
+
+export const GZIP_TYPE = 'application/gzip';

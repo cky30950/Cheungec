@@ -5,7 +5,7 @@
  * ============================================================ */
 
 import { listExports } from './lib/sync.js';
-import { EXPORT_PREFIX } from './lib/config.js';
+import { EXPORT_PREFIX, isGzipExportKey } from './lib/config.js';
 import { jsonResponse, optionsResponse, corsHeaders, authenticateAdmin } from './lib/http.js';
 
 export function onRequestOptions() {
@@ -49,11 +49,17 @@ export async function onRequestGet(context) {
         }
 
         const fileName = objectKey.replace(/^exports\//, '');
+        const isGzip = isGzipExportKey(objectKey)
+            || (object.httpMetadata && object.httpMetadata.contentType === 'application/gzip')
+            || (object.customMetadata && object.customMetadata.format === 'gzip-json');
         return new Response(object.body, {
             status: 200,
             headers: {
-                'Content-Type': 'application/json; charset=utf-8',
+                // gzip 檔用 application/gzip 且不設 Content-Encoding，
+                // 瀏覽器才會把 .json.gz 原樣存檔（否則會自動解壓令檔名／內容不符）
+                'Content-Type': isGzip ? 'application/gzip' : 'application/json; charset=utf-8',
                 'Content-Disposition': `attachment; filename="${fileName}"`,
+                'Content-Length': String(object.size || 0),
                 'Cache-Control': 'private, no-store',
                 ...corsHeaders()
             }

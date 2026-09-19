@@ -2610,7 +2610,7 @@
                             <button id="backupImportBtn" onclick="triggerBackupImport()" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition duration-200">
                                 匯入備份
                             </button>
-                            <input type="file" id="backupFileInput" accept=".json" class="hidden" onchange="handleBackupFile(this.files[0])">
+                            <input type="file" id="backupFileInput" accept=".json,.gz,.json.gz,application/gzip,application/json" class="hidden" onchange="handleBackupFile(this.files[0])">
                         </div>
                         <p id="backupCloudStatus" class="mt-3 text-xs text-gray-500">正在讀取雲端備份狀態…</p>
                         <div id="backupProgressContainer" class="hidden mt-4">

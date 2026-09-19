@@ -24298,7 +24298,15 @@ async function syncCloudBackup(forceBaseline) {
         });
         if (progressBar) progressBar.style.width = '100%';
         if (progressText) {
-            const summary = `同步完成（${result.status === 'partial' ? '部分成功' : '成功'}），本次 Firestore 讀取 ${result.firestoreReads} 次，備份檔：${result.exportFileName}`;
+            let compressionInfo = '';
+            if (result.exportBytes > 0 && result.exportBytesUncompressed > 0) {
+                const mb = (bytes) => bytes >= 1048576
+                    ? (bytes / 1048576).toFixed(2) + ' MB'
+                    : Math.max(1, Math.round(bytes / 1024)) + ' KB';
+                const ratio = Math.round((1 - result.exportBytes / result.exportBytesUncompressed) * 100);
+                compressionInfo = `，壓縮後 ${mb(result.exportBytes)}（原 ${mb(result.exportBytesUncompressed)}，縮減 ${ratio}%）`;
+            }
+            const summary = `同步完成（${result.status === 'partial' ? '部分成功' : '成功'}），本次 Firestore 讀取 ${result.firestoreReads} 次${compressionInfo}，備份檔：${result.exportFileName}`;
             progressText.textContent = summary;
         }
         showToast(result.status === 'partial'
@@ -24349,7 +24357,7 @@ async function exportClinicBackupFromCloud() {
         const disposition = response.headers.get('Content-Disposition') || '';
         const nameMatch = disposition.match(/filename="?([^"]+)"?/);
         const fileName = nameMatch ? nameMatch[1]
-            : `clinic_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+            : `clinic_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json.gz`;
 
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -24416,8 +24424,32 @@ function triggerBackupImport() {
 }
 
 /**
+ * 讀取並解析備份檔：支援舊版 .json 與雲端下載的 .json.gz（gzip）。
+ * gzip 使用瀏覽器原生 DecompressionStream 解壓，零依賴。
+ * @param {File} file
+ * @returns {Promise<Object>}
+ */
+async function parseBackupFileJson(file) {
+    const name = (file.name || '').toLowerCase();
+    const looksGzip = name.endsWith('.gz')
+        || file.type === 'application/gzip'
+        || file.type === 'application/x-gzip';
+
+    if (!looksGzip) {
+        return JSON.parse(await file.text());
+    }
+
+    if (typeof DecompressionStream === 'undefined') {
+        throw new Error('目前瀏覽器不支援 gzip 解壓，請使用新版 Chrome／Edge／Safari');
+    }
+    const decompressed = file.stream().pipeThrough(new DecompressionStream('gzip'));
+    const text = await new Response(decompressed).text();
+    return JSON.parse(text);
+}
+
+/**
  * 處理使用者選擇的備份檔案，解析後進行匯入。
- * @param {File} file 使用者選擇的 JSON 檔案
+ * @param {File} file 使用者選擇的 JSON／JSON.GZ 檔案
  */
 async function handleBackupFile(file) {
     if (!file) return;
@@ -24436,8 +24468,7 @@ async function handleBackupFile(file) {
     let totalStepsForBackupImport = 6;
     let data;
     try {
-        const text = await file.text();
-        data = JSON.parse(text);
+        data = await parseBackupFileJson(file);
         if (data && typeof data.rtdb === 'object' && data.rtdb !== null) {
             totalStepsForBackupImport++;
         }

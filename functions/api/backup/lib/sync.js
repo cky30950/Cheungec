@@ -26,10 +26,21 @@ import {
     isClinicBillingKey,
     clinicIdFromKey,
     buildExportKey,
-    downloadFileNameFromKey
+    downloadFileNameFromKey,
+    GZIP_TYPE
 } from './config.js';
 
 const JSON_TYPE = 'application/json; charset=utf-8';
+
+/**
+ * 以 Cloudflare 原生 CompressionStream 將 JSON 文字壓成 gzip（零依賴）。
+ * 回傳 ArrayBuffer 供 R2 put 使用。
+ */
+async function gzipString(text) {
+    const compressed = new Blob([text]).stream()
+        .pipeThrough(new CompressionStream('gzip'));
+    return new Response(compressed).arrayBuffer();
+}
 
 async function readState(bucket) {
     const obj = await bucket.get(STATE_KEY);
@@ -362,11 +373,16 @@ export async function runBackupSync(env, options = {}) {
     };
     const exportObj = await assembleExport(bucket, sources, rtdbData, stats);
     const exportKey = buildExportKey();
-    await bucket.put(exportKey, JSON.stringify(exportObj, null, 2), {
+    // 緊湊 JSON（人類不可讀無所謂，下載後可解壓）後 gzip，醫療 JSON 一般縮 5–10 倍
+    const exportJson = JSON.stringify(exportObj);
+    const compressedBytes = await gzipString(exportJson);
+    await bucket.put(exportKey, compressedBytes, {
         httpMetadata: {
-            contentType: JSON_TYPE,
+            contentType: GZIP_TYPE,
+            // 刻意不設 contentEncoding：讓瀏覽器原樣下載 .json.gz，而不會自動解壓
             contentDisposition: `attachment; filename="${downloadFileNameFromKey(exportKey)}"`
-        }
+        },
+        customMetadata: { format: 'gzip-json', version: '1' }
     });
     const pruning = await pruneOldExports(bucket);
 
@@ -380,6 +396,8 @@ export async function runBackupSync(env, options = {}) {
         failures,
         staleClinicSnapshotsRemoved: staleRemoved,
         exports: pruning,
+        exportBytes: compressedBytes.byteLength,
+        exportBytesUncompressed: exportJson.length,
         actor: options.actor || null
     };
     await writeState(bucket, state);
@@ -388,6 +406,8 @@ export async function runBackupSync(env, options = {}) {
         status: failures.length ? 'partial' : 'success',
         exportKey,
         exportFileName: downloadFileNameFromKey(exportKey),
+        exportBytes: compressedBytes.byteLength,
+        exportBytesUncompressed: exportJson.length,
         firestoreReads: totalReads,
         failures,
         sources: Object.fromEntries(
