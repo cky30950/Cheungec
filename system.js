@@ -2677,7 +2677,7 @@ async function fetchUsers(forceRefresh = false) {
                 if (!note && buttonGroup) {
                     note = document.createElement('p');
                     note.id = 'clinicVersionRestrictionNote';
-                    note.className = 'basis-full w-full text-xs text-amber-700 mt-1';
+                    note.className = 'basis-full w-full text-xs text-amber-700 mt-1 text-right';
                     buttonGroup.appendChild(note);
                 }
                 if (note) {
