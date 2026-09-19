@@ -24121,6 +24121,36 @@ async function exportClinicBackup() {
         } catch (e) {
             console.error('讀取套票記錄資料失敗:', e);
         }
+        // 讀取所有診所主文件（名稱、設定等，不含 billingItems 子集合）
+        let clinicsData = [];
+        try {
+            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'clinics'));
+            snapshot.forEach((docSnap) => {
+                clinicsData.push({ id: docSnap.id, ...docSnap.data() });
+            });
+        } catch (e) {
+            console.error('讀取診所資料失敗:', e);
+        }
+        // 讀取所有診所支出記錄
+        let clinicExpensesData = [];
+        try {
+            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'clinicExpenses'));
+            snapshot.forEach((docSnap) => {
+                clinicExpensesData.push({ id: docSnap.id, ...docSnap.data() });
+            });
+        } catch (e) {
+            console.error('讀取診所支出記錄失敗:', e);
+        }
+        // 讀取所有病歷審核追蹤記錄
+        let consultationAuditLogsData = [];
+        try {
+            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'consultationAuditLogs'));
+            snapshot.forEach((docSnap) => {
+                consultationAuditLogsData.push({ id: docSnap.id, ...docSnap.data() });
+            });
+        } catch (e) {
+            console.error('讀取病歷審核追蹤失敗:', e);
+        }
         const billingData = Array.isArray(billingItems) ? billingItems : [];
         // 讀取 Realtime Database 資料，排除即時掛號及診症資料
         let rtdbData = null;
@@ -24139,14 +24169,18 @@ async function exportClinicBackup() {
             console.warn('讀取 Realtime Database 資料失敗:', e);
             rtdbData = null;
         }
-        // 組合備份資料：僅包含病人資料、診症記錄、用戶資料、套票資料與收費項目，以及可選的 Realtime Database
+        // 組合備份資料：病人、診症、用戶、收費項目、套票／套票記錄、
+        // 診所設定、診所支出、病歷審核追蹤，以及可選的 Realtime Database
         const backup = {
             patients: patientsData,
             consultations: consultationsData,
             users: usersData,
             billingItems: billingData,
             patientPackages: packageData,
-            patientPackageHistory: packageHistoryData
+            patientPackageHistory: packageHistoryData,
+            clinics: clinicsData,
+            clinicExpenses: clinicExpensesData,
+            consultationAuditLogs: consultationAuditLogsData
         };
         if (rtdbData) {
             backup.rtdb = rtdbData;
@@ -24464,8 +24498,9 @@ async function handleBackupFile(file) {
     }
     const button = document.getElementById('backupImportBtn');
     setButtonLoading(button);
-    // 動態計算匯入步驟。基本六步：patients、consultations、users、billingItems、patientPackages、patientPackageHistory。
-    let totalStepsForBackupImport = 6;
+    // 動態計算匯入步驟。基本九步：patients、consultations、users、clinics、
+    // billingItems、patientPackages、patientPackageHistory、clinicExpenses、consultationAuditLogs。
+    let totalStepsForBackupImport = 9;
     let data;
     try {
         data = await parseBackupFileJson(file);
@@ -24503,8 +24538,8 @@ async function handleBackupFile(file) {
  */
 async function importClinicBackup(data) {
     let progressCallback = null;
-    // 僅還原病人資料、診症記錄、用戶資料、套票資料、套票記錄與收費項目，總步驟數為 6
-    let totalSteps = 6;
+    // 還原病人、診症、用戶、診所、收費項目、套票、套票記錄、診所支出、審核追蹤，總步驟數為 9
+    let totalSteps = 9;
     // 若第二個參數為函式，視為進度回調；第三個參數為總步驟數（可選）
     if (arguments.length >= 2 && typeof arguments[1] === 'function') {
         progressCallback = arguments[1];
@@ -24634,7 +24669,15 @@ async function importClinicBackup(data) {
     }
     // 覆蓋各集合並更新進度
     let stepCount = 0;
-    // 覆蓋需要還原的集合，順序為：patients -> consultations -> users -> billingItems -> patientPackages -> patientPackageHistory
+    // 覆蓋需要還原的集合，順序為：patients -> consultations -> users -> clinics
+    // -> billingItems -> patientPackages -> patientPackageHistory
+    // -> clinicExpenses -> consultationAuditLogs
+    // 新集合僅在備份檔「明確包含」該欄位時才覆蓋，舊備份檔缺少時跳過，避免誤刪現有資料。
+    const replaceCollectionIfPresent = async (collectionName, key) => {
+        if (Array.isArray(data[key])) {
+            await replaceCollection(collectionName, data[key]);
+        }
+    };
     await replaceCollection('patients', Array.isArray(data.patients) ? data.patients : []);
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
@@ -24647,6 +24690,10 @@ async function importClinicBackup(data) {
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
+    await replaceCollectionIfPresent('clinics', 'clinics');
+    stepCount++;
+    if (progressCallback) progressCallback(stepCount, totalSteps);
+
     await replaceCollection('billingItems', Array.isArray(data.billingItems) ? data.billingItems : []);
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
@@ -24656,6 +24703,14 @@ async function importClinicBackup(data) {
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
     await replaceCollection('patientPackageHistory', Array.isArray(data.patientPackageHistory) ? data.patientPackageHistory : []);
+    stepCount++;
+    if (progressCallback) progressCallback(stepCount, totalSteps);
+
+    await replaceCollectionIfPresent('clinicExpenses', 'clinicExpenses');
+    stepCount++;
+    if (progressCallback) progressCallback(stepCount, totalSteps);
+
+    await replaceCollectionIfPresent('consultationAuditLogs', 'consultationAuditLogs');
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
     // 如果備份包含 Realtime Database 資料，將其寫回

@@ -8,10 +8,11 @@
  *                                    （保留期限由 R2 lifecycle rule 管理）
  *
  * 同步策略：
- *  - 大集合（patients / consultations / patientPackageHistory）：
+ *  - 大集合（patients / consultations / patientPackageHistory /
+ *      consultationAuditLogs）：
  *      每日只讀 updatedAt 之後的增量；距上次 baseline ≥ 7 日時自動全量，
  *      全量會自然排除已被硬刪除的文件。
- *  - 小集合（users / 收費項目 / 套票）：每次都全量讀取，
+ *  - 小集合（users / 收費項目 / 套票 / 診所 / 診所支出）：每次都全量讀取，
  *      讀取量極小，但刪除可以即時反映。
  * ============================================================ */
 
@@ -38,7 +39,15 @@ export const TOP_COLLECTIONS = [
     { key: 'users', collectionId: 'users', alwaysFull: true },
     { key: 'patientPackages', collectionId: 'patientPackages', alwaysFull: true },
     { key: 'patientPackageHistory', collectionId: 'patientPackageHistory', alwaysFull: false },
-    { key: 'globalBillingItems', collectionId: 'globalBillingItems', alwaysFull: true }
+    { key: 'globalBillingItems', collectionId: 'globalBillingItems', alwaysFull: true },
+    // 診所主文件（名稱、設定等），數量極少（進階版上限 5 間），每次全量
+    { key: 'clinics', collectionId: 'clinics', alwaysFull: true },
+    // 診所支出記錄，每月僅零星筆數，每次全量
+    { key: 'clinicExpenses', collectionId: 'clinicExpenses', alwaysFull: true },
+    // 病歷審核追蹤（append-only，含修改前後快照，筆數可能龐大）：
+    // 日常走 updatedAt 增量，每 7 日 baseline 排除已刪除文件。
+    // 歷史舊文件若無 updatedAt，同步會自動退回 baseline，不漏資料。
+    { key: 'consultationAuditLogs', collectionId: 'consultationAuditLogs', alwaysFull: false }
 ];
 
 // 匯出檔中「billingItems」＝全域收費項目＋各診所非公費項目

@@ -275,7 +275,8 @@ async function exportClinicBackup() {
     setButtonLoading(button);
     try {
         await ensureFirebaseReady();
-        let totalStepsForBackupExport = 5;
+        // 病人/診症、用戶、收費項目、套票、套票記錄、診所、診所支出、審核追蹤、組裝輸出 = 9 步
+        let totalStepsForBackupExport = 9;
         let stepCount = 0;
         showBackupProgressBar(totalStepsForBackupExport);
         
@@ -337,14 +338,63 @@ async function exportClinicBackup() {
         try {
             const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'patientPackages'));
             snapshot.forEach((docSnap) => {
-                
+
                 packageData.push({ id: docSnap.id, ...docSnap.data() });
             });
         } catch (e) {
             console.error('讀取套票資料失敗:', e);
         }
-        const billingData = Array.isArray(billingItems) ? billingItems : [];
         stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
+
+        // 讀取所有套票使用記錄
+        let packageHistoryData = [];
+        try {
+            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'patientPackageHistory'));
+            snapshot.forEach((docSnap) => {
+                packageHistoryData.push({ id: docSnap.id, ...docSnap.data() });
+            });
+        } catch (e) {
+            console.error('讀取套票記錄資料失敗:', e);
+        }
+        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
+
+        // 讀取所有診所主文件（名稱、設定等，不含 billingItems 子集合）
+        let clinicsData = [];
+        try {
+            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'clinics'));
+            snapshot.forEach((docSnap) => {
+                clinicsData.push({ id: docSnap.id, ...docSnap.data() });
+            });
+        } catch (e) {
+            console.error('讀取診所資料失敗:', e);
+        }
+        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
+
+        // 讀取所有診所支出記錄
+        let clinicExpensesData = [];
+        try {
+            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'clinicExpenses'));
+            snapshot.forEach((docSnap) => {
+                clinicExpensesData.push({ id: docSnap.id, ...docSnap.data() });
+            });
+        } catch (e) {
+            console.error('讀取診所支出記錄失敗:', e);
+        }
+        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
+
+        // 讀取所有病歷審核追蹤記錄
+        let consultationAuditLogsData = [];
+        try {
+            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'consultationAuditLogs'));
+            snapshot.forEach((docSnap) => {
+                consultationAuditLogsData.push({ id: docSnap.id, ...docSnap.data() });
+            });
+        } catch (e) {
+            console.error('讀取病歷審核追蹤失敗:', e);
+        }
+        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
+
+        const billingData = Array.isArray(billingItems) ? billingItems : [];
         
         let rtdbData = null;
         try {
@@ -372,7 +422,11 @@ async function exportClinicBackup() {
             consultations: consultationsData,
             users: usersData,
             billingItems: billingData,
-            patientPackages: packageData
+            patientPackages: packageData,
+            patientPackageHistory: packageHistoryData,
+            clinics: clinicsData,
+            clinicExpenses: clinicExpensesData,
+            consultationAuditLogs: consultationAuditLogsData
         };
         if (rtdbData) {
             backup.rtdb = rtdbData;
@@ -424,7 +478,9 @@ async function handleBackupFile(file) {
     const button = document.getElementById('backupImportBtn');
     setButtonLoading(button);
     
-    let totalStepsForBackupImport = 5;
+    // 基本九步：patients、consultations、users、billingItems、patientPackages、
+    // patientPackageHistory、clinics、clinicExpenses、consultationAuditLogs
+    let totalStepsForBackupImport = 9;
     let data;
     try {
         data = await parseBackupFileJson(file);
@@ -459,9 +515,11 @@ async function handleBackupFile(file) {
 
 async function importClinicBackup(data) {
     let progressCallback = null;
-    
-    let totalSteps = 5;
-    
+
+    // 基本九步：patients、consultations、users、billingItems、patientPackages、
+    // patientPackageHistory、clinics、clinicExpenses、consultationAuditLogs
+    let totalSteps = 9;
+
     if (arguments.length >= 2 && typeof arguments[1] === 'function') {
         progressCallback = arguments[1];
     }
@@ -732,7 +790,32 @@ async function importClinicBackup(data) {
     await replaceCollection('patientPackages', Array.isArray(data.patientPackages) ? data.patientPackages : []);
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
-    
+
+    // 以下集合僅在備份檔「明確包含」該欄位時才覆蓋；舊備份檔缺少時跳過，避免誤刪現有資料。
+    if (Array.isArray(data.patientPackageHistory)) {
+        await replaceCollection('patientPackageHistory', data.patientPackageHistory);
+    }
+    stepCount++;
+    if (progressCallback) progressCallback(stepCount, totalSteps);
+
+    if (Array.isArray(data.clinics)) {
+        await replaceCollection('clinics', data.clinics);
+    }
+    stepCount++;
+    if (progressCallback) progressCallback(stepCount, totalSteps);
+
+    if (Array.isArray(data.clinicExpenses)) {
+        await replaceCollection('clinicExpenses', data.clinicExpenses);
+    }
+    stepCount++;
+    if (progressCallback) progressCallback(stepCount, totalSteps);
+
+    if (Array.isArray(data.consultationAuditLogs)) {
+        await replaceCollection('consultationAuditLogs', data.consultationAuditLogs);
+    }
+    stepCount++;
+    if (progressCallback) progressCallback(stepCount, totalSteps);
+
     const rtdbData = data && typeof data.rtdb === 'object' ? data.rtdb : null;
     if (rtdbData) {
         try {

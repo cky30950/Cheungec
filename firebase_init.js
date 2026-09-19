@@ -81,13 +81,15 @@ setPersistence(auth, browserSessionPersistence).catch((error) => {
      * R2 增量備份以 updatedAt 判斷文件變更，時間一律採用 Firestore
      * 伺服器時間（serverTimestamp），不受客戶端時鐘飄移影響。
      * 涵蓋 patients / consultations / users / patientPackages /
-     * patientPackageHistory / globalBillingItems 及
+     * patientPackageHistory / globalBillingItems / clinics /
+     * clinicExpenses / consultationAuditLogs 及
      * clinics/{id}/billingItems；新增、更新、批次寫入都會蓋章，
      * 呼叫端若已明確提供 updatedAt 則保留原值。
      * ============================================================ */
     const BACKUP_TOP_COLLECTIONS = new Set([
       'patients', 'consultations', 'users',
-      'patientPackages', 'patientPackageHistory', 'globalBillingItems'
+      'patientPackages', 'patientPackageHistory', 'globalBillingItems',
+      'clinics', 'clinicExpenses', 'consultationAuditLogs'
     ]);
 
     function isBackupTrackedRef(reference) {
