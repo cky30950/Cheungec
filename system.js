@@ -8332,6 +8332,34 @@ function getGeneralRegistrationSourceLabel(isEn = false) {
     return isEn ? 'General Registration' : GENERAL_REGISTRATION_LABEL;
 }
 
+/**
+ * 判斷診症完成後是否有開藥（處方內容）。
+ * 舊式純文字處方內容非空，或多處方結構中任一區塊含有藥材項目，皆視為有開藥；
+ * 僅有服用方法（usage）而無處方內容時，視為沒有開藥。
+ * @param {object|null|undefined} consultation 診症記錄
+ * @returns {boolean} 有開藥回傳 true；沒有開藥回傳 false
+ */
+function consultationHasPrescription(consultation = null) {
+    if (!consultation || typeof consultation !== 'object') return false;
+    if (String(consultation.prescription || '').trim()) {
+        return true;
+    }
+    const raw = consultation.multiPrescriptions;
+    if (raw) {
+        try {
+            const sections = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            if (Array.isArray(sections) && sections.some(section =>
+                Array.isArray(section && section.items) && section.items.length > 0
+            )) {
+                return true;
+            }
+        } catch (_e) {
+            /* 多處方資料解析失敗時，視為沒有開藥 */
+        }
+    }
+    return false;
+}
+
 function canCurrentUserAccessGeneralRegistration(consultation = null, appointment = null) {
     if (!isGeneralRegistrationContext(consultation, appointment)) {
         return true;
@@ -13357,6 +13385,8 @@ if (!patient) {
                 consultation,
                 (typeof currentPatientHistoryPatientId !== 'undefined' && currentPatientHistoryPatientId) || consultation.patientId || ''
             );
+            // 判斷本次診症是否有開藥；沒有開藥時隱藏處方內容與服用方法欄位
+            const hasPrescription = consultationHasPrescription(consultation);
 
             // Prepare dynamic translation segments.  We look up static labels
             // from the dictionary and build English phrases when needed.
@@ -13519,6 +13549,7 @@ if (!patient) {
                             </div>
                             
                             <div class="space-y-4">
+                                ${hasPrescription ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>
                                     ${(() => {
@@ -13552,8 +13583,10 @@ if (!patient) {
                                         return `<div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 medical-field">${html}</div>`;
                                     })()}
                                 </div>
+                                ` : ''}
                                 
                                 ${(() => {
+                                    if (!hasPrescription) return '';
                                     let medInfoHtml = '';
                                     try {
                                         if (consultation.multiPrescriptions) {
@@ -13802,6 +13835,8 @@ async function displayConsultationMedicalHistoryPage() {
         consultation,
         (typeof currentConsultationHistoryPatientId !== 'undefined' && currentConsultationHistoryPatientId) || consultation.patientId || ''
     );
+    // 判斷本次診症是否有開藥；沒有開藥時隱藏處方內容與服用方法欄位
+    const hasPrescription = consultationHasPrescription(consultation);
 
     // Build translated dynamic strings.  For Chinese we keep the original
     // formatting; for English we generate equivalent phrases.  The
@@ -13961,6 +13996,7 @@ async function displayConsultationMedicalHistoryPage() {
                             </div>
                             
                             <div class="space-y-4">
+                                ${hasPrescription ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>
                                     ${(() => {
@@ -13994,10 +14030,10 @@ async function displayConsultationMedicalHistoryPage() {
                                         return `<div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 medical-field">${html}</div>`;
                                     })()}
                                 </div>
+                                ` : ''}
                                 
                                 ${(() => {
-                                    let showBlock = !!consultation.prescription || !!consultation.multiPrescriptions || !!consultation.usage;
-                                    if (!showBlock) return '';
+                                    if (!hasPrescription) return '';
                                     let medInfoHtml = '';
                                     try {
                                         if (consultation.multiPrescriptions) {
@@ -14550,8 +14586,9 @@ async function printConsultationRecord(consultationId, consultationData = null) 
         if (consultation.usage) {
             medInfoLocalized += '<strong>' + (isEnglish ? 'Administration Method' : '服用方法') + colon + '</strong>' + consultation.usage;
         }
-        // If there is no Chinese medicine prescription, clear medication info
-        if (!originalPrescription || (typeof originalPrescription === 'string' && originalPrescription.trim() === '')) {
+        // 若本次診症沒有開藥（無純文字處方內容，也無多處方項目），收據不顯示服用方法等服藥資訊
+        const hasPrescribedMedication = !!String(originalPrescription || '').trim() || consultationHasPrescription(consultation);
+        if (!hasPrescribedMedication) {
             medInfoHtml = '';
             medInfoLocalized = '';
         }
@@ -16119,6 +16156,8 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
             // 無處方內容
             prescriptionHtml = '無記錄';
         }
+        // 判斷本次診症是否有開藥；沒有開藥時隱藏處方內容與服藥資訊欄位
+        const hasPrescription = consultationHasPrescription(consultation);
         // 語言設定
         const lang = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
         const isEnglish = lang === 'en';
@@ -16366,9 +16405,9 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
                         })()}
                         ${consultation.diagnosis ? `<div class="info-row"><span class="info-label">${PI.diagnosis}${colon}</span><span>${consultation.diagnosis}</span></div>` : ''}
                     </div>
-                    <div class="section-title">${PI.prescriptionContent}</div>
-                    <div class="section-content">${prescriptionHtml}</div>
-                    ${medInfoHtml ? `<div class="section-title">${PI.medicationInfo}</div><div class="section-content">${medInfoHtml}</div>` : ''}
+                    ${hasPrescription ? `<div class="section-title">${PI.prescriptionContent}</div>
+                    <div class="section-content">${prescriptionHtml}</div>` : ''}
+                    ${(hasPrescription && medInfoHtml) ? `<div class="section-title">${PI.medicationInfo}</div><div class="section-content">${medInfoHtml}</div>` : ''}
                     ${instructionsHtml ? `<div class="section-title">${PI.instructions}</div><div class="section-content">${instructionsHtml}</div>` : ''}
                     ${followUpHtml ? `<div class="section-title">${PI.followUp}</div><div class="section-content">${followUpHtml}</div>` : ''}
                     <div class="footer-info">
@@ -31648,6 +31687,8 @@ async function viewMedicalRecord(recordId, buttonEl = null) {
             rec,
             rec && rec.patientId !== undefined && rec.patientId !== null ? String(rec.patientId) : ''
         );
+        // 判斷本次診症是否有開藥；沒有開藥時隱藏處方內容與服用方法欄位
+        const hasPrescription = consultationHasPrescription(rec);
         let detailHtml = '';
         detailHtml += '<div class="border border-gray-200 rounded-lg overflow-hidden shadow-sm">';
         // Header 區塊
@@ -31739,7 +31780,8 @@ async function viewMedicalRecord(recordId, buttonEl = null) {
         detailHtml += '</div>'; // 左欄結束
         // 右欄：處方與用法
         detailHtml += '<div class="space-y-4">';
-        // 處方內容
+        // 處方內容（沒有開藥時整欄隱藏）
+        if (hasPrescription) {
         detailHtml += '<div>';
         detailHtml += '<span class="text-sm font-semibold text-gray-700 block mb-2">處方內容</span>';
         (function () {
@@ -31773,8 +31815,10 @@ async function viewMedicalRecord(recordId, buttonEl = null) {
             detailHtml += `<div class="bg-yellow-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-yellow-400 medical-field">${prescriptionHtml}</div>`;
         })();
         detailHtml += '</div>';
-        // 服用方法（含各處方天數與次數）
+        }
+        // 服用方法（含各處方天數與次數；沒有開藥時整欄隱藏）
         (function () {
+            if (!hasPrescription) return;
             detailHtml += '<div>';
             detailHtml += '<span class="text-sm font-semibold text-gray-700 block mb-2">服用方法</span>';
             let medInfoHtml = '';
