@@ -3356,50 +3356,219 @@ let patientListListenerAttached = false;
 
 let patientListUnsubscribe = null;
 
+/* ============================================================
+ * 病人快取多人同步基礎設施
+ * ------------------------------------------------------------
+ * - 本機 CRUD：樂觀就地更新所有快取層，並在 patientsMeta 文檔
+ *   蓋上本頁面專屬 nonce；自己的 snapshot 認得 nonce → 跳過，
+ *   不再觸發 849 筆全量重讀。
+ * - 他人變更（或無 nonce 的舊客戶端）：監聽器只 getDoc 該筆
+ *   病人（1 次讀取）做單筆 patch，再以分頁查詢重載可見列表。
+ * - meta 缺少 patientId 或單筆同步失敗 → 退回舊式全量失效保險。
+ * ============================================================ */
+const PATIENT_SYNC_CLIENT_ID = 'c-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+const SELF_META_NONCES = []; // 最近由本頁面寫入的 nonce（FIFO，保留 32 個）
+const PATIENTS_CACHE_META_KEY = 'patientsCacheMeta';
+const PATIENTS_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // localStorage 病人快取硬保險：12 小時
+
+/** 產生本機寫入專用 nonce 並記住，供稍後 snapshot 辨識「自己觸發的事件」 */
+function newSelfMetaNonce() {
+    const nonce = PATIENT_SYNC_CLIENT_ID + ':' + Date.now().toString(36) + ':' + Math.random().toString(36).slice(2, 8);
+    SELF_META_NONCES.push(nonce);
+    while (SELF_META_NONCES.length > 32) SELF_META_NONCES.shift();
+    return nonce;
+}
+
+function isSelfMetaNonce(nonce) {
+    return !!nonce && SELF_META_NONCES.indexOf(nonce) !== -1;
+}
+
+/** 把 Firestore Timestamp／Date／number 統一轉成毫秒數；無法判斷時回 null */
+function metaTimestampToMillis(value) {
+    if (!value) return null;
+    if (typeof value === 'number') return value;
+    if (typeof value.toMillis === 'function') {
+        try { return value.toMillis(); } catch (_e) { /* fall through */ }
+    }
+    if (typeof value.seconds === 'number') {
+        return value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1000000);
+    }
+    if (value instanceof Date) return value.getTime();
+    if (value.getTime) {
+        const t = value.getTime();
+        return Number.isNaN(t) ? null : t;
+    }
+    return null;
+}
+
+function readPatientsStorageMeta() {
+    try {
+        const raw = localStorage.getItem(PATIENTS_CACHE_META_KEY);
+        if (!raw) return null;
+        const meta = JSON.parse(raw);
+        return meta && typeof meta === 'object' ? meta : null;
+    } catch (_e) {
+        return null;
+    }
+}
+
+function writePatientsStorageMeta(meta) {
+    try {
+        localStorage.setItem(PATIENTS_CACHE_META_KEY, JSON.stringify(meta || {}));
+    } catch (_e) {
+        // localStorage 不可用時靜默略過
+    }
+}
+
+/** 記錄「本地病人快取對應到哪個 meta 時間」；本地沒有病人陣列時不寫入無效戳記 */
+function stampPatientsStorageMetaTimestamp(metaTs) {
+    if (metaTs == null) return;
+    try {
+        if (!localStorage.getItem('patients')) return;
+        const meta = readPatientsStorageMeta() || {};
+        meta.metaTimestamp = metaTs;
+        if (!meta.fetchedAt) meta.fetchedAt = Date.now();
+        writePatientsStorageMeta(meta);
+    } catch (_e) { /* 忽略 */ }
+}
+
+/** 清平分頁快取（不含全量病人快取，全量快取改由單筆 patch 維持新鮮度） */
+function resetPatientPaginationCaches() {
+    patientCache = null;
+    patientPagesCache = {};
+    patientPageCursors = {};
+    patientAscPagesCache = {};
+    patientAscPageCursors = {};
+}
+
+/** 就地微調病人總數快取（create/delete），避免一次 getCountFromServer */
+function adjustPatientsCountCache(delta) {
+    if (typeof patientsCountCache === 'number') {
+        patientsCountCache = Math.max(0, patientsCountCache + delta);
+    }
+}
+
+/** 病人管理分頁正在顯示時才重載（分頁查詢，成本低） */
+function reloadVisiblePatientList() {
+    try {
+        const sectionEl = document.getElementById('patientManagement');
+        if (sectionEl && !sectionEl.classList.contains('hidden') && typeof loadPatientList === 'function') {
+            loadPatientList();
+        }
+    } catch (_e) { /* 忽略 */ }
+}
+
+/** 舊式全量失效：meta 缺 patientId、單筆同步失敗等保險路徑 */
+function invalidateAllPatientCaches() {
+    patientCache = null;
+    patientPagesCache = {};
+    patientPageCursors = {};
+    patientAscPagesCache = {};
+    patientAscPageCursors = {};
+    patientsCountCache = null;
+    if (window.firebaseDataManager) {
+        window.firebaseDataManager.patientsCache = null;
+        window.firebaseDataManager.patientsCacheSource = 'none';
+        window.firebaseDataManager.patientsCacheFetchedAt = 0;
+    }
+    try {
+        localStorage.removeItem('patients');
+        localStorage.removeItem(PATIENTS_CACHE_META_KEY);
+    } catch (_lsErr) { /* 忽略 */ }
+}
+
+function isPatientIdInFullCaches(patientId) {
+    const pid = String(patientId);
+    if (window.firebaseDataManager && Array.isArray(window.firebaseDataManager.patientsCache)) {
+        if (window.firebaseDataManager.patientsCache.some((p) => p && String(p.id) === pid)) return true;
+    }
+    if (typeof patientCache !== 'undefined' && Array.isArray(patientCache)) {
+        if (patientCache.some((p) => p && String(p.id) === pid)) return true;
+    }
+    try {
+        const raw = localStorage.getItem('patients');
+        if (raw) {
+            const arr = JSON.parse(raw);
+            if (Array.isArray(arr) && arr.some((p) => p && String(p.id) === pid)) return true;
+        }
+    } catch (_e) { /* 忽略 */ }
+    return false;
+}
+
+/** 他人變更的低成本同步：只讀該筆病人文件並就地 patch，取代整個集合重讀 */
+async function handleRemotePatientMetaChange(meta, metaTs) {
+    const operation = meta && meta.operation;
+    const pid = meta && meta.patientId != null ? String(meta.patientId) : '';
+    if (!pid) {
+        // 舊客戶端或系統寫入未帶 patientId，無法定位單筆，退回全量失效
+        invalidateAllPatientCaches();
+        reloadVisiblePatientList();
+        return;
+    }
+    try {
+        await waitForFirebaseDb();
+        const docSnap = await window.firebase.getDoc(
+            window.firebase.doc(window.firebase.db, 'patients', pid)
+        );
+        const dm = window.firebaseDataManager;
+        if (docSnap && docSnap.exists()) {
+            const existedBefore = isPatientIdInFullCaches(pid);
+            if (dm && typeof dm.applyPatientUpsertToCaches === 'function') {
+                dm.applyPatientUpsertToCaches({ id: docSnap.id, ...docSnap.data() });
+            }
+            // create 且本機此前沒有此病人 → 總數 +1；其餘視為更新，總數不變
+            if (operation === 'create' && !existedBefore) adjustPatientsCountCache(1);
+        } else {
+            const existedBefore = isPatientIdInFullCaches(pid);
+            if (dm && typeof dm.applyPatientRemovalToCaches === 'function') {
+                dm.applyPatientRemovalToCaches(pid);
+            }
+            if (operation === 'delete' && existedBefore) adjustPatientsCountCache(-1);
+        }
+        // patch 成功後才為本地快取蓋上「對應此 meta」的戳記
+        if (metaTs != null) stampPatientsStorageMetaTimestamp(metaTs);
+        resetPatientPaginationCaches();
+        reloadVisiblePatientList();
+    } catch (err) {
+        console.error('單筆同步病人快取失敗，退回全量刷新:', err);
+        invalidateAllPatientCaches();
+        reloadVisiblePatientList();
+    }
+}
 
 async function attachPatientListListener() {
     try {
-        
+
         await waitForFirebaseDb();
-        
+
         if (patientListListenerAttached) return;
-        
+
         // 監聽 patientsMeta/lastChange 單一文檔，而非整個 patients 集合。
         // 任何病人 CRUD 操作都會先 touchPatientsMeta 更新此文檔，
         // 因此 onSnapshot 能精準觸發且讀取量恒定（初始 1 次 + 每次變更 1 次）。
         let isInitialSnapshot = true;
         const metaDocRef = window.firebase.doc(window.firebase.db, 'patientsMeta', 'lastChange');
-        
+
         patientListUnsubscribe = window.firebase.onSnapshot(metaDocRef, (snapshot) => {
             try {
-                // 忽略第一次回調（監聽器建立時的初始狀態，不一定有文檔存在）
+                const metaData = snapshot && snapshot.data ? (snapshot.data() || {}) : {};
+                const metaTs = metaTimestampToMillis(metaData.timestamp);
+
                 if (isInitialSnapshot) {
+                    // 首次回調為監聽器建立時的現有狀態：不替本地快取蓋戳背書
+                    // （快取可能早於這個 meta），新鮮度交由 getPatients 冷啟動驗證把關
                     isInitialSnapshot = false;
                     return;
                 }
-                
-                patientCache = null;
-                patientPagesCache = {};
-                patientPageCursors = {};
-                patientAscPagesCache = {};
-                patientAscPageCursors = {};
-                patientsCountCache = null;
-                if (window.firebaseDataManager) {
-                    window.firebaseDataManager.patientsCache = null;
-                    window.firebaseDataManager.patientsCacheSource = 'none';
-                    window.firebaseDataManager.patientsCacheFetchedAt = 0;
+
+                // 自己觸發的事件：本機 CRUD 已同步就地更新快取，蓋戳後跳過
+                if (isSelfMetaNonce(metaData.nonce)) {
+                    if (metaTs != null) stampPatientsStorageMetaTimestamp(metaTs);
+                    return;
                 }
-                try {
-                    
-                    localStorage.removeItem('patients');
-                } catch (_lsErr) {
-                    
-                }
-                
-                const sectionEl = document.getElementById('patientManagement');
-                if (sectionEl && !sectionEl.classList.contains('hidden')) {
-                    loadPatientList();
-                }
+
+                // 他人（或無 nonce 的聚合更新）：單筆 patch，1 次讀取（戳記於 patch 成功後才蓋）
+                handleRemotePatientMetaChange(metaData, metaTs);
             } catch (innerErr) {
                 console.error('病人資料即時更新處理失敗:', innerErr);
             }
@@ -3435,17 +3604,24 @@ function detachPatientListListener() {
  *
  * @param {string} operation 操作類型：'create' | 'update' | 'delete'
  * @param {string} patientId 病人文檔 ID（可選）
+ * @param {{nonce?: string}} [options] 傳入 nonce 時，表示由本機 CRUD
+ *        樂觀更新所觸發；本頁面的監聽器辨識後會跳過失效邏輯。
  */
-async function touchPatientsMeta(operation, patientId) {
+async function touchPatientsMeta(operation, patientId, options) {
     try {
         await waitForFirebaseDb();
+        const payload = {
+            timestamp: new Date(),
+            operation: operation || 'update',
+            patientId: patientId || null
+        };
+        if (options && options.nonce) {
+            payload.nonce = options.nonce;
+            payload.clientId = PATIENT_SYNC_CLIENT_ID;
+        }
         await window.firebase.setDoc(
             window.firebase.doc(window.firebase.db, 'patientsMeta', 'lastChange'),
-            {
-                timestamp: new Date(),
-                operation: operation || 'update',
-                patientId: patientId || null
-            },
+            payload,
             { merge: true }
         );
     } catch (_e) {
@@ -27220,40 +27396,162 @@ class FirebaseDataManager {
             } catch (_omitErr) {
                 dataToWrite = patientData;
             }
+            const now = new Date();
+            const newPatientData = {
+                ...dataToWrite,
+                searchKeywords: keywords,
+                // 初始化套票彙總欄位，避免未購買套票時為 undefined
+                consultationCount: 0,
+                latestConsultationAt: null,
+                latestFollowUpDate: null,
+                packageActiveCount: 0,
+                packageRemainingUses: 0,
+                createdAt: now,
+                updatedAt: now,
+                createdBy: currentUser || 'system'
+            };
             const docRef = await window.firebase.addDoc(
                 window.firebase.collection(window.firebase.db, 'patients'),
-                {
-                    ...dataToWrite,
-                    searchKeywords: keywords,
-                    // 初始化套票彙總欄位，避免未購買套票時為 undefined
-                    consultationCount: 0,
-                    latestConsultationAt: null,
-                    latestFollowUpDate: null,
-                    packageActiveCount: 0,
-                    packageRemainingUses: 0,
-                    createdAt: new Date(),
-                    updatedAt: new Date(),
-                    createdBy: currentUser || 'system'
-                }
+                newPatientData
             );
-            
+
             console.log('病人數據已添加到 Firebase:', docRef.id);
-            // 通知其他裝置病人列表有變更
-            touchPatientsMeta('create', docRef.id).catch(() => {});
-            // 新增病人後清除緩存並移除本地存檔，讓下一次讀取時重新載入
-            this.patientsCache = null;
-            this.patientsCacheSource = 'none';
-            this.patientsCacheFetchedAt = 0;
-            try {
-                localStorage.removeItem('patients');
-            } catch (_lsErr) {
-                // 忽略 localStorage 錯誤
-            }
+            // 通知其他裝置病人列表有變更（帶本機 nonce，自己的監聽器會跳過）
+            touchPatientsMeta('create', docRef.id, { nonce: newSelfMetaNonce() }).catch(() => {});
+            // 樂觀就地更新本機所有快取層，不再清空後全量重讀
+            this.applyPatientUpsertToCaches({ id: docRef.id, ...newPatientData });
+            adjustPatientsCountCache(1);
+            resetPatientPaginationCaches();
+            reloadVisiblePatientList();
             return { success: true, id: docRef.id };
         } catch (error) {
             console.error('添加病人數據失敗:', error);
             showToast('保存病人數據失敗', 'error');
             return { success: false, error: error.message };
+        }
+    }
+
+    /**
+     * 把單筆病人的最新內容合併進所有「全量病人快取層」：
+     * 記憶體 patientsCache、全域 patientCache、localStorage 病人陣列。
+     * 分頁快取不在此處理（排序可能因更新改變），由呼叫端清平分頁快取後重載。
+     *
+     * @param {Object} patient 完整或局部病人欄位（必須含 id）；局部欄位會與舊記錄合併
+     */
+    applyPatientUpsertToCaches(patient) {
+        if (!patient || patient.id === undefined || patient.id === null) return;
+        const idStr = String(patient.id);
+        const mergeIntoList = (list) => {
+            if (!Array.isArray(list)) return;
+            const idx = list.findIndex((p) => p && String(p.id) === idStr);
+            if (idx >= 0) {
+                list[idx] = { ...list[idx], ...patient, id: list[idx].id };
+            } else {
+                list.push({ ...patient, id: idStr });
+            }
+        };
+        if (Array.isArray(this.patientsCache)) mergeIntoList(this.patientsCache);
+        if (typeof patientCache !== 'undefined' && Array.isArray(patientCache)) mergeIntoList(patientCache);
+        try {
+            const raw = localStorage.getItem('patients');
+            if (raw) {
+                const arr = JSON.parse(raw);
+                if (Array.isArray(arr)) {
+                    mergeIntoList(arr);
+                    localStorage.setItem('patients', JSON.stringify(arr));
+                }
+            }
+        } catch (_lsErr) { /* 忽略 localStorage 錯誤 */ }
+    }
+
+    /** 從所有全量病人快取層移除單筆病人（分頁快取由呼叫端清屏） */
+    applyPatientRemovalToCaches(patientId) {
+        const idStr = String(patientId);
+        const removeFromList = (list) => {
+            if (!Array.isArray(list)) return;
+            for (let i = list.length - 1; i >= 0; i--) {
+                if (list[i] && String(list[i].id) === idStr) list.splice(i, 1);
+            }
+        };
+        if (Array.isArray(this.patientsCache)) removeFromList(this.patientsCache);
+        if (typeof patientCache !== 'undefined' && Array.isArray(patientCache)) removeFromList(patientCache);
+        try {
+            const raw = localStorage.getItem('patients');
+            if (raw) {
+                const arr = JSON.parse(raw);
+                if (Array.isArray(arr)) {
+                    removeFromList(arr);
+                    localStorage.setItem('patients', JSON.stringify(arr));
+                }
+            }
+        } catch (_lsErr) { /* 忽略 localStorage 錯誤 */ }
+    }
+
+    /**
+     * 冷啟動時以 patientsMeta/lastChange（1 次讀取）驗證 localStorage
+     * 全量病人快取是否仍與伺服器一致：戳記相同則沿用，免去整個集合重讀；
+     * 離線期間有變更（戳記不同）才全量重取。另有 12 小時硬 TTL 保險。
+     *
+     * @returns {Promise<Array|null>} 可沿用的病人陣列；null 表示需重新全量讀取
+     */
+    async loadPatientsFromLocalStorageWithValidation() {
+        let raw = null;
+        try {
+            raw = localStorage.getItem('patients');
+        } catch (_e) {
+            return null;
+        }
+        if (!raw) return null;
+        let localData;
+        try {
+            localData = JSON.parse(raw);
+        } catch (_e) {
+            return null;
+        }
+        if (!Array.isArray(localData)) return null;
+
+        const meta = readPatientsStorageMeta();
+        const now = Date.now();
+        if (meta && meta.fetchedAt && (now - Number(meta.fetchedAt) > PATIENTS_CACHE_TTL_MS)) {
+            return null; // 超過硬 TTL，重新全量讀取
+        }
+
+        try {
+            await waitForFirebaseDb();
+            const metaSnap = await window.firebase.getDoc(
+                window.firebase.doc(window.firebase.db, 'patientsMeta', 'lastChange')
+            );
+            const metaData = metaSnap && metaSnap.exists() ? metaSnap.data() : null;
+            const serverTs = metaData ? metaTimestampToMillis(metaData.timestamp) : null;
+            if (serverTs == null) {
+                // 伺服器尚無 meta 文檔：病人集合從未透過 CRUD 變更，可沿用本地快取
+                return localData;
+            }
+            stampPatientsStorageMetaTimestamp(serverTs);
+            const cachedTs = meta && meta.metaTimestamp != null ? Number(meta.metaTimestamp) : null;
+            if (cachedTs == null) {
+                // 舊版快取沒有戳記：首次保守沿用一次（戳記已補上），之後正常比對
+                return localData;
+            }
+            return cachedTs === serverTs ? localData : null;
+        } catch (err) {
+            // 驗證請求失敗（網路/權限）：TTL 內沿用快取，避免強制全量讀取
+            console.warn('驗證本地病人快取失敗，TTL 內沿用:', err);
+            return localData;
+        }
+    }
+
+    /** 讀取 patientsMeta/lastChange 當前時間戳（毫秒），失敗回 null */
+    async fetchCurrentPatientsMetaTimestamp() {
+        try {
+            await waitForFirebaseDb();
+            const metaSnap = await window.firebase.getDoc(
+                window.firebase.doc(window.firebase.db, 'patientsMeta', 'lastChange')
+            );
+            const metaData = metaSnap && metaSnap.exists() ? metaSnap.data() : null;
+            return metaData ? metaTimestampToMillis(metaData.timestamp) : null;
+        } catch (_e) {
+            return null;
         }
     }
 
@@ -27273,21 +27571,15 @@ class FirebaseDataManager {
             if (!forceRefresh && this.patientsCache !== null) {
                 return { success: true, data: this.patientsCache };
             }
-            // 嘗試從 localStorage 載入病人資料，以減少 Firebase 讀取次數
+            // 冷啟動：用 1 次 meta 讀取驗證 localStorage 全量快取是否仍新鮮
             if (!forceRefresh) {
-                try {
-                    const stored = localStorage.getItem('patients');
-                    if (stored) {
-                        const localData = JSON.parse(stored);
-                        if (Array.isArray(localData)) {
-                            this.patientsCache = localData;
-                            this.patientsCacheSource = 'localStorage';
-                            this.patientsCacheFetchedAt = Date.now();
-                            return { success: true, data: this.patientsCache };
-                        }
-                    }
-                } catch (lsErr) {
-                    console.warn('載入本地病人資料失敗:', lsErr);
+                const localData = await this.loadPatientsFromLocalStorageWithValidation();
+                if (localData) {
+                    this.patientsCache = localData;
+                    this.patientsCacheSource = 'localStorage';
+                    const cacheMeta = readPatientsStorageMeta();
+                    this.patientsCacheFetchedAt = (cacheMeta && cacheMeta.fetchedAt) || Date.now();
+                    return { success: true, data: localData };
                 }
             }
             const querySnapshot = await window.firebase.getDocs(
@@ -27297,12 +27589,14 @@ class FirebaseDataManager {
             querySnapshot.forEach((doc) => {
                 patients.push({ id: doc.id, ...doc.data() });
             });
-            // 將結果寫入快取與 localStorage
+            // 將結果寫入快取與 localStorage，並記錄對應的 meta 時間戳
             this.patientsCache = patients;
             this.patientsCacheSource = 'remote';
             this.patientsCacheFetchedAt = Date.now();
             try {
                 localStorage.setItem('patients', JSON.stringify(patients));
+                const metaTs = await this.fetchCurrentPatientsMetaTimestamp();
+                writePatientsStorageMeta({ fetchedAt: Date.now(), metaTimestamp: metaTs });
             } catch (lsErr) {
                 console.warn('保存病人資料到本地失敗:', lsErr);
             }
@@ -27329,26 +27623,22 @@ class FirebaseDataManager {
             } catch (_omitErr) {
                 dataToWrite = patientData;
             }
+            const patchData = {
+                ...dataToWrite,
+                searchKeywords: keywords,
+                updatedAt: new Date(),
+                updatedBy: currentUser || 'system'
+            };
             await window.firebase.updateDoc(
                 window.firebase.doc(window.firebase.db, 'patients', patientId),
-                {
-                    ...dataToWrite,
-                    searchKeywords: keywords,
-                    updatedAt: new Date(),
-                    updatedBy: currentUser || 'system'
-                }
+                patchData
             );
-            // 通知其他裝置病人列表有變更
-            touchPatientsMeta('update', patientId).catch(() => {});
-            // 更新病人資料後清除緩存並移除本地存檔，讓下一次讀取時重新載入
-            this.patientsCache = null;
-            this.patientsCacheSource = 'none';
-            this.patientsCacheFetchedAt = 0;
-            try {
-                localStorage.removeItem('patients');
-            } catch (_lsErr) {
-                // 忽略 localStorage 錯誤
-            }
+            // 通知其他裝置病人列表有變更（帶本機 nonce，自己的監聽器會跳過）
+            touchPatientsMeta('update', patientId, { nonce: newSelfMetaNonce() }).catch(() => {});
+            // 樂觀就地更新本機所有快取層（局部欄位與舊記錄合併），不再清空全量快取
+            this.applyPatientUpsertToCaches({ id: patientId, ...patchData });
+            resetPatientPaginationCaches();
+            reloadVisiblePatientList();
             return { success: true };
         } catch (error) {
             console.error('更新病人數據失敗:', error);
@@ -27361,17 +27651,13 @@ class FirebaseDataManager {
             await window.firebase.deleteDoc(
                 window.firebase.doc(window.firebase.db, 'patients', patientId)
             );
-            // 通知其他裝置病人列表有變更
-            touchPatientsMeta('delete', patientId).catch(() => {});
-            // 刪除病人後清除緩存並移除本地存檔
-            this.patientsCache = null;
-            this.patientsCacheSource = 'none';
-            this.patientsCacheFetchedAt = 0;
-            try {
-                localStorage.removeItem('patients');
-            } catch (_lsErr) {
-                // 忽略 localStorage 錯誤
-            }
+            // 通知其他裝置病人列表有變更（帶本機 nonce，自己的監聽器會跳過）
+            touchPatientsMeta('delete', patientId, { nonce: newSelfMetaNonce() }).catch(() => {});
+            // 樂觀地從本機所有快取層移除該病人
+            this.applyPatientRemovalToCaches(patientId);
+            adjustPatientsCountCache(-1);
+            resetPatientPaginationCaches();
+            reloadVisiblePatientList();
             return { success: true };
         } catch (error) {
             console.error('刪除病人數據失敗:', error);
