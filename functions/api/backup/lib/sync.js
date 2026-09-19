@@ -5,7 +5,8 @@
  *   1. 以 Service Account 透過 Firestore REST 讀取各集合
  *      （大集合增量 updatedAt、小集合全量、每 7 日自動大集合 baseline）
  *   2. 將最新完整快照寫入 R2 snapshots/
- *   3. 組裝與舊版格式相容的備份 JSON 至 exports/，清理舊檔
+ *   3. 組裝與舊版格式相容的 gzip 備份 JSON 至 exports/
+ *      （舊檔到期刪除交由 R2 lifecycle rule 處理）
  *   4. 更新 state/sync-state.json（watermark、統計、最後執行狀態）
  *
  * 可由 cron（functions/scheduled.js）或管理員手動端點觸發。
@@ -17,7 +18,6 @@ import {
     STATE_KEY,
     SNAPSHOT_PREFIX,
     EXPORT_PREFIX,
-    EXPORT_RETENTION,
     BASELINE_INTERVAL_MS,
     TOP_COLLECTIONS,
     BILLING_EXPORT_KEY,
@@ -235,23 +235,6 @@ function buildBillingItems(docsByKey, sourceDefs) {
     return items;
 }
 
-async function pruneOldExports(bucket) {
-    const listed = [];
-    let cursor;
-    do {
-        const result = await bucket.list({ prefix: EXPORT_PREFIX, cursor, limit: 1000 });
-        for (const obj of result.objects) listed.push(obj.key);
-        cursor = result.truncated ? result.cursor : undefined;
-    } while (cursor);
-
-    listed.sort();
-    const excess = listed.slice(0, Math.max(0, listed.length - EXPORT_RETENTION));
-    for (const key of excess) {
-        await bucket.delete(key);
-    }
-    return { retained: listed.length - excess.length, deleted: excess.length };
-}
-
 /**
  * 清理已不存在嘅診所殘留 billingItems 快照（避免匯入鬼魂資料）。
  */
@@ -384,7 +367,6 @@ export async function runBackupSync(env, options = {}) {
         },
         customMetadata: { format: 'gzip-json', version: '1' }
     });
-    const pruning = await pruneOldExports(bucket);
 
     state.lastExportKey = exportKey;
     state.lastExportAt = new Date().toISOString();
@@ -395,7 +377,6 @@ export async function runBackupSync(env, options = {}) {
         firestoreReads: totalReads,
         failures,
         staleClinicSnapshotsRemoved: staleRemoved,
-        exports: pruning,
         exportBytes: compressedBytes.byteLength,
         exportBytesUncompressed: exportJson.length,
         actor: options.actor || null
@@ -415,8 +396,7 @@ export async function runBackupSync(env, options = {}) {
                 k,
                 { mode: v.mode, docsRead: v.docsRead, totalDocs: v.totalDocs, error: v.error || null }
             ])
-        ),
-        exports: pruning
+        )
     };
 }
 
