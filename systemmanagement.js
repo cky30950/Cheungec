@@ -529,6 +529,8 @@ async function importClinicBackup(data) {
                     } catch (_omitErr) {
                         dataToWrite = item;
                     }
+                    // 還原所有 Timestamp 欄位型別（重點：consultations.sortDate）
+                    dataToWrite = reviveBackupTimestamps(dataToWrite);
                     // 備份 JSON 內 updatedAt 非 Firestore Timestamp，還原時移除，
                     // 由 writeBatch 攔截器補上 serverTimestamp，維持增量備份一致
                     try { delete dataToWrite.updatedAt; } catch (_e) {}
@@ -591,8 +593,9 @@ async function importClinicBackup(data) {
                 for (const it of items) {
                     if (!it || it.id === undefined || it.id === null) continue;
                     const { id, ...rest } = it || {};
-                    const dataToWrite = { ...rest };
-                    // 同上：移除備份 JSON 版 updatedAt，由攔截器補 serverTimestamp
+                    let dataToWrite = { ...rest };
+                    // 還原 Timestamp 型別；updatedAt 由攔截器補 serverTimestamp
+                    dataToWrite = reviveBackupTimestamps(dataToWrite);
                     try { delete dataToWrite.updatedAt; } catch (_e) {}
                     const idStr = String(it.id);
                     if (it.shared) {
@@ -629,6 +632,26 @@ async function importClinicBackup(data) {
         } catch (_e) {
             return null;
         }
+    }
+    // 備份 JSON 往返後所有 Firestore Timestamp 都變成 {seconds,nanoseconds} 普通物件，
+    // 直接寫回會被當成 map 欄位，導致 orderBy('sortDate') 等排序失效。
+    // 遞迴把所有此形態欄位還原成 Date（SDK 寫入時自動轉回 Timestamp）。
+    function reviveBackupTimestamps(value) {
+        if (value === null || value === undefined) return value;
+        if (Array.isArray(value)) return value.map(reviveBackupTimestamps);
+        if (value instanceof Date) return value;
+        if (typeof value === 'object') {
+            if (typeof value.seconds === 'number' && typeof value.nanoseconds === 'number') {
+                const d = new Date(value.seconds * 1000 + value.nanoseconds / 1000000);
+                if (!isNaN(d.getTime())) return d;
+            }
+            const out = {};
+            for (const key of Object.keys(value)) {
+                out[key] = reviveBackupTimestamps(value[key]);
+            }
+            return out;
+        }
+        return value;
     }
     function normalizeConsultations(items) {
         if (!Array.isArray(items)) return [];

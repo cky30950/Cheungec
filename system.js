@@ -24513,6 +24513,26 @@ async function importClinicBackup(data) {
         totalSteps = arguments[2];
     }
     await ensureFirebaseReady();
+    // 備份 JSON 往返後 Firestore Timestamp 一律變成 {seconds,nanoseconds} 普通物件，
+    // 直接寫回會成為 map 欄位，破壞 orderBy('sortDate'/'date' 等) 嘅排序。
+    // 遞迴還原成 Date，SDK 寫入時自動轉回 Timestamp。
+    function reviveBackupTimestamps(value) {
+        if (value === null || value === undefined) return value;
+        if (Array.isArray(value)) return value.map(reviveBackupTimestamps);
+        if (value instanceof Date) return value;
+        if (typeof value === 'object') {
+            if (typeof value.seconds === 'number' && typeof value.nanoseconds === 'number') {
+                const d = new Date(value.seconds * 1000 + value.nanoseconds / 1000000);
+                if (!isNaN(d.getTime())) return d;
+            }
+            const out = {};
+            for (const key of Object.keys(value)) {
+                out[key] = reviveBackupTimestamps(value[key]);
+            }
+            return out;
+        }
+        return value;
+    }
     // helper：清空並覆寫集合資料
     /**
      * 將集合資料替換為指定項目，僅刪除不在 items 中的文件，並使用批次寫入以減少網路往返。
@@ -24577,6 +24597,8 @@ async function importClinicBackup(data) {
                     } catch (_omitErr) {
                         dataToWrite = item;
                     }
+                    // 還原所有 Timestamp 欄位型別（重點：consultations.sortDate）
+                    dataToWrite = reviveBackupTimestamps(dataToWrite);
                     // 備份檔內 updatedAt 經 JSON 往返後只餘 {seconds,nanoseconds} 普通物件，
                     // 直接寫回會破壞增量備份的 Timestamp 查詢；交由 writeBatch 攔截器
                     // 補上真正的 Firestore serverTimestamp
