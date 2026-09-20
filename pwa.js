@@ -49,7 +49,15 @@
             zh: '伺服器推播金鑰未正確設定（VAPID_PUBLIC_KEY 空白或不完整），請於 Cloudflare Pages 環境變數檢查後重試。',
             en: 'The server push key is missing or invalid (VAPID_PUBLIC_KEY). Please check Cloudflare Pages environment variables and retry.'
         },
-        reload: { zh: '重新整理', en: 'Reload' }
+        reload: { zh: '重新整理', en: 'Reload' },
+        pushClaimOther: {
+            zh: '此裝置的推播原屬於另一個帳號，已自動切換為目前帳號。',
+            en: 'Push on this device belonged to another account and has been switched to the current account.'
+        },
+        pushClaimFailed: {
+            zh: '此裝置的推播屬於另一個帳號，自動切換失敗，請將推播開關關閉後重新開啟。',
+            en: 'Push on this device belongs to another account. Automatic switch failed; please turn the toggle off and on again.'
+        }
     };
 
     function t(key) {
@@ -533,6 +541,7 @@
             var sub = await reg.pushManager.getSubscription();
             if (sub) {
                 // 先以後端記錄為準同步事件偏好（跨裝置變更可反映至本機）
+                var belongsToOther = false;
                 try {
                     var remote = await apiCall(
                         '/subscription?endpoint=' + encodeURIComponent(sub.endpoint)
@@ -544,12 +553,28 @@
                         saveEventPrefs();
                         syncEventCheckboxes();
                     }
-                } catch (_remoteErr) {}
+                } catch (remoteErr) {
+                    // 403＝此瀏覽器訂閱屬於另一位使用者（共用裝置切換帳號）
+                    if (remoteErr && Number(remoteErr.status) === 403) {
+                        belongsToOther = true;
+                    }
+                }
+
+                if (belongsToOther) {
+                    await claimDeviceSubscription(sub);
+                    return;
+                }
 
                 // 瀏覽器有訂閱：確保後端記錄存在且帶上當前偏好（冪等 upsert，修復先前失敗的註冊）
                 try {
                     await pushSubscriptionUpsert(sub);
-                } catch (_upsertErr) {}
+                } catch (upsertErr) {
+                    // 雙重保險：GET 非 403 但 upsert 因擁有者衝突回 409 時同樣接管
+                    if (upsertErr && Number(upsertErr.status) === 409) {
+                        await claimDeviceSubscription(sub);
+                        return;
+                    }
+                }
                 setToggle(true, true);
                 setStatus('pushStatusOn');
             } else {
@@ -559,6 +584,55 @@
         } catch (err) {
             console.warn('同步推播狀態失敗:', err);
             setToggle(false, true);
+        }
+    }
+
+    // 防止 init 與 onAuthStateChanged 近乎同時觸發造成重複接管
+    var claimingDevice = false;
+
+    /**
+     * 目前瀏覽器訂閱屬於另一位使用者（共用裝置切換帳號）時：
+     * 解除舊訂閱 → 以目前帳號重新建立 → 登記為本人。
+     * 通知權限為瀏覽器層級（已授予），不需再詢問。
+     */
+    async function claimDeviceSubscription(oldSub) {
+        if (claimingDevice) return;
+        claimingDevice = true;
+        try {
+            setStatus('pushStatusWorking');
+            setToggle(false, false);
+
+            var oldEndpoint = oldSub.endpoint;
+            try {
+                await oldSub.unsubscribe();
+            } catch (_unsubErr) {}
+            // 舊記錄屬於他人，後端會回 403：不影響接管。
+            // 新訂閱為全新 endpoint；舊記錄爾後發送會收到 404/410，由 sender 自動清除。
+            try {
+                await apiCall('/unsubscribe', {
+                    method: 'POST',
+                    body: JSON.stringify({ endpoint: oldEndpoint })
+                });
+            } catch (_apiErr) {}
+
+            var vapid = await getVapidConfig();
+            var reg = await navigator.serviceWorker.ready;
+            var newSub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: decodeVapidKey(vapid)
+            });
+            await pushSubscriptionUpsert(newSub);
+
+            setToggle(true, true);
+            setStatus('pushStatusOn');
+            message(t('pushClaimOther'), { type: 'info' });
+        } catch (err) {
+            console.warn('接管裝置推播失敗:', err);
+            setToggle(false, true);
+            setStatus('pushStatusOff');
+            message(t('pushClaimFailed'), { type: 'warning' });
+        } finally {
+            claimingDevice = false;
         }
     }
 
