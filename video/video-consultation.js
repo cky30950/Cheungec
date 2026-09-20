@@ -167,6 +167,51 @@
         }
     }
 
+    // 舌象截圖：擷取病人畫面當前影格 → 預覽確認 → 以舌象分類上傳至本次病歷
+    async function handleTongueScreenshot(shotApi) {
+        var blob;
+        try {
+            blob = await shotApi.capture();
+        } catch (e) {
+            console.warn('[視訊診症] 擷取病人影像失敗:', e);
+            notify('目前沒有病人的影像畫面，無法截圖（請確認病人已加入診間並開啟鏡頭）', 'error');
+            return;
+        }
+
+        var objectUrl = URL.createObjectURL(blob);
+        var confirmed = false;
+        try {
+            if (window.Swal) {
+                var result = await window.Swal.fire({
+                    title: '舌象截圖',
+                    text: '確認將此畫面上傳到本次病歷的舌象圖片？',
+                    imageUrl: objectUrl,
+                    imageAlt: '舌象截圖預覽',
+                    showCancelButton: true,
+                    confirmButtonText: '上傳到本次病歷',
+                    cancelButtonText: '取消重拍',
+                    focusCancel: true
+                });
+                confirmed = !!(result && result.isConfirmed);
+            } else {
+                confirmed = window.confirm('將此舌象截圖上傳到本次病歷？');
+            }
+        } finally {
+            // Swal 會把圖片複製進自身 DOM；對話框關閉後即可釋放
+            setTimeout(function () { URL.revokeObjectURL(objectUrl); }, 2000);
+        }
+        if (!confirmed) return;
+
+        notify('舌象截圖上傳中…', 'info');
+        try {
+            await window.MedicalAttachments.uploadVisitFile(blob, 'tongue');
+            notify('舌象截圖已上傳至本次病歷', 'success');
+        } catch (e) {
+            console.error('[視訊診症] 舌象截圖上傳失敗:', e);
+            notify('舌象截圖上傳失敗：' + ((e && e.message) || e), 'error');
+        }
+    }
+
     function createCall(channel, patientName, doctorName) {
         var cfg = getConfig();
         var stage = document.getElementById('videoConsultStage');
@@ -186,6 +231,9 @@
             // 醫師只在病人已進入頻道後才加入，加入後數秒內會隱藏自己的滿版畫面
             hideLocalUntilPeer: true,
             waitingText: '正在與病人連線…',
+            // 醫師端工具列顯示「舌象截圖」按鈕（病人端 room.js 不啟用）
+            enableScreenshot: true,
+            onScreenshot: handleTongueScreenshot,
             onStatus: function (kind) {
                 // 病人影像送達 → 取消自動離開計時
                 if (kind === 'connected') clearAloneTimer();

@@ -88,7 +88,8 @@
         micOff: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 9a3 3 0 0 1 5.12-2.13L9 9.89V9z"/><path d="M12 14a3 3 0 0 0 2.06-.81L10.5 9.67A3 3 0 0 0 12 14z" opacity=".45"/><path d="M19 11a1 1 0 1 0-2 0 5 5 0 0 1-.27 1.63l1.47 1.47A7 7 0 0 0 19 11z" opacity=".45"/><path d="M5 11a1 1 0 1 0-2 0c0 .65.09 1.28.27 1.88l1.64-1.64A5 5 0 0 1 5 11z"/><path d="M3.7 2.3a1 1 0 0 0-1.4 1.4l16 16a1 1 0 0 0 1.4-1.4l-16-16z"/></svg>',
         camOn: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 11.9 9.8 8.6a.6.6 0 0 0-.9.52v5.76a.6.6 0 0 0 .9.52l5.7-3.3a.6.6 0 0 0 0-1.04z"/><rect x="2.5" y="6" width="13" height="12" rx="2.5"/></svg>',
         camOff: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.7 2.3a1 1 0 0 0-1.4 1.4l2.2 2.2V18a2 2 0 0 0 2 2h11a2 2 0 0 0 1.2-.4l1.6 1.6a1 1 0 0 0 1.4-1.4l-18-17.5zM13.5 12.1 8.5 7.2V7A1.5 1.5 0 0 1 10 5.5h5A1.5 1.5 0 0 1 16.5 7v3.5l4-2.3v7.6l-4-2.3v.5l-3-2.9z"/></svg>',
-        hangup: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9.6c-1.6 0-3.1.3-4.5.9V8.2c1.4-.5 2.9-.8 4.5-.8s3.1.3 4.5.8v2.3c-1.4-.6-2.9-.9-4.5-.9z" opacity=".001"/><path d="M21 15.5l-2.8-1.3a1.8 1.8 0 0 0-2.1.4l-1 1a14.7 14.7 0 0 1-6.2-6.2l1-1a1.8 1.8 0 0 0 .4-2.1L8.5 3.5A1.8 1.8 0 0 0 6.4 2.5L3.6 3A1.6 1.6 0 0 0 2.2 4.6C1.4 13 11 22.6 19.4 21.8a1.6 1.6 0 0 0 1.6-1.4l.5-2.8a1.8 1.8 0 0 0-.5-2.1z"/></svg>'
+        hangup: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9.6c-1.6 0-3.1.3-4.5.9V8.2c1.4-.5 2.9-.8 4.5-.8s3.1.3 4.5.8v2.3c-1.4-.6-2.9-.9-4.5-.9z" opacity=".001"/><path d="M21 15.5l-2.8-1.3a1.8 1.8 0 0 0-2.1.4l-1 1a14.7 14.7 0 0 1-6.2-6.2l1-1a1.8 1.8 0 0 0 .4-2.1L8.5 3.5A1.8 1.8 0 0 0 6.4 2.5L3.6 3A1.6 1.6 0 0 0 2.2 4.6C1.4 13 11 22.6 19.4 21.8a1.6 1.6 0 0 0 1.6-1.4l.5-2.8a1.8 1.8 0 0 0-.5-2.1z"/></svg>',
+        shot: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.8 4h4.4l.55 1.15c.24.52.76.85 1.33.85h2.42A2.5 2.5 0 0 1 21 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.5v-8A2.5 2.5 0 0 1 5.5 6h2.42c.57 0 1.09-.33 1.33-.85L9.8 4zm2.2 5.2a4.1 4.1 0 1 0 0 8.2 4.1 4.1 0 0 0 0-8.2zm0 1.8a2.3 2.3 0 1 1 0 4.6 2.3 2.3 0 0 1 0-4.6z"/></svg>'
     };
 
     /* ---------------- Token 取得 ---------------- */
@@ -142,6 +143,9 @@
             '  <div class="av-bar">' +
             '    <button type="button" class="av-btn av-on av-mic" title="開關麥克風" aria-label="開關麥克風">' + ICONS.micOn + '</button>' +
             '    <button type="button" class="av-btn av-on av-cam" title="開關鏡頭" aria-label="開關鏡頭">' + ICONS.camOn + '</button>' +
+            (options.enableScreenshot
+                ? '    <button type="button" class="av-btn av-on av-shot" title="舌象截圖" aria-label="舌象截圖">' + ICONS.shot + '</button>'
+                : '') +
             '    <button type="button" class="av-btn av-hangup" title="離開診間" aria-label="離開診間">' + ICONS.hangup + '</button>' +
             '  </div>' +
             '</div>';
@@ -155,6 +159,7 @@
         var statusText = root.querySelector('.av-status-text');
         var micBtn = root.querySelector('.av-mic');
         var camBtn = root.querySelector('.av-cam');
+        var shotBtn = root.querySelector('.av-shot');
         var hangupBtn = root.querySelector('.av-hangup');
 
         function emitStatus(kind, text) {
@@ -366,6 +371,61 @@
             leave();
         });
 
+        /* ----- 舌象截圖：擷取遠端（病人）影像當前影格 ----- */
+        function findRemoteVideo() {
+            // spotlight 排版下遠端畫面恆在主網格；本機影像可能縮為右上角 PiP，
+            // 故明確排除 .av-local，避免截到醫師自己
+            var nodes = root.querySelectorAll('.av-tile:not(.av-local) video');
+            var best = null;
+            var bestArea = 0;
+            for (var i = 0; i < nodes.length; i++) {
+                var v = nodes[i];
+                var w = v.videoWidth || 0;
+                var h = v.videoHeight || 0;
+                if (w > 0 && h > 0 && (w * h) > bestArea) {
+                    best = v;
+                    bestArea = w * h;
+                }
+            }
+            return best;
+        }
+
+        function captureRemoteFrame() {
+            return new Promise(function (resolve, reject) {
+                var video = findRemoteVideo();
+                if (!video) {
+                    reject(new Error('NO_REMOTE_VIDEO'));
+                    return;
+                }
+                var w = video.videoWidth;
+                var h = video.videoHeight;
+                var canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                try {
+                    canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+                } catch (err) {
+                    reject(err);
+                    return;
+                }
+                canvas.toBlob(function (blob) {
+                    if (blob) resolve(blob);
+                    else reject(new Error('CAPTURE_BLOB_FAILED'));
+                }, 'image/jpeg', 0.92);
+            });
+        }
+
+        if (shotBtn) {
+            shotBtn.addEventListener('click', function () {
+                if (typeof options.onScreenshot !== 'function') return;
+                try {
+                    options.onScreenshot({ capture: captureRemoteFrame });
+                } catch (err) {
+                    console.error('[AgoraCall] 舌象截圖回呼失敗:', err);
+                }
+            });
+        }
+
         /* ----- 生命週期 ----- */
         function describeDeviceError(err) {
             var name = err && (err.name || err.message) || '';
@@ -509,6 +569,7 @@
             setStatus: function (kind, text) { emitStatus(kind, text); },
             toggleMic: function () { micBtn.click(); },
             toggleCamera: function () { camBtn.click(); },
+            captureRemoteFrame: captureRemoteFrame,
             isJoined: function () { return joined; }
         };
     }
