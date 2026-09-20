@@ -65,6 +65,9 @@ export async function sendOne(sub, message, env) {
       return { endpoint: sub.endpoint, ok: true, status, removed: false, retryable: false };
     }
 
+    // 讀取失敗回應本文供診斷（Apple 會回 {"reason":"BadJwt"} 等）
+    const reasonText = (await res.text().catch(() => '')).slice(0, 300);
+
     if (status === 404 || status === 410) {
       const result = await deleteSubscription(env, sub.endpoint);
       return {
@@ -72,7 +75,8 @@ export async function sendOne(sub, message, env) {
         ok: false,
         status,
         removed: result.deleted,
-        retryable: false
+        retryable: false,
+        reasonText
       };
     }
 
@@ -81,7 +85,8 @@ export async function sendOne(sub, message, env) {
       ok: false,
       status,
       removed: false,
-      retryable: status === 429 || status >= 500
+      retryable: status === 429 || status >= 500,
+      reasonText
     };
   } catch (error) {
     // 網路錯誤或加密失敗皆視為可重試，不拋斷批次

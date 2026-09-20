@@ -372,7 +372,9 @@
             if (result.delivered) {
                 message(t('pushTestSent'), { type: 'success' });
             } else {
-                message(t('pushTestFailed'), { type: 'warning' });
+                console.warn('測試通知未送達，伺服器回應：', result);
+                const code = result.status ? '（HTTP ' + result.status + '）' : '';
+                message(t('pushTestFailed') + code, { type: 'warning' });
                 await syncPushState();
             }
         } catch (err) {

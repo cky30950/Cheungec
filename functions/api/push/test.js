@@ -57,11 +57,21 @@ export async function onRequestPost(context) {
         };
         const result = await sendOne(sub, message, env);
 
+        if (!result.ok) {
+            console.log('[push test] 未送達：' + JSON.stringify({
+                host: new URL(sub.endpoint).host,
+                status: result.status,
+                reasonText: result.reasonText || null,
+                removed: result.removed
+            }));
+        }
+
         return jsonResponse({
             delivered: result.ok,
             removed: result.removed,
             retryable: result.retryable,
-            status: result.status
+            status: result.status,
+            reason: result.reasonText || null
         });
     } catch (error) {
         const status = Number(error.status) > 0 ? Number(error.status) : 500;
