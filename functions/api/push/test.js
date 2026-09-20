@@ -60,7 +60,9 @@ export async function onRequestPost(context) {
             title: '測試通知',
             body: `推播功能正常運作 ✓（${timeText}）`,
             url: '/system.html',
-            tag: `push-test-${sentAt.getTime()}`
+            tag: `push-test-${sentAt.getTime()}`,
+            // 手動測試豁免：觀看頁面時也要能彈出，否則測試按鈕永遠無反應
+            manualTest: true
         };
         const result = await sendOne(sub, message, env);
 

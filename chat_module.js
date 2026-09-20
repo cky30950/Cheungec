@@ -22,7 +22,6 @@
       this.presenceRootRef = null;
       this.presenceListener = null;
       this.messagesRef = null;
-      this.visibilityHandler = null;
       
       
       
@@ -161,11 +160,6 @@
       
       this.attachLastMessageListeners();
       this.listenToMessages('public');
-
-      // 頁面可見性變化時重新回報觀看狀態
-      this.visibilityHandler = () => this.reportChatView();
-      document.addEventListener('visibilitychange', this.visibilityHandler);
-      this.reportChatView();
     }
 
     
@@ -260,20 +254,6 @@
         this.chatPopup = null;
       }
       this.destroyPreviewUI();
-
-      if (this.visibilityHandler) {
-        document.removeEventListener('visibilitychange', this.visibilityHandler);
-        this.visibilityHandler = null;
-      }
-      // 通知 SW 不再觀看任何聊天
-      try {
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-          navigator.serviceWorker.controller.postMessage({
-            type: 'tcm-chat-view', chatKey: '', visible: false
-          });
-        }
-      } catch (_e) {}
-
       this.initialized = false;
       this.currentUser = null;
       this.currentUserUid = null;
@@ -476,8 +456,6 @@
       } else {
         this.chatPopup.classList.add('hidden');
       }
-
-      this.reportChatView();
 
       if (typeof this.updateNewMessageIndicators === 'function') {
         this.updateNewMessageIndicators();
@@ -820,7 +798,6 @@
       this.channelLabel.textContent = '主頻道';
       this.listenToMessages('public');
       this.markChannelAsRead('public');
-      this.reportChatView();
     }
 
     
@@ -837,30 +814,6 @@
       this.channelLabel.textContent = userObj.name || userObj.username || '私人聊天';
       this.listenToMessages(chatId);
       this.markChannelAsRead(chatId);
-      this.reportChatView();
-    }
-
-    /**
-     * 回報目前是否正觀看聊天（供 SW 抑制觀看中的推播彈窗）。
-     * chatKey：'public'、私聊 chatId（uidA_uidB），或 ''（未觀看）
-     */
-    reportChatView() {
-      try {
-        if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
-        const popupOpen = !!(this.chatPopup && !this.chatPopup.classList.contains('hidden'));
-        const visible = document.visibilityState === 'visible' && popupOpen;
-        let chatKey = '';
-        if (visible) {
-          chatKey = this.currentChannel === 'public'
-            ? 'public'
-            : (this.privateChatId || '');
-        }
-        navigator.serviceWorker.controller.postMessage({
-          type: 'tcm-chat-view',
-          chatKey,
-          visible
-        });
-      } catch (_e) {}
     }
 
     // 由 privateChatId（uidA_uidB，已排序）解析出對方 uid

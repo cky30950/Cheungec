@@ -59,20 +59,10 @@ self.addEventListener('activate', (event) => {
     })());
 });
 
-/* 客戶端回報的聊天觀看狀態：clientId → {chatKey, visible} */
-const chatViews = new Map();
-
 self.addEventListener('message', (event) => {
     const msg = event.data;
     if (msg === 'SKIP_WAITING' || (msg && msg.type === 'SKIP_WAITING')) {
         self.skipWaiting();
-        return;
-    }
-    if (msg && msg.type === 'tcm-chat-view' && event.source) {
-        chatViews.set(event.source.id, {
-            chatKey: String(msg.chatKey || ''),
-            visible: !!msg.visible
-        });
     }
 });
 
@@ -229,6 +219,10 @@ async function trimCdnCache(cache) {
 
 /* ---------- 推播 ---------- */
 
+/* 本機短時去重：事件鍵 → 收到時間（毫秒） */
+const recentPushKeys = new Map();
+const PUSH_DEDUP_WINDOW_MS = 120 * 1000;
+
 self.addEventListener('push', (event) => {
     event.waitUntil(handlePush(event));
 });
@@ -252,53 +246,51 @@ async function handlePush(event) {
     }
     if (!data || typeof data !== 'object') data = {};
 
-    // 收件者正觀看對應畫面時抑制彈窗（頁面已有即時內容/toast）
-    if (await shouldSuppressPush(data)) return;
+    // 手動測試通知：跳過去重與觀看抑制，直接顯示
+    if (data.manualTest) {
+        await self.registration.showNotification(
+            data.title || '測試通知', buildNotificationOptions(data));
+        return;
+    }
+
+    // 1) 同機同事件去重：重複訂閱紀錄或多分頁競時觸發時，同一事件只顯示一次
+    if (data.dedupKey && isDuplicateOnDevice(String(data.dedupKey))) return;
+
+    // 2) 網頁正開著觀看時，所有業務推送不彈（頁面已有即時內容/toast/音效）
+    if (await isAnyClientVisible()) return;
 
     const title = data.title || '名醫診所系統';
-    const options = {
+    await self.registration.showNotification(title, buildNotificationOptions(data));
+}
+
+function buildNotificationOptions(data) {
+    return {
         body: data.body || '',
         icon: '/images/icons/icon-192.png',
         badge: '/images/icons/icon-192.png',
         tag: data.tag || 'tcm-notification',
         data: { url: data.url || '/system.html' }
     };
-    await self.registration.showNotification(title, options);
 }
 
-/**
- * 抑制規則：
- *  - 掛號類：任一可見 system.html 分頁（頁面 toast 已提示）
- *  - 公開頻道：客戶端回報正可見地觀看公開頻道
- *  - 私聊：客戶端回報正可見地觀看該對話（chatId 比對）
- */
-async function shouldSuppressPush(data) {
+/* 同一事件鍵在去重時窗內重複出現視為重複；同時清理過期鍵 */
+function isDuplicateOnDevice(key) {
+    const now = Date.now();
+    for (const [k, ts] of recentPushKeys) {
+        if (now - ts > PUSH_DEDUP_WINDOW_MS) recentPushKeys.delete(k);
+    }
+    if (recentPushKeys.has(key)) return true;
+    recentPushKeys.set(key, now);
+    return false;
+}
+
+/* 是否有任何同源分頁處於可見狀態（非最小化、未切到其他 App） */
+async function isAnyClientVisible() {
     const clients = await self.clients.matchAll({
         type: 'window',
         includeUncontrolled: true
     });
-
-    // 清除已關閉客戶的過期回報
-    const aliveIds = new Set(clients.map((c) => c.id));
-    for (const id of [...chatViews.keys()]) {
-        if (!aliveIds.has(id)) chatViews.delete(id);
-    }
-
-    if (data.kind === 'appointment') {
-        return clients.some((c) =>
-            c.visibilityState === 'visible' && c.url.indexOf('/system.html') !== -1);
-    }
-    if (data.kind === 'chat') {
-        if (data.chatKey === 'public') {
-            return [...chatViews.values()]
-                .some((v) => v.visible && v.chatKey === 'public');
-        }
-        if (data.chatKey === 'private') {
-            return [...chatViews.values()]
-                .some((v) => v.visible && v.chatKey === String(data.chatId || ''));
-        }
-    }
-    return false;
+    return clients.some((c) => c.visibilityState === 'visible');
 }
 
 self.addEventListener('notificationclick', (event) => {

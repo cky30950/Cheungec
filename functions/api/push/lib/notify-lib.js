@@ -76,19 +76,12 @@ function parseChat(body, auth) {
         ? `public:${messageKey}`
         : `private:${recipientUid}:${messageKey}`;
 
-    // 私聊 RTDB 路徑 chatId（uid 排序），供 SW 判斷收件者是否正觀看該對話
-    let chatId = '';
-    if (channel === 'private') {
-        chatId = [auth.uid, recipientUid].sort().join('_');
-    }
-
     return {
         kind: 'chat',
         stateDoc: 'chat',
         event: channel === 'public' ? EVENT_CHAT_PUBLIC : EVENT_CHAT_PRIVATE,
         dedupKey,
         messageKey,
-        chatId,
         senderName,
         recipientUid
     };
@@ -189,9 +182,7 @@ export function buildMessage(spec, lang) {
                 body: set.body(spec.senderName),
                 tag: `chat-public:${spec.messageKey}`,
                 url: '/system.html?chat=open&c=public',
-                kind: 'chat',
-                chatKey: 'public',
-                chatId: ''
+                dedupKey: spec.dedupKey
             };
         }
         return {
@@ -199,9 +190,7 @@ export function buildMessage(spec, lang) {
             body: set.body(spec.senderName),
             tag: `chat-private:${spec.recipientUid}:${spec.messageKey}`,
             url: `/system.html?chat=open&u=${encodeURIComponent(spec.recipientUid)}`,
-            kind: 'chat',
-            chatKey: 'private',
-            chatId: spec.chatId
+            dedupKey: spec.dedupKey
         };
     }
     const c = spec.event === EVENT_APPOINTMENT_WAITING ? COPY.waiting : COPY.completed;
@@ -211,9 +200,7 @@ export function buildMessage(spec, lang) {
         body: set.body(spec.patientName),
         tag: `${spec.event === EVENT_APPOINTMENT_WAITING ? 'apt-waiting' : 'apt-completed'}:${spec.appointmentId}`,
         url: '/system.html',
-        kind: 'appointment',
-        chatKey: '',
-        chatId: ''
+        dedupKey: spec.dedupKey
     };
 }
 
