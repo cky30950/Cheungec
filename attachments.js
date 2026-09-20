@@ -1617,6 +1617,31 @@
      * 公開介面
      * ---------------------------------------------------------- */
 
+    /**
+     * 供外部（如視訊診症舌象截圖）直接上傳一張圖到「當前診次」。
+     * 上下文自動取當下診症中的掛號；未在診症中則拋錯。
+     * @param {File|Blob} fileOrBlob 圖片
+     * @param {string} category tongue | report | other
+     */
+    async function uploadVisitFile(fileOrBlob, category) {
+        var ctx = resolveVisitContext({});
+        if (!ctx.patientId) {
+            throw new Error('目前沒有進行中的診症，無法上傳附件');
+        }
+        var file = fileOrBlob;
+        if (!(file instanceof File) && (typeof Blob !== 'undefined' && file instanceof Blob)) {
+            var ext = (String(file.type || '').indexOf('png') >= 0) ? 'png'
+                : (String(file.type || '').indexOf('webp') >= 0) ? 'webp' : 'jpg';
+            var d = new Date();
+            function p(n) { return String(n).padStart(2, '0'); }
+            var name = 'capture_' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) +
+                '_' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds()) + '.' + ext;
+            file = new File([fileOrBlob], name, { type: fileOrBlob.type || 'image/jpeg' });
+        }
+        var cat = (category === 'report' || category === 'other') ? category : 'tongue';
+        return await uploadOne(file, ctx, cat);
+    }
+
     window.MedicalAttachments = {
         openGallery: openGallery,
         closeGallery: closeGallery,
@@ -1625,6 +1650,7 @@
         inlineThumbsHtml: inlineThumbsHtml,
         linkVisitUploads: linkVisitUploads,
         resolveVisitContext: resolveVisitContext,
+        uploadVisitFile: uploadVisitFile,
         // 供測試/除錯
         _internal: {
             prepareImage: prepareImage,
