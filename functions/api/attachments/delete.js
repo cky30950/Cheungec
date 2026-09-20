@@ -29,9 +29,12 @@ async function softDeleteDocument(env, fileId, deletedByUid, deletedByName) {
     const auth = await getAccessToken(env);
     const base = `https://firestore.googleapis.com/v1/projects/${auth.projectId}` +
         `/databases/(default)/documents/${COLLECTION}/${encodeURIComponent(fileId)}`;
-    const url = `${base}?updateMask=${encodeURIComponent(
-        'deleted,deletedAt,deletedByUid,deletedByName,updatedAt'
-    )}`;
+    // updateMask 是 DocumentMask 訊息類型，gRPC transcoding 要求以
+    // 重複 query 參數 updateMask.fieldPaths=<field> 傳遞（不可寫成 updateMask=a,b）
+    const maskFields = ['deleted', 'deletedAt', 'deletedByUid', 'deletedByName', 'updatedAt'];
+    const url = `${base}?${maskFields
+        .map((f) => 'updateMask.fieldPaths=' + encodeURIComponent(f))
+        .join('&')}`;
     const nowIso = new Date().toISOString();
     const response = await fetch(url, {
         method: 'PATCH',
