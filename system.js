@@ -8258,6 +8258,15 @@ async function viewPatient(id) {
         <div class="mt-6 pt-6 border-t border-gray-200">
             <div class="flex justify-between items-center mb-4">
                 <h4 class="text-lg font-semibold text-gray-800">${lblConsultationSummary}</h4>
+                <button type="button"
+                    data-ma-open="1"
+                    data-scope="patient"
+                    data-category="all"
+                    data-patient="${window.escapeHtml(String(id))}"
+                    data-patient-name="${safeName}"
+                    class="text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded transition duration-200">
+                    📎 <span>病歷歷來附件</span>
+                </button>
             </div>
             <div id="patientConsultationSummary">
                 <div class="text-center py-4">
@@ -12780,6 +12789,35 @@ async function saveConsultation() {
                 // 記錄新產生的診症 ID 供後續庫存更新
                 newConsultationIdForInventory = result.id;
 
+                // 病歷附件歸戶：把本次診症儲存前以 session 暫存的 R2 附件關聯到新病歷 ID
+                try {
+                    if (window.MedicalAttachments) {
+                        let attachmentDate = '';
+                        try {
+                            const dAttach = consultationData.date instanceof Date
+                                ? consultationData.date
+                                : new Date(consultationData.date);
+                            if (!isNaN(dAttach.getTime())) {
+                                attachmentDate = dAttach.getFullYear() + '-' +
+                                    String(dAttach.getMonth() + 1).padStart(2, '0') + '-' +
+                                    String(dAttach.getDate()).padStart(2, '0');
+                            }
+                        } catch (_dAttachErr) {}
+                        const linkResult = await window.MedicalAttachments.linkVisitUploads({
+                            appointmentId: String(appointment.id || ''),
+                            patientId: String(appointment.patientId || consultationData.patientId || ''),
+                            consultationId: String(result.id || ''),
+                            consultationDate: attachmentDate
+                        });
+                        if (linkResult && linkResult.count > 0) {
+                            showToast(linkResult.count + ' 個附件已歸檔至本次病歷', 'success');
+                        }
+                    }
+                } catch (attachErr) {
+                    // 歸戶失敗不得阻斷診症儲存
+                    console.warn('病歷附件歸戶失敗（不影響診症儲存）:', attachErr);
+                }
+
                 // 將新增的診症記錄加入本地 consultations 陣列並更新快取
                 try {
                     // 組合新的診症記錄物件（含 ID），並合併 consultationData
@@ -13388,6 +13426,24 @@ if (!patient) {
             // 判斷本次診症是否有開藥；沒有開藥時隱藏處方內容與服用方法欄位
             const hasPrescription = consultationHasPrescription(consultation);
 
+            // 病歷附件（R2）：載入該病人附件並取出本次診次的縮圖；失敗不影響病歷顯示
+            const maVisitThumbs = { otherHtml: '', tongueHtml: '', hasOther: false, hasTongue: false };
+            try {
+                if (window.MedicalAttachments) {
+                    const maPatientId = (typeof currentPatientHistoryPatientId !== 'undefined' && currentPatientHistoryPatientId) || consultation.patientId || '';
+                    if (maPatientId) {
+                        await window.MedicalAttachments.listForPatient(String(maPatientId));
+                        const maGroups = window.MedicalAttachments.visitGroups(String(maPatientId), String(consultation.id));
+                        maVisitThumbs.hasOther = maGroups.attachments.length > 0;
+                        maVisitThumbs.hasTongue = maGroups.tongues.length > 0;
+                        maVisitThumbs.otherHtml = window.MedicalAttachments.inlineThumbsHtml(maGroups.attachments, String(maPatientId), String(consultation.id), 'other', '病歷附件');
+                        maVisitThumbs.tongueHtml = window.MedicalAttachments.inlineThumbsHtml(maGroups.tongues, String(maPatientId), String(consultation.id), 'tongue');
+                    }
+                }
+            } catch (_maErr) {
+                console.warn('病歷附件載入失敗（不影響病歷顯示）:', _maErr);
+            }
+
             // Prepare dynamic translation segments.  We look up static labels
             // from the dictionary and build English phrases when needed.
             const recordTitle = dict['診症記錄'] || '診症記錄';
@@ -13507,19 +13563,21 @@ if (!patient) {
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">主訴</span>
                                     <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.symptoms || '無記錄'}</div>
+                                    ${maVisitThumbs.otherHtml}
                                 </div>
-                                
+
                                 ${consultation.currentHistory ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
                                     <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.currentHistory}</div>
                                 </div>
                                 ` : ''}
-                                
-                                ${consultation.tongue ? `
+
+                                ${(consultation.tongue || maVisitThumbs.hasTongue) ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">舌象</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.tongue}</div>
+                                    ${consultation.tongue ? `<div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.tongue}</div>` : ''}
+                                    ${maVisitThumbs.tongueHtml}
                                 </div>
                                 ` : ''}
                                 
@@ -13838,6 +13896,24 @@ async function displayConsultationMedicalHistoryPage() {
     // 判斷本次診症是否有開藥；沒有開藥時隱藏處方內容與服用方法欄位
     const hasPrescription = consultationHasPrescription(consultation);
 
+    // 病歷附件（R2）：載入該病人附件並取出本次診次的縮圖；失敗不影響病歷顯示
+    const maVisitThumbs = { otherHtml: '', tongueHtml: '', hasOther: false, hasTongue: false };
+    try {
+        if (window.MedicalAttachments) {
+            const maPatientId = (typeof currentConsultationHistoryPatientId !== 'undefined' && currentConsultationHistoryPatientId) || consultation.patientId || '';
+            if (maPatientId) {
+                await window.MedicalAttachments.listForPatient(String(maPatientId));
+                const maGroups = window.MedicalAttachments.visitGroups(String(maPatientId), String(consultation.id));
+                maVisitThumbs.hasOther = maGroups.attachments.length > 0;
+                maVisitThumbs.hasTongue = maGroups.tongues.length > 0;
+                maVisitThumbs.otherHtml = window.MedicalAttachments.inlineThumbsHtml(maGroups.attachments, String(maPatientId), String(consultation.id), 'other', '病歷附件');
+                maVisitThumbs.tongueHtml = window.MedicalAttachments.inlineThumbsHtml(maGroups.tongues, String(maPatientId), String(consultation.id), 'tongue');
+            }
+        }
+    } catch (_maErr) {
+        console.warn('病歷附件載入失敗（不影響病歷顯示）:', _maErr);
+    }
+
     // Build translated dynamic strings.  For Chinese we keep the original
     // formatting; for English we generate equivalent phrases.  The
     // dictionary lookup is used for static terms like '診症記錄',
@@ -13954,19 +14030,21 @@ async function displayConsultationMedicalHistoryPage() {
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">主訴</span>
                                     <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.symptoms || '無記錄'}</div>
+                                    ${maVisitThumbs.otherHtml}
                                 </div>
-                                
+
                                 ${consultation.currentHistory ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
                                     <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.currentHistory}</div>
                                 </div>
                                 ` : ''}
-                                
-                                ${consultation.tongue ? `
+
+                                ${(consultation.tongue || maVisitThumbs.hasTongue) ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">舌象</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.tongue}</div>
+                                    ${consultation.tongue ? `<div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.tongue}</div>` : ''}
+                                    ${maVisitThumbs.tongueHtml}
                                 </div>
                                 ` : ''}
                                 

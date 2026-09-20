@@ -47,7 +47,10 @@ export const TOP_COLLECTIONS = [
     // 病歷審核追蹤（append-only，含修改前後快照，筆數可能龐大）：
     // 日常走 updatedAt 增量，每 7 日 baseline 排除已刪除文件。
     // 歷史舊文件若無 updatedAt，同步會自動退回 baseline，不漏資料。
-    { key: 'consultationAuditLogs', collectionId: 'consultationAuditLogs', alwaysFull: false }
+    { key: 'consultationAuditLogs', collectionId: 'consultationAuditLogs', alwaysFull: false },
+    // 病歷附件中繼資料（R2 檔案本體不在 Firestore）：
+    // 日常走 updatedAt 增量，每 7 日 baseline 排除已軟刪文件。
+    { key: 'patientAttachments', collectionId: 'patientAttachments', alwaysFull: false }
 ];
 
 // 匯出檔中「billingItems」＝全域收費項目＋各診所非公費項目

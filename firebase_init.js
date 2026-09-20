@@ -89,7 +89,8 @@ setPersistence(auth, browserSessionPersistence).catch((error) => {
     const BACKUP_TOP_COLLECTIONS = new Set([
       'patients', 'consultations', 'users',
       'patientPackages', 'patientPackageHistory', 'globalBillingItems',
-      'clinics', 'clinicExpenses', 'consultationAuditLogs'
+      'clinics', 'clinicExpenses', 'consultationAuditLogs',
+      'patientAttachments'
     ]);
 
     function isBackupTrackedRef(reference) {

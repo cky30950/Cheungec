@@ -1265,6 +1265,35 @@ window.translations = {
         
         "顆粒沖劑": "颗粒沖剂",
         "飲片": "饮片",
+
+        "病歷歷來附件": "病历历来附件",
+        "病歷附件": "病历附件",
+        "舌象圖片": "舌象图片",
+        "舌象": "舌象",
+        "體檢報告": "体检报告",
+        "其他": "其他",
+        "全部": "全部",
+        "拍照": "拍照",
+        "上傳圖片": "上传图片",
+        "暫無附件": "暂无附件",
+        "可拍照或上傳圖片": "可拍照或上传图片",
+        "上傳時間": "上传时间",
+        "診症": "诊症",
+        "未歸檔診症": "未归档诊症",
+        "本次診症附件": "本次诊症附件",
+        "本次診症（尚未儲存）": "本次诊症（尚未储存）",
+        "所有歷史附件": "所有历史附件",
+        "附件已刪除": "附件已删除",
+        "刪除附件？": "删除附件？",
+        "刪除": "删除",
+        "取消": "取消",
+        "完成": "完成",
+        "失敗": "失败",
+        "圖片": "图片",
+        "附件公開讀取網域尚未設定（R2_PUBLIC_BASE），圖片可能無法顯示，請聯絡管理員完成 Cloudflare 設定。": "附件公开读取网域尚未设定（R2_PUBLIC_BASE），图片可能无法显示，请联络管理员完成 Cloudflare 设定。",
+        "找不到當前病人，無法開啟附件": "找不到当前病人，无法开启附件",
+        "個附件已歸檔至本次病歷": "个附件已归档至本次病历",
+        "部分檔案物件刪除失敗，已記錄於系統日誌": "部分档案物件删除失败，已记录于系统日志",
      },
     en: {
         
@@ -2268,7 +2297,31 @@ window.translations = {
         
         "歲": "years",
         "個月": "months",
-        "天": "days"
+        "天": "days",
+
+        "病歷歷來附件": "Medical Record Attachments",
+        "病歷附件": "Visit Attachments",
+        "舌象圖片": "Tongue Photos",
+        "體檢報告": "Medical Report",
+        "拍照": "Take Photo",
+        "上傳圖片": "Upload Images",
+        "暫無附件": "No attachments yet",
+        "可拍照或上傳圖片": "Take a photo or upload images",
+        "上傳時間": "Uploaded at",
+        "診症": "Visit",
+        "未歸檔診症": "Unfiled visit",
+        "本次診症附件": "This visit's attachments",
+        "本次診症（尚未儲存）": "This visit (not saved yet)",
+        "所有歷史附件": "All historical attachments",
+        "附件已刪除": "Attachment deleted",
+        "刪除附件？": "Delete this attachment?",
+        "完成": "Done",
+        "失敗": "Failed",
+        "圖片": "Image",
+        "附件公開讀取網域尚未設定（R2_PUBLIC_BASE），圖片可能無法顯示，請聯絡管理員完成 Cloudflare 設定。": "The public attachment domain (R2_PUBLIC_BASE) is not configured; images may not display. Please ask the administrator to finish the Cloudflare setup.",
+        "找不到當前病人，無法開啟附件": "No current patient found; cannot open attachments",
+        "個附件已歸檔至本次病歷": "attachment(s) filed to this medical record",
+        "部分檔案物件刪除失敗，已記錄於系統日誌": "Some storage objects could not be deleted; this has been logged for the administrator."
     }
 };
 

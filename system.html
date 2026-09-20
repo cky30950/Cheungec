@@ -1194,7 +1194,7 @@
                                         </div>
                                     </div>
                                     
-                                    <div class="flex justify-end">
+                                    <div class="flex flex-col items-end gap-2">
                                         <button
                                             type="button"
                                             id="editConsultationMedicalHistoryButton"
@@ -1202,6 +1202,13 @@
                                             class="text-xs bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 px-3 py-1 rounded transition duration-200"
                                         >
                                             📝 修改既住史
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onclick="MedicalAttachments.openGallery({ scope: 'patient', category: 'all' })"
+                                            class="text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 border border-indigo-200 px-3 py-1 rounded transition duration-200"
+                                        >
+                                            📎 <span>病歷歷來附件</span>
                                         </button>
                                     </div>
                                 </div>
@@ -1235,17 +1242,35 @@
 
                                 
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                        過往記錄
-                                    </label>
-                                    
+                                    <div class="flex justify-between items-center mb-2">
+                                        <label class="block text-sm font-semibold text-gray-700">
+                                            過往記錄
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onclick="MedicalAttachments.openGallery({ scope: 'visit', category: 'all' })"
+                                            class="text-xs bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded transition duration-200"
+                                        >
+                                            📎 <span>病歷附件</span>
+                                        </button>
+                                    </div>
+
                                     <textarea id="formCurrentHistory" readonly placeholder="過往主訴及現病史將自動載入" rows="6" class="w-full border border-gray-200 bg-gray-100 rounded-lg px-3 py-2 text-gray-600"></textarea>
                                 </div>
-                                
+
                                 <div>
-                                    <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                        舌象
-                                    </label>
+                                    <div class="flex justify-between items-center mb-2">
+                                        <label class="block text-sm font-semibold text-gray-700">
+                                            舌象
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onclick="MedicalAttachments.openGallery({ scope: 'patient', category: 'tongue' })"
+                                            class="text-xs bg-pink-500 hover:bg-pink-600 text-white px-3 py-1 rounded transition duration-200"
+                                        >
+                                            👅 <span>舌象圖片</span>
+                                        </button>
+                                    </div>
                                     <textarea id="formTongue" placeholder="舌質、舌苔、舌形等..." rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></textarea>
                                 </div>
                                 
@@ -5300,12 +5325,41 @@
 
 
     
+    <!-- 病歷附件（R2 直傳）Gallery Modal -->
+    <div id="medicalAttachmentsModal" class="fixed inset-0 bg-black bg-opacity-50 z-[1000] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="flex items-start justify-between px-5 py-4 border-b border-gray-200">
+                <div class="min-w-0">
+                    <h3 id="maTitle" class="text-lg font-bold text-gray-800">病歷歷來附件</h3>
+                    <p id="maSubtitle" class="text-xs text-gray-500 mt-0.5 truncate"></p>
+                </div>
+                <button type="button" id="maCloseBtn" class="text-gray-400 hover:text-gray-700 text-2xl leading-none px-2">&times;</button>
+            </div>
+            <div class="px-5 pt-4 overflow-y-auto flex-1">
+                <div id="maConfigNotice" class="hidden mb-3 text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-lg px-3 py-2"></div>
+                <div id="maUploadBar"></div>
+                <div id="maFilters"></div>
+                <div id="maGrid" class="pb-5"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 病歷附件原圖 Lightbox -->
+    <div id="attachmentLightbox" class="fixed inset-0 z-[2000] bg-black/90 hidden flex flex-col items-center justify-center p-4">
+        <button type="button" id="lbClose" class="absolute top-3 right-4 text-white/80 hover:text-white text-4xl leading-none z-10">&times;</button>
+        <button type="button" id="lbPrev" class="absolute left-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-11 h-11 flex items-center justify-center text-2xl z-10">‹</button>
+        <button type="button" id="lbNext" class="absolute right-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-11 h-11 flex items-center justify-center text-2xl z-10">›</button>
+        <img id="lbImage" src="" alt="附件原圖" class="max-w-full max-h-[82vh] object-contain rounded">
+        <div id="lbInfo" class="mt-3 text-sm text-white/90 text-center max-w-full px-12"></div>
+    </div>
+
     <div id="tooltip" class="hidden pointer-events-none fixed bg-gray-800 text-white text-xs px-3 py-1 rounded-lg shadow-lg z-50 whitespace-pre-line" style="z-index: 2147483647;"></div>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script src="version-config.js"></script>
     <script src="schedule_management.js"></script><script src="system.js"></script>
+    <script src="attachments.js"></script>
     <script src="personalStatistics.js"></script>
     
     <script src="systemmanagement.js"></script>
