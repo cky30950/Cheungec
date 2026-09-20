@@ -63,7 +63,11 @@
             zh: '即時接收病人候診、診症完成與聊天訊息，不漏接重要消息。',
             en: 'Get instant alerts for waiting patients, completed consultations and chat messages.'
         },
-        enableCardButton: { zh: '立即啟用', en: 'Enable now' }
+        enableCardButton: { zh: '立即啟用', en: 'Enable now' },
+        pushSettingsHint: {
+            zh: '日後想調整推播通知，可至「帳號安全設定」中設置。',
+            en: 'To change push notification settings later, go to "Account Security Settings".'
+        }
     };
 
     function t(key) {
@@ -315,6 +319,16 @@
         }
     }
 
+    // 職員「已登入」以系統自身的登入閘門為準：
+    // system.html 在 Firebase 工作階段恢復時，#loginPage 可能仍顯示（需待 performLogin），
+    // 故不能只看 firebase.auth.currentUser，否則卡片會在登入頁就出現。
+    function isStaffLoggedIn() {
+        var loginPage = document.getElementById('loginPage');
+        if (loginPage) return loginPage.classList.contains('hidden');
+        // 無獨立登入頁的頁面（clinic／inquiry 等）：退回以 Firebase Auth 為準
+        return !!currentAuthUser();
+    }
+
     async function apiCall(path, options) {
         var user = currentAuthUser();
         if (!user) throw new Error(t('pushLoginNeeded'));
@@ -436,7 +450,7 @@
 
             setToggle(true, true);
             setStatus('pushStatusOn');
-            message(t('pushOn'), { type: 'success' });
+            message(t('pushOn') + (isZh ? '。' : '. ') + t('pushSettingsHint'), { type: 'success' });
         } catch (err) {
             console.error('開啟推播失敗:', err);
             message(t('pushFailed') + (err.message || ''), { type: 'error' });
@@ -465,7 +479,7 @@
             }
             setToggle(false, true);
             setStatus('pushStatusOff');
-            message(t('pushOff'), { type: 'info' });
+            message(t('pushOff') + (isZh ? '。' : '. ') + t('pushSettingsHint'), { type: 'info' });
         } catch (err) {
             console.error('關閉推播失敗:', err);
             message(t('pushFailed') + (err.message || ''), { type: 'error' });
@@ -534,7 +548,7 @@
         }
         if (ui.hint) ui.hint.style.display = 'none';
 
-        if (!currentAuthUser()) {
+        if (!isStaffLoggedIn()) {
             setToggle(false, false);
             setStatus('pushStatusOff');
             hideEnableCard();
@@ -759,16 +773,18 @@
         } catch (_e) {}
     }
 
-    // 已登入、無訂閱、權限尚未決定時才顯示
+    // 職員已登入（系統閘門）、無訂閱、權限尚未決定時才顯示
     function maybeShowEnableCard() {
-        if (!isPushSupported() || !currentAuthUser() || Notification.permission !== 'default') {
+        if (!isPushSupported() || !isStaffLoggedIn() || !currentAuthUser()
+            || Notification.permission !== 'default') {
             hideEnableCard();
             return;
         }
         navigator.serviceWorker.ready.then(function (reg) {
             return reg.pushManager.getSubscription();
         }).then(function (sub) {
-            if (!sub && currentAuthUser() && Notification.permission === 'default') {
+            if (!sub && isStaffLoggedIn() && currentAuthUser()
+                && Notification.permission === 'default') {
                 showEnableCard();
             } else {
                 hideEnableCard();
@@ -857,12 +873,24 @@
         } catch (_e) {}
     }
 
+    // 監聽 #loginPage 顯示狀態：performLogin 隱藏（登入完成）或登出時重新顯示，
+    // 隨即同步推播狀態，使卡片只在真正登入後出現、登出時立即收起。
+    function observeLoginGate() {
+        var loginPage = document.getElementById('loginPage');
+        if (!loginPage) return;
+        try {
+            new MutationObserver(function () { syncPushState(); })
+                .observe(loginPage, { attributes: true, attributeFilter: ['class'] });
+        } catch (_e) {}
+    }
+
     /* ---------- 啟動 ---------- */
 
     function init() {
         registerServiceWorker();
         initOfflineBanner();
         bindUi();
+        observeLoginGate();
         syncPushState();
         handleChatDeepLink();
         listenDeepLinkMessages();
