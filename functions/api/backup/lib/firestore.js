@@ -179,6 +179,10 @@ export class FirestoreClient {
                 const raw = lastDoc._rawUpdatedAt;
                 if (!raw) return null;
                 values.push({ timestampValue: raw });
+            } else if (fieldPath === 'createdAt') {
+                const raw = lastDoc._rawCreatedAt;
+                if (!raw) return null;
+                values.push({ timestampValue: raw });
             } else {
                 return null;
             }
@@ -253,7 +257,8 @@ export function normalizeDocument(document) {
         id,
         name: document.name,
         data,
-        _rawUpdatedAt: (document.fields && document.fields.updatedAt && document.fields.updatedAt.timestampValue) || null
+        _rawUpdatedAt: (document.fields && document.fields.updatedAt && document.fields.updatedAt.timestampValue) || null,
+        _rawCreatedAt: (document.fields && document.fields.createdAt && document.fields.createdAt.timestampValue) || null
     };
 }
 
