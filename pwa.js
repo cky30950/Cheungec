@@ -57,7 +57,13 @@
         pushClaimFailed: {
             zh: '此裝置的推播屬於另一個帳號，自動切換失敗，請將推播開關關閉後重新開啟。',
             en: 'Push on this device belongs to another account. Automatic switch failed; please turn the toggle off and on again.'
-        }
+        },
+        enableCardTitle: { zh: '開啟推播通知', en: 'Enable push notifications' },
+        enableCardText: {
+            zh: '即時接收病人候診、診症完成與聊天訊息，不漏接重要消息。',
+            en: 'Get instant alerts for waiting patients, completed consultations and chat messages.'
+        },
+        enableCardButton: { zh: '立即啟用', en: 'Enable now' }
     };
 
     function t(key) {
@@ -523,6 +529,7 @@
             }
             setToggle(false, false);
             setStatus('pushStatusOff');
+            hideEnableCard();
             return;
         }
         if (ui.hint) ui.hint.style.display = 'none';
@@ -530,6 +537,7 @@
         if (!currentAuthUser()) {
             setToggle(false, false);
             setStatus('pushStatusOff');
+            hideEnableCard();
             return;
         }
 
@@ -540,6 +548,7 @@
             var reg = await navigator.serviceWorker.ready;
             var sub = await reg.pushManager.getSubscription();
             if (sub) {
+                hideEnableCard();
                 // 先以後端記錄為準同步事件偏好（跨裝置變更可反映至本機）
                 var belongsToOther = false;
                 try {
@@ -580,6 +589,7 @@
             } else {
                 setToggle(false, true);
                 setStatus('pushStatusOff');
+                maybeShowEnableCard();
             }
         } catch (err) {
             console.warn('同步推播狀態失敗:', err);
@@ -634,6 +644,136 @@
         } finally {
             claimingDevice = false;
         }
+    }
+
+    /* ---------- 站內一鍵啟用卡片（登入後、未訂閱時顯示） ---------- */
+
+    var ENABLE_CARD_DISMISS_KEY = 'pushEnableCardDismissed';
+    var enableCard = null;
+
+    function isEnableCardDismissed() {
+        try { return localStorage.getItem(ENABLE_CARD_DISMISS_KEY) === '1'; } catch (_e) { return false; }
+    }
+
+    function buildEnableCard() {
+        if (enableCard) return enableCard;
+        var card = document.createElement('div');
+        card.setAttribute('role', 'dialog');
+        card.setAttribute('aria-label', t('enableCardTitle'));
+        card.style.cssText =
+            'position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;' +
+            'max-width:400px;margin:0 auto;' +
+            'background:#fff;border-radius:16px;padding:16px 16px 14px;' +
+            'box-shadow:0 12px 40px rgba(30,30,30,.18);' +
+            'border:1px solid rgba(217,120,43,.18);' +
+            'display:none;transform:translateY(12px);opacity:0;' +
+            'transition:transform .25s ease,opacity .25s ease;';
+
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:flex-start;gap:12px;';
+
+        var icon = document.createElement('div');
+        icon.textContent = '🔔';
+        icon.style.cssText =
+            'flex:0 0 auto;width:40px;height:40px;border-radius:12px;' +
+            'background:rgba(217,120,43,.1);display:flex;align-items:center;' +
+            'justify-content:center;font-size:20px;';
+
+        var bodyBox = document.createElement('div');
+        bodyBox.style.cssText = 'flex:1 1 auto;min-width:0;';
+
+        var title = document.createElement('div');
+        title.className = 'font-serif';
+        title.textContent = t('enableCardTitle');
+        title.style.cssText = 'font-weight:700;font-size:15px;color:#1E1E1E;margin-bottom:2px;';
+
+        var desc = document.createElement('div');
+        desc.textContent = t('enableCardText');
+        desc.style.cssText = 'font-size:13px;line-height:1.5;color:#666;';
+
+        var closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.setAttribute('aria-label', 'Close');
+        closeBtn.innerHTML = '&times;';
+        closeBtn.style.cssText =
+            'flex:0 0 auto;border:0;background:transparent;font-size:18px;line-height:1;' +
+            'color:#999;cursor:pointer;padding:2px 4px;';
+        closeBtn.addEventListener('click', dismissEnableCard);
+
+        bodyBox.appendChild(title);
+        bodyBox.appendChild(desc);
+        row.appendChild(icon);
+        row.appendChild(bodyBox);
+        row.appendChild(closeBtn);
+
+        var actions = document.createElement('div');
+        actions.style.cssText = 'margin-top:12px;display:flex;justify-content:flex-end;';
+
+        var enableBtn = document.createElement('button');
+        enableBtn.type = 'button';
+        enableBtn.textContent = t('enableCardButton');
+        enableBtn.style.cssText =
+            'border:0;cursor:pointer;border-radius:10px;padding:9px 18px;' +
+            'font-size:14px;font-weight:600;color:#fff;background:#D9782B;' +
+            'box-shadow:0 4px 12px rgba(217,120,43,.3);';
+        enableBtn.addEventListener('click', onEnableCardClick);
+        actions.appendChild(enableBtn);
+
+        card.appendChild(row);
+        card.appendChild(actions);
+        document.body.appendChild(card);
+        enableCard = card;
+        return card;
+    }
+
+    function showEnableCard() {
+        if (isEnableCardDismissed()) return;
+        var card = buildEnableCard();
+        card.style.display = 'block';
+        // 強制重排後再加上進場動畫
+        void card.offsetWidth;
+        card.style.transform = 'translateY(0)';
+        card.style.opacity = '1';
+    }
+
+    function hideEnableCard() {
+        if (!enableCard) return;
+        enableCard.style.display = 'none';
+        enableCard.style.transform = 'translateY(12px)';
+        enableCard.style.opacity = '0';
+    }
+
+    // 使用者主動關閉：記住選擇，爾後不再自動顯示
+    function dismissEnableCard() {
+        try { localStorage.setItem(ENABLE_CARD_DISMISS_KEY, '1'); } catch (_e) {}
+        hideEnableCard();
+    }
+
+    // 點擊「立即啟用」：在使用者手勢內請求權限（iPhone 硬性要求）
+    async function onEnableCardClick() {
+        await enablePush();
+        try {
+            var reg = await navigator.serviceWorker.ready;
+            var sub = await reg.pushManager.getSubscription();
+            if (sub) hideEnableCard();
+        } catch (_e) {}
+    }
+
+    // 已登入、無訂閱、權限尚未決定時才顯示
+    function maybeShowEnableCard() {
+        if (!isPushSupported() || !currentAuthUser() || Notification.permission !== 'default') {
+            hideEnableCard();
+            return;
+        }
+        navigator.serviceWorker.ready.then(function (reg) {
+            return reg.pushManager.getSubscription();
+        }).then(function (sub) {
+            if (!sub && currentAuthUser() && Notification.permission === 'default') {
+                showEnableCard();
+            } else {
+                hideEnableCard();
+            }
+        }).catch(function () { hideEnableCard(); });
     }
 
     function bindUi() {
