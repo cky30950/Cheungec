@@ -11,7 +11,7 @@
  *
  * 需要的環境變數（Pages → Settings → Variables and Secrets）：
  *   GEMINI_API_KEY   必填，Gemini Developer API 金鑰（設為 Secret）
- *   GEMINI_MODEL     選填，預設 gemini-2.5-flash（免費層可用）
+ *   GEMINI_MODEL     選填，預設 gemini-3.6-flash（免費層可用）
  *
  * 請求（JSON）：
  *   {
@@ -29,13 +29,13 @@
  *   }
  *
  * 回應：
- *   { "reply": "...", "model": "gemini-2.5-flash", "usage": {...} }
+ *   { "reply": "...", "model": "gemini-3.6-flash", "usage": {...} }
  * ============================================================ */
 
 import { authenticateStaff } from '../attachments/lib/auth.js';
 import { jsonResponse, optionsResponse } from '../backup/lib/http.js';
 
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-3.6-flash';
 const GEMINI_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const REQUEST_TIMEOUT_MS = 25000;
 
