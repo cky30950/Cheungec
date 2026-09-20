@@ -45,6 +45,10 @@
         pushFailed: { zh: '通知設定失敗：', en: 'Failed to configure notifications: ' },
         pushLoginNeeded: { zh: '請先登入後再設定通知', en: 'Please log in to configure notifications.' },
         pushNoSubscription: { zh: '此裝置尚未開啟推播訂閱，請先開啟開關。', en: 'This device has no push subscription yet. Please turn on the toggle first.' },
+        pushServerKeyInvalid: {
+            zh: '伺服器推播金鑰未正確設定（VAPID_PUBLIC_KEY 空白或不完整），請於 Cloudflare Pages 環境變數檢查後重試。',
+            en: 'The server push key is missing or invalid (VAPID_PUBLIC_KEY). Please check Cloudflare Pages environment variables and retry.'
+        },
         reload: { zh: '重新整理', en: 'Reload' }
     };
 
@@ -259,8 +263,21 @@
     async function getVapidConfig() {
         if (vapidPublicKeyCached) return vapidPublicKeyCached;
         var cfg = await apiCall('/config');
-        vapidPublicKeyCached = cfg.vapidPublicKey || '';
+        var key = cfg.vapidPublicKey || '';
+        // 空白金鑰不寫入快取，修正環境變數後重試可立即重新取得
+        if (!key) throw new Error(t('pushServerKeyInvalid'));
+        vapidPublicKeyCached = key;
         return vapidPublicKeyCached;
+    }
+
+    // 檢查公鑰必須為 65 bytes、0x04 開頭（P-256 uncompressed point）
+    function decodeVapidKey(key) {
+        var bytes = urlBase64ToUint8Array(key);
+        if (bytes.length !== 65 || bytes[0] !== 0x04) {
+            console.error('VAPID public key length:', bytes.length);
+            throw new Error(t('pushServerKeyInvalid'));
+        }
+        return bytes;
     }
 
     function urlBase64ToUint8Array(base64String) {
@@ -288,7 +305,7 @@
             var reg = await navigator.serviceWorker.ready;
             var sub = await reg.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(vapid)
+                applicationServerKey: decodeVapidKey(vapid)
             });
 
             await apiCall('/subscribe', {
