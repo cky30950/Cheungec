@@ -5348,6 +5348,8 @@ async function recordInventoryHistory(type, entries, extra = {}) {
             billingItemsGlobalMap = new Map();
             billingItemsClinicMap = new Map();
         }
+        // 掛載全域：logout() 位於外層作用域，需經 window 呼叫清理
+        window.__stopBillingItemsRealtimeSync = stopBillingItemsRealtimeSync;
         function mergeBillingItemsFromRealtime() {
             const byId = new Map();
             billingItemsGlobalMap.forEach((value, key) => byId.set(String(key), value));
@@ -6512,7 +6514,16 @@ async function logout() {
         } catch (chatErr) {
             console.error('銷毀聊天模組失敗:', chatErr);
         }
-        
+
+        // 先移除收費項目 Firestore 監聽器，避免登出後規則拒絕存取報錯
+        try {
+            if (typeof window.__stopBillingItemsRealtimeSync === 'function') {
+                window.__stopBillingItemsRealtimeSync();
+            }
+        } catch (billingErr) {
+            console.error('移除收費項目監聽器失敗:', billingErr);
+        }
+
         if (window.firebase && window.firebase.auth) {
             await window.firebase.signOut(window.firebase.auth);
         }
