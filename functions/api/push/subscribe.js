@@ -90,17 +90,21 @@ export async function onRequestPost(context) {
             }
         }
 
-        // username：ID Token name claim → email 前缀（首版無 users 文件查詢需求）
-        const username = String(
+        // username 暫以 ID Token name claim → email 前綴；
+        // 解析到 users 文件後改為系統員工帳號（候診篩選 appointmentDoctor 需與之一致）
+        let username = String(
             (auth.claims && (auth.claims.name || auth.claims.display_name))
             || (auth.email ? auth.email.split('@')[0] : '')
         );
 
-        // 由後端解析員工職位（用於完成通知角色篩選）；失敗不阻斷訂閱
+        // 由後端解析員工資料（職位用於完成通知篩選、username 用於候診篩選）；失敗不阻斷訂閱
         let position = '';
         try {
             const profile = await resolveUserData(auth.claims, env);
-            if (profile && profile.position) position = String(profile.position);
+            if (profile) {
+                if (profile.position) position = String(profile.position);
+                if (profile.username) username = String(profile.username);
+            }
         } catch (_profileErr) {
             console.warn('解析員工職位失敗:', _profileErr.message);
         }
