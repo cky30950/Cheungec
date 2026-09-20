@@ -2971,7 +2971,7 @@
                 <div class="flex items-start justify-between gap-4">
                   <div>
                     <h3 class="text-lg font-semibold text-amber-800 mb-2">推播通知</h3>
-                    <p class="text-sm text-gray-600">病人提交新預診資料時，主動推播通知到此裝置。通知依裝置各自開啟；iPhone 使用者請先用 Safari 將系統「加入主畫面」（需 iOS 16.4 或以上）。</p>
+                    <p class="text-sm text-gray-600">開啟後可自行勾選要接收的通知類型。通知依裝置各自開啟；iPhone 使用者請先用 Safari 將系統「加入主畫面」（需 iOS 16.4 或以上）。</p>
                   </div>
                   <button type="button" id="pushToggle" aria-pressed="false" data-state="off"
                           class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full bg-gray-300 mt-1 cursor-pointer">
@@ -2980,6 +2980,10 @@
                 </div>
                 <div id="pushStatus" class="text-sm text-gray-500 mt-3"></div>
                 <div id="pushUnsupportedHint" class="text-sm text-amber-700 mt-3" style="display:none"></div>
+                <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <div class="text-sm font-medium text-amber-800 mb-2">接收的通知類型</div>
+                  <div id="pushEventOptions" class="flex flex-col"></div>
+                </div>
                 <div class="mt-4 flex justify-end">
                   <button type="button" id="pushTestButton" disabled
                           class="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 rounded-lg transition duration-200">傳送測試通知</button>

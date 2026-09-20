@@ -7,13 +7,14 @@
  *   {
  *     "endpoint": "https://fcm.googleapis.com/fcm/send/...",
  *     "keys": { "p256dh": "...", "auth": "..." },
- *     "events": ["new_inquiry"]   // 選填
+ *     "events": ["new_inquiry", ...]   // 選填，限事件白名單
  *   }
  * ============================================================ */
 
-import { authenticateStaff } from '../attachments/lib/auth.js';
+import { authenticateStaff, resolveUserData } from '../attachments/lib/auth.js';
 import { jsonResponse, optionsResponse } from '../backup/lib/http.js';
 import { upsertSubscription } from './lib/push-store.js';
+import { isAllowedEvent } from './lib/events.js';
 
 // base64url 字串（無 padding）；p256dh 約 87 字、auth 約 22 字
 const BASE64URL = /^[A-Za-z0-9_-]{16,256}$/;
@@ -80,6 +81,13 @@ export async function onRequestPost(context) {
                 return jsonResponse({ error: 'INVALID_EVENTS', message: 'events 必須為陣列' }, 400);
             }
             events = body.events.map((e) => String(e)).filter(Boolean);
+            // 白名單校驗：未知事件一律拒絕
+            if (events.some((e) => !isAllowedEvent(e))) {
+                return jsonResponse({
+                    error: 'INVALID_EVENTS',
+                    message: '包含不允許的推播事件'
+                }, 400);
+            }
         }
 
         // username：ID Token name claim → email 前缀（首版無 users 文件查詢需求）
@@ -88,14 +96,25 @@ export async function onRequestPost(context) {
             || (auth.email ? auth.email.split('@')[0] : '')
         );
 
+        // 由後端解析員工職位（用於完成通知角色篩選）；失敗不阻斷訂閱
+        let position = '';
+        try {
+            const profile = await resolveUserData(auth.claims, env);
+            if (profile && profile.position) position = String(profile.position);
+        } catch (_profileErr) {
+            console.warn('解析員工職位失敗:', _profileErr.message);
+        }
+
         const result = await upsertSubscription(env, {
             endpoint,
             keys: { p256dh, auth: authSecret },
             userId: auth.uid,
             userEmail: auth.email,
             username,
+            position,
+            language: String(body.language || 'zh'),
             userAgent: request.headers.get('user-agent') || '',
-            events: events || ['new_inquiry']
+            events: events || undefined
         });
 
         return jsonResponse({ success: true, created: result.created });

@@ -807,15 +807,47 @@
       if (!userObj) return;
       const uid = userObj.uid || userObj.id;
       if (!uid) return;
-      
+
       const ids = [String(this.currentUserUid), String(uid)].sort();
       const chatId = ids.join('_');
       this.privateChatId = chatId;
       this.currentChannel = 'private';
-      
+
       this.channelLabel.textContent = userObj.name || userObj.username || '私人聊天';
       this.listenToMessages(chatId);
       this.markChannelAsRead(chatId);
+    }
+
+    // 由 privateChatId（uidA_uidB，已排序）解析出對方 uid
+    getRecipientUid() {
+      if (!this.privateChatId) return '';
+      const parts = String(this.privateChatId).split('_');
+      const other = parts.find((p) => p && p !== String(this.currentUserUid));
+      return other || '';
+    }
+
+    /**
+     * 深層開啟聊天（供推播點擊 ?chat=open 使用）。
+     * opts: { c:'public' } 或 { u:'recipientUid' }
+     */
+    openChat(opts) {
+      if (!this.initialized) return false;
+      opts = opts || {};
+      if (opts.c === 'public') {
+        this.selectPublicChannel();
+        return true;
+      }
+      const uid = opts.u;
+      if (uid) {
+        let userObj = null;
+        try {
+          userObj = (this.usersList || []).find((u) => (u.uid || u.id) === uid) || null;
+        } catch (_e) {}
+        // 名單尚未載入仍可開啟，標題暫顯 uid
+        this.selectPrivateChat(userObj || { uid: uid, name: uid, username: uid });
+        return true;
+      }
+      return false;
     }
 
     
@@ -1179,6 +1211,33 @@
             this.updateNewMessageIndicators();
           }
         }
+
+        // ---- 觸發推播（僅寄件者名稱，不含訊息內容；notify 內部已做失敗靜默）----
+        try {
+          if (window.TCMPwa && typeof window.TCMPwa.notify === 'function') {
+            if (this.currentChannel === 'public') {
+              window.TCMPwa.notify({
+                kind: 'chat',
+                channel: 'public',
+                messageKey: messageKey,
+                senderId: messageData.senderId,
+                senderName: messageData.senderName
+              });
+            } else {
+              const recipientUid = this.getRecipientUid();
+              if (recipientUid) {
+                window.TCMPwa.notify({
+                  kind: 'chat',
+                  channel: 'private',
+                  messageKey: messageKey,
+                  senderId: messageData.senderId,
+                  senderName: messageData.senderName,
+                  recipientUid: recipientUid
+                });
+              }
+            }
+          }
+        } catch (_notifyErr) {}
       }).catch((err) => {
         console.error('ChatModule: failed to send message', err);
       });
@@ -1657,6 +1716,14 @@
         chatInstance.destroy();
       } catch (err) {
         console.error('ChatModule: destroyChat failed', err);
+      }
+    },
+    openChat: (opts) => {
+      try {
+        return chatInstance.openChat(opts);
+      } catch (err) {
+        console.error('ChatModule: openChat failed', err);
+        return false;
       }
     }
   };

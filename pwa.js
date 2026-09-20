@@ -57,6 +57,41 @@
         return item ? (isZh ? item.zh : item.en) : key;
     }
 
+    /* ---------- 推播事件偏好 ---------- */
+
+    // 事件顯示順序與中英標籤（id 需與後端 events.js 一致）
+    var PUSH_EVENT_ITEMS = [
+        { id: 'new_inquiry', zh: '新預診資料', en: 'New pre-consultation inquiry' },
+        { id: 'appointment_waiting', zh: '病人候診通知（醫師）', en: 'Patient waiting (doctor)' },
+        { id: 'appointment_completed', zh: '診症完成通知（護理／管理／助理）', en: 'Consultation completed (nurse/manager/assistant)' },
+        { id: 'chat_public', zh: '公開頻道訊息', en: 'Public channel messages' },
+        { id: 'chat_private', zh: '私人聊天訊息', en: 'Private chat messages' }
+    ];
+    var ALL_EVENT_IDS = PUSH_EVENT_ITEMS.map(function (i) { return i.id; });
+    var PREFS_KEY = 'pushEventPrefs';
+
+    var selectedEvents = loadEventPrefs();
+
+    function loadEventPrefs() {
+        try {
+            var raw = localStorage.getItem(PREFS_KEY);
+            if (raw) {
+                var arr = JSON.parse(raw);
+                if (Array.isArray(arr)) {
+                    return arr.filter(function (e) { return ALL_EVENT_IDS.indexOf(e) !== -1; });
+                }
+            }
+        } catch (_e) {}
+        // 首次使用：全選
+        return ALL_EVENT_IDS.slice();
+    }
+
+    function saveEventPrefs() {
+        try { localStorage.setItem(PREFS_KEY, JSON.stringify(selectedEvents)); } catch (_e) {}
+    }
+
+    function currentLanguage() { return isZh ? 'zh' : 'en'; }
+
     /* ---------- 通用提示（toastr / showToast / 自製浮層） ---------- */
 
     function message(text, opts) {
@@ -187,7 +222,8 @@
         toggle: null,
         status: null,
         testButton: null,
-        hint: null
+        hint: null,
+        eventContainer: null
     };
     var vapidPublicKeyCached = null;
 
@@ -196,6 +232,64 @@
         ui.status = document.getElementById('pushStatus');
         ui.testButton = document.getElementById('pushTestButton');
         ui.hint = document.getElementById('pushUnsupportedHint');
+        ui.eventContainer = document.getElementById('pushEventOptions');
+    }
+
+    /* 渲染事件勾選項（雙語；由 JS 產生，HTML 僅需容器） */
+    function renderEventOptions() {
+        if (!ui.eventContainer || ui.eventContainer.children.length > 0) return;
+        PUSH_EVENT_ITEMS.forEach(function (item) {
+            var label = document.createElement('label');
+            label.className =
+                'flex items-start gap-2 text-sm text-amber-900 cursor-pointer select-none py-0.5';
+            var input = document.createElement('input');
+            input.type = 'checkbox';
+            input.value = item.id;
+            input.className = 'mt-0.5 h-4 w-4 accent-amber-700';
+            input.checked = selectedEvents.indexOf(item.id) !== -1;
+            input.addEventListener('change', function () { onEventChanged(item.id, input.checked); });
+            var span = document.createElement('span');
+            span.textContent = isZh ? item.zh : item.en;
+            label.appendChild(input);
+            label.appendChild(span);
+            ui.eventContainer.appendChild(label);
+        });
+    }
+
+    function syncEventCheckboxes() {
+        if (!ui.eventContainer) return;
+        var boxes = ui.eventContainer.querySelectorAll('input[type=checkbox]');
+        boxes.forEach(function (box) {
+            box.checked = selectedEvents.indexOf(box.value) !== -1;
+        });
+    }
+
+    // 勾選事件：存偏好；已訂閱者立即同步後端
+    async function onEventChanged(eventId, checked) {
+        if (checked) {
+            if (selectedEvents.indexOf(eventId) === -1) selectedEvents.push(eventId);
+        } else {
+            selectedEvents = selectedEvents.filter(function (e) { return e !== eventId; });
+        }
+        saveEventPrefs();
+        try {
+            var reg = await navigator.serviceWorker.ready;
+            var sub = await reg.pushManager.getSubscription();
+            if (sub) await pushSubscriptionUpsert(sub);
+        } catch (err) {
+            console.warn('同步事件偏好失敗:', err);
+        }
+    }
+
+    // 統一 upsert：帶上事件偏好與語言（所有訂閱同步路徑皆用此函式）
+    async function pushSubscriptionUpsert(sub) {
+        return apiCall('/subscribe', {
+            method: 'POST',
+            body: JSON.stringify(Object.assign({}, sub.toJSON(), {
+                events: selectedEvents,
+                language: currentLanguage()
+            }))
+        });
     }
 
     function currentAuthUser() {
@@ -324,10 +418,7 @@
                 applicationServerKey: decodeVapidKey(vapid)
             });
 
-            await apiCall('/subscribe', {
-                method: 'POST',
-                body: JSON.stringify(sub.toJSON())
-            });
+            await pushSubscriptionUpsert(sub);
 
             setToggle(true, true);
             setStatus('pushStatusOn');
@@ -434,16 +525,30 @@
             return;
         }
 
+        // 事件偏好勾選項（已訂閱與否皆可設定本機偏好）
+        renderEventOptions();
+
         try {
             var reg = await navigator.serviceWorker.ready;
             var sub = await reg.pushManager.getSubscription();
             if (sub) {
-                // 瀏覽器有訂閱：確保後端記錄存在（冪等 upsert，修復先前失敗的註冊）
+                // 先以後端記錄為準同步事件偏好（跨裝置變更可反映至本機）
                 try {
-                    await apiCall('/subscribe', {
-                        method: 'POST',
-                        body: JSON.stringify(sub.toJSON())
-                    });
+                    var remote = await apiCall(
+                        '/subscription?endpoint=' + encodeURIComponent(sub.endpoint)
+                    );
+                    if (remote && Array.isArray(remote.events)) {
+                        selectedEvents = remote.events.filter(function (e) {
+                            return ALL_EVENT_IDS.indexOf(e) !== -1;
+                        });
+                        saveEventPrefs();
+                        syncEventCheckboxes();
+                    }
+                } catch (_remoteErr) {}
+
+                // 瀏覽器有訂閱：確保後端記錄存在且帶上當前偏好（冪等 upsert，修復先前失敗的註冊）
+                try {
+                    await pushSubscriptionUpsert(sub);
                 } catch (_upsertErr) {}
                 setToggle(true, true);
                 setStatus('pushStatusOn');
@@ -477,6 +582,67 @@
         if (ui.testButton) ui.testButton.addEventListener('click', sendTest);
     }
 
+    // 系統各模組（掛號／聊天）觸發推播：失敗僅警告，不影響主流程
+    async function notifyPushEvent(payload) {
+        if (!payload || typeof payload !== 'object') return { skipped: true };
+        if (!isPushSupported() || !currentAuthUser()) return { skipped: true };
+        try {
+            return await apiCall('/notify', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+        } catch (err) {
+            console.warn('觸發推播失敗:', err);
+            return { skipped: true, error: err && err.message };
+        }
+    }
+
+    // 依深層網址開啟聊天（?chat=open&c=public 或 &u=recipientUid）
+    function openChatFromUrl(url) {
+        try {
+            var parsed = new URL(url, window.location.origin);
+            var params = parsed.searchParams;
+            if (params.get('chat') !== 'open') return;
+            var opts = {};
+            var c = params.get('c');
+            var u = params.get('u');
+            if (c) opts.c = c;
+            if (u) opts.u = u;
+            if (!opts.c && !opts.u) return;
+
+            // ChatModule 存在但可能尚未 initChat：輪詢等待；無 ChatModule 的頁面提早放棄
+            var attempts = 0;
+            var timer = setInterval(function () {
+                attempts++;
+                var cm = window.ChatModule;
+                if (cm && typeof cm.openChat === 'function' && cm.openChat(opts)) {
+                    clearInterval(timer);
+                } else if (!cm && attempts >= 5) {
+                    clearInterval(timer);
+                } else if (attempts > 40) {
+                    clearInterval(timer);
+                }
+            }, 500);
+        } catch (_e) {}
+    }
+
+    // 頁面載入時的深層連結（推播開新分頁場景）
+    function handleChatDeepLink() {
+        openChatFromUrl(window.location.href);
+    }
+
+    // 已開啟分頁被聚焦時，SW 以 postMessage 傳入目標網址
+    function listenDeepLinkMessages() {
+        try {
+            navigator.serviceWorker.addEventListener('message', function (event) {
+                var data = event.data;
+                if (data && data.type === 'tcm-deep-link' && data.url) {
+                    openChatFromUrl(data.url);
+                }
+            });
+        } catch (_e) {}
+    }
+
     /* ---------- 啟動 ---------- */
 
     function init() {
@@ -484,6 +650,8 @@
         initOfflineBanner();
         bindUi();
         syncPushState();
+        handleChatDeepLink();
+        listenDeepLinkMessages();
 
         // 登入／登出後自動同步推播狀態
         try {
@@ -498,7 +666,8 @@
     window.TCMPwa = {
         init: init,
         syncPushState: syncPushState,
-        isPushSupported: isPushSupported
+        isPushSupported: isPushSupported,
+        notify: notifyPushEvent
     };
 
     if (document.readyState === 'loading') {

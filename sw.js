@@ -260,7 +260,10 @@ self.addEventListener('notificationclick', (event) => {
         });
         for (const client of all) {
             if (client.url.indexOf('/system.html') !== -1) {
+                // 舊分頁網址可能沒有 chat query：聚焦並以 postMessage 傳遞目標網址
+                try { client.postMessage({ type: 'tcm-deep-link', url: target }); } catch (_e) {}
                 if ('focus' in client) return client.focus();
+                return;
             }
         }
         return self.clients.openWindow(target);

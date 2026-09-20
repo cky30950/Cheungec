@@ -10,6 +10,7 @@
 
 import { getAccessToken } from '../../backup/lib/google-auth.js';
 import { FirestoreClient } from '../../backup/lib/firestore.js';
+import { DEFAULT_EVENTS } from './events.js';
 
 const COLLECTION = 'pushSubscriptions';
 const STATE_COLLECTION = 'pushState';
@@ -41,7 +42,7 @@ export async function subscriptionDocId(endpoint) {
 /**
  * 建立或更新訂閱文件（冪等）。
  * @param {object} env
- * @param {object} input {endpoint, keys:{p256dh,auth}, userId, userEmail, username, userAgent, events}
+ * @param {object} input {endpoint, keys:{p256dh,auth}, userId, userEmail, username, position, userAgent, events}
  * @returns {Promise<{id:string, created:boolean}>}
  */
 export async function upsertSubscription(env, input) {
@@ -65,7 +66,7 @@ export async function upsertSubscription(env, input) {
 
   const events = Array.isArray(input.events) && input.events.length > 0
     ? input.events
-    : ['new_inquiry'];
+    : [...DEFAULT_EVENTS];
 
   const fields = {
     endpoint: { stringValue: String(input.endpoint) },
@@ -85,6 +86,16 @@ export async function upsertSubscription(env, input) {
     createdAt: { timestampValue: createdAt },
     updatedAt: { timestampValue: now }
   };
+
+  // position 為選填欄位（解析失敗時不寫入，日後 upsert 補強）
+  if (input.position) {
+    fields.position = { stringValue: String(input.position) };
+  }
+
+  // 語言偏好（推播文案用）；預設 zh
+  fields.language = { stringValue: /^[a-z]{2}(-[A-Z]{2})?$/.test(input.language)
+    ? input.language
+    : 'zh' };
 
   const updateMask = Object.keys(fields)
     .map((f) => `updateMask.fieldPaths=${encodeURIComponent(f)}`)

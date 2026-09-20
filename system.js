@@ -10046,6 +10046,58 @@ function subscribeToAppointments() {
                 // 更新狀態紀錄
                 window.previousAppointmentStatuses[apt.id] = apt.status;
             }
+
+            // ---- 推播通知：不論觀看者角色皆觸發，由後端依訂閱事件篩選收件人；失敗僅警告 ----
+            if (toNotify.length > 0 && window.TCMPwa && typeof window.TCMPwa.notify === 'function') {
+                for (const apt of toNotify) {
+                    // general registration（無指定醫師）不推，後端亦會擋
+                    if (!apt.appointmentDoctor) continue;
+                    let patientName = apt.patientName || '';
+                    if (!patientName) {
+                        try {
+                            const patient = await getPatientByIdWithRefresh(apt.patientId);
+                            patientName = patient ? patient.name : '';
+                        } catch (_e) {
+                            patientName = '';
+                        }
+                    }
+                    try {
+                        await window.TCMPwa.notify({
+                            kind: 'appointment',
+                            event: 'appointment_waiting',
+                            appointmentId: apt.id,
+                            patientName: patientName,
+                            appointmentDoctor: apt.appointmentDoctor
+                        });
+                    } catch (pushErr) {
+                        console.warn('候診推播失敗:', pushErr);
+                    }
+                }
+            }
+            if (completedNotify.length > 0 && window.TCMPwa && typeof window.TCMPwa.notify === 'function') {
+                for (const apt of completedNotify) {
+                    let patientName = apt.patientName || '';
+                    if (!patientName) {
+                        try {
+                            const patient = await getPatientByIdWithRefresh(apt.patientId);
+                            patientName = patient ? patient.name : '';
+                        } catch (_e) {
+                            patientName = '';
+                        }
+                    }
+                    try {
+                        await window.TCMPwa.notify({
+                            kind: 'appointment',
+                            event: 'appointment_completed',
+                            appointmentId: apt.id,
+                            patientName: patientName
+                        });
+                    } catch (pushErr) {
+                        console.warn('診症完成推播失敗:', pushErr);
+                    }
+                }
+            }
+
             // 如果有需要通知的掛號並且目前使用者是醫師
             if (toNotify.length > 0 && currentUserData && currentUserData.position === '醫師') {
                 for (const apt of toNotify) {
