@@ -303,6 +303,22 @@
 
             var vapid = await getVapidConfig();
             var reg = await navigator.serviceWorker.ready;
+
+            // 先清除既有訂閱，再建立全新訂閱：
+            // 確保訂閱綁定的 VAPID 金鑰與伺服器目前金鑰完全一致
+            // （Apple 端兩者不符會回 403 VapidPkHashMismatch）
+            var oldSub = await reg.pushManager.getSubscription();
+            if (oldSub) {
+                var oldEndpoint = oldSub.endpoint;
+                try { await oldSub.unsubscribe(); } catch (_unsubErr) {}
+                try {
+                    await apiCall('/unsubscribe', {
+                        method: 'POST',
+                        body: JSON.stringify({ endpoint: oldEndpoint })
+                    });
+                } catch (_apiErr) {}
+            }
+
             var sub = await reg.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: decodeVapidKey(vapid)

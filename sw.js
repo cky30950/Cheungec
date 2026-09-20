@@ -221,10 +221,20 @@ async function trimCdnCache(cache) {
 
 self.addEventListener('push', (event) => {
     let data = {};
-    try {
-        data = event.json ? event.json() : {};
-    } catch (_e) {
-        data = {};
+    // 現行規格：推送承載在 event.data（PushMessageData）
+    if (event.data) {
+        try {
+            data = event.data.json();
+        } catch (_e) {
+            try {
+                data = JSON.parse(event.data.text());
+            } catch (_e2) {
+                data = {};
+            }
+        }
+    } else if (typeof event.json === 'function') {
+        // 極舊版瀏覽器相容（2016 年前期草案）
+        try { data = event.json(); } catch (_e) { data = {}; }
     }
     if (!data || typeof data !== 'object') data = {};
 
