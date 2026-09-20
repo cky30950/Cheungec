@@ -49,11 +49,18 @@ export async function onRequestPost(context) {
             }, 403);
         }
 
+        // 每次使用唯一 tag：固定 tag 會讓桌面瀏覽器以新通知靜默取代舊通知，
+        // 不再彈出橫幅，造成「再按測試沒反應」的觀感。
+        const sentAt = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        const timeText =
+            `${pad(sentAt.getHours())}:${pad(sentAt.getMinutes())}:${pad(sentAt.getSeconds())}`;
+
         const message = {
             title: '測試通知',
-            body: '推播功能正常運作 ✓',
+            body: `推播功能正常運作 ✓（${timeText}）`,
             url: '/system.html',
-            tag: 'push-test'
+            tag: `push-test-${sentAt.getTime()}`
         };
         const result = await sendOne(sub, message, env);
 
