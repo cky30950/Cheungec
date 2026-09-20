@@ -188,26 +188,27 @@ function mapUpstreamError(status, data) {
     const upstream = data && data.error ? data.error : {};
     const reason = String(upstream.status || upstream.code || status);
     const detail = upstream.message || 'Gemini 服務回應異常';
+    const extra = { upstreamStatus: status, detail: String(detail).slice(0, 300) };
     if (status === 429 || reason.includes('RESOURCE_EXHAUSTED')) {
-        return {
+        return Object.assign({
             status: 429,
             code: 'RATE_LIMITED',
             message: 'Gemini 免費層目前繁忙或已達限額（每分鐘約 10 次、每日 1,500 次），請稍等片刻再試'
-        };
+        }, extra);
     }
     if (status === 400) {
-        return { status: 400, code: 'UPSTREAM_BAD_REQUEST', message: 'Gemini 拒絕請求：' + detail };
+        return Object.assign({ status: 400, code: 'UPSTREAM_BAD_REQUEST', message: 'Gemini 拒絕請求：' + detail }, extra);
     }
     if (status === 403) {
-        return { status: 502, code: 'API_KEY_FORBIDDEN', message: 'GEMINI_API_KEY 無效或未獲授權，請檢查 Pages Secret 設定' };
+        return Object.assign({ status: 502, code: 'API_KEY_FORBIDDEN', message: 'GEMINI_API_KEY 無效或未獲授權（' + detail + '），請檢查 Pages Secret 設定' }, extra);
     }
     if (status === 404) {
-        return { status: 502, code: 'MODEL_NOT_FOUND', message: '找不到指定的 Gemini 模型，請檢查 GEMINI_MODEL 設定' };
+        return Object.assign({ status: 502, code: 'MODEL_NOT_FOUND', message: '找不到指定的 Gemini 模型，請檢查 GEMINI_MODEL 設定（' + detail + '）' }, extra);
     }
     if (status >= 500) {
-        return { status: 502, code: 'UPSTREAM_UNAVAILABLE', message: 'Gemini 服務暫時無法使用，請稍後重試' };
+        return Object.assign({ status: 502, code: 'UPSTREAM_UNAVAILABLE', message: 'Gemini 服務暫時無法使用（HTTP ' + status + '），請稍後重試' }, extra);
     }
-    return { status: 502, code: 'UPSTREAM_ERROR', message: detail };
+    return Object.assign({ status: 502, code: 'UPSTREAM_ERROR', message: detail }, extra);
 }
 
 export const onRequestOptions = () => optionsResponse();
@@ -271,9 +272,12 @@ export async function onRequestPost(context) {
                 signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
             });
         } catch (networkError) {
+            const reason = networkError && networkError.message ? String(networkError.message).slice(0, 200) : '未知網絡錯誤';
+            console.log('[gemini assist] 調用 Gemini 失敗：' + reason);
             return jsonResponse({
                 error: 'UPSTREAM_UNAVAILABLE',
-                message: '無法連接 Gemini 服務（網絡或逾時），請稍後重試'
+                message: '無法連接 Gemini 服務（' + reason + '），請稍後重試',
+                detail: reason
             }, 502);
         }
 

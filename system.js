@@ -11718,12 +11718,31 @@ async function askGeminiAssistant(event) {
         });
 
         let data = null;
+        let rawText = '';
         try {
             data = await response.json();
-        } catch (_e) {}
+        } catch (_e) {
+            // Cloudflare 原生錯誤頁（502/500 HTML）無法 parse JSON，改讀原文以提取錯誤代號
+            try {
+                rawText = await response.text();
+            } catch (_e2) {}
+        }
 
         if (!response.ok) {
-            throw new Error((data && data.message) || ('AI 助手回應異常（HTTP ' + response.status + '）'));
+            if (data && data.message) {
+                throw new Error(data.message);
+            }
+            if (rawText) {
+                const cfCodeMatch = rawText.match(/Error\s*(\d{3,4})/i);
+                const plainText = rawText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160);
+                console.error('[Gemini 助手] 非 JSON 錯誤回應（HTTP ' + response.status + '）：', rawText);
+                throw new Error(
+                    'AI 助手服務回應異常（HTTP ' + response.status +
+                    (cfCodeMatch ? '，Cloudflare Error ' + cfCodeMatch[1] : '') + '）' +
+                    (plainText ? '：' + plainText : '')
+                );
+            }
+            throw new Error('AI 助手回應異常（HTTP ' + response.status + '）');
         }
 
         renderGeminiReply(resultEl, data.reply || '');
