@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>手機拍照上傳 — 病歷附件</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang HK", "PingFang TC", "Microsoft JhengHei", sans-serif; color: #111827; }
+  .wrap { max-width: 520px; margin: 0 auto; padding: 16px 14px calc(24px + env(safe-area-inset-bottom)); }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { font-size: 13px; color: #6b7280; margin: 0; }
+  .patient { font-size: 16px; font-weight: 600; margin-bottom: 10px; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  select { flex: 0 0 auto; padding: 10px 12px; font-size: 15px; border: 1px solid #d1d5db; border-radius: 10px; background: #fff; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 12px; padding: 14px 16px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; }
+  .btn-primary { background: #2563eb; color: #fff; }
+  .btn-primary:active { background: #1d4ed8; }
+  .btn-secondary { background: #fff; color: #111827; border: 1px solid #d1d5db; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .progress { height: 8px; border-radius: 99px; background: #e5e7eb; overflow: hidden; margin-top: 10px; }
+  .progress > i { display: block; height: 100%; width: 0; background: #2563eb; transition: width .2s; }
+  .status-line { font-size: 13px; color: #374151; margin-top: 8px; min-height: 18px; }
+  .thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .thumb { position: relative; width: 84px; height: 84px; border-radius: 10px; overflow: hidden; border: 1px solid #e5e7eb; background: #f9fafb; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tag { position: absolute; left: 0; right: 0; bottom: 0; font-size: 10px; color: #fff; background: rgba(0,0,0,.55); padding: 1px 3px; text-align: center; }
+  .done-mark { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 50%; background: #16a34a; color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+  .error-box { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 12px; padding: 14px; font-size: 14px; line-height: 1.6; }
+  .count { font-size: 13px; color: #16a34a; font-weight: 600; }
+  /* 相機預覽 */
+  #cam { position: fixed; inset: 0; background: #000; z-index: 50; display: none; }
+  #cam video, #cam canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  #cam canvas { display: none; }
+  #camMsg { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: rgba(255,255,255,.9); font-size: 14px; padding: 24px; text-align: center; }
+  .spin { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: sp 0.9s linear infinite; margin-bottom: 12px; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .cam-x { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 16px; color: rgba(255,255,255,.85); font-size: 34px; line-height: 1; background: none; border: 0; z-index: 5; }
+  .cam-switch { position: absolute; top: calc(14px + env(safe-area-inset-top)); left: 16px; background: rgba(255,255,255,.15); color: #fff; border: 0; border-radius: 10px; padding: 8px 12px; font-size: 13px; z-index: 5; }
+  .cam-live, .cam-shot { position: absolute; left: 0; right: 0; bottom: calc(26px + env(safe-area-inset-bottom)); display: flex; justify-content: center; gap: 16px; z-index: 5; }
+  .cam-shot { display: none; }
+  .shutter { width: 68px; height: 68px; border-radius: 50%; border: 4px solid rgba(255,255,255,.85); background: transparent; padding: 4px; }
+  .shutter:active { transform: scale(.94); }
+  .shutter i { display: block; width: 100%; height: 100%; border-radius: 50%; background: #fff; }
+  .cam-btn { background: rgba(255,255,255,.15); color: #fff; border: 0; border-radius: 12px; padding: 12px 20px; font-size: 15px; font-weight: 600; }
+  .cam-btn.use { background: #2563eb; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>📱 病歷附件手機拍照</h1>
+    <p class="sub" id="hintSub">拍照或選擇相片，完成後電腦端會自動收到。</p>
+  </div>
+
+  <div id="errorCard" class="card error-box" style="display:none"></div>
+
+  <div id="mainCard" class="card" style="display:none">
+    <div class="patient" id="patientName"></div>
+    <div class="row" style="margin-bottom:12px">
+      <select id="category" aria-label="附件分類"></select>
+      <span class="sub" id="expiryLine"></span>
+    </div>
+    <div class="grid2">
+      <button class="btn btn-primary" id="btnCamera">📷 拍照</button>
+      <button class="btn btn-secondary" id="btnAlbum">🖼️ 相簿</button>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" class="hidden" style="display:none">
+    <div class="progress"><i id="bar"></i></div>
+    <div class="status-line" id="statusLine"></div>
+    <div class="thumbs" id="thumbs"></div>
+    <p class="sub count" id="countLine" style="margin-top:12px"></p>
+  </div>
+</div>
+
+<div id="cam">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas"></canvas>
+  <div id="camMsg"><div class="spin"></div><span id="camMsgText">啟動攝影機中…</span></div>
+  <button class="cam-x" id="camClose">&times;</button>
+  <button class="cam-switch" id="camSwitch" style="display:none">🔄 切換鏡頭</button>
+  <div class="cam-live" id="camLive" style="display:none"><button class="shutter" id="shutter" aria-label="拍照"><i></i></button></div>
+  <div class="cam-shot" id="camShot">
+    <button class="cam-btn" id="btnRetake">🔁 重拍</button>
+    <button class="cam-btn use" id="btnUse">✅ 使用照片</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var L = (navigator.language || '').toLowerCase().indexOf('en') === 0 ? {
+    titleHint: 'Take or choose a photo. The computer screen will receive it automatically.',
+    category: 'Category',
+    tongue: 'Tongue', report: 'Medical report', other: 'Other',
+    camera: '📷 Camera', album: '🖼️ Album',
+    starting: 'Starting camera…',
+    camUnsupported: 'Camera not available in this browser; please use the album button.',
+    camDenied: 'Cannot access the camera (permission denied or no device). Please use the album button.',
+    retake: '🔁 Retake', use: '✅ Use photo', switchCam: '🔄 Switch',
+    preparing: 'Processing image…',
+    uploadingOrig: 'Uploading original…',
+    uploadingThumb: 'Uploading thumbnail…',
+    finishing: 'Finalizing…',
+    done: 'Uploaded, the computer screen has received it.',
+    doneCount: function (n) { return n + ' photo(s) uploaded'; },
+    invalid: 'This capture link is invalid or has expired. Please regenerate it on the computer.',
+    expired: 'The capture link has expired. Please regenerate it on the computer.',
+    remain: function (m) { return 'Link valid for ' + m + ' min'; },
+    heic: 'Unsupported format (e.g. HEIC). Please take a JPEG photo or convert it first.',
+    errPrefix: 'Upload failed: '
+  } : {
+    titleHint: '拍照或選擇相片，完成後電腦端會自動收到。',
+    category: '分類',
+    tongue: '舌象', report: '體檢報告', other: '其他',
+    camera: '📷 拍照', album: '🖼️ 相簿',
+    starting: '啟動攝影機中…',
+    camUnsupported: '此瀏覽器無法使用攝影機，請改用「相簿」選擇照片。',
+    camDenied: '無法啟用攝影機（未授權或無裝置），請改用「相簿」選擇照片。',
+    retake: '🔁 重拍', use: '✅ 使用照片', switchCam: '🔄 切換鏡頭',
+    preparing: '圖片處理中…',
+    uploadingOrig: '上傳原圖…',
+    uploadingThumb: '上傳縮圖…',
+    finishing: '完成處理中…',
+    done: '上傳完成，電腦端已收到。',
+    doneCount: function (n) { return '已成功上傳 ' + n + ' 張照片'; },
+    invalid: '拍照連結無效或已過期，請在電腦端重新產生。',
+    expired: '拍照連結已過期，請在電腦端重新產生。',
+    remain: function (m) { return '連結尚餘 ' + m + ' 分鐘'; },
+    heic: '不支援的圖片格式（如 HEIC），請直接拍照或先轉成 JPEG。',
+    errPrefix: '上傳失敗：'
+  };
+
+  var API = '/api/attachments';
+  var ACCEPT = {
+    'image/jpeg': 'image/jpeg', 'image/jpg': 'image/jpeg',
+    'image/png': 'image/png', 'image/webp': 'image/webp', 'image/gif': 'image/gif'
+  };
+
+  var qs = new URLSearchParams(location.search);
+  var sid = qs.get('sid') || '';
+  var token = qs.get('t') || '';
+
+  var session = null;       // {mode, patientName}
+  var maxBytes = 15 * 1024 * 1024;
+  var publicBase = '';
+  var uploaded = [];        // {thumbUrl, label, done}
+  var busy = false;
+
+  // ---- DOM ----
+  var $ = function (id) { return document.getElementById(id); };
+  var errorCard = $('errorCard'), mainCard = $('mainCard');
+  var bar = $('bar'), statusLine = $('statusLine'), thumbsEl = $('thumbs'), countLine = $('countLine');
+  var expiryLine = $('expiryLine'), categorySel = $('category');
+
+  function showError(msg) {
+    errorCard.style.display = 'block';
+    errorCard.textContent = msg;
+    mainCard.style.display = 'none';
+  }
+
+  function setProgress(p, text) {
+    bar.style.width = Math.round(p * 100) + '%';
+    statusLine.textContent = text || '';
+  }
+
+  // ---- API ----
+  function apiPost(path, payload) {
+    return fetch(API + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (res) {
+      return res.json().catch(function () { return null; }).then(function (data) {
+        if (!res.ok || !data) {
+          var msg = (data && data.message) || ('HTTP ' + res.status);
+          if (data && (data.error === 'SESSION_EXPIRED')) msg = L.expired;
+          else if (data && (data.error === 'INVALID_SESSION' || res.status === 404)) msg = L.invalid;
+          throw new Error(msg);
+        }
+        return data;
+      });
+    });
+  }
+
+  // ---- 圖片處理（與桌面 attachments.js 相同規格）----
+  function loadImageElement(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () { URL.revokeObjectURL(url); resolve(img); };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error(L.heic)); };
+      img.src = url;
+    });
+  }
+
+  function decodeSource(file) {
+    if (typeof createImageBitmap === 'function') {
+      return createImageBitmap(file, { imageOrientation: 'from-image' })
+        .catch(function () { return loadImageElement(file); });
+    }
+    return loadImageElement(file);
+  }
+
+  function canvasToBlob(canvas, type, quality) {
+    return new Promise(function (resolve, reject) {
+      canvas.toBlob(function (b) { b ? resolve(b) : reject(new Error('compress failed')); }, type, quality);
+    });
+  }
+
+  function drawResized(source, maxEdge, type, quality) {
+    var sw = source.width || source.naturalWidth;
+    var sh = source.height || source.naturalHeight;
+    var scale = Math.min(1, maxEdge / Math.max(sw, sh));
+    var w = Math.max(1, Math.round(sw * scale));
+    var h = Math.max(1, Math.round(sh * scale));
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    var ctx = c.getContext('2d');
+    if (type === 'image/jpeg') { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); }
+    ctx.drawImage(source, 0, 0, w, h);
+    return canvasToBlob(c, type, quality).then(function (blob) {
+      return { blob: blob, width: w, height: h };
+    });
+  }
+
+  function sourceHasAlpha(source) {
+    try {
+      var N = 32, c = document.createElement('canvas');
+      c.width = N; c.height = N;
+      var ctx = c.getContext('2d');
+      ctx.drawImage(source, 0, 0, N, N);
+      var data = ctx.getImageData(0, 0, N, N).data;
+      for (var i = 3; i < data.length; i += 4) if (data[i] < 255) return true;
+    } catch (_e) {}
+    return false;
+  }
+
+  function prepareImage(file) {
+    var inType = ACCEPT[String(file.type || '').toLowerCase()];
+    if (!inType) throw new Error(L.heic);
+    if (file.size && file.size > maxBytes) throw new Error(L.errPrefix + '>15MB');
+    return decodeSource(file).then(function (source) {
+      var hasAlpha = inType === 'image/png' && sourceHasAlpha(source);
+      var contentType = hasAlpha ? 'image/png' : 'image/jpeg';
+      return Promise.all([
+        drawResized(source, 2048, contentType, 0.9),
+        drawResized(source, 480, contentType, 0.82)
+      ]).then(function (r) {
+        if (typeof source.close === 'function') { try { source.close(); } catch (_e) {} }
+        if (r[0].blob.size > maxBytes) throw new Error(L.errPrefix + '>15MB');
+        return {
+          original: r[0].blob, thumb: r[1].blob,
+          contentType: contentType, width: r[0].width, height: r[0].height
+        };
+      });
+    });
+  }
+
+  function putObject(url, blob, contentType, onProgress) {
+    return new Promise(function (resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open('PUT', url, true);
+      xhr.setRequestHeader('Content-Type', contentType);
+      if (xhr.upload) {
+        xhr.upload.onprogress = function (e) {
+          if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
+        };
+      }
+      xhr.onload = function () {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else reject(new Error('R2 HTTP ' + xhr.status));
+      };
+      xhr.onerror = function () { reject(new Error('network error')); };
+      xhr.send(blob);
+    });
+  }
+
+  function publicUrl(key) {
+    if (!publicBase || !key) return '';
+    return publicBase + '/' + String(key).split('/').map(encodeURIComponent).join('/');
+  }
+
+  function renderThumbs() {
+    thumbsEl.innerHTML = uploaded.map(function (u) {
+      return '<div class="thumb">' +
+        (u.thumbUrl ? '<img src="' + u.thumbUrl + '" alt="">' : '') +
+        '<span class="tag">' + u.label + '</span>' +
+        (u.done ? '<span class="done-mark">✓</span>' : '') +
+      '</div>';
+    }).join('');
+    var doneN = uploaded.filter(function (u) { return u.done; }).length;
+    countLine.textContent = doneN > 0 ? L.doneCount(doneN) : '';
+  }
+
+  // 由於單一 async 流程較清晰，上傳統一走 handleFileV2
+  async function handleFileV2(file) {
+    if (!file || busy) return;
+    busy = true;
+    var category = categorySel.value;
+    var label = categorySel.options[categorySel.selectedIndex]
+      ? categorySel.options[categorySel.selectedIndex].text : '';
+    var entry = { thumbUrl: '', label: label, done: false };
+    uploaded.unshift(entry);
+    renderThumbs();
+
+    var presign = null;
+    try {
+      setProgress(0.02, L.preparing);
+      var p = await prepareImage(file);
+
+      presign = await apiPost('/capture-presign', {
+        sid: sid, token: token,
+        category: category,
+        contentType: p.contentType,
+        contentLength: p.original.size,
+        width: p.width, height: p.height
+      });
+      publicBase = presign.publicBase || publicBase;
+      maxBytes = presign.maxBytes || maxBytes;
+
+      setProgress(0.05, L.uploadingOrig);
+      await putObject(presign.uploads.original.url, p.original, p.contentType,
+        function (pr) { setProgress(0.05 + pr * 0.7, L.uploadingOrig); });
+
+      setProgress(0.75, L.uploadingThumb);
+      await putObject(presign.uploads.thumb.url, p.thumb, p.contentType,
+        function (pr) { setProgress(0.75 + pr * 0.2, L.uploadingThumb); });
+
+      setProgress(0.98, L.finishing);
+      await apiPost('/capture-complete', { sid: sid, token: token, fileId: presign.fileId });
+
+      entry.thumbUrl = publicUrl(presign.uploads.thumb.key);
+      entry.done = true;
+      setProgress(1, L.done);
+      renderThumbs();
+      setTimeout(function () { setProgress(0, ''); }, 2500);
+    } catch (e) {
+      setProgress(0, L.errPrefix + (e && e.message ? e.message : e));
+      uploaded = uploaded.filter(function (u) { return u !== entry; });
+      renderThumbs();
+    } finally {
+      busy = false;
+    }
+  }
+
+  // ---- 相機 ----
+  var cam = { stream: null, facing: 'environment', blob: null };
+
+  function camShow(which) {
+    var video = $('video'), canvas = $('canvas'), msg = $('camMsg');
+    var live = $('camLive'), shot = $('camShot'), sw = $('camSwitch');
+    video.style.display = which === 'live' ? 'block' : 'none';
+    canvas.style.display = which === 'shot' ? 'block' : 'none';
+    msg.style.display = which === 'msg' ? 'flex' : 'none';
+    live.style.display = which === 'live' ? 'flex' : 'none';
+    shot.style.display = which === 'shot' ? 'flex' : 'none';
+    sw.style.display = (which === 'live' && cam.multi) ? 'block' : 'none';
+  }
+
+  function camStop() {
+    if (cam.stream) {
+      cam.stream.getTracks().forEach(function (t) { try { t.stop(); } catch (_e) {} });
+      cam.stream = null;
+    }
+    $('video').srcObject = null;
+  }
+
+  function camClose() {
+    camStop();
+    $('cam').style.display = 'none';
+    cam.blob = null;
+  }
+
+  async function camStart() {
+    camStop();
+    camShow('msg');
+    $('camMsgText').textContent = L.starting;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert(L.camUnsupported); camClose(); $('fileInput').click(); return;
+    }
+    try {
+      cam.stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: cam.facing }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false
+      });
+    } catch (e) {
+      alert(L.camDenied); camClose(); $('fileInput').click(); return;
+    }
+    var video = $('video');
+    video.srcObject = cam.stream;
+    try { await video.play(); } catch (_e) {}
+    cam.multi = false;
+    try {
+      var devices = await navigator.mediaDevices.enumerateDevices();
+      cam.multi = devices.filter(function (d) { return d.kind === 'videoinput'; }).length > 1;
+    } catch (_e) {}
+    camShow('live');
+  }
+
+  function camShutter() {
+    var video = $('video'), canvas = $('canvas');
+    var w = video.videoWidth, h = video.videoHeight;
+    if (!w || !h) return;
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+    canvas.toBlob(function (blob) {
+      if (!blob) return;
+      cam.blob = blob;
+      camShow('shot');
+    }, 'image/jpeg', 0.92);
+  }
+
+  // ---- 初始化 ----
+  function buildCategoryOptions(mode) {
+    var opts = [];
+    if (mode === 'tongue') opts.push(['tongue', L.tongue]);
+    if (mode === 'nontongue' || mode === 'all') {
+      opts.push(['report', L.report]);
+      opts.push(['other', L.other]);
+    }
+    if (mode === 'all') opts.unshift(['tongue', L.tongue]);
+    categorySel.innerHTML = opts.map(function (o) {
+      return '<option value="' + o[0] + '">' + o[1] + '</option>';
+    }).join('');
+    // 預設：舌象模式→tongue；其餘→other（最後一個）
+    categorySel.value = mode === 'tongue' ? 'tongue' : (mode === 'all' ? 'report' : 'other');
+  }
+
+  function tickExpiry(expiresAt) {
+    function t() {
+      var min = Math.max(0, Math.round((new Date(expiresAt).getTime() - Date.now()) / 60000));
+      expiryLine.textContent = min > 0 ? L.remain(min) : L.expired;
+    }
+    t();
+    setInterval(t, 30000);
+  }
+
+  document.getElementById('btnCamera').textContent = L.camera;
+  document.getElementById('btnAlbum').textContent = L.album;
+  document.getElementById('btnRetake').textContent = L.retake;
+  document.getElementById('btnUse').textContent = L.use;
+  document.getElementById('camSwitch').textContent = L.switchCam;
+  document.getElementById('hintSub').textContent = L.titleHint;
+
+  $('btnCamera').addEventListener('click', function () {
+    $('cam').style.display = 'block';
+    camStart();
+  });
+  $('btnAlbum').addEventListener('click', function () { $('fileInput').click(); });
+  $('fileInput').addEventListener('change', function (e) {
+    var f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (f) handleFileV2(f);
+  });
+  $('camClose').addEventListener('click', camClose);
+  $('camSwitch').addEventListener('click', function () {
+    cam.facing = cam.facing === 'environment' ? 'user' : 'environment';
+    camStart();
+  });
+  $('shutter').addEventListener('click', camShutter);
+  $('btnRetake').addEventListener('click', function () { cam.blob = null; camShow('live'); });
+  $('btnUse').addEventListener('click', async function () {
+    if (!cam.blob) return;
+    var d = new Date();
+    function p2(n) { return String(n).padStart(2, '0'); }
+    var name = 'photo_' + d.getFullYear() + p2(d.getMonth() + 1) + p2(d.getDate()) +
+      '_' + p2(d.getHours()) + p2(d.getMinutes()) + p2(d.getSeconds()) + '.jpg';
+    var file = new File([cam.blob], name, { type: 'image/jpeg' });
+    camClose();
+    await handleFileV2(file);
+  });
+
+  if (!sid || !token) {
+    showError(L.invalid);
+  } else {
+    apiPost('/capture-status', { sid: sid, token: token }).then(function (info) {
+      session = info;
+      $('patientName').textContent = info.patientName ? ('👤 ' + info.patientName) : '';
+      buildCategoryOptions(info.mode || 'all');
+      tickExpiry(info.expiresAt);
+      mainCard.style.display = 'block';
+    }).catch(function (e) {
+      showError(e.message || L.invalid);
+    });
+  }
+})();
+</script>
+</body>
+</html>

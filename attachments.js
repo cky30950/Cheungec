@@ -836,6 +836,9 @@
                 '<button type="button" id="maCameraBtn" class="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2 rounded-lg transition">' +
                     '📷 <span>' + tt('拍照') + '</span>' +
                 '</button>' +
+                '<button type="button" id="maPhoneBtn" class="inline-flex items-center gap-1 bg-violet-600 hover:bg-violet-700 text-white text-sm px-3 py-2 rounded-lg transition">' +
+                    '📱 <span>' + tt('手機拍照') + '</span>' +
+                '</button>' +
                 '<button type="button" id="maFileBtn" class="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white text-sm px-3 py-2 rounded-lg transition">' +
                     '🖼️ <span>' + tt('上傳圖片') + '</span>' +
                 '</button>' +
@@ -844,9 +847,9 @@
             '</div>' +
             '<div id="maProgress" class="space-y-2 mb-3"></div>';
 
-        document.getElementById('maCameraBtn').addEventListener('click', function () {
-            document.getElementById('maCameraInput').click();
-        });
+        document.getElementById('maCameraBtn').addEventListener('click', openCameraCapture);
+        var phoneBtn = document.getElementById('maPhoneBtn');
+        if (phoneBtn) phoneBtn.addEventListener('click', openRelay);
         document.getElementById('maFileBtn').addEventListener('click', function () {
             document.getElementById('maFileInput').click();
         });
@@ -866,6 +869,12 @@
         try { files = Array.prototype.slice.call(input.files || []); } catch (_e) { files = []; }
         input.value = '';
         if (files.length === 0) return;
+        await enqueueUploads(files);
+    }
+
+    // 檔案來源可為系統相機/檔案選擇 input，或網頁攝影機拍出的 File
+    async function enqueueUploads(files) {
+        if (!files || files.length === 0) return;
 
         // 上傳歸戶使用當下最新的診症上下文（而非開啟 Modal 時的快照），
         // 避免開啟期間掛號狀態變化造成誤歸戶；病人詳情頁入口維持不帶診次
@@ -991,6 +1000,7 @@
     }
 
     function closeGallery() {
+        closeRelay();
         document.getElementById('medicalAttachmentsModal').classList.add('hidden');
         gallery = null;
     }
@@ -1189,6 +1199,367 @@
         }
     }
 
+    /* ----------------------------------------------------------
+     * 網頁攝影機拍照（getUserMedia）
+     * 手機瀏覽器/桌面 USB 攝影機即時預覽；失敗或無權限時
+     * 自動降級為 <input capture> 系統相機／檔案選擇
+     * ---------------------------------------------------------- */
+
+    var camStream = null;
+    var camFacing = 'environment';
+    var camBlob = null;
+    var camBusy = false;
+
+    function camEls() {
+        return {
+            modal: document.getElementById('maCameraModal'),
+            video: document.getElementById('maCameraVideo'),
+            canvas: document.getElementById('maCameraCanvas'),
+            msg: document.getElementById('maCameraMsg'),
+            switchBtn: document.getElementById('maCamSwitch'),
+            liveCtl: document.getElementById('maCamLiveCtl'),
+            shotCtl: document.getElementById('maCamShotCtl')
+        };
+    }
+
+    function camSetLoading(text) {
+        var els = camEls();
+        els.video.classList.add('hidden');
+        els.canvas.classList.add('hidden');
+        els.liveCtl.classList.add('hidden');
+        els.shotCtl.classList.add('hidden');
+        els.switchBtn.classList.add('hidden');
+        els.msg.classList.remove('hidden');
+        var label = els.msg.querySelector('[data-role="msg"]');
+        if (label) label.textContent = tt(text);
+    }
+
+    function camSetLive() {
+        var els = camEls();
+        els.msg.classList.add('hidden');
+        els.canvas.classList.add('hidden');
+        els.shotCtl.classList.add('hidden');
+        els.video.classList.remove('hidden');
+        els.liveCtl.classList.remove('hidden');
+    }
+
+    function camSetShot() {
+        var els = camEls();
+        els.msg.classList.add('hidden');
+        els.video.classList.add('hidden');
+        els.liveCtl.classList.add('hidden');
+        els.canvas.classList.remove('hidden');
+        els.shotCtl.classList.remove('hidden');
+    }
+
+    function stopCameraStream() {
+        if (camStream) {
+            camStream.getTracks().forEach(function (track) {
+                try { track.stop(); } catch (_e) {}
+            });
+            camStream = null;
+        }
+        var els = camEls();
+        if (els.video) els.video.srcObject = null;
+    }
+
+    function camFallback(message) {
+        closeCameraModal();
+        toast(tt(message), 'warning');
+        var input = document.getElementById('maCameraInput');
+        if (input) input.click();
+    }
+
+    async function startCameraStream() {
+        stopCameraStream();
+        camSetLoading('啟動攝影機中…');
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            camFallback('此瀏覽器不支援網頁攝影機，已改開系統相機或檔案選擇');
+            return;
+        }
+        if (window.isSecureContext === false) {
+            camFallback('必須透過 HTTPS 連線才能使用攝影機，已改開系統相機或檔案選擇');
+            return;
+        }
+        try {
+            camStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { ideal: camFacing },
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                },
+                audio: false
+            });
+        } catch (err) {
+            console.warn('getUserMedia failed:', err);
+            camFallback('無法啟用攝影機（未授權或未偵測到裝置），已改開系統相機或檔案選擇');
+            return;
+        }
+        var els = camEls();
+        els.video.srcObject = camStream;
+        try { await els.video.play(); } catch (_e) {}
+        // 超過一個影像輸入裝置（如手機前後鏡頭）才顯示切換鈕
+        var multiCamera = false;
+        try {
+            var devices = await navigator.mediaDevices.enumerateDevices();
+            multiCamera = devices.filter(function (d) { return d.kind === 'videoinput'; }).length > 1;
+        } catch (_e) {}
+        els.switchBtn.classList.toggle('hidden', !multiCamera);
+        camSetLive();
+    }
+
+    async function openCameraCapture() {
+        if (!gallery) return;
+        var els = camEls();
+        if (!els.modal) return;
+        camBlob = null;
+        els.canvas.width = 0;
+        els.modal.classList.remove('hidden');
+        await startCameraStream();
+    }
+
+    function onCamShutter() {
+        if (camBusy || !camStream) return;
+        var els = camEls();
+        var w = els.video.videoWidth;
+        var h = els.video.videoHeight;
+        if (!w || !h) return;
+        els.canvas.width = w;
+        els.canvas.height = h;
+        els.canvas.getContext('2d').drawImage(els.video, 0, 0, w, h);
+        camBusy = true;
+        els.canvas.toBlob(function (blob) {
+            camBusy = false;
+            if (!blob) {
+                toast(tt('拍照失敗，請重試'), 'error');
+                return;
+            }
+            camBlob = blob;
+            camSetShot();
+        }, 'image/jpeg', 0.92);
+    }
+
+    function onCamRetake() {
+        camBlob = null;
+        camSetLive();
+    }
+
+    async function onCamUsePhoto() {
+        if (!camBlob) return;
+        var d = new Date();
+        function p(n) { return String(n).padStart(2, '0'); }
+        var name = 'photo_' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) +
+            '_' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds()) + '.jpg';
+        var file = new File([camBlob], name, { type: 'image/jpeg' });
+        closeCameraModal();
+        await enqueueUploads([file]);
+    }
+
+    function closeCameraModal() {
+        stopCameraStream();
+        var els = camEls();
+        if (els.modal) els.modal.classList.add('hidden');
+        if (els.canvas) { els.canvas.width = 0; els.canvas.classList.add('hidden'); }
+        if (els.video) els.video.classList.add('hidden');
+        camBlob = null;
+    }
+
+    /* ----------------------------------------------------------
+     * 手機代拍（電腦出 QR／連結，手機掃碼拍照直傳，電腦輪詢接收）
+     * ---------------------------------------------------------- */
+
+    var relay = null;
+    var RELAY_POLL_MS = 3000;
+
+    function relayEls() {
+        return {
+            modal: document.getElementById('maRelayModal'),
+            qr: document.getElementById('maRelayQr'),
+            link: document.getElementById('maRelayLink'),
+            copy: document.getElementById('maRelayCopy'),
+            status: document.getElementById('maRelayStatus'),
+            received: document.getElementById('maRelayReceived'),
+            expiry: document.getElementById('maRelayExpiry'),
+            regen: document.getElementById('maRelayRegen'),
+            close: document.getElementById('maRelayClose')
+        };
+    }
+
+    function relayContext() {
+        if (gallery.explicitPatient) {
+            return { patientId: gallery.patientId, patientName: gallery.patientName };
+        }
+        return resolveVisitContext({
+            patientId: gallery.patientId,
+            patientName: gallery.patientName
+        });
+    }
+
+    function relayMode() {
+        if (gallery.category === 'tongue') return 'tongue';
+        if (gallery.scope === 'visit') return 'nontongue';
+        return 'all';
+    }
+
+    async function openRelay() {
+        if (!gallery) return;
+        var els = relayEls();
+        if (!els.modal) return;
+        var ctx = relayContext();
+        if (!ctx.patientId) {
+            toast(tt('找不到當前病人，無法開啟附件'), 'error');
+            return;
+        }
+        els.modal.classList.remove('hidden');
+        els.qr.innerHTML = '<span class="text-gray-400 text-sm">' + tt('產生連結中…') + '</span>';
+        els.received.innerHTML = '';
+        els.status.textContent = tt('等待手機掃碼連線…');
+        els.expiry.textContent = '';
+
+        var info;
+        try {
+            info = await apiFetch('/capture-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    patientId: ctx.patientId,
+                    patientName: ctx.patientName,
+                    appointmentId: ctx.appointmentId || '',
+                    consultationId: ctx.consultationId || '',
+                    consultationDate: ctx.consultationDate || '',
+                    mode: relayMode()
+                })
+            });
+        } catch (err) {
+            els.qr.innerHTML = '';
+            els.status.textContent = (err && err.message) || tt('產生連結失敗');
+            return;
+        }
+
+        relay = {
+            sid: info.sid,
+            url: info.captureUrl,
+            patientId: String(ctx.patientId),
+            expiresAt: new Date(info.expiresAt).getTime(),
+            seen: {},
+            timer: null
+        };
+
+        // QR Code（CDN 程式庫；未載入時只顯示連結）
+        els.qr.innerHTML = '';
+        if (window.QRCode) {
+            try {
+                new window.QRCode(els.qr, {
+                    text: info.captureUrl,
+                    width: 196,
+                    height: 196,
+                    colorDark: '#111827',
+                    colorLight: '#ffffff',
+                    correctLevel: window.QRCode.CorrectLevel ? window.QRCode.CorrectLevel.M : 0
+                });
+            } catch (_e) { els.qr.innerHTML = ''; }
+        }
+        els.link.textContent = info.captureUrl;
+        pollRelay();
+        relay.timer = setInterval(pollRelay, RELAY_POLL_MS);
+    }
+
+    async function pollRelay() {
+        if (!relay) return;
+        var els = relayEls();
+        var remainMs = relay.expiresAt - Date.now();
+        if (remainMs <= 0) {
+            stopRelayPolling();
+            els.status.textContent = tt('拍照連結已過期，請按「重新產生」');
+            els.expiry.textContent = tt('已過期');
+            return;
+        }
+        els.expiry.textContent = tt('連結有效期限') + '：' + Math.ceil(remainMs / 60000) + ' ' + tt('分鐘');
+
+        var fb = window.firebase;
+        try {
+            var snap = await fb.getDocs(fb.firestoreQuery(
+                fb.collection(fb.db, COLLECTION),
+                fb.where('relaySessionId', '==', relay.sid)
+            ));
+            var readyDocs = snap.docs.map(normalizeDoc).filter(isReady);
+            var fresh = [];
+            readyDocs.forEach(function (d) {
+                var id = d.fileId || d.id;
+                if (!relay.seen[id]) {
+                    relay.seen[id] = true;
+                    fresh.push(d);
+                }
+            });
+            if (fresh.length > 0) {
+                fresh.forEach(function (d) { cacheUpsert(relay.patientId, d); });
+                renderGrid();
+                renderRelayReceived();
+            }
+            els.status.textContent = readyDocs.length > 0
+                ? '✓ ' + tt('已從手機收到') + ' ' + readyDocs.length + ' ' + tt('張照片，可繼續拍攝')
+                : tt('等待手機掃碼連線…');
+        } catch (err) {
+            console.warn('relay poll failed:', err);
+        }
+    }
+
+    function renderRelayReceived() {
+        if (!relay) return;
+        var els = relayEls();
+        var docs = (patientCache[relay.patientId] || []).filter(function (d) {
+            return isReady(d) && String(d.relaySessionId || '') === String(relay.sid);
+        });
+        els.received.innerHTML = docs.map(function (d) {
+            var src = publicUrl(d.thumbKey);
+            return '<div class="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">' +
+                (src
+                    ? '<img src="' + esc(src) + '" alt="" loading="lazy" class="w-full h-full object-cover">'
+                    : '<span class="text-2xl flex items-center justify-center h-full">🖼️</span>') +
+            '</div>';
+        }).join('');
+    }
+
+    function stopRelayPolling() {
+        if (relay && relay.timer) {
+            clearInterval(relay.timer);
+            relay.timer = null;
+        }
+    }
+
+    async function regenerateRelay() {
+        stopRelayPolling();
+        await openRelay();
+    }
+
+    function closeRelay() {
+        stopRelayPolling();
+        relay = null;
+        var els = relayEls();
+        if (els.modal) els.modal.classList.add('hidden');
+    }
+
+    async function copyRelayLink() {
+        if (!relay) return;
+        try {
+            await navigator.clipboard.writeText(relay.url);
+            toast(tt('連結已複製'), 'success');
+        } catch (_e) {
+            var els = relayEls();
+            try {
+                var range = document.createRange();
+                range.selectNodeContents(els.link);
+                var sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                document.execCommand('copy');
+                toast(tt('連結已複製'), 'success');
+            } catch (_e2) {
+                toast(tt('請手動選擇網址複製'), 'info');
+            }
+        }
+    }
+
     function bindStaticUi() {
         document.addEventListener('click', docClickHandler);
         document.addEventListener('keydown', onLightboxKeydown);
@@ -1213,6 +1584,33 @@
         var lbNext = document.getElementById('lbNext');
         if (lbPrev) lbPrev.addEventListener('click', function () { lightboxStep(-1); });
         if (lbNext) lbNext.addEventListener('click', function () { lightboxStep(1); });
+
+        var camClose = document.getElementById('maCamClose');
+        if (camClose) camClose.addEventListener('click', closeCameraModal);
+        var camSwitch = document.getElementById('maCamSwitch');
+        if (camSwitch) camSwitch.addEventListener('click', function () {
+            camFacing = camFacing === 'environment' ? 'user' : 'environment';
+            startCameraStream();
+        });
+        var camShutter = document.getElementById('maCamShutter');
+        if (camShutter) camShutter.addEventListener('click', onCamShutter);
+        var camRetake = document.getElementById('maCamRetake');
+        if (camRetake) camRetake.addEventListener('click', onCamRetake);
+        var camUse = document.getElementById('maCamUse');
+        if (camUse) camUse.addEventListener('click', onCamUsePhoto);
+
+        var relayClose = document.getElementById('maRelayClose');
+        if (relayClose) relayClose.addEventListener('click', closeRelay);
+        var relayRegen = document.getElementById('maRelayRegen');
+        if (relayRegen) relayRegen.addEventListener('click', regenerateRelay);
+        var relayCopy = document.getElementById('maRelayCopy');
+        if (relayCopy) relayCopy.addEventListener('click', copyRelayLink);
+        var relayModal = document.getElementById('maRelayModal');
+        if (relayModal) {
+            relayModal.addEventListener('click', function (e) {
+                if (e.target === relayModal) closeRelay();
+            });
+        }
     }
 
     /* ----------------------------------------------------------

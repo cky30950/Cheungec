@@ -5353,9 +5353,61 @@
         <div id="lbInfo" class="mt-3 text-sm text-white/90 text-center max-w-full px-12"></div>
     </div>
 
+    <!-- 病歷附件相機拍照（手機/USB 攝影機即時預覽） -->
+    <div id="maCameraModal" class="fixed inset-0 z-[2100] bg-black hidden">
+        <div class="relative w-full h-full flex items-center justify-center overflow-hidden">
+            <video id="maCameraVideo" autoplay playsinline muted class="hidden max-w-full max-h-full object-contain"></video>
+            <canvas id="maCameraCanvas" class="hidden max-w-full max-h-full object-contain"></canvas>
+            <div id="maCameraMsg" class="text-white/90 text-sm px-6 text-center">
+                <div class="inline-block animate-spin rounded-full h-8 w-8 border-2 border-white/30 border-t-white mb-3"></div>
+                <div data-role="msg">啟動攝影機中…</div>
+            </div>
+            <button type="button" id="maCamClose" class="absolute top-3 right-4 text-white/80 hover:text-white text-4xl leading-none z-10">&times;</button>
+            <button type="button" id="maCamSwitch" class="hidden absolute top-4 left-4 bg-white/10 hover:bg-white/20 text-white text-sm px-3 py-2 rounded-lg z-10">🔄 <span>切換鏡頭</span></button>
+            <div id="maCamLiveCtl" class="hidden absolute bottom-8 left-0 right-0 flex justify-center z-10">
+                <button type="button" id="maCamShutter" class="w-16 h-16 p-1 rounded-full border-4 border-white/80 hover:border-white active:scale-95 transition flex items-center justify-center" aria-label="拍照">
+                    <span class="block w-14 h-14 rounded-full bg-white"></span>
+                </button>
+            </div>
+            <div id="maCamShotCtl" class="hidden absolute bottom-8 left-0 right-0 flex justify-center gap-4 z-10">
+                <button type="button" id="maCamRetake" class="bg-white/15 hover:bg-white/25 text-white text-sm px-5 py-2.5 rounded-lg">🔁 <span>重拍</span></button>
+                <button type="button" id="maCamUse" class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-5 py-2.5 rounded-lg">✅ <span>使用照片</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 手機代拍 QR 連結視窗 -->
+    <div id="maRelayModal" class="fixed inset-0 bg-black bg-opacity-50 z-[1500] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div class="flex items-start justify-between px-5 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-bold text-gray-800">📱 <span>手機拍照上傳</span></h3>
+                <button type="button" id="maRelayClose" class="text-gray-400 hover:text-gray-700 text-2xl leading-none px-2">&times;</button>
+            </div>
+            <div class="px-5 py-4 space-y-4">
+                <p class="text-sm text-gray-600">
+                    用手機掃描下方 QR Code（或開啟連結），於手機拍照後照片會自動上傳到此病人的病歷附件。
+                </p>
+                <div class="flex justify-center">
+                    <div id="maRelayQr" class="p-3 bg-white border border-gray-200 rounded-lg inline-flex items-center justify-center min-h-[220px]"></div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="maRelayLink" class="flex-1 text-xs text-blue-700 break-all bg-blue-50 border border-blue-100 rounded px-2 py-1.5 select-all"></span>
+                    <button type="button" id="maRelayCopy" class="shrink-0 text-xs bg-gray-100 hover:bg-gray-200 border border-gray-300 px-3 py-1.5 rounded">複製連結</button>
+                </div>
+                <div id="maRelayStatus" class="text-sm font-medium text-gray-700">等待手機掃碼連線…</div>
+                <div id="maRelayReceived" class="flex flex-wrap gap-2"></div>
+                <div class="flex items-center justify-between text-xs text-gray-500">
+                    <span id="maRelayExpiry"></span>
+                    <button type="button" id="maRelayRegen" class="text-blue-600 hover:text-blue-800 font-medium">重新產生</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="tooltip" class="hidden pointer-events-none fixed bg-gray-800 text-white text-xs px-3 py-1 rounded-lg shadow-lg z-50 whitespace-pre-line" style="z-index: 2147483647;"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a0708418cb7b96fc563eacae0fbf77674/qrcode.min.js"></script>
 
     <script src="version-config.js"></script>
     <script src="schedule_management.js"></script><script src="system.js"></script>
