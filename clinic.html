@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#D9782B">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="名醫診所">
+    <link rel="apple-touch-icon" href="/images/icons/apple-touch-icon.png">
     <title>名醫中醫診所 - 傳統中醫 現代服務</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -461,5 +467,6 @@
         const today = new Date().toISOString().split('T')[0];
         document.querySelector('input[type="date"]').setAttribute('min', today);
     </script>
+<script src="/pwa.js" defer></script>
 </body>
 </html>

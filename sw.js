@@ -1,0 +1,258 @@
+/* ============================================================
+ * 名醫診所系統 — Service Worker（根 scope）
+ * ------------------------------------------------------------
+ * 職責：
+ *  - App Shell / 同源靜態資源快取（HTML network-first、其餘 SWR）
+ *  - 白名單 CDN 跨域資源 cache-first（100 項上限／30 天）
+ *  - 推播通知顯示與點擊開啟系統頁
+ *  - 版本化快取；更新時由用戶端訊息觸發 skipWaiting，不強制中斷
+ * ============================================================ */
+
+const CACHE_VERSION = 'v1.0.0';
+const SHELL_CACHE = 'shell-' + CACHE_VERSION;
+const CDN_CACHE = 'cdn-' + CACHE_VERSION;
+
+const PRECACHE_URLS = [
+    '/offline.html',
+    '/manifest.webmanifest',
+    '/images/icons/icon-192.png'
+];
+
+/* 同源後端／平台路徑一律不攔截、不快取 */
+const EXCLUDED_PREFIXES = ['/api/', '/_sdk/', '/cdn-cgi/'];
+
+/* 跨域僅快取以下明確白名單主機；其餘跨域直接通過 */
+const CDN_HOSTS = new Set([
+    'www.gstatic.com',
+    'cdn.tailwindcss.com',
+    'cdnjs.cloudflare.com',
+    'unpkg.com',
+    'cdn.jsdelivr.net',
+    'fonts.googleapis.com',
+    'fonts.gstatic.com'
+]);
+
+const CDN_MAX_ENTRIES = 100;
+const CDN_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const CDN_META_KEY = 'https://__tcm_cdn_meta__/index.json';
+const DOCUMENT_NETWORK_TIMEOUT_MS = 3000;
+
+self.addEventListener('install', (event) => {
+    event.waitUntil((async () => {
+        const cache = await caches.open(SHELL_CACHE);
+        await cache.addAll(PRECACHE_URLS);
+    })());
+    // 不呼叫 skipWaiting：
+    // 首次安裝（無舊 SW）瀏覽器會自然完成 activate；
+    // 更新時等待客戶端依使用者意願送 SKIP_WAITING，避免中斷診症操作。
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil((async () => {
+        const keys = await caches.keys();
+        await Promise.all(
+            keys
+                .filter((k) => k !== SHELL_CACHE && k !== CDN_CACHE)
+                .map((k) => caches.delete(k))
+        );
+        await self.clients.claim();
+    })());
+});
+
+self.addEventListener('message', (event) => {
+    const msg = event.data;
+    if (msg === 'SKIP_WAITING' || (msg && msg.type === 'SKIP_WAITING')) {
+        self.skipWaiting();
+    }
+});
+
+self.addEventListener('fetch', (event) => {
+    const req = event.request;
+    if (req.method !== 'GET') return;
+
+    let url;
+    try {
+        url = new URL(req.url);
+    } catch (_e) {
+        return;
+    }
+
+    if (url.origin === self.location.origin) {
+        if (EXCLUDED_PREFIXES.some((p) => url.pathname.startsWith(p))) return;
+
+        if (req.destination === 'document') {
+            event.respondWith(handleDocument(req));
+            return;
+        }
+        event.respondWith(handleSameOriginStatic(req));
+        return;
+    }
+
+    if (CDN_HOSTS.has(url.host)) {
+        event.respondWith(handleCdn(req));
+    }
+});
+
+/* ---------- 導航文件：network-first → 快取 → 離線備援 ---------- */
+
+async function handleDocument(req) {
+    const cache = await caches.open(SHELL_CACHE);
+    try {
+        const fresh = await fetchWithTimeout(req, DOCUMENT_NETWORK_TIMEOUT_MS);
+        if (fresh.ok) {
+            cache.put(req, fresh.clone());
+            return fresh;
+        }
+        const cachedOnError = await cache.match(req);
+        if (cachedOnError) return cachedOnError;
+        return fresh;
+    } catch (_err) {
+        const cached = await cache.match(req);
+        if (cached) return cached;
+        const fallback = await caches.match('/offline.html');
+        if (fallback) return fallback;
+        return new Response('您目前離線', {
+            status: 503,
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+        });
+    }
+}
+
+function fetchWithTimeout(req, ms) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('network timeout')), ms);
+        fetch(req).then(
+            (res) => { clearTimeout(timer); resolve(res); },
+            (err) => { clearTimeout(timer); reject(err); }
+        );
+    });
+}
+
+/* ---------- 同源靜態資源：stale-while-revalidate ---------- */
+
+async function handleSameOriginStatic(req) {
+    const cache = await caches.open(SHELL_CACHE);
+    const cachedPromise = cache.match(req);
+    const networkPromise = fetch(req)
+        .then((res) => {
+            if (res && res.ok) {
+                cache.put(req, res.clone());
+            }
+            return res;
+        })
+        .catch(() => null);
+
+    const cached = await cachedPromise;
+    return cached || networkPromise;
+}
+
+/* ---------- 白名單 CDN：cache-first + 天期/數量封頂 ---------- */
+
+async function handleCdn(req) {
+    const cache = await caches.open(CDN_CACHE);
+    const cached = await cache.match(req);
+    if (cached) return cached;
+
+    const res = await fetch(req);
+    if (res && (res.ok || res.type === 'opaque')) {
+        cache.put(req, res.clone());
+        await updateCdnMeta(cache, req.url);
+        await trimCdnCache(cache);
+    }
+    return res;
+}
+
+async function readCdnMeta(cache) {
+    const raw = await cache.match(CDN_META_KEY);
+    if (!raw) return {};
+    try {
+        return await raw.json();
+    } catch (_e) {
+        return {};
+    }
+}
+
+async function writeCdnMeta(cache, meta) {
+    await cache.put(
+        new Request(CDN_META_KEY),
+        new Response(JSON.stringify(meta), {
+            headers: { 'Content-Type': 'application/json' }
+        })
+    );
+}
+
+async function updateCdnMeta(cache, url) {
+    const meta = await readCdnMeta(cache);
+    meta[url] = Date.now();
+    await writeCdnMeta(cache, meta);
+}
+
+async function trimCdnCache(cache) {
+    const meta = await readCdnMeta(cache);
+    const now = Date.now();
+    let changed = false;
+
+    // 刪除超過天期的項目
+    for (const [u, ts] of Object.entries(meta)) {
+        if (now - Number(ts) > CDN_MAX_AGE_MS) {
+            await cache.delete(new Request(u));
+            delete meta[u];
+            changed = true;
+        }
+    }
+
+    // 數量封頂：刪除最舊項目
+    const entries = (await cache.keys())
+        .filter((r) => r.url !== CDN_META_KEY)
+        .map((r) => [r, Number(meta[r.url]) || 0])
+        .sort((a, b) => a[1] - b[1]);
+
+    while (entries.length > CDN_MAX_ENTRIES) {
+        const [oldest] = entries.shift();
+        await cache.delete(oldest);
+        delete meta[oldest.url];
+        changed = true;
+    }
+
+    if (changed) await writeCdnMeta(cache, meta);
+}
+
+/* ---------- 推播 ---------- */
+
+self.addEventListener('push', (event) => {
+    let data = {};
+    try {
+        data = event.json ? event.json() : {};
+    } catch (_e) {
+        data = {};
+    }
+    if (!data || typeof data !== 'object') data = {};
+
+    const title = data.title || '名醫診所系統';
+    const options = {
+        body: data.body || '',
+        icon: '/images/icons/icon-192.png',
+        badge: '/images/icons/icon-192.png',
+        tag: data.tag || 'tcm-notification',
+        data: { url: data.url || '/system.html' }
+    };
+    event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const target =
+        (event.notification.data && event.notification.data.url) || '/system.html';
+    event.waitUntil((async () => {
+        const all = await self.clients.matchAll({
+            type: 'window',
+            includeUncontrolled: true
+        });
+        for (const client of all) {
+            if (client.url.indexOf('/system.html') !== -1) {
+                if ('focus' in client) return client.focus();
+            }
+        }
+        return self.clients.openWindow(target);
+    })());
+});

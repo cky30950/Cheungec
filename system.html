@@ -6,6 +6,12 @@
     <title>名醫診所系統</title>
     
     <link rel="icon" type="image/png" href="images/myLogo.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#D9782B">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="名醫診所">
+    <link rel="apple-touch-icon" href="/images/icons/apple-touch-icon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     
     <script type="module" src="firebase_init.js"></script>
@@ -2954,7 +2960,32 @@
             </h2>
             <p class="text-gray-600 mb-6">在此可以安全地變更您的登入密碼或刪除帳號。此操作將影響您在系統中的登入權限，請謹慎操作。</p>
             <div class="space-y-8">
-              
+
+              <div class="bg-amber-50 rounded-lg p-6">
+                <style>
+                  #pushToggle { transition: background-color .2s ease; }
+                  #pushToggle > span { transition: transform .2s ease; }
+                  #pushToggle[data-state="on"] { background-color: #D9782B; }
+                  #pushToggle[data-state="on"] > span { transform: translateX(1.5rem); }
+                </style>
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 class="text-lg font-semibold text-amber-800 mb-2">推播通知</h3>
+                    <p class="text-sm text-gray-600">病人提交新預診資料時，主動推播通知到此裝置。通知依裝置各自開啟；iPhone 使用者請先用 Safari 將系統「加入主畫面」（需 iOS 16.4 或以上）。</p>
+                  </div>
+                  <button type="button" id="pushToggle" aria-pressed="false" data-state="off"
+                          class="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full bg-gray-300 mt-1 cursor-pointer">
+                    <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow translate-x-1"></span>
+                  </button>
+                </div>
+                <div id="pushStatus" class="text-sm text-gray-500 mt-3"></div>
+                <div id="pushUnsupportedHint" class="text-sm text-amber-700 mt-3" style="display:none"></div>
+                <div class="mt-4 flex justify-end">
+                  <button type="button" id="pushTestButton" disabled
+                          class="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 rounded-lg transition duration-200">傳送測試通知</button>
+                </div>
+              </div>
+
               <div class="bg-gray-50 rounded-lg p-6">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">變更密碼</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -5410,6 +5441,7 @@
     <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@04f46c6a0708418cb7b96fc563eacae0fbf77674/qrcode.min.js"></script>
 
     <script src="version-config.js"></script>
+    <script src="pwa.js" defer></script>
     <script src="schedule_management.js"></script><script src="system.js"></script>
     <script src="attachments.js"></script>
     <script src="personalStatistics.js"></script>

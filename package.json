@@ -1,0 +1,9 @@
+{
+  "name": "drgreat-tcm",
+  "private": true,
+  "type": "module",
+  "description": "Dependencies for Cloudflare Pages Functions (Web Push).",
+  "dependencies": {
+    "@block65/webcrypto-web-push": "^2.0.0"
+  }
+}
