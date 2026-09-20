@@ -928,6 +928,77 @@
         await runQueue(tasks, MAX_CONCURRENT);
     }
 
+    /* ----------------------------------------------------------
+     * 按鈕讀取圈（與系統「載入診斷模板」按鈕相同樣式：
+     * 凍結按鈕尺寸、原文案隱形、中央顯示旋轉圈）
+     * ---------------------------------------------------------- */
+    function setBtnLoading(button) {
+        if (!button || button.dataset.maLoading === '1') return;
+        button.dataset.maLoading = '1';
+        if (!button.dataset.originalHtml) {
+            button.dataset.originalHtml = button.innerHTML;
+        }
+        if (!button.dataset.originalWidth) {
+            var w = button.offsetWidth;
+            var h = button.offsetHeight;
+            if (w > 0) {
+                button.dataset.originalWidth = w + 'px';
+                button.style.width = w + 'px';
+            }
+            if (h > 0) {
+                button.dataset.originalHeight = h + 'px';
+                button.style.height = h + 'px';
+            }
+        }
+        button.dataset.originalPosition = button.style.position || '';
+        button.dataset.originalOverflow = button.style.overflow || '';
+        button.style.position = 'relative';
+        button.style.overflow = 'hidden';
+        button.disabled = true;
+        var originalHtml = button.dataset.originalHtml || button.innerHTML;
+        button.innerHTML =
+            '<span class="invisible pointer-events-none">' + originalHtml + '</span>' +
+            '<span class="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">' +
+                '<span class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent"></span>' +
+            '</span>';
+    }
+
+    function clearBtnLoading(button) {
+        if (!button) return;
+        if (button.dataset.originalHtml !== undefined) {
+            button.innerHTML = button.dataset.originalHtml;
+            delete button.dataset.originalHtml;
+        }
+        if (button.dataset.originalWidth) {
+            button.style.width = '';
+            delete button.dataset.originalWidth;
+        }
+        if (button.dataset.originalHeight) {
+            button.style.height = '';
+            delete button.dataset.originalHeight;
+        }
+        if (button.dataset.originalPosition !== undefined) {
+            button.style.position = button.dataset.originalPosition;
+            delete button.dataset.originalPosition;
+        }
+        if (button.dataset.originalOverflow !== undefined) {
+            button.style.overflow = button.dataset.originalOverflow;
+            delete button.dataset.originalOverflow;
+        }
+        button.disabled = false;
+        delete button.dataset.maLoading;
+    }
+
+    /** 由按鈕觸發開啟 Gallery：按鈕顯示讀取圈直到附件清單載入完成 */
+    async function openGalleryFromTrigger(button, options) {
+        try {
+            if (button) setBtnLoading(button);
+            await openGallery(options);
+        } finally {
+            if (button) clearBtnLoading(button);
+        }
+    }
+
     async function openGallery(options) {
         options = options || {};
         var scope = options.scope === 'visit' ? 'visit' : 'patient';
@@ -1139,7 +1210,7 @@
         // 動態渲染區域中的開啟 Gallery 按鈕（病人詳情頁等）
         var openBtn = e.target.closest ? e.target.closest('[data-ma-open]') : null;
         if (openBtn) {
-            openGallery({
+            openGalleryFromTrigger(openBtn, {
                 scope: openBtn.getAttribute('data-scope') === 'visit' ? 'visit' : 'patient',
                 category: openBtn.getAttribute('data-category') === 'tongue' ? 'tongue' : 'all',
                 patientId: openBtn.getAttribute('data-patient') || '',
@@ -1644,6 +1715,11 @@
 
     window.MedicalAttachments = {
         openGallery: openGallery,
+        // HTML onclick 專用：傳入 event，按鈕會顯示讀取圈至清單載入完成
+        openGalleryFromEvent: function (event, options) {
+            var btn = event && event.currentTarget ? event.currentTarget : null;
+            return openGalleryFromTrigger(btn, options || {});
+        },
         closeGallery: closeGallery,
         listForPatient: listForPatient,
         visitGroups: visitGroups,

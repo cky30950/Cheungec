@@ -1205,7 +1205,7 @@
                                         </button>
                                         <button
                                             type="button"
-                                            onclick="MedicalAttachments.openGallery({ scope: 'patient', category: 'all' })"
+                                            onclick="MedicalAttachments.openGalleryFromEvent(event, { scope: 'patient', category: 'all' })"
                                             class="text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 border border-indigo-200 px-3 py-1 rounded transition duration-200"
                                         >
                                             📎 <span>病歷歷來附件</span>
@@ -1248,7 +1248,7 @@
                                         </label>
                                         <button
                                             type="button"
-                                            onclick="MedicalAttachments.openGallery({ scope: 'visit', category: 'all' })"
+                                            onclick="MedicalAttachments.openGalleryFromEvent(event, { scope: 'visit', category: 'all' })"
                                             class="text-xs bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded transition duration-200"
                                         >
                                             📎 <span>病歷附件</span>
@@ -1265,7 +1265,7 @@
                                         </label>
                                         <button
                                             type="button"
-                                            onclick="MedicalAttachments.openGallery({ scope: 'patient', category: 'tongue' })"
+                                            onclick="MedicalAttachments.openGalleryFromEvent(event, { scope: 'patient', category: 'tongue' })"
                                             class="text-xs bg-pink-500 hover:bg-pink-600 text-white px-3 py-1 rounded transition duration-200"
                                         >
                                             👅 <span>舌象圖片</span>
