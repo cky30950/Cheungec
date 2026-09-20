@@ -24,10 +24,37 @@ function vapidFromEnv(env) {
     }
   }
   return {
-    subject: env.VAPID_SUBJECT,
-    publicKey: env.VAPID_PUBLIC_KEY,
-    privateKey: env.VAPID_PRIVATE_KEY
+    subject: normalizeVapidSubject(env.VAPID_SUBJECT),
+    publicKey: String(env.VAPID_PUBLIC_KEY).trim(),
+    privateKey: String(env.VAPID_PRIVATE_KEY).trim()
   };
+}
+
+/**
+ * 正規化 VAPID subject。
+ * Apple Web Push 嚴格要求 sub 必須為 mailto: 或 https URL（BadJwtToken），
+ * FCM 則不檢查；故在此統一校正：
+ *  - 去除前後空白
+ *  - 純 email 自動補上 mailto:
+ *  - 最後以 URL 解析驗證
+ */
+function normalizeVapidSubject(raw) {
+  let subject = String(raw || '').trim();
+  if (!subject) throw new Error('缺少必要環境變數：VAPID_SUBJECT');
+  if (/^[^\s:/@]+@[^\s:/@]+\.[^\s]+$/.test(subject)) {
+    subject = 'mailto:' + subject;
+  }
+  try {
+    const parsed = new URL(subject);
+    if (parsed.protocol !== 'mailto:' && parsed.protocol !== 'https:') {
+      throw new Error('protocol ' + parsed.protocol);
+    }
+  } catch (e) {
+    throw new Error(
+      `VAPID_SUBJECT 格式必須為 mailto:email 或 https URL，目前為：${subject}`
+    );
+  }
+  return subject;
 }
 
 /**

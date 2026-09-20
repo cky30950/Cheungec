@@ -374,6 +374,18 @@
         return sub ? sub.endpoint : null;
     }
 
+    // 解析推送服務回應本文中的 reason（Apple 回 {"reason":"BadJwtToken"}）
+    function extractReason(raw) {
+        if (!raw) return '';
+        if (typeof raw === 'object') return raw.reason || raw.error || '';
+        try {
+            const parsed = JSON.parse(raw);
+            return (parsed && (parsed.reason || parsed.error)) || String(raw);
+        } catch (_e) {
+            return String(raw).slice(0, 120);
+        }
+    }
+
     async function sendTest() {
         try {
             const endpoint = await getCurrentEndpoint();
@@ -390,7 +402,10 @@
             } else {
                 console.warn('測試通知未送達，伺服器回應：', result);
                 const code = result.status ? '（HTTP ' + result.status + '）' : '';
-                message(t('pushTestFailed') + code, { type: 'warning' });
+                // 直接把推送服務（Apple）的 reason 顯示在畫面，免接電腦查 console
+                const reason = extractReason(result.reason);
+                const detail = reason ? code + ' [' + reason + ']' : code;
+                message(t('pushTestFailed') + detail, { type: 'warning' });
                 await syncPushState();
             }
         } catch (err) {
