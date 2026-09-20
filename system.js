@@ -10067,7 +10067,8 @@ function subscribeToAppointments() {
                             event: 'appointment_waiting',
                             appointmentId: apt.id,
                             patientName: patientName,
-                            appointmentDoctor: apt.appointmentDoctor
+                            appointmentDoctor: apt.appointmentDoctor,
+                            statusAt: apt.arrivedAt || ''
                         });
                     } catch (pushErr) {
                         console.warn('候診推播失敗:', pushErr);
@@ -10090,7 +10091,8 @@ function subscribeToAppointments() {
                             kind: 'appointment',
                             event: 'appointment_completed',
                             appointmentId: apt.id,
-                            patientName: patientName
+                            patientName: patientName,
+                            statusAt: apt.completedAt || ''
                         });
                     } catch (pushErr) {
                         console.warn('診症完成推播失敗:', pushErr);
@@ -11284,6 +11286,7 @@ async function startConsultation(appointmentId) {
             const confirmedSwitch = await showConfirmation(confirmMsg2, 'warning');
             if (confirmedSwitch) {
                 consultingAppointment.status = 'waiting';
+                consultingAppointment.arrivedAt = new Date().toISOString();
                 delete consultingAppointment.consultationStartTime;
                 delete consultingAppointment.consultingDoctor;
                 if (String(currentConsultingAppointmentId) === String(consultingAppointment.id)) {
@@ -12371,6 +12374,7 @@ async function showConsultationForm(appointment) {
                         } catch (_e) {}
                         // 將狀態改回候診中
                         appointment.status = 'waiting';
+                        appointment.arrivedAt = new Date().toISOString();
                         delete appointment.consultationStartTime;
                         delete appointment.consultingDoctor;
                         // 保存狀態變更
@@ -16958,6 +16962,7 @@ async function editMedicalRecord(appointmentId) {
             if (confirmEdit) {
                 // 結束當前診症的病人
                 consultingAppointment.status = 'waiting';
+                consultingAppointment.arrivedAt = new Date().toISOString();
                 delete consultingAppointment.consultationStartTime;
                 delete consultingAppointment.consultingDoctor;
                 // 關閉可能開啟的診症表單
@@ -17073,6 +17078,7 @@ async function editMedicalRecordByConsultationId(consultationId) {
                 return;
             }
             consultingAppointment.status = 'waiting';
+            consultingAppointment.arrivedAt = new Date().toISOString();
             delete consultingAppointment.consultationStartTime;
             delete consultingAppointment.consultingDoctor;
             if (String(currentConsultingAppointmentId) === String(consultingAppointment.id)) {

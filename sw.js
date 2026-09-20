@@ -59,10 +59,20 @@ self.addEventListener('activate', (event) => {
     })());
 });
 
+/* 客戶端回報的聊天觀看狀態：clientId → {chatKey, visible} */
+const chatViews = new Map();
+
 self.addEventListener('message', (event) => {
     const msg = event.data;
     if (msg === 'SKIP_WAITING' || (msg && msg.type === 'SKIP_WAITING')) {
         self.skipWaiting();
+        return;
+    }
+    if (msg && msg.type === 'tcm-chat-view' && event.source) {
+        chatViews.set(event.source.id, {
+            chatKey: String(msg.chatKey || ''),
+            visible: !!msg.visible
+        });
     }
 });
 
@@ -220,6 +230,10 @@ async function trimCdnCache(cache) {
 /* ---------- 推播 ---------- */
 
 self.addEventListener('push', (event) => {
+    event.waitUntil(handlePush(event));
+});
+
+async function handlePush(event) {
     let data = {};
     // 現行規格：推送承載在 event.data（PushMessageData）
     if (event.data) {
@@ -238,6 +252,9 @@ self.addEventListener('push', (event) => {
     }
     if (!data || typeof data !== 'object') data = {};
 
+    // 收件者正觀看對應畫面時抑制彈窗（頁面已有即時內容/toast）
+    if (await shouldSuppressPush(data)) return;
+
     const title = data.title || '名醫診所系統';
     const options = {
         body: data.body || '',
@@ -246,8 +263,43 @@ self.addEventListener('push', (event) => {
         tag: data.tag || 'tcm-notification',
         data: { url: data.url || '/system.html' }
     };
-    event.waitUntil(self.registration.showNotification(title, options));
-});
+    await self.registration.showNotification(title, options);
+}
+
+/**
+ * 抑制規則：
+ *  - 掛號類：任一可見 system.html 分頁（頁面 toast 已提示）
+ *  - 公開頻道：客戶端回報正可見地觀看公開頻道
+ *  - 私聊：客戶端回報正可見地觀看該對話（chatId 比對）
+ */
+async function shouldSuppressPush(data) {
+    const clients = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true
+    });
+
+    // 清除已關閉客戶的過期回報
+    const aliveIds = new Set(clients.map((c) => c.id));
+    for (const id of [...chatViews.keys()]) {
+        if (!aliveIds.has(id)) chatViews.delete(id);
+    }
+
+    if (data.kind === 'appointment') {
+        return clients.some((c) =>
+            c.visibilityState === 'visible' && c.url.indexOf('/system.html') !== -1);
+    }
+    if (data.kind === 'chat') {
+        if (data.chatKey === 'public') {
+            return [...chatViews.values()]
+                .some((v) => v.visible && v.chatKey === 'public');
+        }
+        if (data.chatKey === 'private') {
+            return [...chatViews.values()]
+                .some((v) => v.visible && v.chatKey === String(data.chatId || ''));
+        }
+    }
+    return false;
+}
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();

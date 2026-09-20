@@ -5,8 +5,10 @@
  *  - chat：公開頻道（全體排除發送者）／私聊（僅收件人）
  *  - appointment：候診中（歸屬醫師）／診症完成（護理/管理/助理）
  *
- * 去重：僅聊天類使用 pushState/chat 環狀鍵清單（先發送後寫鍵；
- * 暫時性失敗不寫鍵）；掛號類每次觸發皆推送。
+ * 去重：pushState 環狀鍵清單（先發送後寫鍵；暫時性失敗不寫鍵）。
+ *  - 聊天：同一 messageKey 不重發
+ *  - 掛號：同一「狀態轉換時間戳」不重發（多名員工客戶端只推一次）；
+ *    狀態真的再轉換（新 arrivedAt/completedAt）時會再推
  * ============================================================ */
 
 import {
@@ -74,11 +76,19 @@ function parseChat(body, auth) {
         ? `public:${messageKey}`
         : `private:${recipientUid}:${messageKey}`;
 
+    // 私聊 RTDB 路徑 chatId（uid 排序），供 SW 判斷收件者是否正觀看該對話
+    let chatId = '';
+    if (channel === 'private') {
+        chatId = [auth.uid, recipientUid].sort().join('_');
+    }
+
     return {
         kind: 'chat',
         stateDoc: 'chat',
         event: channel === 'public' ? EVENT_CHAT_PUBLIC : EVENT_CHAT_PRIVATE,
         dedupKey,
+        messageKey,
+        chatId,
         senderName,
         recipientUid
     };
@@ -105,9 +115,18 @@ function parseAppointment(body) {
         }
     }
 
+    // 狀態轉換時間戳（arrivedAt/completedAt）：同次轉換跨客戶端去重
+    const statusAt = clean(body.statusAt, 40);
+    const phase = event === EVENT_APPOINTMENT_WAITING ? 'waiting' : 'completed';
+    const dedupKey = statusAt
+        ? `${phase}:${appointmentId}:${statusAt}`
+        : `${phase}:${appointmentId}`; // 缺時間戳時退回舊行為（同掛號同狀態僅一次）
+
     return {
         kind: 'appointment',
+        stateDoc: 'appointment',
         event,
+        dedupKey,
         appointmentId,
         patientName,
         appointmentDoctor
@@ -169,14 +188,20 @@ export function buildMessage(spec, lang) {
                 title: set.title,
                 body: set.body(spec.senderName),
                 tag: `chat-public:${spec.messageKey}`,
-                url: '/system.html?chat=open&c=public'
+                url: '/system.html?chat=open&c=public',
+                kind: 'chat',
+                chatKey: 'public',
+                chatId: ''
             };
         }
         return {
             title: set.title,
             body: set.body(spec.senderName),
             tag: `chat-private:${spec.recipientUid}:${spec.messageKey}`,
-            url: `/system.html?chat=open&u=${encodeURIComponent(spec.recipientUid)}`
+            url: `/system.html?chat=open&u=${encodeURIComponent(spec.recipientUid)}`,
+            kind: 'chat',
+            chatKey: 'private',
+            chatId: spec.chatId
         };
     }
     const c = spec.event === EVENT_APPOINTMENT_WAITING ? COPY.waiting : COPY.completed;
@@ -185,7 +210,10 @@ export function buildMessage(spec, lang) {
         title: set.title,
         body: set.body(spec.patientName),
         tag: `${spec.event === EVENT_APPOINTMENT_WAITING ? 'apt-waiting' : 'apt-completed'}:${spec.appointmentId}`,
-        url: '/system.html'
+        url: '/system.html',
+        kind: 'appointment',
+        chatKey: '',
+        chatId: ''
     };
 }
 
@@ -206,26 +234,19 @@ export async function processNotify(env, auth, body) {
         : null;
     if (!spec) throw httpError(400, 'INVALID_KIND', 'kind 必須為 chat 或 appointment');
 
-    // 僅聊天類做去重（防止同一訊息因重複呼叫發多次）；
-    // 掛號狀態轉換依用戶需求每次觸發都推送（多名員工線上時可能各推一次）。
-    const dedupEnabled = spec.kind === 'chat';
-    let state = null;
-    if (dedupEnabled) {
-        state = await getPushState(env, spec.stateDoc);
-        if (state.notifiedIds.includes(spec.dedupKey)) {
-            return { deduped: true, notified: 0, targets: 0, results: [] };
-        }
+    // 跨客戶端去重：聊天同 messageKey、掛號同狀態轉換時間戳
+    const state = await getPushState(env, spec.stateDoc);
+    if (state.notifiedIds.includes(spec.dedupKey)) {
+        return { deduped: true, notified: 0, targets: 0, results: [] };
     }
 
     const subs = await listSubscriptions(env);
     const targets = filterTargets(subs, spec, auth);
 
     if (targets.length === 0) {
-        // 聊天：無對象仍寫鍵，避免日後新增訂閱時補推舊事件
-        if (dedupEnabled) {
-            await savePushState(env, spec.stateDoc,
-                [...state.notifiedIds, spec.dedupKey], new Date().toISOString());
-        }
+        // 無對象仍寫鍵：避免日後新增訂閱時補推舊事件
+        await savePushState(env, spec.stateDoc,
+            [...state.notifiedIds, spec.dedupKey], new Date().toISOString());
         return { deduped: false, notified: 0, targets: 0, results: [] };
     }
 
@@ -249,8 +270,8 @@ export async function processNotify(env, auth, body) {
         if (batch.results.some((r) => r.retryable && !r.ok)) anyTransient = true;
     }
 
-    // 聊天：暫時性失敗不寫鍵 → 下輪同事件再觸發時可補送
-    if (dedupEnabled && !anyTransient) {
+    // 暫時性失敗不寫鍵 → 下輪同事件再觸發時可補送
+    if (!anyTransient) {
         await savePushState(env, spec.stateDoc,
             [...state.notifiedIds, spec.dedupKey], new Date().toISOString());
     }
