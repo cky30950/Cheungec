@@ -721,6 +721,10 @@
         if (gallery.category === 'tongue') {
             list = list.filter(function (d) { return d.category === 'tongue'; });
         }
+        if (gallery.scope === 'visit' && gallery.category === 'all') {
+            // 過往記錄的「病歷附件」不含舌象（舌象由「舌象圖片」按鈕專管）
+            list = list.filter(function (d) { return d.category !== 'tongue'; });
+        }
         if (gallery.scope !== 'visit' && gallery.category === 'all' && gallery.filter !== 'all') {
             list = list.filter(function (d) { return d.category === gallery.filter; });
         }
@@ -738,7 +742,7 @@
             : 'all';
         var kindAttr = gallery.category === 'tongue' ? 'tongue'
             : (gallery.filter === 'tongue' ? 'tongue' :
-               (gallery.filter === 'all' ? 'all' : 'other'));
+               (gallery.scope === 'visit' || gallery.filter !== 'all' ? 'other' : 'all'));
         var visitLabel = '';
         if (gallery.scope === 'patient') {
             visitLabel = doc.consultationId
@@ -816,11 +820,15 @@
         var bar = document.getElementById('maUploadBar');
         if (!bar) return;
         var tongueLocked = gallery.category === 'tongue';
+        // 過往記錄的「病歷附件」(visit/all) 不收舌象；舌象僅由「舌象圖片」入口上傳
+        var tongueOptionAllowed = tongueLocked || gallery.scope === 'patient';
+        var categoryOptions =
+            (tongueOptionAllowed ? '<option value="tongue">' + tt('舌象') + '</option>' : '') +
+            '<option value="report">' + tt('體檢報告') + '</option>' +
+            '<option value="other" selected>' + tt('其他') + '</option>';
         var categorySelect = tongueLocked ? '' :
             '<select id="maCategory" class="border border-gray-300 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-blue-500">' +
-                '<option value="tongue">' + tt('舌象') + '</option>' +
-                '<option value="report">' + tt('體檢報告') + '</option>' +
-                '<option value="other" selected>' + tt('其他') + '</option>' +
+                categoryOptions +
             '</select>';
         bar.innerHTML =
             '<div class="flex flex-wrap items-center gap-2 mb-3">' +
