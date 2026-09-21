@@ -715,6 +715,14 @@
             // 舊分類 'other' 亦歸入醫學報告
             list = list.filter(function (d) { return d.category !== 'tongue'; });
         }
+        if (gallery.scope === 'patient' && gallery.category === 'all' && gallery.filter !== 'all') {
+            // 病人層級綜合入口的下拉篩選：舌象圖片／醫學報告（舊分類 'other' 歸入醫學報告）
+            list = list.filter(function (d) {
+                return gallery.filter === 'tongue'
+                    ? d.category === 'tongue'
+                    : d.category !== 'tongue';
+            });
+        }
         return list;
     }
 
@@ -724,8 +732,18 @@
         var visitAttr = gallery.scope === 'visit'
             ? (gallery.consultationId || 'session:' + gallery.sessionId)
             : 'all';
-        var kindAttr = gallery.category === 'tongue' ? 'tongue'
-            : (gallery.scope === 'visit' ? 'other' : 'all');
+        var kindAttr;
+        if (gallery.category === 'tongue') {
+            kindAttr = 'tongue';
+        } else if (gallery.scope === 'visit') {
+            kindAttr = 'other';
+        } else if (gallery.filter === 'tongue') {
+            kindAttr = 'tongue';
+        } else if (gallery.filter === 'report') {
+            kindAttr = 'other';
+        } else {
+            kindAttr = 'all';
+        }
         var visitLabel = '';
         if (gallery.scope === 'patient') {
             visitLabel = doc.consultationId
@@ -777,10 +795,32 @@
             '</div>';
     }
 
-    // 附件僅由入口決定類型（舌象圖片／醫學報告），畫面不再顯示分類篩選
+    // 僅病人層級「醫學報告及舌象圖片」提供下拉選單，
+    // 可按「舌象圖片／醫學報告」兩類篩選；其餘入口只顯示單一類型，無需選單
     function renderFilters() {
         var el = document.getElementById('maFilters');
-        if (el) el.innerHTML = '';
+        if (!el) return;
+        if (gallery.scope !== 'patient' || gallery.category !== 'all') {
+            el.innerHTML = '';
+            return;
+        }
+        el.innerHTML =
+            '<div class="flex flex-wrap items-center gap-2 mb-4">' +
+                '<label for="maFilterSelect" class="text-sm font-medium text-gray-700">' + tt('分類') + '</label>' +
+                '<select id="maFilterSelect" class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">' +
+                    '<option value="all">' + tt('全部') + '</option>' +
+                    '<option value="tongue">' + tt('舌象圖片') + '</option>' +
+                    '<option value="report">' + tt('醫學報告') + '</option>' +
+                '</select>' +
+            '</div>';
+        var sel = document.getElementById('maFilterSelect');
+        if (sel) {
+            sel.value = gallery.filter;
+            sel.addEventListener('change', function () {
+                gallery.filter = sel.value;
+                renderGrid();
+            });
+        }
     }
 
     function renderUploadBar() {
@@ -973,6 +1013,8 @@
         gallery = {
             scope: scope,
             category: category,
+            // 病人層級「醫學報告及舌象圖片」的下拉篩選：all | tongue | report
+            filter: 'all',
             patientId: ctx.patientId,
             patientName: ctx.patientName,
             // 列表過濾用：僅 visit scope 限定診次
