@@ -24653,9 +24653,14 @@ function setBackupCloudStatus(message, tone) {
 /**
  * 讀取並顯示最近雲端備份狀態。
  */
+// 狀態請求序號：換帳號期間舊請求可能較晚返回，過期結果不寫入狀態列
+let backupStatusRequestSeq = 0;
+
 async function refreshCloudBackupStatus() {
+    const seq = ++backupStatusRequestSeq;
     try {
         const status = await callBackupApi('/status');
+        if (seq !== backupStatusRequestSeq) return status;
         const lastRun = status.lastRun || {};
         const lines = [];
         lines.push('最近備份檔：' + (status.lastExportFileName
@@ -24676,6 +24681,7 @@ async function refreshCloudBackupStatus() {
         setBackupCloudStatus(lines.join('　｜　'), lastRun.status === 'success' ? 'success' : 'warn');
         return status;
     } catch (error) {
+        if (seq !== backupStatusRequestSeq) return null;
         // 未登入時不顯示錯誤（系統頁可能先載入、稍後才登入）
         if (/尚未登入/.test(String(error.message || ''))) {
             setBackupCloudStatus('登入後可查看雲端備份狀態');
@@ -24801,29 +24807,31 @@ async function exportClinicBackupFromCloud() {
     }
 }
 
-// 打開系統管理頁面後自動刷新一次雲端備份狀態；未登入則等首次登入後刷新
+// 雲端備份狀態跟隨登入帳號自動刷新：每次登入／換帳號重抓、登出重置。
+// 不可只在首次登入刷新——登出不會重整頁面，否則換帳號後會殘留前一位
+// 使用者的權限錯誤（例如醫師帳號的「需要管理員權限」）。
 (function scheduleCloudStatusAutoRefresh() {
-    function runWhenReady() {
-        const auth = window.firebase && window.firebase.auth;
-        if (auth && auth.currentUser) {
-            refreshCloudBackupStatus();
-            return true;
-        }
-        return false;
-    }
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            if (!runWhenReady() && window.firebase && window.firebase.onAuthStateChanged && window.firebase.auth) {
-                const unsubscribe = window.firebase.onAuthStateChanged(window.firebase.auth, (user) => {
-                    if (user) {
-                        refreshCloudBackupStatus();
-                        try { unsubscribe(); } catch (_e) {}
-                    }
-                });
+    function bind() {
+        const fb = window.firebase;
+        if (!fb || !fb.auth || typeof fb.onAuthStateChanged !== 'function') return false;
+        // onAuthStateChanged 註冊後會立即以目前狀態（含已還原的 currentUser）回補一次
+        fb.onAuthStateChanged(fb.auth, (user) => {
+            if (user) {
+                refreshCloudBackupStatus();
+            } else {
+                setBackupCloudStatus('登入後可查看雲端備份狀態');
             }
         });
-    } else {
-        runWhenReady();
+        return true;
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bind);
+    } else if (!bind()) {
+        // 極少數 firebase_init 尚未就緒的情況：短輪詢補綁
+        const timer = setInterval(() => {
+            if (bind()) clearInterval(timer);
+        }, 200);
+        setTimeout(() => clearInterval(timer), 15000);
     }
 })();
 
