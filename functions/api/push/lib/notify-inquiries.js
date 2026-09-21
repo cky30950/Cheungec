@@ -1,12 +1,18 @@
 /* ============================================================
  * 新預診掃描與推播（Pages Cron 每分鐘呼叫）
  * ------------------------------------------------------------
- * 防重複機制（pushState/new_inquiry.notifiedIds，環狀清單上限 200）：
- *  1. 查近 10 分鐘 inquiries（createdAt DESC）
- *  2. 過濾已通知 ID
- *  3. 對全部 new_inquiry 訂閱發送（內容僅含病人姓名）
+ * 讀取成本最佳化（空跑零 Firestore 文件讀取）：
+ *  1. 先查近 3 分鐘 inquiries（createdAt DESC）；無任何單據時直接結束，
+ *     不讀去重狀態、不讀訂閱清單（空查詢結果本身為 0 次文件讀取）。
+ *  2. 有單據才讀 RTDB /pushState/new_inquiry 的 notifiedIds（環狀清單上限 200，
+ *     去重狀態存 RTDB，不計 Firestore 讀取費）並過濾已通知 ID。
+ *  3. 有新單才讀訂閱清單與在線狀態，對全部 new_inquiry 訂閱發送
+ *     （內容僅含病人姓名）。
  *  4. 成功送達（或無任何訂閱）後才寫入 notifiedIds；
- *     有暫時性失敗（429/5xx/網路錯誤）的 ID 不寫，下輪重試
+ *     有暫時性失敗（429/5xx/網路錯誤）的 ID 不寫，下輪重試。
+ *
+ * Lookback 為 3 分鐘：Cron 每分鐘執行，單據有 3 輪重試窗口；
+ * 視窗越短，同一單據在視窗內被重複讀取的次數越少。
  *
  * 端點失效（404/410）會自動刪除訂閱，不影響去重。
  * ============================================================ */
@@ -21,7 +27,7 @@ import {
 import { getOnlineUserIds } from './presence.js';
 import { sendToSubscriptions } from './sender.js';
 
-const LOOKBACK_MS = 10 * 60 * 1000;
+const LOOKBACK_MS = 3 * 60 * 1000;
 const EVENT = 'new_inquiry';
 
 /**
@@ -33,9 +39,6 @@ const EVENT = 'new_inquiry';
 export async function notifyNewInquiries(env, options = {}) {
     const now = options.now ? new Date(options.now) : new Date();
     const since = new Date(now.getTime() - LOOKBACK_MS);
-
-    const state = await getPushState(env, EVENT);
-    const notifiedSet = new Set(state.notifiedIds);
 
     const auth = await getAccessToken(env);
     const client = new FirestoreClient(
@@ -59,20 +62,43 @@ export async function notifyNewInquiries(env, options = {}) {
         ]
     });
 
+    // 空跑快速結束：近窗完全沒有單據時，不讀 RTDB 去重狀態、不讀訂閱清單。
+    // Firestore 查詢傳回 0 筆即為 0 次文件讀取，因此每分鐘的空 Cron 不產生帳單。
+    if (!Array.isArray(docs) || docs.length === 0) {
+        return {
+            scanned: 0,
+            newCount: 0,
+            notifiedIds: [],
+            failedIds: [],
+            deliveries: []
+        };
+    }
+
+    // 有單據才讀去重狀態
+    const state = await getPushState(env, EVENT);
+    const notifiedSet = new Set(state.notifiedIds);
+
     const fresh = docs.filter((d) => !notifiedSet.has(d.id));
 
-    // 無新單時不觸發訂閱清單讀取
-    let targets = [];
-    if (fresh.length > 0) {
-        const [subs, onlineIds] = await Promise.all([
-            listSubscriptions(env),
-            getOnlineUserIds(env)
-        ]);
-        targets = subs.filter(
-            (s) => (Array.isArray(s.events) ? s.events : [EVENT]).includes(EVENT)
-                && onlineIds.has(String(s.userId))
-        );
+    // 近窗單據皆已通知過：不觸發訂閱清單與在線狀態讀取
+    if (fresh.length === 0) {
+        return {
+            scanned: docs.length,
+            newCount: 0,
+            notifiedIds: [],
+            failedIds: [],
+            deliveries: []
+        };
     }
+
+    const [subs, onlineIds] = await Promise.all([
+        listSubscriptions(env),
+        getOnlineUserIds(env)
+    ]);
+    const targets = subs.filter(
+        (s) => (Array.isArray(s.events) ? s.events : [EVENT]).includes(EVENT)
+            && onlineIds.has(String(s.userId))
+    );
 
     const notifiedIds = [];
     const failedIds = [];

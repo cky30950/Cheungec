@@ -1,11 +1,17 @@
 /* ============================================================
  * Web Push 訂閱儲存（Cloudflare Pages Functions）
  * ------------------------------------------------------------
- * 透過 Service Account 以 Firestore REST 存取：
- *  - pushSubscriptions/{sha256(endpoint)}：訂閱資料
- *  - pushState/{event}：通知去重狀態
+ * 訂閱資料（pushSubscriptions/{sha256(endpoint)}）仍以 Firestore REST
+ * 存取；通知去重狀態則存於 Realtime Database（RTDB）：
+ *  - RTDB 路徑：/pushState/{event} = { notifiedIds:[], updatedAt:ISO }
+ *  - 原因：cron 每分鐘讀取，RTDB 不計 Firestore 文件讀取費，
+ *    且空跑路徑（notify-inquiries 先查詢後讀狀態）已不再觸發此讀取。
+ *  - 認證：Service Account OAuth2 token（含 firebase.database scope，
+ *    與 presence.js 相同模式；該 token 對 RTDB 具管理員存取權，不受規則限制）。
  *
- * 認證與 FirestoreClient 沿用 backup lib（與 attachments 相同模式）。
+ * 部署後首次讀到 RTDB 無資料時，會自舊 Firestore pushState 集合
+ * 單次搬移（每事件最多一次），避免切換初期重複推播；搬移完成後
+ * 可於 Firebase Console 手動刪除 Firestore 的 pushState 集合。
  * ============================================================ */
 
 import { getAccessToken } from '../../backup/lib/google-auth.js';
@@ -13,8 +19,11 @@ import { FirestoreClient } from '../../backup/lib/firestore.js';
 import { DEFAULT_EVENTS } from './events.js';
 
 const COLLECTION = 'pushSubscriptions';
-const STATE_COLLECTION = 'pushState';
+const LEGACY_STATE_COLLECTION = 'pushState';
 const STATE_MAX_IDS = 200;
+
+// RTDB 路徑段禁用字元；現有事件名（chat/appointment/new_inquiry）均安全
+const SAFE_EVENT_RE = /^[A-Za-z0-9_-]+$/;
 
 /**
  * 每請求新建 client（client 持有 access token，不可跨請求快取，
@@ -159,53 +168,112 @@ export async function listSubscriptions(env) {
 }
 
 /**
- * 讀取事件去重狀態。
+ * RTDB 根 URL（與 presence.js 相同慣例：env 優先，否則預設 asia-southeast1）。
+ */
+async function getRtdbBase(env) {
+  const auth = await getAccessToken(env);
+  const base = (env.FIREBASE_RTDB_URL
+      || `https://${auth.projectId}-default-rtdb.asia-southeast1.firebasedatabase.app`)
+      .replace(/\/$/, '');
+  return { base, token: auth.token };
+}
+
+function safeEventName(eventName) {
+  const name = String(eventName || '');
+  if (!SAFE_EVENT_RE.test(name)) {
+    throw new Error(`不安全的 pushState 事件名: ${name.slice(0, 40)}`);
+  }
+  return name;
+}
+
+/**
+ * 讀取事件去重狀態（RTDB /pushState/{event}）。
+ * RTDB 不存在該節點時回 200 + null，此時單次嘗試自舊 Firestore 搬移。
  * @returns {Promise<{notifiedIds:string[], updatedAt:string|null}>}
  */
 export async function getPushState(env, eventName = 'new_inquiry') {
-  const client = await getClient(env);
-  const doc = await client.getDocument(
-    `${STATE_COLLECTION}/${encodeURIComponent(eventName)}`
-  );
-  if (!doc || !doc.data) {
-    return { notifiedIds: [], updatedAt: null };
+  const event = safeEventName(eventName);
+  const { base, token } = await getRtdbBase(env);
+
+  const response = await fetch(`${base}/pushState/${event}.json`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`讀取 pushState(RTDB) 失敗 (HTTP ${response.status}): ${text.slice(0, 200)}`);
   }
-  return {
-    notifiedIds: Array.isArray(doc.data.notifiedIds) ? doc.data.notifiedIds : [],
-    updatedAt: doc.data.updatedAt ? toRfc3339(doc.data.updatedAt) : null
-  };
+
+  const data = await response.json();
+  if (data && typeof data === 'object') {
+    return {
+      notifiedIds: Array.isArray(data.notifiedIds) ? data.notifiedIds.map(String) : [],
+      updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : null
+    };
+  }
+
+  // RTDB 尚無資料：單次自舊 Firestore 集合搬移（best-effort，失敗不阻斷）
+  const migrated = await migrateLegacyState(env, event);
+  if (migrated) return migrated;
+
+  return { notifiedIds: [], updatedAt: null };
+}
+
+/**
+ * 自舊 Firestore pushState/{event} 搬移到 RTDB，每個事件僅在 RTDB
+ * 無節點時觸發一次。回傳 null 代表無舊資料或搬移失敗（視為全新狀態）。
+ */
+async function migrateLegacyState(env, event) {
+  try {
+    const client = await getClient(env);
+    const doc = await client.getDocument(
+      `${LEGACY_STATE_COLLECTION}/${encodeURIComponent(event)}`
+    );
+    if (!doc || !doc.data || !Array.isArray(doc.data.notifiedIds)
+        || doc.data.notifiedIds.length === 0) {
+      return null;
+    }
+    const migrated = {
+      notifiedIds: doc.data.notifiedIds.map(String).slice(-STATE_MAX_IDS),
+      updatedAt: doc.data.updatedAt ? toRfc3339(doc.data.updatedAt) : null
+    };
+    // 寫入 RTDB 失敗也不阻斷：後續 savePushState 會再次寫入
+    await putRtdbState(env, event, migrated).catch(() => {});
+    return migrated;
+  } catch (error) {
+    console.warn(`pushState 舊資料搬移失敗 (${event}):`, error && error.message);
+    return null;
+  }
+}
+
+/** 直接 PUT RTDB 節點（整節點覆寫）。 */
+async function putRtdbState(env, event, state) {
+  const { base, token } = await getRtdbBase(env);
+  const response = await fetch(`${base}/pushState/${event}.json`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(state)
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`寫入 pushState(RTDB) 失敗 (HTTP ${response.status}): ${text.slice(0, 200)}`);
+  }
+  return response.json().catch(() => null);
 }
 
 /**
  * 寫入事件去重狀態；notifiedIds 為環狀清單，上限 200（最新在尾端）。
  */
 export async function savePushState(env, eventName, notifiedIds, updatedAt) {
-  const client = await getClient(env);
-  const trimmed = notifiedIds.slice(-STATE_MAX_IDS);
-  const now = updatedAt || new Date().toISOString();
-  const fields = {
-    notifiedIds: { arrayValue: { values: trimmed.map((i) => ({ stringValue: String(i) })) } },
-    updatedAt: { timestampValue: now }
+  const event = safeEventName(eventName);
+  const state = {
+    notifiedIds: notifiedIds.map(String).slice(-STATE_MAX_IDS),
+    updatedAt: updatedAt || new Date().toISOString()
   };
-  const updateMask = Object.keys(fields)
-    .map((f) => `updateMask.fieldPaths=${encodeURIComponent(f)}`)
-    .join('&');
-  const response = await fetch(
-    `${client.documentsPath()}/${STATE_COLLECTION}/${encodeURIComponent(eventName)}?${updateMask}`,
-    {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${client.token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ fields })
-    }
-  );
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`寫入 pushState 失敗 (HTTP ${response.status}): ${text.slice(0, 200)}`);
-  }
-  return { notifiedIds: trimmed, updatedAt: now };
+  await putRtdbState(env, event, state);
+  return state;
 }
 
 export { STATE_MAX_IDS };
