@@ -796,23 +796,22 @@
     }
 
     // 僅病人層級「醫學報告及舌象圖片」提供下拉選單，
-    // 可按「舌象圖片／醫學報告」兩類篩選；其餘入口只顯示單一類型，無需選單
+    // 可按「舌象圖片／醫學報告」兩類篩選；其餘入口只顯示單一類型，無需選單。
+    // 選單置於上傳按鈕列最右側（maFilterSlot，ml-auto 推到右上角）
     function renderFilters() {
-        var el = document.getElementById('maFilters');
+        var el = document.getElementById('maFilterSlot');
         if (!el) return;
         if (gallery.scope !== 'patient' || gallery.category !== 'all') {
             el.innerHTML = '';
             return;
         }
         el.innerHTML =
-            '<div class="flex flex-wrap items-center gap-2 mb-4">' +
-                '<label for="maFilterSelect" class="text-sm font-medium text-gray-700">' + tt('分類') + '</label>' +
-                '<select id="maFilterSelect" class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">' +
-                    '<option value="all">' + tt('全部') + '</option>' +
-                    '<option value="tongue">' + tt('舌象圖片') + '</option>' +
-                    '<option value="report">' + tt('醫學報告') + '</option>' +
-                '</select>' +
-            '</div>';
+            '<label for="maFilterSelect" class="text-sm font-medium text-gray-700 whitespace-nowrap">' + tt('分類') + '</label>' +
+            '<select id="maFilterSelect" class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">' +
+                '<option value="all">' + tt('全部') + '</option>' +
+                '<option value="tongue">' + tt('舌象圖片') + '</option>' +
+                '<option value="report">' + tt('醫學報告') + '</option>' +
+            '</select>';
         var sel = document.getElementById('maFilterSelect');
         if (sel) {
             sel.value = gallery.filter;
@@ -839,6 +838,7 @@
                 '</button>' +
                 '<input type="file" id="maCameraInput" accept="image/*" capture="environment" class="hidden">' +
                 '<input type="file" id="maFileInput" accept="image/jpeg,image/png,image/webp,image/gif" multiple class="hidden">' +
+                '<div id="maFilterSlot" class="ml-auto flex items-center gap-2"></div>' +
             '</div>' +
             '<div id="maProgress" class="space-y-2 mb-3"></div>';
 
