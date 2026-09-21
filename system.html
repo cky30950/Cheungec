@@ -5373,13 +5373,18 @@
         </div>
     </div>
 
-    <!-- 病歷附件原圖 Lightbox -->
-    <div id="attachmentLightbox" class="fixed inset-0 z-[2000] bg-black/90 hidden flex flex-col items-center justify-center p-4">
-        <button type="button" id="lbClose" class="absolute top-3 right-4 text-white/80 hover:text-white text-4xl leading-none z-10">&times;</button>
-        <button type="button" id="lbPrev" class="absolute left-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-11 h-11 flex items-center justify-center text-2xl z-10">‹</button>
-        <button type="button" id="lbNext" class="absolute right-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-11 h-11 flex items-center justify-center text-2xl z-10">›</button>
-        <img id="lbImage" src="" alt="附件原圖" class="max-w-full max-h-[82vh] object-contain rounded">
+    <!-- 病歷附件原圖 Lightbox（支援滾輪／雙指縮放、拖動平移、雙擊放大） -->
+    <div id="attachmentLightbox" class="fixed inset-0 z-[2000] bg-black/90 hidden flex flex-col items-center justify-center p-4 select-none">
+        <button type="button" id="lbClose" class="absolute top-3 right-4 text-white/80 hover:text-white text-4xl leading-none z-20">&times;</button>
+        <button type="button" id="lbPrev" class="absolute left-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-11 h-11 flex items-center justify-center text-2xl z-20">‹</button>
+        <button type="button" id="lbNext" class="absolute right-3 top-1/2 -translate-y-1/2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-11 h-11 flex items-center justify-center text-2xl z-20">›</button>
+        <img id="lbImage" src="" alt="附件原圖" draggable="false" class="max-w-full max-h-[82vh] object-contain rounded" style="touch-action: none; will-change: transform;">
         <div id="lbInfo" class="mt-3 text-sm text-white/90 text-center max-w-full px-12"></div>
+        <div class="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/10 backdrop-blur rounded-full px-1 py-1 z-20">
+            <button type="button" id="lbZoomOut" title="縮小" aria-label="縮小" class="w-9 h-9 flex items-center justify-center rounded-full text-white/85 hover:bg-white/20 text-xl leading-none">−</button>
+            <button type="button" id="lbZoomReset" title="實際大小" class="min-w-[58px] h-9 px-2 flex items-center justify-center rounded-full text-white/85 hover:bg-white/20 text-xs">100%</button>
+            <button type="button" id="lbZoomIn" title="放大" aria-label="放大" class="w-9 h-9 flex items-center justify-center rounded-full text-white/85 hover:bg-white/20 text-xl leading-none">+</button>
+        </div>
     </div>
 
     <!-- 病歷附件相機拍照（手機/USB 攝影機即時預覽） -->

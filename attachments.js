@@ -1106,6 +1106,7 @@
         var doc = lightbox.docs[lightbox.index];
         if (!doc) { closeLightbox(); return; }
         var src = publicUrl(doc.originalKey) || publicUrl(doc.thumbKey);
+        resetZoom(false);
         document.getElementById('lbImage').src = src;
         var visitInfo = '';
         if (doc.consultationId) {
@@ -1141,6 +1142,7 @@
     function closeLightbox() {
         document.getElementById('attachmentLightbox').classList.add('hidden');
         document.getElementById('lbImage').src = '';
+        resetZoom(false);
         lightbox = null;
     }
 
@@ -1149,6 +1151,274 @@
         if (e.key === 'Escape') closeLightbox();
         else if (e.key === 'ArrowLeft') lightboxStep(-1);
         else if (e.key === 'ArrowRight') lightboxStep(1);
+        else if (e.key === '+' || e.key === '=') zoomAtCenter(zoom.scale * 1.3, true);
+        else if (e.key === '-' || e.key === '_') zoomAtCenter(zoom.scale / 1.3, true);
+        else if (e.key === '0') resetZoom(true);
+    }
+
+    /* ----------------------------------------------------------
+     * Lightbox 縮放／平移
+     * 滾輪、雙指捏合、雙擊放大；放大後可拖動或單指平移；
+     * 100% 時左右滑動仍可換圖
+     * ---------------------------------------------------------- */
+    var ZOOM_MIN = 1;
+    var ZOOM_MAX = 5;
+    var ZOOM_TOGGLE = 2.5;
+    var zoom = { scale: 1, x: 0, y: 0, dragging: false };
+    var zoomBound = false;
+
+    function applyZoom(animate) {
+        var img = document.getElementById('lbImage');
+        if (!img) return;
+        img.style.transition = animate ? 'transform 0.18s ease-out' : 'none';
+        img.style.transform =
+            'translate(' + zoom.x + 'px,' + zoom.y + 'px) scale(' + zoom.scale + ')';
+        img.style.cursor = zoom.scale > 1.001
+            ? (zoom.dragging ? 'grabbing' : 'grab')
+            : 'zoom-in';
+        var label = document.getElementById('lbZoomReset');
+        if (label) {
+            label.textContent = Math.round(zoom.scale * 100) + '%';
+            label.classList.toggle('opacity-40', zoom.scale <= 1.001);
+        }
+        var outBtn = document.getElementById('lbZoomOut');
+        var inBtn = document.getElementById('lbZoomIn');
+        if (outBtn) outBtn.classList.toggle('opacity-40', zoom.scale <= ZOOM_MIN + 0.001);
+        if (inBtn) inBtn.classList.toggle('opacity-40', zoom.scale >= ZOOM_MAX - 0.001);
+    }
+
+    function clampPan() {
+        var img = document.getElementById('lbImage');
+        if (!img) return;
+        if (zoom.scale <= 1.001) {
+            zoom.scale = 1;
+            zoom.x = 0;
+            zoom.y = 0;
+            return;
+        }
+        var rect = img.getBoundingClientRect();
+        var baseW = rect.width / zoom.scale;
+        var baseH = rect.height / zoom.scale;
+        var maxX = Math.max(0, baseW * (zoom.scale - 1) / 2);
+        var maxY = Math.max(0, baseH * (zoom.scale - 1) / 2);
+        zoom.x = Math.max(-maxX, Math.min(maxX, zoom.x));
+        zoom.y = Math.max(-maxY, Math.min(maxY, zoom.y));
+    }
+
+    // 以圖片基準中心為原點，把客戶端座標換成相對座標
+    function pointFromClient(img, clientX, clientY) {
+        var rect = img.getBoundingClientRect();
+        // rect 中心已含 translate 位移，扣除後即為未變形的圖片中心
+        return {
+            x: clientX - (rect.left + rect.width / 2 - zoom.x),
+            y: clientY - (rect.top + rect.height / 2 - zoom.y)
+        };
+    }
+
+    function zoomTo(newScale, pt, animate) {
+        newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newScale));
+        pt = pt || { x: 0, y: 0 };
+        var factor = newScale / zoom.scale;
+        if (Math.abs(factor - 1) > 1e-6) {
+            // 保持錨點（游標／雙指中心）下的畫面位置不變
+            zoom.x = pt.x - (pt.x - zoom.x) * factor;
+            zoom.y = pt.y - (pt.y - zoom.y) * factor;
+        }
+        zoom.scale = newScale;
+        clampPan();
+        applyZoom(animate);
+    }
+
+    function resetZoom(animate) {
+        zoom.scale = 1;
+        zoom.x = 0;
+        zoom.y = 0;
+        applyZoom(!!animate);
+    }
+
+    function zoomAtCenter(factor, animate) {
+        zoomTo(zoom.scale * factor, { x: 0, y: 0 }, animate);
+    }
+
+    function toggleZoomAt(img, clientX, clientY) {
+        var pt = pointFromClient(img, clientX, clientY);
+        if (zoom.scale > 1.01) resetZoom(true);
+        else zoomTo(ZOOM_TOGGLE, pt, true);
+    }
+
+    function bindLightboxZoom() {
+        if (zoomBound) return;
+        var img = document.getElementById('lbImage');
+        if (!img) return;
+        zoomBound = true;
+
+        /* ---- 桌面：滾輪、雙擊、滑鼠拖動 ---- */
+        img.addEventListener('wheel', function (e) {
+            e.preventDefault();
+            var factor = e.deltaY < 0 ? 1.18 : 1 / 1.18;
+            zoomTo(zoom.scale * factor, pointFromClient(img, e.clientX, e.clientY), false);
+        }, { passive: false });
+
+        img.addEventListener('dblclick', function (e) {
+            toggleZoomAt(img, e.clientX, e.clientY);
+        });
+
+        var mouseDrag = null;
+        img.addEventListener('mousedown', function (e) {
+            if (zoom.scale <= 1.001 || e.button !== 0) return;
+            e.preventDefault();
+            mouseDrag = { x: e.clientX, y: e.clientY };
+            zoom.dragging = true;
+            applyZoom(false);
+        });
+        window.addEventListener('mousemove', function (e) {
+            if (!mouseDrag) return;
+            zoom.x += e.clientX - mouseDrag.x;
+            zoom.y += e.clientY - mouseDrag.y;
+            mouseDrag.x = e.clientX;
+            mouseDrag.y = e.clientY;
+            clampPan();
+            applyZoom(false);
+        });
+        window.addEventListener('mouseup', function () {
+            if (!mouseDrag) return;
+            mouseDrag = null;
+            zoom.dragging = false;
+            applyZoom(false);
+        });
+
+        /* ---- 觸控：雙指捏合、單指平移、雙點放大、滑動換圖 ---- */
+        var touch = null;
+        var lastTapTime = 0;
+
+        function touchDist(a, b) {
+            return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+        }
+        function touchMid(a, b) {
+            return {
+                x: (a.clientX + b.clientX) / 2,
+                y: (a.clientY + b.clientY) / 2
+            };
+        }
+
+        img.addEventListener('touchstart', function (e) {
+            if (e.touches.length === 1) {
+                var t = e.touches[0];
+                touch = {
+                    mode: zoom.scale > 1.001 ? 'pan' : 'swipe',
+                    startX: t.clientX, startY: t.clientY,
+                    lastX: t.clientX, lastY: t.clientY,
+                    moved: false, time: Date.now()
+                };
+            } else if (e.touches.length === 2) {
+                var a = e.touches[0], b = e.touches[1];
+                touch = {
+                    mode: 'pinch',
+                    startDist: Math.max(1, touchDist(a, b)),
+                    startScale: zoom.scale
+                };
+            }
+        }, { passive: true });
+
+        img.addEventListener('touchmove', function (e) {
+            if (!touch) return;
+            e.preventDefault();
+
+            if (touch.mode === 'pinch' && e.touches.length === 2) {
+                var pa = e.touches[0], pb = e.touches[1];
+                var dist = touchDist(pa, pb);
+                var mid = touchMid(pa, pb);
+                var target = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX,
+                    touch.startScale * (dist / touch.startDist)));
+                zoomTo(target, pointFromClient(img, mid.x, mid.y), false);
+                touch.moved = true;
+                return;
+            }
+
+            var t = e.touches[0];
+            if (!t) return;
+            var dx = t.clientX - touch.lastX;
+            var dy = t.clientY - touch.lastY;
+            touch.lastX = t.clientX;
+            touch.lastY = t.clientY;
+
+            if (touch.mode === 'pan') {
+                zoom.x += dx;
+                zoom.y += dy;
+                clampPan();
+                applyZoom(false);
+            }
+            if (Math.abs(t.clientX - touch.startX) > 8 ||
+                Math.abs(t.clientY - touch.startY) > 8) {
+                touch.moved = true;
+            }
+        }, { passive: false });
+
+        img.addEventListener('touchend', function (e) {
+            if (!touch) return;
+
+            // 捏合後仍有一指 → 直接轉為平移模式
+            if (touch.mode === 'pinch' && e.touches.length === 1) {
+                var t = e.touches[0];
+                touch = {
+                    mode: 'pan',
+                    startX: t.clientX, startY: t.clientY,
+                    lastX: t.clientX, lastY: t.clientY,
+                    moved: true, time: Date.now()
+                };
+                if (zoom.scale <= 1.001) resetZoom(false);
+                return;
+            }
+
+            var st = touch;
+            touch = null;
+            if (st.mode === 'pinch') return;
+
+            var end = e.changedTouches[0] || { clientX: st.lastX, clientY: st.lastY };
+
+            // 雙點：放大／還原
+            var isTap = !st.moved && (Date.now() - st.time) < 280;
+            if (isTap) {
+                // 抑制瀏覽器合成的 click／dblclick，避免手機上重複切換
+                e.preventDefault();
+                var now = Date.now();
+                if (now - lastTapTime < 320) {
+                    toggleZoomAt(img, end.clientX, end.clientY);
+                    lastTapTime = 0;
+                } else {
+                    lastTapTime = now;
+                }
+                return;
+            }
+
+            // 100% 下左右快滑換圖
+            if (st.mode === 'swipe' && zoom.scale <= 1.001) {
+                var sx = end.clientX - st.startX;
+                var sy = end.clientY - st.startY;
+                if (Math.abs(sx) > 48 && Math.abs(sx) > Math.abs(sy)) {
+                    lightboxStep(sx < 0 ? 1 : -1);
+                }
+            }
+        }, { passive: false });
+
+        /* ---- 控制列按鈕 ---- */
+        var zoomInBtn = document.getElementById('lbZoomIn');
+        var zoomOutBtn = document.getElementById('lbZoomOut');
+        var zoomResetBtn = document.getElementById('lbZoomReset');
+        if (zoomInBtn) zoomInBtn.title = tt('放大');
+        if (zoomOutBtn) zoomOutBtn.title = tt('縮小');
+        if (zoomResetBtn) zoomResetBtn.title = tt('實際大小');
+        if (zoomInBtn) zoomInBtn.addEventListener('click', function () {
+            zoomAtCenter(1.3, true);
+        });
+        if (zoomOutBtn) zoomOutBtn.addEventListener('click', function () {
+            zoomAtCenter(1 / 1.3, true);
+        });
+        if (zoomResetBtn) zoomResetBtn.addEventListener('click', function () {
+            resetZoom(true);
+        });
+
+        applyZoom(false);
     }
 
     /* ----------------------------------------------------------
@@ -1641,6 +1911,7 @@
         var lbNext = document.getElementById('lbNext');
         if (lbPrev) lbPrev.addEventListener('click', function () { lightboxStep(-1); });
         if (lbNext) lbNext.addEventListener('click', function () { lightboxStep(1); });
+        bindLightboxZoom();
 
         var camClose = document.getElementById('maCamClose');
         if (camClose) camClose.addEventListener('click', closeCameraModal);
