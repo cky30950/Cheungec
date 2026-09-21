@@ -19,6 +19,7 @@ import {
     COMPLETED_NOTIFY_POSITIONS
 } from './events.js';
 import { getPushState, savePushState, listSubscriptions } from './push-store.js';
+import { getOnlineUserIds } from './presence.js';
 import { sendToSubscriptions } from './sender.js';
 
 const LIMITS = {
@@ -133,9 +134,11 @@ function hasEvent(sub, event) {
     return list.includes(event);
 }
 
-function filterTargets(subs, spec, auth) {
+function filterTargets(subs, spec, auth, onlineIds) {
     return subs.filter((sub) => {
         if (!hasEvent(sub, spec.event)) return false;
+        // 派送閘門：登出或關閉系統（presence 非在線）者不收通知
+        if (!onlineIds.has(String(sub.userId))) return false;
         if (spec.kind === 'chat') {
             if (spec.event === EVENT_CHAT_PUBLIC) {
                 return String(sub.userId) !== String(auth.uid);
@@ -228,7 +231,8 @@ export async function processNotify(env, auth, body) {
     }
 
     const subs = await listSubscriptions(env);
-    const targets = filterTargets(subs, spec, auth);
+    const onlineIds = await getOnlineUserIds(env);
+    const targets = filterTargets(subs, spec, auth, onlineIds);
 
     if (targets.length === 0) {
         // 無對象仍寫鍵：避免日後新增訂閱時補推舊事件

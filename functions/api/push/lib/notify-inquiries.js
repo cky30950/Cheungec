@@ -18,6 +18,7 @@ import {
     savePushState,
     listSubscriptions
 } from './push-store.js';
+import { getOnlineUserIds } from './presence.js';
 import { sendToSubscriptions } from './sender.js';
 
 const LOOKBACK_MS = 10 * 60 * 1000;
@@ -63,9 +64,13 @@ export async function notifyNewInquiries(env, options = {}) {
     // 無新單時不觸發訂閱清單讀取
     let targets = [];
     if (fresh.length > 0) {
-        const subs = await listSubscriptions(env);
+        const [subs, onlineIds] = await Promise.all([
+            listSubscriptions(env),
+            getOnlineUserIds(env)
+        ]);
         targets = subs.filter(
             (s) => (Array.isArray(s.events) ? s.events : [EVENT]).includes(EVENT)
+                && onlineIds.has(String(s.userId))
         );
     }
 
