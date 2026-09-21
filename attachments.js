@@ -432,7 +432,7 @@
     }
 
     /* ----------------------------------------------------------
-     * 圖片本端處理（canvas 原圖 + 縮圖）
+     * 圖片本端處理（canvas 原圖；不再產生獨立縮圖）
      * ---------------------------------------------------------- */
 
     function loadImageElement(fileOrUrl) {
@@ -510,8 +510,9 @@
     }
 
     /**
-     * 產出原圖（≤2048）與縮圖（≤480）；兩者使用相同 MIME。
-     * @returns {Promise<{original:Blob, thumb:Blob, contentType:string, width:number, height:number}>}
+     * 產出原圖（≤2048，JPEG；含透明的 PNG 保留 PNG）。
+     * 不再產生獨立縮圖：列表縮圖位置以原圖靠 CSS 縮放顯示。
+     * @returns {Promise<{original:Blob, contentType:string, width:number, height:number}>}
      */
     async function prepareImage(file, maxBytes) {
         var inType = ACCEPT_TYPES[String(file.type || '').toLowerCase()];
@@ -526,7 +527,6 @@
         // PNG 有 alpha 才保留 PNG；其餘（含 GIF/WebP）一律 JPEG
         var contentType = (inType === 'image/png' && hasAlpha) ? 'image/png' : 'image/jpeg';
         var original = await drawResized(source, 2048, contentType, 0.9);
-        var thumb = await drawResized(source, 480, contentType, 0.82);
         if (typeof source.close === 'function') {
             try { source.close(); } catch (_e) {}
         }
@@ -535,7 +535,6 @@
         }
         return {
             original: original.blob,
-            thumb: thumb.blob,
             contentType: contentType,
             width: original.width,
             height: original.height
@@ -567,7 +566,7 @@
     }
 
     /**
-     * 完整上傳單一檔案：presign（後端同步建立權威中繼文件）→ 直傳兩物件 → 就緒。
+     * 完整上傳單一檔案：presign（後端同步建立權威中繼文件）→ 直傳原圖 → 就緒。
      * @param {File} file
      * @param {object} ctx resolveVisitContext 結果
      * @param {string} category
@@ -607,7 +606,8 @@
             width: prepared.width,
             height: prepared.height,
             originalKey: presign.uploads.original.key,
-            thumbKey: presign.uploads.thumb.key,
+            // 新上傳無獨立縮圖，thumbKey 即原圖 key
+            thumbKey: presign.uploads.original.key,
             uploadStatus: 'uploading',
             uploadedAt: new Date(),
             uploadedByUid: presign.uploadedByUid || uploader.uid,
@@ -619,19 +619,12 @@
         };
 
         try {
-            if (onProgress) onProgress(0.05, '上傳原圖…');
+            if (onProgress) onProgress(0.05, '上傳圖片…');
             await putObject(
                 presign.uploads.original.url,
                 prepared.original,
                 prepared.contentType,
-                function (p) { if (onProgress) onProgress(0.05 + p * 0.7); }
-            );
-            if (onProgress) onProgress(0.75, '上傳縮圖…');
-            await putObject(
-                presign.uploads.thumb.url,
-                prepared.thumb,
-                prepared.contentType,
-                function (p) { if (onProgress) onProgress(0.75 + p * 0.2); }
+                function (p) { if (onProgress) onProgress(0.05 + p * 0.9); }
             );
             if (onProgress) onProgress(1, '完成');
             await updateMetadata(presign.fileId, { uploadStatus: 'ready' });

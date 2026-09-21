@@ -108,8 +108,7 @@
     camDenied: 'Cannot access the camera (permission denied or no device). Please use the album button.',
     retake: '🔁 Retake', use: '✅ Use photo', switchCam: '🔄 Switch',
     preparing: 'Processing image…',
-    uploadingOrig: 'Uploading original…',
-    uploadingThumb: 'Uploading thumbnail…',
+    uploadingOrig: 'Uploading…',
     finishing: 'Finalizing…',
     done: 'Uploaded, the computer screen has received it.',
     doneCount: function (n) { return n + ' photo(s) uploaded'; },
@@ -128,8 +127,7 @@
     camDenied: '無法啟用攝影機（未授權或無裝置），請改用「相簿」選擇照片。',
     retake: '🔁 重拍', use: '✅ 使用照片', switchCam: '🔄 切換鏡頭',
     preparing: '圖片處理中…',
-    uploadingOrig: '上傳原圖…',
-    uploadingThumb: '上傳縮圖…',
+    uploadingOrig: '上傳圖片…',
     finishing: '完成處理中…',
     done: '上傳完成，電腦端已收到。',
     doneCount: function (n) { return '已成功上傳 ' + n + ' 張照片'; },
@@ -252,15 +250,12 @@
     return decodeSource(file).then(function (source) {
       var hasAlpha = inType === 'image/png' && sourceHasAlpha(source);
       var contentType = hasAlpha ? 'image/png' : 'image/jpeg';
-      return Promise.all([
-        drawResized(source, 2048, contentType, 0.9),
-        drawResized(source, 480, contentType, 0.82)
-      ]).then(function (r) {
+      return drawResized(source, 2048, contentType, 0.9).then(function (r) {
         if (typeof source.close === 'function') { try { source.close(); } catch (_e) {} }
-        if (r[0].blob.size > maxBytes) throw new Error(L.errPrefix + '>15MB');
+        if (r.blob.size > maxBytes) throw new Error(L.errPrefix + '>15MB');
         return {
-          original: r[0].blob, thumb: r[1].blob,
-          contentType: contentType, width: r[0].width, height: r[0].height
+          original: r.blob,
+          contentType: contentType, width: r.width, height: r.height
         };
       });
     });
@@ -330,16 +325,12 @@
 
       setProgress(0.05, L.uploadingOrig);
       await putObject(presign.uploads.original.url, p.original, p.contentType,
-        function (pr) { setProgress(0.05 + pr * 0.7, L.uploadingOrig); });
-
-      setProgress(0.75, L.uploadingThumb);
-      await putObject(presign.uploads.thumb.url, p.thumb, p.contentType,
-        function (pr) { setProgress(0.75 + pr * 0.2, L.uploadingThumb); });
+        function (pr) { setProgress(0.05 + pr * 0.9, L.uploadingOrig); });
 
       setProgress(0.98, L.finishing);
       await apiPost('/capture-complete', { sid: sid, token: token, fileId: presign.fileId });
 
-      entry.thumbUrl = publicUrl(presign.uploads.thumb.key);
+      entry.thumbUrl = publicUrl(presign.uploads.original.key);
       entry.done = true;
       setProgress(1, L.done);
       renderThumbs();

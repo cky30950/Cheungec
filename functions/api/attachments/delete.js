@@ -131,15 +131,20 @@ export async function onRequestPost(context) {
             }
         }
 
-        // R2 刪除（物件不存在不視為錯誤），兩個 key 各自獨立嘗試
+        // R2 刪除（物件不存在不視為錯誤）。新上傳已無獨立縮圖，
+        // thumbKey 與 originalKey 相同，故先去重再逐個刪除；
+        // 舊記錄仍可能有兩個不同 key。
         const r2Errors = [];
-        for (const field of ['originalKey', 'thumbKey']) {
-            const key = data[field];
-            if (!key) continue;
+        const keysToDelete = [...new Set(
+            ['originalKey', 'thumbKey']
+                .map((f) => String(data[f] || ''))
+                .filter(Boolean)
+        )];
+        for (const key of keysToDelete) {
             try {
-                await env.ATTACHMENTS_BUCKET.delete(String(key));
+                await env.ATTACHMENTS_BUCKET.delete(key);
             } catch (r2Err) {
-                r2Errors.push(`${field}: ${r2Err.message}`);
+                r2Errors.push(`${key}: ${r2Err.message}`);
             }
         }
         if (r2Errors.length > 0) {

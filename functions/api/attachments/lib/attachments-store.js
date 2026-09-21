@@ -151,8 +151,11 @@ export async function issuePresignedUpload(env, p) {
         pad(now.getUTCDate());
     const keyBase = `attachments/${patientId}/${yyyyMmDd}/${fileId}`;
 
-    const sign = async (kind) => {
-        const key = `${keyBase}/${kind}.${ext}`;
+    // 只產出原圖一組簽章 URL。
+    // 列表縮圖位置直接以原圖靠瀏覽器/CSS 縮放顯示，不再產生獨立縮圖物件；
+    // 中繼文件仍保留 thumbKey 欄位並指向原圖 key，舊前端/舊記錄可相容。
+    const original = await (async () => {
+        const key = `${keyBase}/original.${ext}`;
         const signed = await buildPresignedPutUrl({
             accountId: cfg.accountId,
             bucket: cfg.bucket,
@@ -164,9 +167,7 @@ export async function issuePresignedUpload(env, p) {
             now
         });
         return { url: signed.url, key, contentType };
-    };
-
-    const [original, thumb] = await Promise.all([sign('original'), sign('thumb')]);
+    })();
 
     const nowIso = now.toISOString();
     const metaFields = Object.assign({
@@ -183,7 +184,8 @@ export async function issuePresignedUpload(env, p) {
         width: widthValue > 0 ? fsInt(widthValue) : FS_NULL,
         height: heightValue > 0 ? fsInt(heightValue) : FS_NULL,
         originalKey: fsStr(original.key),
-        thumbKey: fsStr(thumb.key),
+        // 不再有獨立縮圖：thumbKey 與 originalKey 相同
+        thumbKey: fsStr(original.key),
         uploadStatus: fsStr('uploading'),
         uploadedAt: fsTs(nowIso),
         updatedAt: fsTs(nowIso),
@@ -205,6 +207,6 @@ export async function issuePresignedUpload(env, p) {
         maxBytes,
         expiresAt: new Date(now.getTime() + ttlSec * 1000).toISOString(),
         publicBase: String(env.R2_PUBLIC_BASE || '').replace(/\/+$/, ''),
-        uploads: { original, thumb }
+        uploads: { original }
     };
 }

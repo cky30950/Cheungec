@@ -1,9 +1,10 @@
 /* ============================================================
  * POST /api/attachments/presign
  * ------------------------------------------------------------
- * 為病歷附件（舌照／體檢報告／其他圖片）簽發兩組 R2
- * Presigned PUT URL（原圖 original、縮圖 thumb 各一組），
- * 瀏覽器取得後直接 PUT 至 R2，不經本 Function 中傳檔案。
+ * 為病歷附件（舌照／體檢報告／其他圖片）簽發一組 R2
+ * Presigned PUT URL（原圖），瀏覽器取得後直接 PUT 至 R2，
+ * 不經本 Function 中傳檔案。列表縮圖位置以原圖 CSS 縮放顯示，
+ * 不再上傳獨立縮圖。
  *
  * 需 Bearer Firebase ID Token；共用簽發邏輯見
  * ./lib/attachments-store.js（手機代拍端點同模組）。
