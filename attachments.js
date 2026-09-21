@@ -1692,11 +1692,13 @@
     }
 
     /* ----------------------------------------------------------
-     * 手機代拍（電腦出 QR／連結，手機掃碼拍照直傳，電腦輪詢接收）
+     * 手機代拍（電腦出 QR／連結，手機掃碼拍照直傳；
+     * 電腦以 onSnapshot 即時監聽接收，避免輪詢反覆讀取整批文件）
      * ---------------------------------------------------------- */
 
     var relay = null;
-    var RELAY_POLL_MS = 3000;
+    // 僅用於 UI 倒數／過期檢查，不觸發任何 Firestore 讀取
+    var RELAY_COUNTDOWN_MS = 30000;
 
     function relayEls() {
         return {
@@ -1768,8 +1770,8 @@
             url: info.captureUrl,
             patientId: String(ctx.patientId),
             expiresAt: new Date(info.expiresAt).getTime(),
-            seen: {},
-            timer: null
+            timer: null,
+            unsub: null
         };
 
         // QR Code（CDN 程式庫；未載入時只顯示連結）
@@ -1787,11 +1789,43 @@
             } catch (_e) { els.qr.innerHTML = ''; }
         }
         els.link.textContent = info.captureUrl;
-        pollRelay();
-        relay.timer = setInterval(pollRelay, RELAY_POLL_MS);
+        startRelayListener();
+        updateRelayExpiry();
+        relay.timer = setInterval(updateRelayExpiry, RELAY_COUNTDOWN_MS);
     }
 
-    async function pollRelay() {
+    /**
+     * 以 onSnapshot 監聽此 relay session：
+     * 首次回調讀取當前全部相符文件（N reads），之後只有新增／變更才計費，
+     * 不再像輪詢每 3 秒把整批文件整批重讀。
+     */
+    function startRelayListener() {
+        if (!relay) return;
+        var fb = window.firebase;
+        var sid = relay.sid;
+        var q = fb.firestoreQuery(
+            fb.collection(fb.db, COLLECTION),
+            fb.where('relaySessionId', '==', sid)
+        );
+        relay.unsub = fb.onSnapshot(q, function (snap) {
+            // 關閉視窗或按「重新產生」後，舊監聽的殘留回調直接忽略
+            if (!relay || relay.sid !== sid) return;
+            var readyDocs = snap.docs.map(normalizeDoc).filter(isReady);
+            readyDocs.forEach(function (d) { cacheUpsert(relay.patientId, d); });
+            renderGrid();
+            renderRelayReceived();
+            var els = relayEls();
+            els.status.textContent = readyDocs.length > 0
+                ? '✓ ' + tt('已從手機收到') + ' ' + readyDocs.length + ' ' + tt('張照片，可繼續拍攝')
+                : tt('等待手機掃碼連線…');
+            updateRelayExpiry();
+        }, function (err) {
+            console.warn('relay listener failed:', err);
+        });
+    }
+
+    // 單純更新倒數／過期狀態（不查 Firestore）
+    function updateRelayExpiry() {
         if (!relay) return;
         var els = relayEls();
         var remainMs = relay.expiresAt - Date.now();
@@ -1802,33 +1836,6 @@
             return;
         }
         els.expiry.textContent = tt('連結有效期限') + '：' + Math.ceil(remainMs / 60000) + ' ' + tt('分鐘');
-
-        var fb = window.firebase;
-        try {
-            var snap = await fb.getDocs(fb.firestoreQuery(
-                fb.collection(fb.db, COLLECTION),
-                fb.where('relaySessionId', '==', relay.sid)
-            ));
-            var readyDocs = snap.docs.map(normalizeDoc).filter(isReady);
-            var fresh = [];
-            readyDocs.forEach(function (d) {
-                var id = d.fileId || d.id;
-                if (!relay.seen[id]) {
-                    relay.seen[id] = true;
-                    fresh.push(d);
-                }
-            });
-            if (fresh.length > 0) {
-                fresh.forEach(function (d) { cacheUpsert(relay.patientId, d); });
-                renderGrid();
-                renderRelayReceived();
-            }
-            els.status.textContent = readyDocs.length > 0
-                ? '✓ ' + tt('已從手機收到') + ' ' + readyDocs.length + ' ' + tt('張照片，可繼續拍攝')
-                : tt('等待手機掃碼連線…');
-        } catch (err) {
-            console.warn('relay poll failed:', err);
-        }
     }
 
     function renderRelayReceived() {
@@ -1848,9 +1855,14 @@
     }
 
     function stopRelayPolling() {
-        if (relay && relay.timer) {
+        if (!relay) return;
+        if (relay.timer) {
             clearInterval(relay.timer);
             relay.timer = null;
+        }
+        if (relay.unsub) {
+            try { relay.unsub(); } catch (_e) {}
+            relay.unsub = null;
         }
     }
 
