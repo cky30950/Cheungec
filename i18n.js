@@ -1268,6 +1268,8 @@ window.translations = {
 
         "病歷歷來附件": "病历历来附件",
         "病歷附件": "病历附件",
+        "醫學報告及舌象圖片": "医学报告及舌象图片",
+        "醫學報告": "医学报告",
         "舌象圖片": "舌象图片",
         "舌象": "舌象",
         "體檢報告": "体检报告",
@@ -2321,6 +2323,8 @@ window.translations = {
 
         "病歷歷來附件": "Medical Record Attachments",
         "病歷附件": "Visit Attachments",
+        "醫學報告及舌象圖片": "Medical Reports & Tongue Images",
+        "醫學報告": "Medical Reports",
         "舌象圖片": "Tongue Photos",
         "體檢報告": "Medical Report",
         "拍照": "Take Photo",

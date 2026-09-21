@@ -1,7 +1,7 @@
 /* ============================================================
- * 病歷附件（Cloudflare R2 直傳）前端模組
+ * 醫學報告／舌象圖片（Cloudflare R2 直傳）前端模組
  * ------------------------------------------------------------
- * 功能：舌象／體檢報告／其他圖片的拍照、上傳、縮圖瀏覽、
+ * 功能：舌象圖片／醫學報告的拍照、上傳、縮圖瀏覽、
  *       原圖 Lightbox、分權刪除；診次暫存與保存後歸戶。
  *
  * 對外介面（window.MedicalAttachments）：
@@ -24,17 +24,13 @@
     var COLLECTION = 'patientAttachments';
     var MAX_CONCURRENT = 3;
 
+    // 附件僅分兩類：舌象圖片（tongue）與醫學報告（report）。
+    // 舊資料的 'other' 一律視為醫學報告顯示。
     var CATEGORY_META = {
-        tongue: { label: '舌象', classes: 'bg-pink-100 text-pink-700 border-pink-200' },
-        report: { label: '體檢報告', classes: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-        other: { label: '其他', classes: 'bg-gray-100 text-gray-700 border-gray-200' }
+        tongue: { label: '舌象圖片', classes: 'bg-pink-100 text-pink-700 border-pink-200' },
+        report: { label: '醫學報告', classes: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
+        other: { label: '醫學報告', classes: 'bg-indigo-100 text-indigo-700 border-indigo-200' }
     };
-    var FILTERS = [
-        { key: 'all', label: '全部' },
-        { key: 'tongue', label: '舌象' },
-        { key: 'report', label: '體檢報告' },
-        { key: 'other', label: '其他' }
-    ];
     var ACCEPT_TYPES = {
         'image/jpeg': 'image/jpeg',
         'image/jpg': 'image/jpeg',
@@ -715,27 +711,21 @@
             list = list.filter(function (d) { return d.category === 'tongue'; });
         }
         if (gallery.scope === 'visit' && gallery.category === 'all') {
-            // 過往記錄的「病歷附件」不含舌象（舌象由「舌象圖片」按鈕專管）
+            // 過往記錄的「醫學報告」不含舌象（舌象由「舌象圖片」按鈕專管）；
+            // 舊分類 'other' 亦歸入醫學報告
             list = list.filter(function (d) { return d.category !== 'tongue'; });
-        }
-        if (gallery.scope !== 'visit' && gallery.category === 'all' && gallery.filter !== 'all') {
-            list = list.filter(function (d) { return d.category === gallery.filter; });
-        }
-        if (gallery.scope === 'visit' && gallery.filter && gallery.filter !== 'all') {
-            list = list.filter(function (d) { return d.category === gallery.filter; });
         }
         return list;
     }
 
     function cardHtml(doc) {
-        var meta = CATEGORY_META[doc.category] || CATEGORY_META.other;
+        var meta = CATEGORY_META[doc.category] || CATEGORY_META.report;
         var thumbSrc = publicUrl(doc.thumbKey);
         var visitAttr = gallery.scope === 'visit'
             ? (gallery.consultationId || 'session:' + gallery.sessionId)
             : 'all';
         var kindAttr = gallery.category === 'tongue' ? 'tongue'
-            : (gallery.filter === 'tongue' ? 'tongue' :
-               (gallery.scope === 'visit' || gallery.filter !== 'all' ? 'other' : 'all'));
+            : (gallery.scope === 'visit' ? 'other' : 'all');
         var visitLabel = '';
         if (gallery.scope === 'patient') {
             visitLabel = doc.consultationId
@@ -762,7 +752,6 @@
                 '</button>' +
                 delBtn +
                 '<div class="p-2 space-y-1">' +
-                    '<span class="inline-block text-xs px-2 py-0.5 rounded-full border ' + meta.classes + '">' + tt(meta.label) + '</span>' +
                     '<div class="text-xs text-gray-600">' + tt('上傳時間') + '：' + esc(fmtDateTime(doc.uploadedAt)) + '</div>' +
                     (visitLabel ? '<div class="text-xs text-gray-500">' + visitLabel + '</div>' : '') +
                 '</div>' +
@@ -788,44 +777,17 @@
             '</div>';
     }
 
+    // 附件僅由入口決定類型（舌象圖片／醫學報告），畫面不再顯示分類篩選
     function renderFilters() {
         var el = document.getElementById('maFilters');
-        if (!el) return;
-        if (gallery.scope !== 'patient' || gallery.category !== 'all') {
-            el.innerHTML = '';
-            return;
-        }
-        el.innerHTML =
-            '<div class="flex flex-wrap gap-2 mb-4">' +
-            FILTERS.map(function (f) {
-                var active = gallery.filter === f.key;
-                var cls = active
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50';
-                return '<button type="button" data-ma-filter="' + f.key + '" ' +
-                    'class="px-3 py-1 text-sm rounded-full border transition ' + cls + '">' +
-                    tt(f.label) + '</button>';
-            }).join('') +
-            '</div>';
+        if (el) el.innerHTML = '';
     }
 
     function renderUploadBar() {
         var bar = document.getElementById('maUploadBar');
         if (!bar) return;
-        var tongueLocked = gallery.category === 'tongue';
-        // 過往記錄的「病歷附件」(visit/all) 不收舌象；舌象僅由「舌象圖片」入口上傳
-        var tongueOptionAllowed = tongueLocked || gallery.scope === 'patient';
-        var categoryOptions =
-            (tongueOptionAllowed ? '<option value="tongue">' + tt('舌象') + '</option>' : '') +
-            '<option value="report">' + tt('體檢報告') + '</option>' +
-            '<option value="other" selected>' + tt('其他') + '</option>';
-        var categorySelect = tongueLocked ? '' :
-            '<select id="maCategory" class="border border-gray-300 rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-blue-500">' +
-                categoryOptions +
-            '</select>';
         bar.innerHTML =
             '<div class="flex flex-wrap items-center gap-2 mb-3">' +
-                categorySelect +
                 '<button type="button" id="maCameraBtn" class="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-2 rounded-lg transition">' +
                     '📷 <span>' + tt('拍照') + '</span>' +
                 '</button>' +
@@ -850,10 +812,9 @@
         document.getElementById('maFileInput').addEventListener('change', handleInputChange);
     }
 
+    // 上傳類型由入口決定：舌象圖片入口→tongue，其餘入口一律為醫學報告
     function currentUploadCategory() {
-        if (gallery.category === 'tongue') return 'tongue';
-        var sel = document.getElementById('maCategory');
-        return sel ? sel.value : 'other';
+        return gallery.category === 'tongue' ? 'tongue' : 'report';
     }
 
     async function handleInputChange(evt) {
@@ -1012,7 +973,6 @@
         gallery = {
             scope: scope,
             category: category,
-            filter: category === 'tongue' ? 'tongue' : 'all',
             patientId: ctx.patientId,
             patientName: ctx.patientName,
             // 列表過濾用：僅 visit scope 限定診次
@@ -1028,9 +988,9 @@
         }
 
         var titles = {
-            'patient:all': '病歷歷來附件',
+            'patient:all': '醫學報告及舌象圖片',
             'patient:tongue': '舌象圖片',
-            'visit:all': '病歷附件'
+            'visit:all': '醫學報告'
         };
         document.getElementById('maTitle').textContent = tt(titles[scope + ':' + category]);
         document.getElementById('maSubtitle').textContent =
@@ -1104,7 +1064,6 @@
         var doc = lightbox.docs[lightbox.index];
         if (!doc) { closeLightbox(); return; }
         var src = publicUrl(doc.originalKey) || publicUrl(doc.thumbKey);
-        var meta = CATEGORY_META[doc.category] || CATEGORY_META.other;
         document.getElementById('lbImage').src = src;
         var visitInfo = '';
         if (doc.consultationId) {
@@ -1114,7 +1073,6 @@
             visitInfo = '<span class="mr-3 text-amber-300">' + tt('未歸檔診症') + '</span>';
         }
         document.getElementById('lbInfo').innerHTML =
-            '<span class="inline-block text-xs px-2 py-0.5 rounded-full border ' + meta.classes + ' mr-2">' + tt(meta.label) + '</span>' +
             visitInfo +
             '<span class="mr-3">' + tt('上傳時間') + '：' + esc(fmtDateTime(doc.uploadedAt)) + '</span>' +
             '<span class="text-white/70">' + (lightbox.index + 1) + ' / ' + lightbox.docs.length + '</span>';
@@ -1175,7 +1133,7 @@
      * @param {string} patientId
      * @param {string} visitKey consultationId
      * @param {string} kind 'tongue' | 'other'
-     * @param {string} [label] 縮圖列標題（如「病歷附件」）；空字串不顯示
+     * @param {string} [label] 縮圖列標題（如「醫學報告」）；空字串不顯示
      */
     function inlineThumbsHtml(docs, patientId, visitKey, kind, label) {
         if (!docs || docs.length === 0) return '';
@@ -1229,13 +1187,6 @@
             var fileId = delBtn.getAttribute('data-ma-delete');
             handleDeleteClick(fileId);
             return;
-        }
-        // 分類篩選
-        var filterBtn = e.target.closest ? e.target.closest('[data-ma-filter]') : null;
-        if (filterBtn && gallery) {
-            gallery.filter = filterBtn.getAttribute('data-ma-filter');
-            renderFilters();
-            renderGrid();
         }
     }
 
@@ -1685,7 +1636,7 @@
      * 供外部（如視訊診症舌象截圖）直接上傳一張圖到「當前診次」。
      * 上下文自動取當下診症中的掛號；未在診症中則拋錯。
      * @param {File|Blob} fileOrBlob 圖片
-     * @param {string} category tongue | report | other
+     * @param {string} category tongue | report（非舌象皆為醫學報告）
      */
     async function uploadVisitFile(fileOrBlob, category) {
         var ctx = resolveVisitContext({});
@@ -1702,7 +1653,7 @@
                 '_' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds()) + '.' + ext;
             file = new File([fileOrBlob], name, { type: fileOrBlob.type || 'image/jpeg' });
         }
-        var cat = (category === 'report' || category === 'other') ? category : 'tongue';
+        var cat = category === 'tongue' ? 'tongue' : 'report';
         return await uploadOne(file, ctx, cat);
     }
 

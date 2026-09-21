@@ -8293,7 +8293,7 @@ async function viewPatient(id) {
                     data-patient="${window.escapeHtml(String(id))}"
                     data-patient-name="${safeName}"
                     class="text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded transition duration-200">
-                    📎 <span>病歷歷來附件</span>
+                    📎 <span>醫學報告及舌象圖片</span>
                 </button>
             </div>
             <div id="patientConsultationSummary">
@@ -13522,7 +13522,7 @@ if (!patient) {
                         const maGroups = window.MedicalAttachments.visitGroups(String(maPatientId), String(consultation.id));
                         maVisitThumbs.hasOther = maGroups.attachments.length > 0;
                         maVisitThumbs.hasTongue = maGroups.tongues.length > 0;
-                        maVisitThumbs.otherHtml = window.MedicalAttachments.inlineThumbsHtml(maGroups.attachments, String(maPatientId), String(consultation.id), 'other', '病歷附件');
+                        maVisitThumbs.otherHtml = window.MedicalAttachments.inlineThumbsHtml(maGroups.attachments, String(maPatientId), String(consultation.id), 'other', '醫學報告');
                         maVisitThumbs.tongueHtml = window.MedicalAttachments.inlineThumbsHtml(maGroups.tongues, String(maPatientId), String(consultation.id), 'tongue');
                     }
                 }
@@ -13992,7 +13992,7 @@ async function displayConsultationMedicalHistoryPage() {
                 const maGroups = window.MedicalAttachments.visitGroups(String(maPatientId), String(consultation.id));
                 maVisitThumbs.hasOther = maGroups.attachments.length > 0;
                 maVisitThumbs.hasTongue = maGroups.tongues.length > 0;
-                maVisitThumbs.otherHtml = window.MedicalAttachments.inlineThumbsHtml(maGroups.attachments, String(maPatientId), String(consultation.id), 'other', '病歷附件');
+                maVisitThumbs.otherHtml = window.MedicalAttachments.inlineThumbsHtml(maGroups.attachments, String(maPatientId), String(consultation.id), 'other', '醫學報告');
                 maVisitThumbs.tongueHtml = window.MedicalAttachments.inlineThumbsHtml(maGroups.tongues, String(maPatientId), String(consultation.id), 'tongue');
             }
         }
