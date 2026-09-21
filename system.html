@@ -1237,15 +1237,6 @@
                                         <div class="flex items-center gap-2">
                                             <button
                                                 type="button"
-                                                id="geminiAssistButton"
-                                                onclick="askGeminiAssistant(event)"
-                                                class="text-xs bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-3 py-1 rounded transition duration-200 flex items-center gap-1"
-                                                title="整合已填寫欄位，由 Gemini AI 提供診症參考（資料已去除病人身份）"
-                                            >
-                                                🤖 AI 助手
-                                            </button>
-                                            <button
-                                                type="button"
                                                 onclick="openDiagnosisTemplate(event)"
                                                 class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded transition duration-200"
                                             >
@@ -3109,42 +3100,6 @@
               </div>
               <div class="space-y-4" id="prescriptionTemplatesContainer">
                 
-              </div>
-            </div>
-          </div>
-        </div>
-
-        
-        <!-- Gemini AI 診症助手彈窗 -->
-        <div id="geminiAssistModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4" onclick="if(event.target===this)closeGeminiAssistModal()">
-          <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
-              <h3 class="text-lg font-bold text-indigo-800 flex items-center gap-2">
-                <span>🤖</span><span>Gemini AI 診症助手</span>
-              </h3>
-              <button type="button" onclick="closeGeminiAssistModal()" class="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
-            </div>
-
-            <div id="geminiAssistBanner" class="hidden px-6 py-2 text-xs border-b"></div>
-
-            <div class="flex-1 overflow-y-auto px-6 py-4">
-              <div id="geminiAssistLoading" class="hidden py-12 text-center">
-                <div class="inline-block w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
-                <p class="text-sm text-gray-600">正在整合各欄位資料並傳送分析，請稍候…</p>
-                <p class="text-xs text-gray-400 mt-2">傳送內容已去除病人姓名、編號及聯絡資料</p>
-              </div>
-              <div id="geminiAssistError" class="hidden py-10 text-center">
-                <p class="text-sm text-red-600 mb-2" id="geminiAssistErrorText">分析失敗</p>
-                <p class="text-xs text-gray-400">請按下方「重新生成」再試，或稍後使用</p>
-              </div>
-              <div id="geminiAssistResult" class="hidden text-sm text-gray-800 leading-relaxed whitespace-pre-wrap gemini-reply"></div>
-            </div>
-
-            <div class="px-6 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between gap-3">
-              <p class="text-[11px] text-gray-500 leading-snug">⚠️ AI 生成內容僅供專業參考，不能替代註冊中醫師的診斷與判斷</p>
-              <div class="flex gap-2 shrink-0">
-                <button type="button" id="geminiAssistRetryButton" onclick="askGeminiAssistant(event)" class="hidden text-xs bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded transition">重新生成</button>
-                <button type="button" onclick="closeGeminiAssistModal()" class="text-xs bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-1.5 rounded transition">關閉</button>
               </div>
             </div>
           </div>
