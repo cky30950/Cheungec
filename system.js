@@ -6460,6 +6460,18 @@ async function syncUserDataFromFirebase(options = {}) {
             
             generateSidebarMenu();
             
+            // 全域啟動掛號狀態監聽：登入後即監聽今日掛號，
+            // 即使不在「掛號診症」頁面，右上角也會收到候診／診症完成通知與音效。
+            // subscribeToAppointments 內部會先移除舊監聽器，重複呼叫安全；
+            // 之後進入掛號頁時 loadConsultationSystem 會再以相同方式接續。
+            if (typeof subscribeToAppointments === 'function') {
+                try {
+                    subscribeToAppointments();
+                } catch (_e) {
+                    console.error('啟動全域掛號監聽失敗:', _e);
+                }
+            }
+            
             if (typeof updateWelcomeCards === 'function') {
                 try {
                     updateWelcomeCards();
@@ -6783,12 +6795,17 @@ async function logout() {
                 
                 if (id === 'consultationSystem') {
                     try {
-                        if (window.appointmentsListenerAttached && window.appointmentsQuery && window.appointmentsListener) {
+                        if (currentUserData && typeof subscribeToAppointments === 'function') {
+                            // 已登入並在頁面間切換：不拆除監聽，改為釘回「今日」範圍，
+                            // 使候診／診症完成的右上角站內通知在任何頁面都持續運作；
+                            // 也避免停留在先前查看的未來日期。
+                            subscribeToAppointments(true);
+                        } else if (window.appointmentsListenerAttached && window.appointmentsQuery && window.appointmentsListener) {
                             window.firebase.off(window.appointmentsQuery, 'value', window.appointmentsListener);
                             window.appointmentsListenerAttached = false;
                         }
                     } catch (err) {
-                        console.error('離開掛號系統時取消掛號監聽失敗:', err);
+                        console.error('切換頁面時處理掛號監聽失敗:', err);
                     }
                 }
                 
@@ -9989,15 +10006,17 @@ async function loadTodayAppointments() {
 }
 
 // 新增：訂閱 Firebase Realtime Database 的掛號變動，實時更新今日掛號列表
-function subscribeToAppointments() {
-    // 根據日期選擇器決定要監聽的日期範圍；若未選擇則監聽今日
+function subscribeToAppointments(forceToday) {
+    // 根據日期選擇器決定要監聽的日期範圍；若未選擇或 forceToday 則監聽今日
     let targetDate = new Date();
     try {
-        const datePicker = document.getElementById('appointmentDatePicker');
-        if (datePicker && datePicker.value) {
-            const selected = new Date(datePicker.value);
-            if (!isNaN(selected.getTime())) {
-                targetDate = selected;
+        if (!forceToday) {
+            const datePicker = document.getElementById('appointmentDatePicker');
+            if (datePicker && datePicker.value) {
+                const selected = new Date(datePicker.value);
+                if (!isNaN(selected.getTime())) {
+                    targetDate = selected;
+                }
             }
         }
     } catch (_e) {
