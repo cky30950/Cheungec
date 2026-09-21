@@ -37,7 +37,7 @@
             zh: '此瀏覽器不支援推播。iPhone 使用者請先用 Safari「分享 → 加入主畫面」安裝本系統（需 iOS 16.4 或以上），再於主畫面開啟並設定通知。',
             en: 'Push is not supported in this browser. On iPhone, install this system to the Home Screen with Safari (iOS 16.4+), then open it from the Home Screen to enable notifications.'
         },
-        pushStatusOn: { zh: '已開啟 — 新預診資料將主動推播到此裝置', en: 'Enabled — new pre-consultation inquiries will be pushed to this device.' },
+        pushStatusOn: { zh: '已開啟 — 通知將主動推播到此裝置', en: 'Enabled — notifications will be pushed to this device.' },
         pushStatusOff: { zh: '未開啟', en: 'Disabled' },
         pushStatusWorking: { zh: '設定中…', en: 'Working…' },
         pushTestSent: { zh: '測試通知已送出，請查看通知', en: 'Test notification sent. Please check your notifications.' },
@@ -79,7 +79,6 @@
 
     // 事件顯示順序與中英標籤（id 需與後端 events.js 一致）
     var PUSH_EVENT_ITEMS = [
-        { id: 'new_inquiry', zh: '新預診資料', en: 'New pre-consultation inquiry' },
         { id: 'appointment_waiting', zh: '病人候診通知（醫師）', en: 'Patient waiting (doctor)' },
         { id: 'appointment_completed', zh: '診症完成通知（護理／管理／助理）', en: 'Consultation completed (nurse/manager/assistant)' },
         { id: 'chat_public', zh: '公開頻道訊息', en: 'Public channel messages' },

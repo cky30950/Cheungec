@@ -4,8 +4,7 @@
  * 訂閱資料（pushSubscriptions/{sha256(endpoint)}）仍以 Firestore REST
  * 存取；通知去重狀態則存於 Realtime Database（RTDB）：
  *  - RTDB 路徑：/pushState/{event} = { notifiedIds:[], updatedAt:ISO }
- *  - 原因：cron 每分鐘讀取，RTDB 不計 Firestore 文件讀取費，
- *    且空跑路徑（notify-inquiries 先查詢後讀狀態）已不再觸發此讀取。
+ *  - 原因：高頻讀取，RTDB 不計 Firestore 文件讀取費。
  *  - 認證：Service Account OAuth2 token（含 firebase.database scope，
  *    與 presence.js 相同模式；該 token 對 RTDB 具管理員存取權，不受規則限制）。
  *
@@ -22,7 +21,7 @@ const COLLECTION = 'pushSubscriptions';
 const LEGACY_STATE_COLLECTION = 'pushState';
 const STATE_MAX_IDS = 200;
 
-// RTDB 路徑段禁用字元；現有事件名（chat/appointment/new_inquiry）均安全
+// RTDB 路徑段禁用字元；現有事件名（chat/appointment）均安全
 const SAFE_EVENT_RE = /^[A-Za-z0-9_-]+$/;
 
 /**
@@ -191,7 +190,7 @@ function safeEventName(eventName) {
  * RTDB 不存在該節點時回 200 + null，此時單次嘗試自舊 Firestore 搬移。
  * @returns {Promise<{notifiedIds:string[], updatedAt:string|null}>}
  */
-export async function getPushState(env, eventName = 'new_inquiry') {
+export async function getPushState(env, eventName) {
   const event = safeEventName(eventName);
   const { base, token } = await getRtdbBase(env);
 

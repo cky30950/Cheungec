@@ -7,7 +7,7 @@
  *   {
  *     "endpoint": "https://fcm.googleapis.com/fcm/send/...",
  *     "keys": { "p256dh": "...", "auth": "..." },
- *     "events": ["new_inquiry", ...]   // 選填，限事件白名單
+ *     "events": ["chat_public", ...]   // 選填，限事件白名單
  *   }
  * ============================================================ */
 
