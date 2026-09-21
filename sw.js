@@ -8,7 +8,7 @@
  *  - 版本化快取；更新時由用戶端訊息觸發 skipWaiting，不強制中斷
  * ============================================================ */
 
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v1.0.1';
 const SHELL_CACHE = 'shell-' + CACHE_VERSION;
 const CDN_CACHE = 'cdn-' + CACHE_VERSION;
 
