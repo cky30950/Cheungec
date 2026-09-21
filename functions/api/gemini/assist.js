@@ -253,9 +253,9 @@ export async function onRequestPost(context) {
                 }
             ],
             generationConfig: {
-                temperature: 0.4,
-                maxOutputTokens: 1600,
-                topP: 0.95
+                // Gemini 3.6 Flash 起不再支援 temperature/topP/topK 自訂值（設置會報 400 或被忽略）
+                // 3.6 為 thinking 模型，思考 token 計入輸出，上限需預留空間
+                maxOutputTokens: 2048
             }
         };
 
@@ -281,19 +281,32 @@ export async function onRequestPost(context) {
             }, 502);
         }
 
-        const data = await upstream.json().catch(() => null);
+        const rawText = await upstream.text().catch(() => '');
+        let data = null;
+        try {
+            data = rawText ? JSON.parse(rawText) : null;
+        } catch (_e) {
+            data = null;
+        }
         if (!upstream.ok) {
+            console.log('[gemini assist] 上游錯誤 HTTP ' + upstream.status + ' model=' + model + ' body=' + rawText.slice(0, 1200));
             const mapped = mapUpstreamError(upstream.status, data);
-            return jsonResponse({ error: mapped.code, message: mapped.message }, mapped.status);
+            return jsonResponse({ error: mapped.code, message: mapped.message, detail: mapped.detail }, mapped.status);
         }
 
-        const part = data &&
+        const parts = data &&
             Array.isArray(data.candidates) &&
             data.candidates[0] &&
             data.candidates[0].content &&
-            Array.isArray(data.candidates[0].content.parts) &&
-            data.candidates[0].content.parts[0];
-        const reply = part && typeof part.text === 'string' ? part.text.trim() : '';
+            Array.isArray(data.candidates[0].content.parts)
+            ? data.candidates[0].content.parts
+            : [];
+        // Gemini 3.x thinking 模型：過濾 thought:true 的思考段，只取正式回答
+        const reply = parts
+            .filter((p) => p && typeof p.text === 'string' && !p.thought)
+            .map((p) => p.text)
+            .join('\n')
+            .trim();
 
         if (!reply) {
             const blocked = data &&
