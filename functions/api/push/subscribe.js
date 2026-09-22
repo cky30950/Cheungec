@@ -21,10 +21,11 @@ const BASE64URL = /^[A-Za-z0-9_-]{16,256}$/;
 
 // 已知瀏覽器推送服務主機（防 SSRF：避免伺服器被導向任意 https 主機）
 const PUSH_HOST_SUFFIXES = [
-    'fcm.googleapis.com',
-    'updates.push.services.mozilla.com',
-    'push.apple.com',
-    'notify.windows.com'
+    'fcm.googleapis.com',                              // Chrome／Edge(多數平台)／Android
+    'updates.push.services.mozilla.com',              // Firefox
+    'push.apple.com',                                 // Safari（macOS／iOS 主畫面 PWA）
+    'notify.windows.com',                             // Edge on Windows（WNS，wns2-*.notify.windows.com）
+    'wns.windows.com'                                 // WNS 其他主機形式
 ];
 
 function isAllowedPushHost(endpoint) {

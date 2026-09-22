@@ -33,6 +33,22 @@
             zh: '瀏覽器已封鎖通知，請於瀏覽器網站設定中開啟通知權限後再試。',
             en: 'Notifications are blocked. Please allow notifications in your browser site settings.'
         },
+        pushDeniedSiteHowto: {
+            zh: '操作方式：點網址列左側的鎖頭／設定圖示 → 網站權限（設定）→ 通知 → 改為「允許」，再重新整理本頁後重試。',
+            en: 'How: click the lock/settings icon at the left of the address bar → Site permissions → Notifications → Allow, then reload this page and retry.'
+        },
+        pushGuideWindows: {
+            zh: 'Windows 電腦請另外確認：① Windows「設定 → 系統 → 通知」總開關必須開啟；② 關閉「專注輔助／勿擾模式」與省電模式；③ 不可使用 Edge／Chrome 的 InPrivate（無痕）視窗；④ 公司電腦需確認沒有群組原則封鎖通知。',
+            en: 'On Windows also check: (1) Windows Settings → System → Notifications must be ON; (2) turn off Focus assist/Do not disturb and Battery saver; (3) do not use an Edge/Chrome InPrivate window; (4) on work PCs, confirm no group policy blocks notifications.'
+        },
+        pushGuideMac: {
+            zh: 'Mac 請另外確認：「系統設定 → 通知」中瀏覽器的通知已允許，且未開啟「專注模式」。',
+            en: 'On Mac also check: System Settings → Notifications allows notifications for your browser, and Focus is off.'
+        },
+        pushSubscribeBlocked: {
+            zh: '瀏覽器拒絕建立推播訂閱，常見原因是作業系統層級的通知被關閉（Windows 上尤其常見），或使用了無痕／InPrivate 視窗。',
+            en: 'The browser refused to create the push subscription, usually because OS-level notifications are turned off (common on Windows), or an InPrivate window is in use.'
+        },
         pushUnsupported: {
             zh: '此瀏覽器不支援推播。iPhone 使用者請先用 Safari「分享 → 加入主畫面」安裝本系統（需 iOS 16.4 或以上），再於主畫面開啟並設定通知。',
             en: 'Push is not supported in this browser. On iPhone, install this system to the Home Screen with Safari (iOS 16.4+), then open it from the Home Screen to enable notifications.'
@@ -111,16 +127,24 @@
 
     /* ---------- 通用提示（toastr / showToast / 自製浮層） ---------- */
 
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
     function message(text, opts) {
         opts = opts || {};
+        // 多行指引（Windows 檢查清單等）需以 <br> 呈現；內容先做 HTML 跳脫
+        var htmlText = escapeHtml(text).replace(/\n/g, '<br>');
         try {
             if (typeof window.showToast === 'function') {
-                window.showToast(text, opts.type || 'info');
+                window.showToast(htmlText, opts.type || 'info');
                 return;
             }
             if (window.toastr) {
                 var fn = window.toastr[opts.type || 'info'] || window.toastr.info;
-                fn(text);
+                fn(htmlText);
                 return;
             }
         } catch (_e) {}
@@ -129,11 +153,12 @@
         el.style.cssText =
             'position:fixed;left:16px;right:16px;bottom:16px;z-index:10000;' +
             'background:#1E1E1E;color:#fff;padding:12px 16px;border-radius:12px;' +
-            'font-size:14px;line-height:1.5;box-shadow:0 10px 30px rgba(0,0,0,.25)';
+            'font-size:14px;line-height:1.5;box-shadow:0 10px 30px rgba(0,0,0,.25);' +
+            'white-space:pre-line;max-height:60vh;overflow:auto;';
         document.body.appendChild(el);
         setTimeout(function () {
             if (el.parentNode) el.parentNode.removeChild(el);
-        }, 5000);
+        }, 8000);
     }
 
     /* ---------- Service Worker 註冊與更新 ---------- */
@@ -410,9 +435,58 @@
         return output;
     }
 
+    /* 作業系統／瀏覽器偵測：訂閱失敗時給出對應的修復指引 */
+    function isWindowsOS() {
+        try {
+            if (navigator.userAgentData && navigator.userAgentData.platform) {
+                return /windows/i.test(navigator.userAgentData.platform);
+            }
+        } catch (_e) {}
+        return /Windows/i.test(navigator.userAgent || '');
+    }
+
+    function isMacOS() {
+        try {
+            if (navigator.userAgentData && navigator.userAgentData.platform) {
+                return /mac/i.test(navigator.userAgentData.platform);
+            }
+        } catch (_e) {}
+        return /Macintosh|Mac OS X/i.test(navigator.userAgent || '');
+    }
+
+    function osNotifyGuide() {
+        if (isWindowsOS()) return t('pushGuideWindows');
+        if (isMacOS()) return t('pushGuideMac');
+        return '';
+    }
+
+    // 將訂閱階段的各種例外轉為可行動的修復提示
+    function describeSubscribeError(err) {
+        var name = err && err.name ? String(err.name) : '';
+        var msg = err && err.message ? String(err.message) : '';
+        var lines = [];
+        if (name === 'NotSupportedError') {
+            // InPrivate／無痕視窗、或瀏覽器在此環境關閉推送能力
+            lines.push(t('pushSubscribeBlocked'));
+        } else if (name === 'AbortError' || /permission|denied|blocked|subscribe/i.test(msg)) {
+            // Windows 關閉系統通知時，Edge/Chrome 常以 AbortError 失敗
+            lines.push(t('pushSubscribeBlocked'));
+        } else if (msg) {
+            lines.push(msg);
+        }
+        lines.push(t('pushDeniedSiteHowto'));
+        var osGuide = osNotifyGuide();
+        if (osGuide) lines.push(osGuide);
+        return lines.join('\n');
+    }
+
     async function enablePush() {
         if (Notification.permission === 'denied') {
-            message(t('pushDenied'), { type: 'error' });
+            message(
+                t('pushDenied') + '\n' + t('pushDeniedSiteHowto')
+                + (osNotifyGuide() ? '\n' + osNotifyGuide() : ''),
+                { type: 'error' }
+            );
             await syncPushState();
             return;
         }
@@ -420,7 +494,11 @@
         setToggle(false, false);
         try {
             var permission = await Notification.requestPermission();
-            if (permission !== 'granted') throw new Error('通知權限未取得');
+            if (permission !== 'granted') {
+                const e = new Error('通知權限未取得');
+                e.name = 'PermissionNotGranted';
+                throw e;
+            }
 
             var vapid = await getVapidConfig();
             var reg = await navigator.serviceWorker.ready;
@@ -452,7 +530,18 @@
             message(t('pushOn') + (isZh ? '。' : '. ') + t('pushSettingsHint'), { type: 'success' });
         } catch (err) {
             console.error('開啟推播失敗:', err);
-            message(t('pushFailed') + (err.message || ''), { type: 'error' });
+            // 權限被拒（含 Windows 系統通知關閉導致請求被自動否決）：
+            // 顯示網站權限重設步驟＋作業系統檢查清單
+            if (err && (err.name === 'PermissionNotGranted'
+                || /通知權限未取得|permission/i.test(err.message || ''))) {
+                message(
+                    t('pushDenied') + '\n' + t('pushDeniedSiteHowto')
+                    + (osNotifyGuide() ? '\n' + osNotifyGuide() : ''),
+                    { type: 'error' }
+                );
+            } else {
+                message(t('pushFailed') + '\n' + describeSubscribeError(err), { type: 'error' });
+            }
             setToggle(false, true);
             setStatus('pushStatusOff');
         }
@@ -814,7 +903,11 @@
     // 系統各模組（掛號／聊天）觸發推播：失敗僅警告，不影響主流程
     async function notifyPushEvent(payload) {
         if (!payload || typeof payload !== 'object') return { skipped: true };
-        if (!isPushSupported() || !currentAuthUser()) return { skipped: true };
+        // 注意：此處不可檢查 isPushSupported()。
+        // 此呼叫是請後端通知「他人的裝置」，與發送者本機能否收推播無關：
+        // iPhone 直接用 Safari（未加入主畫面）時 PushManager 不存在、本機不能收，
+        // 但仍必須觸發 /notify，否則電腦同事永遠收不到 iPhone 發出的訊息廣播。
+        if (!currentAuthUser()) return { skipped: true };
         try {
             return await apiCall('/notify', {
                 method: 'POST',
