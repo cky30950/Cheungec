@@ -14,13 +14,15 @@
  * ============================================================ */
 
 // 注意：Identity Toolkit Admin API（accounts:update / batchCreate 等）
-// 的 discovery 文件只接受 cloud-platform 或 firebase 兩個 scope，
-// 並不存在 identitytoolkit.admin OAuth scope（寫入會換不到 access token）。
-// 此處用最小權限的 firebase；Service Account 本身需具「Firebase 管理員」角色。
+// 的 discovery 文件列了 cloud-platform 與 firebase 兩個 scope，但實測
+// firebase scope 調用帳號管理端點會回「insufficient authentication scopes」
+// （firebase-admin SDK 預設亦使用 cloud-platform）。
+// 亦不存在 identitytoolkit.admin OAuth scope（寫入會換不到 access token）。
+// Service Account 本身需具「Firebase 管理員」角色。
 const FIREBASE_SCOPES = [
+    'https://www.googleapis.com/auth/cloud-platform',
     'https://www.googleapis.com/auth/datastore',
     'https://www.googleapis.com/auth/firebase.database',
-    'https://www.googleapis.com/auth/firebase',
     'https://www.googleapis.com/auth/userinfo.email'
 ].join(' ');
 
