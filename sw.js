@@ -8,7 +8,7 @@
  *  - 版本化快取；更新時由用戶端訊息觸發 skipWaiting，不強制中斷
  * ============================================================ */
 
-const CACHE_VERSION = 'v1.0.1';
+const CACHE_VERSION = 'v1.0.2';
 const SHELL_CACHE = 'shell-' + CACHE_VERSION;
 const CDN_CACHE = 'cdn-' + CACHE_VERSION;
 
@@ -20,6 +20,19 @@ const PRECACHE_URLS = [
 
 /* 同源後端／平台路徑一律不攔截、不快取 */
 const EXCLUDED_PREFIXES = ['/api/', '/_sdk/', '/cdn-cgi/'];
+
+/* 敏感頁面（含醫療資料或一次性權杖）一律不寫入 Cache Storage；
+   帶有憑證類 query 參數的網址亦同，避免權杖殘留於共用裝置或被 XSS 讀取 */
+const SENSITIVE_DOC_PATHS = new Set([
+    '/mobile-capture.html',
+    '/video/room.html',
+    '/inquiry.html'
+]);
+const SENSITIVE_QUERY_RE = /[?&](?:sid|t|k|apt|channel)=/i;
+
+function isSensitiveDocument(url) {
+    return SENSITIVE_DOC_PATHS.has(url.pathname) || SENSITIVE_QUERY_RE.test(url.search);
+}
 
 /* 跨域僅快取以下明確白名單主機；其餘跨域直接通過 */
 const CDN_HOSTS = new Set([
@@ -81,6 +94,10 @@ self.addEventListener('fetch', (event) => {
         if (EXCLUDED_PREFIXES.some((p) => url.pathname.startsWith(p))) return;
 
         if (req.destination === 'document') {
+            if (isSensitiveDocument(url)) {
+                event.respondWith(handleSensitiveDocument(req));
+                return;
+            }
             event.respondWith(handleDocument(req));
             return;
         }
@@ -109,6 +126,31 @@ async function handleDocument(req) {
     } catch (_err) {
         const cached = await cache.match(req);
         if (cached) return cached;
+        const fallback = await caches.match('/offline.html');
+        if (fallback) return fallback;
+        return new Response('您目前離線', {
+            status: 503,
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+        });
+    }
+}
+
+/* ---------- 敏感導航文件：僅走網路，不寫入、不讀取快取 ---------- */
+
+async function handleSensitiveDocument(req) {
+    try {
+        const res = await fetch(req);
+        // 加上 no-store，避免瀏覽器 HTTP 快取與歷史預覽殘留一次性權杖頁
+        const headers = new Headers(res.headers);
+        headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+        headers.set('Referrer-Policy', 'no-referrer');
+        return new Response(res.body, {
+            status: res.status,
+            statusText: res.statusText,
+            headers
+        });
+    } catch (_err) {
+        // 離線時只顯示通用離線頁，絕不回放曾快取的敏感頁
         const fallback = await caches.match('/offline.html');
         if (fallback) return fallback;
         return new Response('您目前離線', {

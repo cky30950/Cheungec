@@ -93,10 +93,21 @@
     };
 
     /* ---------------- Token 取得 ---------------- */
-    function fetchRtcToken(tokenUrl, channel) {
+    // credentials：
+    //   { idToken: '<Firebase ID Token>' }      醫師／員工端（每次請求動態取最新 token）
+    //   { roomPass: '<入房 pass>' }             病人端（無登入，以醫師核發的 pass 換 token）
+    function fetchRtcToken(tokenUrl, channel, credentials) {
+        credentials = credentials || {};
         var url = String(tokenUrl).replace(/\/+$/, '') +
             '/rtc/' + encodeURIComponent(channel) + '/publisher/uid/0/';
-        return fetch(url).then(function (res) {
+        var init = null;
+        if (credentials.roomPass) {
+            url += '?k=' + encodeURIComponent(credentials.roomPass);
+        }
+        if (credentials.idToken) {
+            init = { headers: { 'Authorization': 'Bearer ' + credentials.idToken } };
+        }
+        return fetch(url, init).then(function (res) {
             if (!res.ok) {
                 var err = new Error('TOKEN_HTTP_' + res.status);
                 err.httpStatus = res.status;
@@ -109,6 +120,22 @@
             }
             return data.rtcToken;
         });
+    }
+
+    // 依 create() 帶入的鑑權方式取 token：
+    //   options.authTokenProvider() → Promise<ID Token>（醫師端，可自動刷新）
+    //   options.roomPass            → 入房 pass（病人端）
+    function requestRtcToken(options) {
+        if (typeof options.authTokenProvider === 'function') {
+            return Promise.resolve()
+                .then(options.authTokenProvider)
+                .then(function (idToken) {
+                    return fetchRtcToken(options.tokenUrl, options.channel, { idToken: idToken });
+                });
+        }
+        return Promise.resolve(
+            fetchRtcToken(options.tokenUrl, options.channel, { roomPass: options.roomPass || '' })
+        );
     }
 
     function initialOf(name) {
@@ -439,6 +466,12 @@
                 return '鏡頭或麥克風正被其他程式佔用，請關閉其他視訊應用程式（如 FaceTime、Zoom）後再試。';
             }
             if (/TOKEN_HTTP_/.test(name)) {
+                // 401/403/404：入房 pass 過期、失效或醫師登入憑證逾期
+                if (err.httpStatus === 401 || err.httpStatus === 403 || err.httpStatus === 404) {
+                    return typeof options.authTokenProvider === 'function'
+                        ? '登入憑證已逾期，請重新整理頁面後再試。'
+                        : '診間連結已失效或過期，請聯絡診所重新索取連結。';
+                }
                 return '視訊伺服器連線失敗（錯誤 ' + (err.httpStatus || '') + '），請聯絡診所或稍後再試。';
             }
             if (/TOKEN_BAD_RESPONSE/.test(name)) {
@@ -469,7 +502,7 @@
             client.on('token-privilege-did-expire', renewToken);
 
             var tokenPromise = options.tokenUrl
-                ? fetchRtcToken(options.tokenUrl, options.channel)
+                ? requestRtcToken(options)
                 : Promise.resolve(null);
 
             return tokenPromise.then(function (token) {
@@ -508,7 +541,7 @@
 
         function renewToken() {
             if (!options.tokenUrl || !client || !joined) return;
-            fetchRtcToken(options.tokenUrl, options.channel).then(function (token) {
+            requestRtcToken(options).then(function (token) {
                 return client.renewToken(token);
             }).then(function () {
                 console.log('[AgoraCall] Token 已自動續期');

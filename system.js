@@ -10410,7 +10410,7 @@ async function loadConsultationForEdit(consultationId) {
                             document.getElementById('formPrescription').value = consultation.prescription;
                             const containerEl = document.getElementById('prescriptionsContainer');
                             if (containerEl) {
-                                containerEl.innerHTML = `<div class="border border-gray-300 rounded-lg p-3 bg-gray-50"><div class="text-sm text-gray-900 whitespace-pre-line">${consultation.prescription}</div></div>`;
+                                containerEl.innerHTML = `<div class="border border-gray-300 rounded-lg p-3 bg-gray-50"><div class="text-sm text-gray-900 whitespace-pre-line">${window.escapeHtml(consultation.prescription)}</div></div>`;
                             }
                         }
                     } else {
@@ -10703,10 +10703,10 @@ function createAppointmentRow(appointment, patient, index) {
             <td class="px-4 py-3 text-sm text-gray-900 font-medium">${index + 1}</td>
             <td class="px-4 py-3 text-sm font-medium text-gray-900">
                 ${safeNameWithGender}
-                <div class="text-xs text-gray-500">${patient.patientNumber}</div>
+                <div class="text-xs text-gray-500">${window.escapeHtml(patient.patientNumber)}</div>
             </td>
             <td class="px-4 py-3 text-sm text-gray-900">
-                <div class="font-medium text-blue-600">${doctorName}</div>
+                <div class="font-medium text-blue-600">${window.escapeHtml(doctorName)}</div>
             </td>
             <td class="px-4 py-3 text-sm text-gray-900">
                 ${new Date(appointment.appointmentTime).toLocaleString('zh-TW', {
@@ -10731,8 +10731,8 @@ function createAppointmentRow(appointment, patient, index) {
                     } else {
                         truncated = fullComplaint;
                     }
-                    // 使用 title 屬性顯示完整內容
-                    return '<div class="max-w-xs truncate" title="' + fullComplaint + '">' + truncated + '</div>';
+                    // 使用 title 屬性顯示完整內容（所有動態值皆先跳脫，避免 XSS）
+                    return '<div class="max-w-xs truncate" title="' + window.escapeHtml(fullComplaint) + '">' + window.escapeHtml(truncated) + '</div>';
                 })()}
             </td>
             <td class="px-4 py-3">
@@ -13311,29 +13311,29 @@ if (!patient) {
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                     <div>
                         <span class="font-medium text-gray-700">病人編號：</span>
-                        <span class="text-blue-600 font-semibold">${patient.patientNumber}</span>
+                        <span class="text-blue-600 font-semibold">${window.escapeHtml(patient.patientNumber)}</span>
                     </div>
                     <div>
                         <span class="font-medium text-gray-700">姓名：</span>
-                        <span class="font-semibold">${patient.name}</span>
+                        <span class="font-semibold">${window.escapeHtml(patient.name)}</span>
                     </div>
                     <div>
                         <span class="font-medium text-gray-700">年齡：</span>
-                        <span>${formatAge(patient.birthDate)}</span>
+                        <span>${window.escapeHtml(formatAge(patient.birthDate))}</span>
                     </div>
                     <div>
                         <span class="font-medium text-gray-700">性別：</span>
-                        <span>${patient.gender}</span>
+                        <span>${window.escapeHtml(patient.gender)}</span>
                     </div>
                 ${patient.history ? `
                     <div class="md:col-span-1 lg:col-span-2">
                         <span class="font-medium text-gray-700">病史及備註：</span>
-                        <span class="medical-field text-gray-700">${patient.history}</span>
+                        <span class="medical-field text-gray-700">${window.escapeHtml(patient.history)}</span>
                     </div>
                     ` : ''}
                 ${patient.allergies ? `
                     <div class="md:col-span-1 lg:col-span-2">
-                        <span class="medical-field text-red-700 bg-red-50 px-2 py-1 rounded">${patient.allergies}</span>
+                        <span class="medical-field text-red-700 bg-red-50 px-2 py-1 rounded">${window.escapeHtml(patient.allergies)}</span>
                     </div>
                     ` : ''}
                 </div>
@@ -13611,11 +13611,11 @@ if (!patient) {
                                 ${generalRegistrationBadge}
                                 ${hideDoctorInfo ? '' : `
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
-                                    ${doctorLabel}${getDoctorDisplayName(consultation.doctor)}
+                                    ${doctorLabel}${window.escapeHtml(getDoctorDisplayName(consultation.doctor))}
                                 </span>
                                 `}
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
-                                            ${recordNumberLabel}${consultation.medicalRecordNumber || consultation.id}
+                                            ${recordNumberLabel}${window.escapeHtml(consultation.medicalRecordNumber || consultation.id)}
                                 </span>
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
                                             ${clinicLabel}${window.escapeHtml(clinicName || '未設定')}
@@ -13639,21 +13639,21 @@ if (!patient) {
                             <div class="space-y-4">
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">主訴</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.symptoms || '無記錄'}</div>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${window.escapeHtml(consultation.symptoms || '無記錄')}</div>
                                     ${maVisitThumbs.otherHtml}
                                 </div>
 
                                 ${consultation.currentHistory ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.currentHistory}</div>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${window.escapeHtml(consultation.currentHistory)}</div>
                                 </div>
                                 ` : ''}
 
                                 ${(consultation.tongue || maVisitThumbs.hasTongue) ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">舌象</span>
-                                    ${consultation.tongue ? `<div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.tongue}</div>` : ''}
+                                    ${consultation.tongue ? `<div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${window.escapeHtml(consultation.tongue)}</div>` : ''}
                                     ${maVisitThumbs.tongueHtml}
                                 </div>
                                 ` : ''}
@@ -13661,18 +13661,18 @@ if (!patient) {
                                 ${consultation.pulse ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">脈象</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.pulse}</div>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${window.escapeHtml(consultation.pulse)}</div>
                                 </div>
                                 ` : ''}
                                 
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">中醫診斷</span>
-                                    <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 medical-field">${consultation.diagnosis || '無記錄'}</div>
+                                    <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 medical-field">${window.escapeHtml(consultation.diagnosis || '無記錄')}</div>
                                 </div>
                                 
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">證型診斷</span>
-                                    <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400 medical-field">${consultation.syndrome || '無記錄'}</div>
+                                    <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400 medical-field">${window.escapeHtml(consultation.syndrome || '無記錄')}</div>
                                 </div>
                                 
                                 ${consultation.acupunctureNotes ? `
@@ -13768,14 +13768,14 @@ if (!patient) {
                                 ${consultation.treatmentCourse ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">療程</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.treatmentCourse}</div>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${window.escapeHtml(consultation.treatmentCourse)}</div>
                                 </div>
                                 ` : ''}
                                 
                                 ${consultation.instructions ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">醫囑及注意事項</span>
-                                    <div class="bg-red-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-red-400 medical-field">${consultation.instructions}</div>
+                                    <div class="bg-red-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-red-400 medical-field">${window.escapeHtml(consultation.instructions)}</div>
                                 </div>
                                 ` : ''}
                                 
@@ -14078,11 +14078,11 @@ async function displayConsultationMedicalHistoryPage() {
                                 ${generalRegistrationBadge}
                                 ${hideDoctorInfo ? '' : `
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
-                                    ${doctorLabel}${getDoctorDisplayName(consultation.doctor)}
+                                    ${doctorLabel}${window.escapeHtml(getDoctorDisplayName(consultation.doctor))}
                                 </span>
                                 `}
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
-                                    ${recordNumberLabel}${consultation.medicalRecordNumber || consultation.id}
+                                    ${recordNumberLabel}${window.escapeHtml(consultation.medicalRecordNumber || consultation.id)}
                                 </span>
                                 <span class="text-sm text-gray-600 bg-white px-3 py-1 rounded-full border border-white/80 shadow-sm">
                                     ${clinicLabel}${window.escapeHtml(clinicName || '未設定')}
@@ -14106,21 +14106,21 @@ async function displayConsultationMedicalHistoryPage() {
                             <div class="space-y-4">
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">主訴</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.symptoms || '無記錄'}</div>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${window.escapeHtml(consultation.symptoms || '無記錄')}</div>
                                     ${maVisitThumbs.otherHtml}
                                 </div>
 
                                 ${consultation.currentHistory ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">現病史</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.currentHistory}</div>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${window.escapeHtml(consultation.currentHistory)}</div>
                                 </div>
                                 ` : ''}
 
                                 ${(consultation.tongue || maVisitThumbs.hasTongue) ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">舌象</span>
-                                    ${consultation.tongue ? `<div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.tongue}</div>` : ''}
+                                    ${consultation.tongue ? `<div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${window.escapeHtml(consultation.tongue)}</div>` : ''}
                                     ${maVisitThumbs.tongueHtml}
                                 </div>
                                 ` : ''}
@@ -14128,18 +14128,18 @@ async function displayConsultationMedicalHistoryPage() {
                                 ${consultation.pulse ? `
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">脈象</span>
-                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.pulse}</div>
+                                    <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${window.escapeHtml(consultation.pulse)}</div>
                                 </div>
                                 ` : ''}
                                 
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">中醫診斷</span>
-                                    <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 medical-field">${consultation.diagnosis || '無記錄'}</div>
+                                    <div class="bg-green-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-green-400 medical-field">${window.escapeHtml(consultation.diagnosis || '無記錄')}</div>
                                 </div>
                                 
                                 <div>
                                     <span class="text-sm font-semibold text-gray-700 block mb-2">證型診斷</span>
-                                    <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400 medical-field">${consultation.syndrome || '無記錄'}</div>
+                                    <div class="bg-blue-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-blue-400 medical-field">${window.escapeHtml(consultation.syndrome || '無記錄')}</div>
                                 </div>
                                 
                                 ${consultation.acupunctureNotes ? `
@@ -14235,14 +14235,14 @@ async function displayConsultationMedicalHistoryPage() {
                         ${consultation.treatmentCourse ? `
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">療程</span>
-                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${consultation.treatmentCourse}</div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm text-gray-900 medical-field">${window.escapeHtml(consultation.treatmentCourse)}</div>
                         </div>
                         ` : ''}
                         
                         ${consultation.instructions ? `
                         <div>
                             <span class="text-sm font-semibold text-gray-700 block mb-2">醫囑及注意事項</span>
-                            <div class="bg-red-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-red-400 medical-field">${consultation.instructions}</div>
+                            <div class="bg-red-50 p-3 rounded-lg text-sm text-gray-900 border-l-4 border-red-400 medical-field">${window.escapeHtml(consultation.instructions)}</div>
                         </div>
                         ` : ''}
                         
@@ -15214,7 +15214,7 @@ async function printConsultationRecord(consultationId, consultationData = null) 
         `;
         // Open a new window and print
         const printWindow = window.open('', '_blank', layout.windowFeatures);
-        printWindow.document.write(printContent);
+        printWindow.document.write(window.sanitizePrintHtml(printContent));
         printWindow.document.close();
         printWindow.focus();
         printWindow.print();
@@ -15614,7 +15614,7 @@ async function printAttendanceCertificate(consultationId, consultationData = nul
         `;
         // Open a new window and print
         const printWindow = window.open('', '_blank', layout.windowFeatures);
-        printWindow.document.write(printContent);
+        printWindow.document.write(window.sanitizePrintHtml(printContent));
         printWindow.document.close();
         printWindow.focus();
         printWindow.print();
@@ -15977,7 +15977,7 @@ async function printSickLeave(consultationId, consultationData = null) {
             </html>`;
         // 開啟新視窗並列印
         const printWindow = window.open('', '_blank', layout.windowFeatures);
-        printWindow.document.write(printContent);
+        printWindow.document.write(window.sanitizePrintHtml(printContent));
         printWindow.document.close();
         printWindow.focus();
         printWindow.print();
@@ -16575,7 +16575,7 @@ async function printPrescriptionInstructions(consultationId, consultationData = 
             </html>`;
         // 開啟新視窗並列印
         const printWindow = window.open('', '_blank', layout.windowFeatures);
-        printWindow.document.write(printContent);
+        printWindow.document.write(window.sanitizePrintHtml(printContent));
         printWindow.document.close();
         printWindow.focus();
         printWindow.print();
@@ -32066,6 +32066,49 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
   };
+
+  /**
+   * 列印文件專用的 HTML 防護：以非執行的 DOMParser 解析整份列印 HTML，
+   * 移除 script 等危險元素與所有 on* 事件屬性、javascript: URL，
+   * 再交給 printWindow.document.write。可攔截所有殘留於資料插值中的
+   * Stored XSS（病人姓名、診斷、診所資料等），同時保留排版用標籤與樣式。
+   * @param {string} html 將要寫入列印視窗的完整 HTML
+   * @returns {string} 淨化後的 HTML
+   */
+  window.sanitizePrintHtml = function (html) {
+    const source = String(html == null ? '' : html);
+    let doc;
+    try {
+      doc = new DOMParser().parseFromString(source, 'text/html');
+    } catch (_e) {
+      // 無法解析時退回全字串跳脫，寧願失去排版也不執行內嵌內容
+      return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><pre>' +
+        window.escapeHtml(source) + '</pre></body></html>';
+    }
+
+    const DANGEROUS_TAGS = ['script', 'iframe', 'object', 'embed', 'applet', 'base', 'form'];
+    DANGEROUS_TAGS.forEach(function (tag) {
+      doc.querySelectorAll(tag).forEach(function (node) { node.remove(); });
+    });
+
+    const DANGEROUS_URL_ATTRS = new Set(['href', 'src', 'xlink:href', 'poster', 'background']);
+    const allElements = doc.querySelectorAll('*');
+    Array.prototype.forEach.call(allElements, function (el) {
+      const attrs = Array.prototype.slice.call(el.attributes);
+      attrs.forEach(function (attr) {
+        const name = attr.name.toLowerCase();
+        const value = String(attr.value || '');
+        if (name.indexOf('on') === 0) {
+          el.removeAttribute(attr.name);
+        } else if (DANGEROUS_URL_ATTRS.has(name) && /^\s*javascript:/i.test(value)) {
+          el.removeAttribute(attr.name);
+        }
+      });
+    });
+
+    return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
+  };
+
   window.filterBillingItems = filterBillingItems;
   window.filterHerbLibrary = filterHerbLibrary;
   window.filterUsers = filterUsers;

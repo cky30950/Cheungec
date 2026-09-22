@@ -28,6 +28,16 @@
             }
         }
 
+        // 將使用者/資料庫可控字串跳脫後再插入 HTML，避免 XSS
+        function esc(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         
 
         
@@ -1003,15 +1013,15 @@
             element.innerHTML = `
                 <div class="shift-header">
                     <div class="shift-name">
-                        ${staffMember.name}<span class="staff-position"> ${positionLabel}</span>
+                        ${esc(staffMember.name)}<span class="staff-position"> ${esc(positionLabel)}</span>
                     </div>
                     <div class="shift-actions">
                         ${actionsHtml.trim()}
                     </div>
                 </div>
                 <div class="shift-details">
-                    ${shift.startTime}-${shift.endTime} (${duration}h)<br>
-                    ${shift.notes || translate('一般排班')}
+                    ${esc(shift.startTime)}-${esc(shift.endTime)} (${esc(duration)}h)<br>
+                    ${esc(shift.notes || translate('一般排班'))}
                 </div>
             `;
 
@@ -1223,7 +1233,7 @@
                 
                 const positionLabel = member.level || translate(member.role === 'doctor' ? '醫師' : member.role === 'nurse' ? '護理師' : '');
                 card.innerHTML = `
-                    <div class="staff-name">${member.name}<span class="staff-position"> ${positionLabel}</span></div>
+                    <div class="staff-name">${esc(member.name)}<span class="staff-position"> ${esc(positionLabel)}</span></div>
                     <div class="drag-hint">🖱️</div>
                 `;
 
@@ -1808,13 +1818,13 @@
                 const okLabel = langOk === 'en' ? 'OK' : '確定';
                 
                 const html =
-                    `${translate('姓名：')}${staffMember.name}<br>` +
-                    `${translate('職位：')}${staffMember.level}<br>` +
-                    `${translate('日期：')}${shift.date}<br>` +
-                    `${translate('時間：')}${shift.startTime} - ${shift.endTime} (${duration} ${translate('小時')})<br>` +
-                    `${translate('備註：')}${shift.notes || translate('無')}<br>` +
-                    `${translate('聯絡電話：')}${staffMember.phone}<br>` +
-                    `${translate('電子郵件：')}${staffMember.email}`;
+                    `${esc(translate('姓名：'))}${esc(staffMember.name)}<br>` +
+                    `${esc(translate('職位：'))}${esc(staffMember.level)}<br>` +
+                    `${esc(translate('日期：'))}${esc(shift.date)}<br>` +
+                    `${esc(translate('時間：'))}${esc(shift.startTime)} - ${esc(shift.endTime)} (${esc(duration)} ${esc(translate('小時'))})<br>` +
+                    `${esc(translate('備註：'))}${esc(shift.notes || translate('無'))}<br>` +
+                    `${esc(translate('聯絡電話：'))}${esc(staffMember.phone)}<br>` +
+                    `${esc(translate('電子郵件：'))}${esc(staffMember.email)}`;
                 await Swal.fire({
                     icon: 'info',
                     title: translate('排班詳情：'),
@@ -2188,7 +2198,7 @@
             try {
                 const langOk = (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) || 'zh';
                 const okLabel = langOk === 'en' ? 'OK' : '確定';
-                const scheduleHtml = scheduleText.replace(/\n/g, '<br/>');
+                const scheduleHtml = esc(scheduleText).replace(/\n/g, '<br/>');
                 await Swal.fire({
                     icon: 'info',
                     html: scheduleHtml,
@@ -2256,7 +2266,7 @@
                 } else {
                     title = year + ' 年 ' + (month + 1) + ' 月 ' + translate('排班表') + (clinicName ? '（' + clinicName + '）' : '');
                 }
-                html += '<h2>' + title + '</h2>';
+                html += '<h2>' + esc(title) + '</h2>';
                 
                 html += '<table><thead><tr>';
                 html += '<th class="date-col">' + translate('日期') + '</th>';
@@ -2280,13 +2290,13 @@
 
                     dayShifts.forEach(shift => {
                         const staffMember = findStaffById(shift.staffId);
-                        const name = staffMember.name; 
+                        const name = esc(staffMember.name); 
                         
                         if (shift.type === 'morning') morning.push(name);
                         else if (shift.type === 'afternoon') afternoon.push(name);
                         else if (shift.type === 'night') night.push(name);
                         else {
-                            others.push(name + ' <span style="font-size:0.85em;color:#555;">(' + shift.startTime + '-' + shift.endTime + ')</span>');
+                            others.push(name + ' <span style="font-size:0.85em;color:#555;">(' + esc(shift.startTime) + '-' + esc(shift.endTime) + ')</span>');
                         }
                     });
 

@@ -1958,7 +1958,7 @@
                         </svg>
                     </div>
                     <h2 class="text-3xl sm:text-4xl font-bold text-gray-800 mb-4">預診完成！</h2>
-                    <p class="text-lg text-gray-600 mb-2">感謝您 <span class="font-semibold text-blue-600">${results.patientName || '患者'}</span> 完成詳細的預診</p>
+                    <p class="text-lg text-gray-600 mb-2">感謝您 <span class="font-semibold text-blue-600">${escapeHtml(results.patientName || '患者')}</span> 完成詳細的預診</p>
                     <p class="text-gray-600">您的預診資料已成功收集，此結果將提供給您的中醫師參考</p>
                 </div>
 
@@ -1972,11 +1972,11 @@
                     <div class="grid md:grid-cols-2 gap-4 text-sm">
                         <div class="bg-white rounded-lg p-4">
                             <h4 class="font-semibold text-gray-700 mb-2">主要症狀</h4>
-                            <p class="text-gray-600">${getMainSymptom(results)}</p>
+                            <p class="text-gray-600">${escapeHtml(getMainSymptom(results))}</p>
                         </div>
                         <div class="bg-white rounded-lg p-4">
                             <h4 class="font-semibold text-gray-700 mb-2">體質特點</h4>
-                            <p class="text-gray-600">${getConstitutionSummary(results)}</p>
+                            <p class="text-gray-600">${escapeHtml(getConstitutionSummary(results))}</p>
                         </div>
                     </div>
                 </div>
@@ -2023,6 +2023,16 @@
             
             // Insert the completion page
             document.querySelector('.container').appendChild(completionPage);
+        }
+
+        // 將使用者輸入跳脫後再插入完成頁 HTML，避免 DOM 注入（XSS）
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
         function getMainSymptom(results) {
@@ -2101,8 +2111,8 @@
                             }
                         }
                         sectionHtml += `<div class="mb-2 pl-4 border-l-2 border-gray-100">
-                            <span class="text-sm font-medium text-gray-700">${getFieldLabel(field)}：</span>
-                            <span class="text-sm text-gray-600">${value}</span>
+                            <span class="text-sm font-medium text-gray-700">${escapeHtml(getFieldLabel(field))}：</span>
+                            <span class="text-sm text-gray-600">${escapeHtml(value)}</span>
                         </div>`;
                     }
                 });
@@ -2126,7 +2136,7 @@
                     const summary = formatMedicalProfileSectionSummary(section, normalized[section.key]);
                     if (summary) {
                         medicalHtml += `<div class="mb-2 pl-4 border-l-2 border-gray-100">
-                            <span class="text-sm text-gray-600">${summary}</span>
+                            <span class="text-sm text-gray-600">${escapeHtml(summary)}</span>
                         </div>`;
                     }
                 });

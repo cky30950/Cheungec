@@ -2,20 +2,31 @@
  * Agora RTC Token 伺服器（Cloudflare Pages Function）
  * ------------------------------------------------------------
  * 配合 Agora Web UI Kit 的 tokenUrl 機制，路由格式：
+ *   GET /api/agora-token/rtc/<頻道名稱>/publisher/uid/<uid>/?k=<入房pass>
  *   GET /api/agora-token/rtc/<頻道名稱>/publisher/uid/<uid>/
- *   GET /api/agora-token/rtc/<頻道名稱>/subscriber/uid/<uid>/
+ *       （Header: Authorization: Bearer <Firebase ID Token>，員工/醫師端）
+ *   GET /api/agora-token/rtc/<頻道名稱>/subscriber/uid/<uid>/  （鑑權方式同上）
  * 回應 JSON：{ "rtcToken": "007...." }
+ *
+ * 鑑權（必要，二擇一）：
+ *   1. 醫師／員工端：Authorization: Bearer <Firebase ID Token>
+ *   2. 病人端（無登入）：query 帶醫師開診時核發、與頻道綁定的
+ *      一次性入房 pass（POST /api/agora-token/room-pass 核發）。
+ *      無 pass 或 pass 與頻道不符一律拒發，杜绝匿名列舉頻道潛入。
  *
  * Cloudflare 環境變數（Pages → 專案 → Settings → Variables）：
  *   AGORA_APP_ID            Agora 專案 App ID（32 碼）
  *   AGORA_APP_CERTIFICATE   Agora 主要憑證（Primary Certificate，32 碼）
  *   AGORA_TOKEN_EXPIRY      Token 有效秒數（選填，預設 3600）
- *   AGORA_CHANNEL_PREFIX    限制可簽發的頻道前綴（選填，例如 tcm-consult-）
+ *   AGORA_CHANNEL_PREFIX    限制可簽發的頻道前綴（強烈建議設定，例如 tcm-consult-）
  *
  * 免 npm 依賴，使用 Web Crypto（HMAC-SHA256）與 CompressionStream
  *（zlib）按 Agora AccessToken Token007 規格簽發 RTC Token，與官方
  * agora-token v2（RtcTokenBuilder2）輸出相容。
  * ============================================================ */
+
+import { authenticateStaff } from '../attachments/lib/auth.js';
+import { validateRoomPass } from './lib/room-pass.js';
 
 const TOKEN_VERSION = '007';
 
@@ -28,7 +39,7 @@ const PRIV_PUBLISH_AUDIO = 2;
 const PRIV_PUBLISH_VIDEO = 3;
 const PRIV_PUBLISH_DATA = 4;
 
-const CHANNEL_PATTERN = /^[a-zA-Z0-9!#$%&()+\-:;<=>?@[\]^_ {|}~,]{1,64}$/;
+const CHANNEL_PATTERN = /^[a-zA-Z0-9!#$%&()+\-:;<=>?@[\]^_{|}~,]{1,64}$/;
 const UID_PATTERN = /^(0|[1-9][0-9]{0,9})$/;
 
 // Little-endian 位元組寫入器
@@ -184,6 +195,7 @@ function corsHeaders() {
     return {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Authorization, Content-Type',
         'Access-Control-Max-Age': '86400'
     };
 }
@@ -200,7 +212,7 @@ export function onRequestOptions() {
 }
 
 export async function onRequestGet(context) {
-    const { env, params } = context;
+    const { env, params, request } = context;
 
     const appId = env && env.AGORA_APP_ID;
     const appCertificate = env && env.AGORA_APP_CERTIFICATE;
@@ -241,6 +253,34 @@ export async function onRequestGet(context) {
     }
     if (!UID_PATTERN.test(uid)) {
         return jsonResponse({ error: 'BAD_UID' }, 400);
+    }
+
+    // ── 鑑權閘門（必要，二擇一）────────────────────────────────────
+    //  1) 員工／醫師端：Authorization: Bearer <Firebase ID Token>
+    //  2) 病人端（無登入）：?k=<入房 pass>，pass 必須有效、未過期，
+    //     且文件中綁定的頻道與本次請求的頻道完全一致。
+    //  匿名（無任一憑證）一律拒發，避免列舉掛號號潛入診間。
+    const roomPassKey = new URL(request.url).searchParams.get('k') || '';
+    const hasBearer = /^Bearer\s+/i.test(request.headers.get('Authorization') || '');
+    try {
+        if (hasBearer) {
+            await authenticateStaff(request, env);
+        } else if (roomPassKey) {
+            await validateRoomPass(env, roomPassKey, channelName);
+        } else {
+            return jsonResponse({
+                error: 'UNAUTHORIZED',
+                message: '需要登入憑證或有效的診間連結'
+            }, 401);
+        }
+    } catch (authError) {
+        const status = Number(authError && authError.status) > 0
+            ? Number(authError.status)
+            : 401;
+        return jsonResponse({
+            error: authError && authError.code ? authError.code : 'UNAUTHORIZED',
+            message: (authError && authError.message) || '鑑權失敗'
+        }, status);
     }
 
     try {

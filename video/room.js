@@ -47,13 +47,14 @@
         showScreen('error');
     }
 
-    // 由網址參數解析頻道，並限定只能進入診症前綴的頻道
+    // 由網址參數解析頻道與入房 pass，並限定只能進入診症前綴的頻道
     function resolveChannel() {
         var cfg = getConfig();
         var prefix = cfg.CHANNEL_PREFIX || 'tcm-consult-';
         var params = new URLSearchParams(window.location.search);
         var appointmentId = params.get('apt') || '';
         var channel = params.get('channel') || '';
+        var roomPass = (params.get('k') || '').trim();
 
         if (!channel && appointmentId) {
             channel = prefix + appointmentId;
@@ -67,7 +68,10 @@
 
         if (!safe || safe.indexOf(prefix) !== 0) return null;
 
-        return { channel: safe, appointmentId: appointmentId };
+        // 入房 pass 由後端核發（256-bit hex）；舊連結沒有 k 會在此被擋下
+        if (!/^[a-f0-9]{32,256}$/i.test(roomPass)) return null;
+
+        return { channel: safe, appointmentId: appointmentId, roomPass: roomPass };
     }
 
     // 進入前閘門：未簽同意書者先看同意書，已簽（同一診間、同一版本）則直接進入
@@ -128,6 +132,8 @@
             appId: cfg.APP_ID,
             channel: state.channel,
             tokenUrl: cfg.TOKEN_URL || '',
+            // 病人端鑑權：以醫師核發、與頻道綁定的入房 pass 換發 Agora token
+            roomPass: state.roomPass,
             localName: '我',
             remoteName: '醫師',
             // 醫師畫面佔滿、病人自己的畫面縮小於右上角
@@ -262,13 +268,20 @@
     }
 
     function init() {
+        var params = new URLSearchParams(window.location.search);
+        var hasApt = !!(params.get('apt') || params.get('channel'));
         var resolved = resolveChannel();
         if (!resolved) {
-            showError('找不到診間編號，請確認連結完整。');
+            // 有診間編號但解析失敗：新版連結必帶入房 pass（k），
+            // 舊連結或 pass 格式錯誤時引導病人向診所重新索取
+            showError(hasApt
+                ? '此診間連結已失效或不是最新版本，請聯絡診所重新索取連結。'
+                : '找不到診間編號，請確認連結完整。');
             return;
         }
         state.channel = resolved.channel;
         state.appointmentId = resolved.appointmentId;
+        state.roomPass = resolved.roomPass;
 
         var codeText = $('roomCodeText');
         if (codeText) {

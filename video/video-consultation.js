@@ -63,10 +63,36 @@
         return null;
     }
 
-    // 病人端診間頁面網址（video/room.html?apt=<掛號編號>）
-    function buildRoomUrl(appointmentId) {
+    // 取得目前登入醫師的新鮮 Firebase ID Token（Agora token 端點鑑權用；
+    // 每次 join／續期都重新取，避免一小時後 token 過期）
+    function getFreshIdToken() {
+        var user = window.firebase && window.firebase.auth && window.firebase.auth.currentUser;
+        if (!user) return Promise.reject(new Error('尚未登入，無法開啟視訊診間'));
+        return Promise.resolve(user.getIdToken());
+    }
+
+    // 病人端診間頁面網址：video/room.html?apt=<掛號編號>&k=<入房 pass>
+    // pass 由後端核發、只存 hash、與 Agora 頻道綁定（預設 4 小時有效），
+    // 病人憑 pass 換發 Agora token，無 pass 的舊連結無法再進入診間。
+    async function mintRoomUrl(appointmentId, channel) {
+        var idToken = await getFreshIdToken();
+        var base = String(getConfig().TOKEN_URL || '/api/agora-token').replace(/\/+$/, '');
+        var res = await fetch(base + '/room-pass', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + idToken,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ channel: channel })
+        });
+        var data = null;
+        try { data = await res.json(); } catch (e) { data = null; }
+        if (!res.ok || !data || !data.pass) {
+            throw new Error((data && data.message) || ('核發診間連結失敗（HTTP ' + res.status + '）'));
+        }
         var url = new URL('video/room.html', window.location.href);
         url.searchParams.set('apt', String(appointmentId));
+        url.searchParams.set('k', String(data.pass));
         return url.href;
     }
 
@@ -224,6 +250,8 @@
             appId: cfg.APP_ID,
             channel: channel,
             tokenUrl: cfg.TOKEN_URL || '',
+            // 醫師端鑑權：每次取 Agora token 前動態取新鮮 Firebase ID token
+            authTokenProvider: getFreshIdToken,
             localName: doctorName || '醫師',
             remoteName: patientName || '病人',
             // 對方畫面佔滿、自己畫面縮小於右上角
@@ -390,8 +418,16 @@
             var channelEl = document.getElementById('videoConsultChannel');
             if (channelEl) channelEl.textContent = '頻道：' + channel;
 
-            // 將病人診間連結寫入隱藏欄位，供「診間連結」按鈕複製
-            var roomUrl = buildRoomUrl(appointment.id);
+            // 向後端核發本次診間的病人入房 pass，組成含 ?k= 的病人連結；
+            // 核發失敗（未登入／後端異常）則不開啟面板，避免產生無用連結
+            var roomUrl;
+            try {
+                roomUrl = await mintRoomUrl(appointment.id, channel);
+            } catch (mintError) {
+                console.error('[視訊診症] 核發診間連結失敗:', mintError);
+                notify('無法核發診間連結：' + (mintError && mintError.message ? mintError.message : mintError), 'error');
+                return;
+            }
             var roomUrlInput = document.getElementById('videoConsultRoomUrl');
             if (roomUrlInput) roomUrlInput.value = roomUrl;
 
