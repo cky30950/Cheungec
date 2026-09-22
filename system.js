@@ -6220,6 +6220,8 @@ async function attemptMainLogin() {
             if (!matchingUser.active) {
                 showToast('您的帳號已被停用，請聯繫管理員', 'error');
                 await window.firebase.signOut(window.firebase.auth);
+                // 拒絕登入一併清掃本機殘留的前一使用者個資快取
+                try { clearLocalClinicData(); } catch (_e) {}
                 return;
             }
 
@@ -6257,6 +6259,8 @@ async function attemptMainLogin() {
             } catch (e) {
                 console.error('登出 Firebase 失敗:', e);
             }
+            // 拒絕登入一併清掃本機殘留的前一使用者個資快取
+            try { clearLocalClinicData(); } catch (_e) {}
             return;
         }
 
@@ -6506,7 +6510,81 @@ async function syncUserDataFromFirebase(options = {}) {
             }
         }
 
-        
+// ============================================================
+// 登出／未登入開頁時的本機個資清掃（單一權威入口）
+// ------------------------------------------------------------
+// 病人、掛號、病歷、員工、診所設定與財報等 localStorage 快取只作
+// 離線加速，登入後一律由 Firestore 重新載入；登出若不清，共用裝置的
+// 下一位使用者可直接從瀏覽器儲存讀到病人個資（PHI）。
+// 採明確列舉：業務資料鍵（含前綴）清除；語言、推播、介面偏好與
+// 公眾節日表等非個資裝置設定保留。
+// ============================================================
+const LOCAL_CLINIC_DATA_KEYS = Object.freeze([
+    'patients',
+    'patientsCacheMeta',
+    'appointments',
+    'consultations',
+    'users',
+    'clinics',
+    'clinicSettings',
+    'categories',
+    'billingItems',
+    'personalStatsV3',
+    'inventoryLogs',
+    'financialSummaryCoverage',
+    'financialReportCache'
+]);
+const LOCAL_CLINIC_DATA_PREFIXES = Object.freeze([
+    'patientConsultations:',   // 單一病人病歷快取
+    'billingItems_',           // 分科診所收費項目快取
+    'chat_lastSeen_',          // 聊天未讀時間（依員工 UID）
+    'chat_lastPreview_',       // 聊天訊息預覽（依員工 UID）
+    'tcm-video-consent:'       // 視訊同意書本機記錄（含頻道／掛號號）
+]);
+function clearLocalClinicData() {
+    let removed = 0;
+    try {
+        // 先快照 key 清單，避免邊走訪邊刪除漏鍵
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key) keys.push(key);
+        }
+        keys.forEach(function (key) {
+            const hit = LOCAL_CLINIC_DATA_KEYS.indexOf(key) !== -1 ||
+                LOCAL_CLINIC_DATA_PREFIXES.some(function (prefix) {
+                    return key.slice(0, prefix.length) === prefix;
+                });
+            if (hit) {
+                try {
+                    localStorage.removeItem(key);
+                    removed++;
+                } catch (_e) {
+                    // 隱私模式／儲存不可用：忽略
+                }
+            }
+        });
+    } catch (error) {
+        console.warn('清理本機診所資料快取失敗:', error);
+    }
+    // Firestore SDK 離線快取（IndexedDB persistentLocalCache）可能留存曾讀取的
+    // 病人文件；需在所有 onSnapshot 監聽器拆除後呼叫，否則 SDK 會以
+    // failed-precondition 拒絕——此處盡力而為，失敗僅記錄不影響登出。
+    try {
+        const fb = window.firebase;
+        if (fb && fb.db && typeof fb.clearIndexedDbPersistence === 'function') {
+            fb.clearIndexedDbPersistence(fb.db).catch(function (err) {
+                console.warn('清除 Firestore 離線快取失敗（仍有監聽器作用中）:',
+                    err && err.code ? err.code : err);
+            });
+        }
+    } catch (idbErr) {
+        console.warn('啟動 Firestore 離線快取清除失敗:', idbErr);
+    }
+    return removed;
+}
+window.clearLocalClinicData = clearLocalClinicData;
+
 async function logout() {
     try {
         
@@ -6555,8 +6633,20 @@ async function logout() {
         
         currentUser = null;
         currentUserData = null;
-        
-        
+
+        // 清除本機瀏覽器中的病人／診所個資快取（監聽器皆已拆除，不會再被寫回；
+        // 此類快取僅供離線使用，下次登入由 Firestore 重新載入），並同步清空
+        // 記憶體中的個資陣列，避免同分頁換帳殘留前一位使用者資料。
+        try {
+            clearLocalClinicData();
+            if (typeof patients !== 'undefined') patients = [];
+            if (typeof consultations !== 'undefined') consultations = [];
+            if (typeof appointments !== 'undefined') appointments = [];
+            if (typeof patientCache !== 'undefined') patientCache = null;
+        } catch (cacheErr) {
+            console.warn('登出清理本機快取失敗:', cacheErr);
+        }
+
         document.getElementById('loginPage').classList.remove('hidden');
         document.getElementById('mainSystem').classList.add('hidden');
         
@@ -24639,6 +24729,33 @@ async function exportClinicBackupFromCloud() {
             if (bind()) clearInterval(timer);
         }, 200);
         setTimeout(() => clearInterval(timer), 15000);
+    }
+})();
+
+// 未登入開頁守衛：Auth 採 session 持久化且每次開頁都需重新登入，
+// 若前一位使用者直接關分頁而沒走登出，病人個資快取會永久滯留本機。
+// onAuthStateChanged 首次回補（已含持久化還原結果）判定為未登入時，
+// 主動清掃一次；登入後的工作階段不受影響（資料由 Firestore 重載）。
+(function sweepLocalClinicDataWhenSignedOut() {
+    let done = false;
+    function bind() {
+        const fb = window.firebase;
+        if (!fb || !fb.auth || typeof fb.onAuthStateChanged !== 'function') return false;
+        fb.onAuthStateChanged(fb.auth, function (user) {
+            if (done) return;
+            done = true;
+            if (!user) {
+                try { clearLocalClinicData(); } catch (_e) {}
+            }
+        });
+        return true;
+    }
+    if (!bind()) {
+        // firebase_init 尚未就緒（或 DOM 仍在載入）：短輪詢補綁
+        const timer = setInterval(function () {
+            if (bind()) clearInterval(timer);
+        }, 200);
+        setTimeout(function () { clearInterval(timer); }, 15000);
     }
 })();
 
