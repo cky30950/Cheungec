@@ -83,9 +83,14 @@ export class FirestoreClient {
         const body = { fields: jsObjectToFirestoreFields(fields || {}) };
         let url = `${this.documentsPath()}/${docPath}`;
         if (merge) {
+            // updateMask 是 google.protobuf.FieldMask，REST transcoding 要求
+            // 用重複參數 updateMask.fieldPaths=xxx，不接受逗號合併形式；
             // 不帶 currentDocument 前置條件：文件不存在時 PATCH 會直接建立
-            const mask = Object.keys(fields || {}).map(encodeURIComponent).join(',');
-            if (mask) url += `?updateMask=${mask}`;
+            const keys = Object.keys(fields || {});
+            if (keys.length) {
+                const qs = keys.map(k => 'updateMask.fieldPaths=' + encodeURIComponent(k)).join('&');
+                url += '?' + qs;
+            }
         } else {
             url += '?currentDocument.exists=true';
         }
