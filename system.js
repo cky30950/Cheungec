@@ -22644,9 +22644,13 @@ async function saveUser() {
                 phone: phone,
                 uid: existingUserRecord.uid || '',
                 active: active,
-                clinicId: clinicIdForLimit,
-                permissionSettings: (existingUserRecord && existingUserRecord.permissionSettings) ? existingUserRecord.permissionSettings : undefined
+                clinicId: clinicIdForLimit
             };
+            // 保留已有的權限設定；沒有的用戶不帶此欄位（Firestore 不接受 undefined）
+            if (existingUserRecord.permissionSettings !== undefined
+                && existingUserRecord.permissionSettings !== null) {
+                userData.permissionSettings = existingUserRecord.permissionSettings;
+            }
 
             const result = await window.firebaseDataManager.updateUser(editingUserId, userData);
             
