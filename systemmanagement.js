@@ -270,191 +270,6 @@ async function ensureFirebaseReady() {
 }
 
 
-async function exportClinicBackup() {
-    const button = document.getElementById('backupExportBtn');
-    setButtonLoading(button);
-    try {
-        await ensureFirebaseReady();
-        // 病人/診症、用戶、收費項目、套票、套票記錄、診所、診所支出、審核追蹤、組裝輸出 = 9 步
-        let totalStepsForBackupExport = 9;
-        let stepCount = 0;
-        showBackupProgressBar(totalStepsForBackupExport);
-        
-        
-        const [patientsRes, consultationsRes] = await Promise.all([
-            
-            safeGetPatients(true),
-            (async () => {
-                
-                await waitForFirebaseDataManager();
-                
-                return await window.firebaseDataManager.getConsultations(true);
-            })()
-        ]);
-        const patientsData = patientsRes && patientsRes.success && Array.isArray(patientsRes.data) ? patientsRes.data : [];
-        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
-        
-        let consultationsData = consultationsRes && consultationsRes.success && Array.isArray(consultationsRes.data) ? consultationsRes.data.slice() : [];
-        try {
-            
-            let hasMore = consultationsRes && consultationsRes.success && consultationsRes.hasMore;
-            while (hasMore) {
-                const nextRes = await window.firebaseDataManager.getConsultationsNextPage();
-                if (nextRes && nextRes.success && Array.isArray(nextRes.data)) {
-                    consultationsData = nextRes.data.slice();
-                    hasMore = nextRes.hasMore;
-                } else {
-                    hasMore = false;
-                }
-            }
-        } catch (_pageErr) {
-            
-            console.warn('讀取診症記錄全部頁面失敗，僅匯出部分資料:', _pageErr);
-        }
-        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
-        
-        
-        let usersData = [];
-        try {
-            
-            const userSnap = await window.firebase.getDocs(
-                window.firebase.collection(window.firebase.db, 'users')
-            );
-            userSnap.forEach((docSnap) => {
-                usersData.push({ id: docSnap.id, ...docSnap.data() });
-            });
-        } catch (_fetchErr) {
-            console.warn('匯出備份時取得用戶列表失敗，將不包含用戶資料');
-        }
-        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
-        
-        if (typeof initBillingItems === 'function') {
-            
-            await initBillingItems(true);
-        }
-        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
-        
-        let packageData = [];
-        try {
-            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'patientPackages'));
-            snapshot.forEach((docSnap) => {
-
-                packageData.push({ id: docSnap.id, ...docSnap.data() });
-            });
-        } catch (e) {
-            console.error('讀取套票資料失敗:', e);
-        }
-        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
-
-        // 讀取所有套票使用記錄
-        let packageHistoryData = [];
-        try {
-            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'patientPackageHistory'));
-            snapshot.forEach((docSnap) => {
-                packageHistoryData.push({ id: docSnap.id, ...docSnap.data() });
-            });
-        } catch (e) {
-            console.error('讀取套票記錄資料失敗:', e);
-        }
-        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
-
-        // 讀取所有診所主文件（名稱、設定等，不含 billingItems 子集合）
-        let clinicsData = [];
-        try {
-            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'clinics'));
-            snapshot.forEach((docSnap) => {
-                clinicsData.push({ id: docSnap.id, ...docSnap.data() });
-            });
-        } catch (e) {
-            console.error('讀取診所資料失敗:', e);
-        }
-        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
-
-        // 讀取所有診所支出記錄
-        let clinicExpensesData = [];
-        try {
-            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'clinicExpenses'));
-            snapshot.forEach((docSnap) => {
-                clinicExpensesData.push({ id: docSnap.id, ...docSnap.data() });
-            });
-        } catch (e) {
-            console.error('讀取診所支出記錄失敗:', e);
-        }
-        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
-
-        // 讀取所有病歷審核追蹤記錄
-        let consultationAuditLogsData = [];
-        try {
-            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'consultationAuditLogs'));
-            snapshot.forEach((docSnap) => {
-                consultationAuditLogsData.push({ id: docSnap.id, ...docSnap.data() });
-            });
-        } catch (e) {
-            console.error('讀取病歷審核追蹤失敗:', e);
-        }
-        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
-
-        const billingData = Array.isArray(billingItems) ? billingItems : [];
-        
-        let rtdbData = null;
-        try {
-            const rtdbSnap = await window.firebase.get(window.firebase.ref(window.firebase.rtdb));
-            const allRtdb = (rtdbSnap && rtdbSnap.exists()) ? rtdbSnap.val() : {};
-            if (allRtdb && typeof allRtdb === 'object') {
-                rtdbData = {};
-                for (const key of Object.keys(allRtdb)) {
-                    if (!['appointments', 'consultations', 'consultation', 'onlineConsultations'].includes(key)) {
-                        rtdbData[key] = allRtdb[key];
-                    }
-                }
-            }
-            if (rtdbData) {
-                totalStepsForBackupExport++;
-                stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
-            }
-        } catch (e) {
-            console.warn('讀取 Realtime Database 資料失敗:', e);
-            rtdbData = null;
-        }
-        
-        const backup = {
-            patients: patientsData,
-            consultations: consultationsData,
-            users: usersData,
-            billingItems: billingData,
-            patientPackages: packageData,
-            patientPackageHistory: packageHistoryData,
-            clinics: clinicsData,
-            clinicExpenses: clinicExpensesData,
-            consultationAuditLogs: consultationAuditLogsData
-        };
-        if (rtdbData) {
-            backup.rtdb = rtdbData;
-        }
-        stepCount++; updateBackupProgressBar(stepCount, totalStepsForBackupExport);
-        const json = JSON.stringify(backup, null, 2);
-        const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        a.download = `clinic_backup_${timestamp}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showToast('備份資料已匯出！', 'success');
-        finishBackupProgressBar(true);
-    } catch (error) {
-        console.error('匯出備份失敗:', error);
-        showToast('匯出備份失敗，請稍後再試', 'error');
-        finishBackupProgressBar(false);
-    } finally {
-        clearButtonLoading(button);
-    }
-}
-
-
 function triggerBackupImport() {
     const input = document.getElementById('backupFileInput');
     if (input) {
@@ -1813,7 +1628,6 @@ window.systemManagement.finishBackupProgressBar = finishBackupProgressBar;
 
 window.systemManagement.manageBilling = manageBilling;
 window.systemManagement.ensureFirebaseReady = ensureFirebaseReady;
-window.systemManagement.exportClinicBackup = exportClinicBackup;
 window.systemManagement.triggerBackupImport = triggerBackupImport;
 window.systemManagement.handleBackupFile = handleBackupFile;
 window.systemManagement.importClinicBackup = importClinicBackup;
@@ -1832,7 +1646,6 @@ window.finishBackupProgressBar = finishBackupProgressBar;
 
 window.manageBilling = manageBilling;
 window.ensureFirebaseReady = ensureFirebaseReady;
-window.exportClinicBackup = exportClinicBackup;
 window.triggerBackupImport = triggerBackupImport;
 window.handleBackupFile = handleBackupFile;
 window.importClinicBackup = importClinicBackup;

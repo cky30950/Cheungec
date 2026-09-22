@@ -24413,179 +24413,6 @@ async function ensureFirebaseReady() {
     }
 }
 
-/**
- * 匯出診所所有資料（不包含 Realtime Database 的掛號資料）。
- * 讀取各個集合後組成單一 JSON，提供下載。
- */
-async function exportClinicBackup() {
-    const button = document.getElementById('backupExportBtn');
-    setButtonLoading(button);
-    try {
-        await ensureFirebaseReady();
-        // 讀取病人、診症記錄與用戶資料
-        // 讀取病人與診症資料，並透過 fetchUsers() 取得用戶列表
-        const [patientsRes, consultationsRes] = await Promise.all([
-            // 強制刷新以取得最新病人資料
-            safeGetPatients(true),
-            (async () => {
-                // 確保資料管理器已準備好
-                await waitForFirebaseDataManager();
-                /*
-                 * 讀取診症記錄時也需要傳入 forceRefresh=true，
-                 * 以避免回傳的是快取中的舊資料。
-                 */
-                return await window.firebaseDataManager.getConsultations(true);
-            })()
-        ]);
-        const patientsData = patientsRes && patientsRes.success && Array.isArray(patientsRes.data) ? patientsRes.data : [];
-        // 若診症記錄有多頁，必須依序載入所有頁面。先取得第一頁資料。
-        let consultationsData = consultationsRes && consultationsRes.success && Array.isArray(consultationsRes.data) ? consultationsRes.data.slice() : [];
-        try {
-            let hasMore = consultationsRes && consultationsRes.success && consultationsRes.hasMore;
-            const seen = new Set(consultationsData.map(c => String(c.id)));
-            while (hasMore) {
-                const nextRes = await window.firebaseDataManager.getConsultationsNextPage();
-                if (nextRes && nextRes.success && Array.isArray(nextRes.data)) {
-                    for (const item of nextRes.data) {
-                        const idStr = String(item.id);
-                        if (!seen.has(idStr)) {
-                            consultationsData.push(item);
-                            seen.add(idStr);
-                        }
-                    }
-                    hasMore = !!nextRes.hasMore;
-                } else {
-                    hasMore = false;
-                }
-            }
-        } catch (_pageErr) {
-            // 若載入下一頁時發生錯誤，保留已獲得的資料並停止
-            console.warn('讀取診症記錄全部頁面失敗，僅匯出部分資料:', _pageErr);
-        }
-        // 取得用戶列表；為確保包含個人設置（personalSettings），直接從 Firestore 讀取
-        // 不使用快取中的 trimmed 資料，以便包含所有欄位
-        let usersData = [];
-        try {
-            // 從 Firestore 讀取所有 users 文件
-            const userSnap = await window.firebase.getDocs(
-                window.firebase.collection(window.firebase.db, 'users')
-            );
-            userSnap.forEach((docSnap) => {
-                usersData.push({ id: docSnap.id, ...docSnap.data() });
-            });
-        } catch (_fetchErr) {
-            console.warn('匯出備份時取得用戶列表失敗，將不包含用戶資料');
-        }
-        // 讀取收費項目時強制刷新，避免使用快取中的舊資料。
-        if (typeof initBillingItems === 'function') {
-            // 強制從 Firestore 重新讀取收費項目，以確保備份內容為最新
-            await initBillingItems(true);
-        }
-        // 讀取所有套票資料
-        let packageData = [];
-        try {
-            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'patientPackages'));
-            snapshot.forEach((docSnap) => {
-                // 將文件 ID 一併存入，以便還原時能維持原有 ID
-                packageData.push({ id: docSnap.id, ...docSnap.data() });
-            });
-        } catch (e) {
-            console.error('讀取套票資料失敗:', e);
-        }
-        // 讀取所有套票記錄資料
-        let packageHistoryData = [];
-        try {
-            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'patientPackageHistory'));
-            snapshot.forEach((docSnap) => {
-                packageHistoryData.push({ id: docSnap.id, ...docSnap.data() });
-            });
-        } catch (e) {
-            console.error('讀取套票記錄資料失敗:', e);
-        }
-        // 讀取所有診所主文件（名稱、設定等，不含 billingItems 子集合）
-        let clinicsData = [];
-        try {
-            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'clinics'));
-            snapshot.forEach((docSnap) => {
-                clinicsData.push({ id: docSnap.id, ...docSnap.data() });
-            });
-        } catch (e) {
-            console.error('讀取診所資料失敗:', e);
-        }
-        // 讀取所有診所支出記錄
-        let clinicExpensesData = [];
-        try {
-            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'clinicExpenses'));
-            snapshot.forEach((docSnap) => {
-                clinicExpensesData.push({ id: docSnap.id, ...docSnap.data() });
-            });
-        } catch (e) {
-            console.error('讀取診所支出記錄失敗:', e);
-        }
-        // 讀取所有病歷審核追蹤記錄
-        let consultationAuditLogsData = [];
-        try {
-            const snapshot = await window.firebase.getDocs(window.firebase.collection(window.firebase.db, 'consultationAuditLogs'));
-            snapshot.forEach((docSnap) => {
-                consultationAuditLogsData.push({ id: docSnap.id, ...docSnap.data() });
-            });
-        } catch (e) {
-            console.error('讀取病歷審核追蹤失敗:', e);
-        }
-        const billingData = Array.isArray(billingItems) ? billingItems : [];
-        // 讀取 Realtime Database 資料，排除即時掛號及診症資料
-        let rtdbData = null;
-        try {
-            const rtdbSnap = await window.firebase.get(window.firebase.ref(window.firebase.rtdb));
-            const allRtdb = (rtdbSnap && rtdbSnap.exists()) ? rtdbSnap.val() : {};
-            if (allRtdb && typeof allRtdb === 'object') {
-                rtdbData = {};
-                for (const key of Object.keys(allRtdb)) {
-                    if (!['appointments', 'consultations', 'consultation', 'onlineConsultations'].includes(key)) {
-                        rtdbData[key] = allRtdb[key];
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn('讀取 Realtime Database 資料失敗:', e);
-            rtdbData = null;
-        }
-        // 組合備份資料：病人、診症、用戶、收費項目、套票／套票記錄、
-        // 診所設定、診所支出、病歷審核追蹤，以及可選的 Realtime Database
-        const backup = {
-            patients: patientsData,
-            consultations: consultationsData,
-            users: usersData,
-            billingItems: billingData,
-            patientPackages: packageData,
-            patientPackageHistory: packageHistoryData,
-            clinics: clinicsData,
-            clinicExpenses: clinicExpensesData,
-            consultationAuditLogs: consultationAuditLogsData
-        };
-        if (rtdbData) {
-            backup.rtdb = rtdbData;
-        }
-        const json = JSON.stringify(backup, null, 2);
-        const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        a.download = `clinic_backup_${timestamp}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showToast('備份資料已匯出！', 'success');
-    } catch (error) {
-        console.error('匯出備份失敗:', error);
-        showToast('匯出備份失敗，請稍後再試', 'error');
-    } finally {
-        clearButtonLoading(button);
-    }
-}
-
 // ================== 雲端備份（Cloudflare R2）相關函式 ==================
 /**
  * 雲端備份端點（Cloudflare Pages Functions）。
@@ -24750,7 +24577,7 @@ async function syncCloudBackup(forceBaseline) {
 
 /**
  * 由 R2 下載最新備份檔（零 Firestore 讀取）。
- * R2 尚無備份或端點無法使用時，徵得同意後退回舊版全量匯出。
+ * R2 尚無備份時引導使用者先執行雲端同步；不再提供會大量讀取 Firestore 的本機匯出。
  */
 async function exportClinicBackupFromCloud() {
     const button = document.getElementById('backupExportBtn');
@@ -24765,10 +24592,9 @@ async function exportClinicBackupFromCloud() {
         if (!response.ok) {
             let data = null;
             try { data = await response.json(); } catch (_e) { data = null; }
-            // 404＝雲端未有備份；其他錯誤（如 401/403）直接顯示，不默默退回全量
+            // 404＝雲端未有備份：引導先同步，其餘錯誤（401/403 等）直接顯示
             if (response.status === 404 && data && data.error === 'NO_BACKUP_AVAILABLE') {
-                const agreed = confirm('雲端尚未有備份檔。\n\n是否改為立即從系統讀取最新資料，執行一次完整匯出？（會產生 Firestore 讀取）');
-                if (agreed) await exportClinicBackup();
+                showToast('雲端尚未有備份檔，請先按「立即同步雲端備份」建立備份後再下載', 'error');
                 return;
             }
             throw new Error((data && data.message) || ('下載失敗（HTTP ' + response.status + '）'));
@@ -24791,17 +24617,7 @@ async function exportClinicBackupFromCloud() {
         showToast('雲端備份已下載！', 'success');
     } catch (error) {
         console.error('下載雲端備份失敗:', error);
-        // 網路或服務異常時提供舊路徑後盾
-        const agreed = confirm('下載雲端備份失敗：' + (error.message || error) +
-            '\n\n是否改為立即從系統讀取最新資料，執行一次完整匯出？（會產生 Firestore 讀取）');
-        if (agreed) {
-            try {
-                await exportClinicBackup();
-            } catch (fallbackError) {
-                console.error('備援完整匯出也失敗:', fallbackError);
-                showToast('備份下載失敗，請稍後再試', 'error');
-            }
-        }
+        showToast('下載雲端備份失敗：' + (error.message || error), 'error');
     } finally {
         if (button) button.disabled = false;
     }
@@ -32228,7 +32044,6 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
   window.exportFinancialReportExcel = exportFinancialReportExcel;
   // 向下相容：舊呼叫仍預設匯出 TXT
   window.exportFinancialReport = exportFinancialReportTxt;
-  window.exportClinicBackup = exportClinicBackup;
   window.hideAddClinicModal = hideAddClinicModal;
   window.saveNewClinic = saveNewClinic;
   window.saveSystemManagementClinicOptions = saveSystemManagementClinicOptions;
