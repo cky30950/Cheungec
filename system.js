@@ -28701,18 +28701,15 @@ class FirebaseDataManager {
                 }
                 return list;
             };
-            // 同時以 date 與 createdAt 範圍查詢並合併：
-            // 歷史資料可能存在欄位型別不一致（例如 date 為字串或缺失），
-            // 若僅在 date 為 0 筆才回退，會出現「只看到今天」的斷層。
-            // 這裡維持條件查詢（不做全量掃描），再以 id 去重。
-            const listByDate = await runRangeQuery('date', start, end);
-            const listByCreatedAt = await runRangeQuery('createdAt', start, end);
-            const mergedMap = new Map();
-            [...listByDate, ...listByCreatedAt].forEach(item => {
-                if (!item || item.id === undefined || item.id === null) return;
-                mergedMap.set(String(item.id), item);
-            });
-            return { success: true, data: Array.from(mergedMap.values()) };
+            // 主力查詢 date（報表以診症日期為準，索引與語意與舊版一致）。
+            // 僅在 date 查詢回傳 0 筆時（歷史資料 date 欄位為字串／缺失），
+            // 才補查 createdAt，避免每次都把同範圍重複讀取、讀取數翻倍。
+            // 同範圍內部分 date 異常的混合型舊資料，會隨 sortDate 回填逐漸修復。
+            let list = await runRangeQuery('date', start, end);
+            if (list.length === 0) {
+                list = await runRangeQuery('createdAt', start, end);
+            }
+            return { success: true, data: list };
         } catch (error) {
             console.warn('目標條件查詢失敗（已停用全量回退）:', error);
             return { success: false, data: [], error: 'targeted-query-failed' };
@@ -28796,33 +28793,8 @@ class FirebaseDataManager {
                 snap1.forEach(d => list.push({ id: d.id, ...d.data() }));
                 last1 = snap1.docs.length ? snap1.docs[snap1.docs.length - 1] : null;
             }
-            const q2Parts = [];
-            if (completedOnly) q2Parts.push(window.firebase.where('status', '==', 'completed'));
-            if (doctorFilter) q2Parts.push(window.firebase.where('doctor', '==', doctorFilter));
-            if (clinicFilter) q2Parts.push(window.firebase.where('clinicId', '==', clinicFilter));
-            let q2 = window.firebase.firestoreQuery(
-                colRef,
-                ...q2Parts,
-                window.firebase.where('createdAt', '>', sinceDate),
-                window.firebase.orderBy('createdAt', 'asc'),
-                window.firebase.limit(pageSize)
-            );
-            let snap2 = await window.firebase.getDocs(q2);
-            snap2.forEach(d => list.push({ id: d.id, ...d.data() }));
-            let last2 = snap2.docs.length ? snap2.docs[snap2.docs.length - 1] : null;
-            while (snap2.docs.length === pageSize && last2) {
-                q2 = window.firebase.firestoreQuery(
-                    colRef,
-                    ...q2Parts,
-                    window.firebase.where('createdAt', '>', sinceDate),
-                    window.firebase.orderBy('createdAt', 'asc'),
-                    window.firebase.startAfter(last2),
-                    window.firebase.limit(pageSize)
-                );
-                snap2 = await window.firebase.getDocs(q2);
-                snap2.forEach(d => list.push({ id: d.id, ...d.data() }));
-                last2 = snap2.docs.length ? snap2.docs[snap2.docs.length - 1] : null;
-            }
+            // 不需再以 createdAt 補查：文件建立時 updatedAt 即等於 createdAt，
+            // 之後只會更大，故 createdAt > sinceDate 必定被 updatedAt > sinceDate 覆蓋。
             const seen = new Set();
             const merged = [];
             for (const r of list) {
