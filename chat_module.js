@@ -19,6 +19,8 @@
       this.sendButton = null;
       this.charCount = null;
       this.presenceRef = null;
+      this.presenceConnRef = null;
+      this.presenceHeartbeatTimer = null;
       this.presenceRootRef = null;
       this.presenceListener = null;
       this.messagesRef = null;
@@ -186,14 +188,16 @@
       this.messagesRef = null;
       
       try {
-        if (this.presenceRef) {
-          window.firebase.set(this.presenceRef, {
-            online: false,
-            lastSeen: Date.now()
-          });
+        if (this.presenceHeartbeatTimer) {
+          window.clearInterval(this.presenceHeartbeatTimer);
+          this.presenceHeartbeatTimer = null;
+        }
+        if (this.presenceConnRef) {
+          // 只移除本分頁自己的連線節點；同帳號其他分頁仍開著時不會被互標離線
+          window.firebase.remove(this.presenceConnRef).catch(() => {});
         }
       } catch (err) {
-        console.error('ChatModule: error setting offline presence during destroy', err);
+        console.error('ChatModule: error removing presence connection during destroy', err);
       }
       
       try {
@@ -206,6 +210,7 @@
       this.connectionRef = null;
       this.connectionListener = null;
       this.presenceRef = null;
+      this.presenceConnRef = null;
       
       try {
         if (this.channelListeners) {
@@ -600,51 +605,61 @@
     
     setupPresence() {
       try {
-        
+        // 每個分頁／裝置各佔一個獨立節點 presence/{uid}/connections/{connId}，
+        // 「使用者在線」＝connections 下存在任一活躍連線節點。
+        // 如此同帳號開多個分頁時，關閉其中一個只移除自己的節點，
+        // 不會再把仍開著的其他分頁互標離線。
         this.presenceRef = window.firebase.ref(window.firebase.rtdb, `presence/${this.currentUserUid}`);
-        
-        
-        
-        
+        const connectionsRef = window.firebase.ref(window.firebase.rtdb, `presence/${this.currentUserUid}/connections`);
+        // push() 只在本機產生唯一 key，不會立即寫入
+        const connId = window.firebase.push(connectionsRef).key;
+        this.presenceConnRef = window.firebase.ref(window.firebase.rtdb, `presence/${this.currentUserUid}/connections/${connId}`);
+
         this.connectionRef = window.firebase.ref(window.firebase.rtdb, '.info/connected');
         this.connectionListener = (snapshot) => {
           const isConnected = !!snapshot.val();
-          if (isConnected) {
+          if (isConnected && this.presenceConnRef) {
             try {
-              
-              if (this.presenceRef && window.firebase.onDisconnect) {
-                
-                window.firebase.onDisconnect(this.presenceRef).set({
-                  online: false,
-                  lastSeen: Date.now()
-                });
+              // 連線中斷／瀏覽器當機時由 RTDB 伺服器自動移除「這個連線」的節點
+              if (window.firebase.onDisconnect) {
+                window.firebase.onDisconnect(this.presenceConnRef).remove();
               }
             } catch (err) {
-              console.warn('ChatModule: Failed to set onDisconnect for presence', err);
+              console.warn('ChatModule: Failed to set onDisconnect for presence connection', err);
             }
-            
-            
-            window.firebase.set(this.presenceRef, {
-              online: true,
-              lastSeen: Date.now()
-            }).catch((err) => {
-              console.error('ChatModule: Failed to set presence', err);
-            });
+
+            const writePresenceConnection = () => {
+              if (!this.presenceConnRef) return;
+              window.firebase.set(this.presenceConnRef, {
+                startedAt: Date.now()
+              }).catch((err) => {
+                console.error('ChatModule: Failed to set presence connection', err);
+              });
+            };
+            writePresenceConnection();
+
+            // 心跳：定期重寫自己的連線節點。除了自我修復異常殘缺，
+            // 也涵蓋新舊版部署過渡期——舊版分頁以 set() 重寫 uid 根節點時
+            // 會清掉 connections 子節點，心跳最久 45 秒內自動恢復在線。
+            if (this.presenceHeartbeatTimer) {
+              window.clearInterval(this.presenceHeartbeatTimer);
+            }
+            this.presenceHeartbeatTimer = window.setInterval(writePresenceConnection, 45000);
+          } else if (this.presenceHeartbeatTimer) {
+            window.clearInterval(this.presenceHeartbeatTimer);
+            this.presenceHeartbeatTimer = null;
           }
         };
         window.firebase.onValue(this.connectionRef, this.connectionListener);
 
-        
+        // 關閉分頁時盡力立即移除自己的節點（伺服器端 onDisconnect 為最終保險）
         this.beforeUnloadHandler = () => {
           try {
-            if (this.presenceRef) {
-              window.firebase.set(this.presenceRef, {
-                online: false,
-                lastSeen: Date.now()
-              });
+            if (this.presenceConnRef) {
+              window.firebase.remove(this.presenceConnRef);
             }
           } catch (_e) {
-            
+
           }
         };
         window.addEventListener('beforeunload', this.beforeUnloadHandler);
@@ -739,49 +754,47 @@
     }
 
     
+    // presence 節點在線判定：
+    // 新格式 { connections: { connId: {...} } } → 有任一活躍連線即在線；
+    // 舊格式 { online: true }（部署過渡期的舊版分頁）亦視為在線。
+    isPresenceEntryOnline(entry) {
+      if (!entry) return false;
+      if (typeof entry !== 'object') return !!entry;
+      if (entry.connections && typeof entry.connections === 'object') {
+        return Object.keys(entry.connections).length > 0;
+      }
+      return entry.online === true;
+    }
+
     listenToPresence() {
       try {
         this.presenceRootRef = window.firebase.ref(window.firebase.rtdb, 'presence');
         this.presenceListener = (snapshot) => {
           const presenceData = snapshot.val() || {};
-          
+
           let onlineCount = 0;
           Object.keys(presenceData).forEach(uid => {
-            const entry = presenceData[uid];
-            
-            let isOnline = false;
-            if (entry && typeof entry === 'object') {
-              isOnline = !!entry.online;
-            } else {
-              isOnline = !!entry;
-            }
-            if (isOnline && uid !== this.currentUserUid) {
+            if (uid !== this.currentUserUid && this.isPresenceEntryOnline(presenceData[uid])) {
               onlineCount++;
             }
           });
-          
+
           const items = this.userListContainer.querySelectorAll('div[data-uid]');
           items.forEach(item => {
             const uid = item.dataset.uid;
             const dot = item.querySelector('span[data-status-dot="true"]');
             if (!dot) return;
-            
-            
+
+
             if (uid === 'public') {
               dot.style.backgroundColor = 'transparent';
               return;
             }
-            const entry = presenceData[uid];
-            let isOnline = false;
-            if (entry && typeof entry === 'object') {
-              isOnline = !!entry.online;
-            } else {
-              isOnline = !!entry;
-            }
+            const isOnline = this.isPresenceEntryOnline(presenceData[uid]);
             if (isOnline) {
-              dot.style.backgroundColor = '#10B981'; 
+              dot.style.backgroundColor = '#10B981';
             } else {
-              dot.style.backgroundColor = '#9CA3AF'; 
+              dot.style.backgroundColor = '#9CA3AF';
             }
           });
         };

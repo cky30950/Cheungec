@@ -1367,11 +1367,25 @@ async function getAllConsultationsForLegacyMigration() {
     }
     let result = await window.firebaseDataManager.getConsultations(true);
     if (!result || !result.success) return [];
-    let list = Array.isArray(result.data) ? result.data.slice() : [];
+    // 顯式累積每一頁並以病歷 ID 去重（getConsultationsNextPage 回傳的是累積快取，
+    // 直接賦值會在實作變更後漏頁或重複；逐頁 append + 去重在兩種語意下皆正確）
+    const seenIds = new Set();
+    const list = [];
+    const appendPage = function (items) {
+        (Array.isArray(items) ? items : []).forEach(function (item) {
+            if (!item) return;
+            if (item.id !== undefined && item.id !== null) {
+                if (seenIds.has(item.id)) return;
+                seenIds.add(item.id);
+            }
+            list.push(item);
+        });
+    };
+    appendPage(result.data);
     while (result && result.success && result.hasMore && typeof window.firebaseDataManager.getConsultationsNextPage === 'function') {
         result = await window.firebaseDataManager.getConsultationsNextPage();
         if (!result || !result.success) break;
-        list = Array.isArray(result.data) ? result.data.slice() : list;
+        appendPage(result.data);
     }
     return list;
 }

@@ -616,30 +616,34 @@
         }
         async function saveShiftToDb(shift) {
             try {
-                if (!window.firebase || !window.firebase.rtdb || !shift) return;
+                if (!window.firebase || !window.firebase.rtdb || !shift) return false;
                 const monthKey = getMonthKey(shift.date);
-                
+
                 const { id, ...data } = shift || {};
                 const clinicId = shift && shift.clinicId ? String(shift.clinicId) : getCurrentClinicId();
                 const path = `clinics/${clinicId}/scheduleShifts/${monthKey}/${id}`;
                 const refPath = window.firebase.ref(window.firebase.rtdb, path);
                 await window.firebase.set(refPath, data);
+                return true;
             } catch (e) {
                 console.error('保存單筆排班資料失敗:', e);
+                return false;
             }
         }
 
         
         async function deleteShiftFromDb(shift) {
             try {
-                if (!window.firebase || !window.firebase.rtdb || !shift) return;
+                if (!window.firebase || !window.firebase.rtdb || !shift) return false;
                 const monthKey = getMonthKey(shift.date);
                 const clinicId = shift && shift.clinicId ? String(shift.clinicId) : getCurrentClinicId();
                 const path = `clinics/${clinicId}/scheduleShifts/${monthKey}/${shift.id}`;
                 const refPath = window.firebase.ref(window.firebase.rtdb, path);
                 await window.firebase.remove(refPath);
+                return true;
             } catch (e) {
                 console.error('刪除排班資料失敗:', e);
+                return false;
             }
         }
 
@@ -1100,25 +1104,34 @@
                         quickAddShiftFromDrag(staffMember, this.dataset.date);
                     }
                 } else if (draggedShift) {
-                    
+
                     const newDate = this.dataset.date;
-                    
+
                     const oldDate = draggedShift.date;
-                    
+
                     draggedShift.date = newDate;
-                    
+
+                    const moved = await saveShiftToDb(draggedShift);
+                    if (!moved) {
+                        // 寫入失敗：還原日期並重新載入，避免畫面與資料庫不一致
+                        draggedShift.date = oldDate;
+                        await loadShiftsFromDb();
+                        renderCalendar();
+                        updateStats();
+                        showNotification(translate('排班移動失敗，請稍後再試'), 'error');
+                        return;
+                    }
+
                     try {
-                        await saveShiftToDb(draggedShift);
-                        
                         const oldKey = getMonthKey(oldDate);
                         const newKey = getMonthKey(newDate);
                         if (oldKey !== newKey) {
-                            await deleteShiftFromDb({ id: draggedShift.id, date: oldDate });
+                            await deleteShiftFromDb({ id: draggedShift.id, date: oldDate, clinicId: getCurrentClinicId() });
                         }
                     } catch (_err) {
-                        
+
                     }
-                    
+
                     renderCalendar();
                     updateStats();
                     showNotification(translate('排班已成功移動！'));
@@ -1174,14 +1187,19 @@
             };
             
             shifts.push(newShift);
-            
-            try {
-                await saveShiftToDb(newShift);
-            } catch (_err) {
-                
+
+            const saved = await saveShiftToDb(newShift);
+            if (!saved) {
+                // 寫入失敗：重新載入還原本地狀態
+                await loadShiftsFromDb();
+                renderCalendar();
+                renderStaffPanel();
+                updateStats();
+                showNotification(translate('排班新增失敗，請稍後再試'), 'error');
+                return;
             }
             renderCalendar();
-            renderStaffPanel(); 
+            renderStaffPanel();
             updateStats();
             
             
@@ -1474,17 +1492,25 @@
             };
             
             if (editId) {
-                
+
                 const shiftIndex = shifts.findIndex(s => s.id == editId);
                 if (shiftIndex !== -1) {
-                    
+
                     const originalShift = { ...shifts[shiftIndex] };
-                    
+
                     shifts[shiftIndex] = { ...shifts[shiftIndex], ...shiftData };
-                    showNotification(translate('排班更新成功！'));
-                    
-                    await saveShiftToDb(shifts[shiftIndex]);
-                    
+
+                    const updated = await saveShiftToDb(shifts[shiftIndex]);
+                    if (!updated) {
+                        // 寫入失敗：重新載入還原變更，保留彈窗供重試
+                        await loadShiftsFromDb();
+                        renderCalendar();
+                        updateStats();
+                        showNotification(translate('排班更新失敗，請稍後再試'), 'error');
+                        shiftSubmitInProgress = false;
+                        return;
+                    }
+
                     try {
                         const oldKey = getMonthKey(originalShift.date);
                         const newKey = getMonthKey(shifts[shiftIndex].date);
@@ -1492,22 +1518,32 @@
                             await deleteShiftFromDb(originalShift);
                         }
                     } catch (_delErr) {
-                        
+
                     }
+                    showNotification(translate('排班更新成功！'));
                 }
                 delete modal.dataset.editId;
-                
+
                 modal.querySelector('h3').textContent = translate('新增排班');
             } else {
-                
+
                 const newShift = {
                     id: Date.now(),
                     ...shiftData
                 };
                 shifts.push(newShift);
+
+                const created = await saveShiftToDb(newShift);
+                if (!created) {
+                    // 寫入失敗：重新載入還原本地狀態，保留彈窗供重試
+                    await loadShiftsFromDb();
+                    renderCalendar();
+                    updateStats();
+                    showNotification(translate('排班新增失敗，請稍後再試'), 'error');
+                    shiftSubmitInProgress = false;
+                    return;
+                }
                 showNotification(translate('排班新增成功！'));
-                
-                await saveShiftToDb(newShift);
             }
             
             
@@ -1704,22 +1740,33 @@
 
         
         async function clearAllShifts() {
-            
+
             if (!ensureAdmin('清空所有排班')) {
                 return;
             }
             const confirmedClear = await showConfirmation(translate('確定要清空所有排班嗎？此操作無法復原。'), 'warning');
             if (confirmedClear) {
-                
-                shifts = [];
-                
+
+                // 實際資料路徑為 clinics/{clinicId}/scheduleShifts（含所有月份），
+                // 須等遠端刪除成功後才清空本地並提示成功
+                let remoteOk = false;
                 try {
-                    const monthKey = getMonthKey();
-                    const monthRef = window.firebase.ref(window.firebase.rtdb, `scheduleShifts/${monthKey}`);
-                    await window.firebase.remove(monthRef);
-                } catch (_err) {
-                    
+                    const clinicId = getCurrentClinicId();
+                    const allShiftsRef = window.firebase.ref(window.firebase.rtdb, `clinics/${clinicId}/scheduleShifts`);
+                    await window.firebase.remove(allShiftsRef);
+                    remoteOk = true;
+                } catch (err) {
+                    console.error('清空所有排班失敗:', err);
                 }
+                if (!remoteOk) {
+                    // 重新載入以還原本地狀態，避免畫面顯示與資料庫不一致
+                    await loadShiftsFromDb();
+                    renderCalendar();
+                    updateStats();
+                    showNotification(translate('清空排班失敗，請稍後再試'), 'error');
+                    return;
+                }
+                shifts = [];
                 renderCalendar();
                 updateStats();
                 showNotification(translate('所有排班已清空！'));
@@ -1788,15 +1835,19 @@
             if (confirmedDelShift) {
                 const shiftIndex = shifts.findIndex(s => s.id == shiftId);
                 if (shiftIndex !== -1) {
-                    
+
                     const delShift = { ...shifts[shiftIndex] };
-                    
+
                     shifts.splice(shiftIndex, 1);
-                    
-                    try {
-                        await deleteShiftFromDb(delShift);
-                    } catch (_err) {
-                        
+
+                    const deleted = await deleteShiftFromDb(delShift);
+                    if (!deleted) {
+                        // 遠端刪除失敗：重新載入還原該筆排班
+                        await loadShiftsFromDb();
+                        renderCalendar();
+                        updateStats();
+                        showNotification(translate('排班刪除失敗，請稍後再試'), 'error');
+                        return;
                     }
                     renderCalendar();
                     updateStats();
@@ -2055,18 +2106,20 @@
             let shiftIdCounter = Date.now();
             let addedCount = 0;
             let replacedCount = 0;
+            let failedCount = 0;
 
             for (let dt = new Date(startDate); dt <= endDate; dt.setDate(dt.getDate() + 1)) {
                 const dayOfWeek = dt.getDay();
                 if (selectedDays.includes(dayOfWeek)) {
                     const dateStr = formatDate(dt);
-                    
+
                     const existingShiftIndex = shifts.findIndex(s =>
                         String(s.staffId) === String(staffId) && s.date === dateStr
                     );
                     if (existingShiftIndex !== -1) {
                         if (replaceExisting) {
-                            
+
+                            const previousShift = { ...shifts[existingShiftIndex] };
                             shifts[existingShiftIndex] = {
                                 ...shifts[existingShiftIndex],
                                 startTime: startTime,
@@ -2074,16 +2127,17 @@
                                 type: shiftType,
                                 notes: notes
                             };
-                            replacedCount++;
-                            try {
-                                await saveShiftToDb(shifts[existingShiftIndex]);
-                            } catch (_err) {
-                                
+                            const batchUpdated = await saveShiftToDb(shifts[existingShiftIndex]);
+                            if (batchUpdated) {
+                                replacedCount++;
+                            } else {
+                                failedCount++;
+                                shifts[existingShiftIndex] = previousShift;
                             }
                         }
-                        
+
                     } else {
-                        
+
                         const newShift = {
                             id: shiftIdCounter++,
                             staffId: staffId,
@@ -2092,27 +2146,32 @@
                             endTime: endTime,
                             type: shiftType,
                             status: 'confirmed',
-                            notes: notes
+                            notes: notes,
+                            clinicId: getCurrentClinicId()
                         };
                         shifts.push(newShift);
-                        addedCount++;
-                        try {
-                            await saveShiftToDb(newShift);
-                        } catch (_err) {
-                            
+                        const batchCreated = await saveShiftToDb(newShift);
+                        if (batchCreated) {
+                            addedCount++;
+                        } else {
+                            failedCount++;
+                            shifts.splice(shifts.indexOf(newShift), 1);
                         }
                     }
                 }
             }
 
-            
+            if (failedCount > 0) {
+                // 有寫入失敗：以資料庫實際狀態為準重新載入，避免本地計數與畫面不實
+                await loadShiftsFromDb();
+            }
             renderCalendar();
             updateStats();
             closeFixedScheduleModal();
 
-            
+
             const staffMember = findStaffById(staffId);
-            
+
             let message = `${translate('固定排班建立完成！')}\n\n`;
             message += `${translate('人員：')}${staffMember.name}\n`;
             message += `${translate('新增排班：')}${addedCount} ${translate('天')}\n`;
@@ -2120,11 +2179,12 @@
                 message += `${translate('替換排班：')}${replacedCount} ${translate('天')}\n`;
             }
             message += `${translate('時間：')}${startTime} - ${endTime}\n`;
-            
+
             message += `${translate('工作日：')}${selectedDays.map(d => translate(['日','一','二','三','四','五','六'][d])).join('、')}`;
 
-            
-            showNotification(`${translate('已為')} ${staffMember.name} ${translate('建立固定排班')}！${translate('新增')} ${addedCount} ${translate('天')}${replacedCount > 0 ? `${translate('，替換')} ${replacedCount} ${translate('天')}` : ''}${translate('。')}`);
+
+            const failureSuffix = failedCount > 0 ? ` ${translate('（部分排班儲存失敗，請檢查網路連線後重試）')}` : '';
+            showNotification(`${translate('已為')} ${staffMember.name} ${translate('建立固定排班')}！${translate('新增')} ${addedCount} ${translate('天')}${replacedCount > 0 ? `${translate('，替換')} ${replacedCount} ${translate('天')}` : ''}${translate('。')}${failureSuffix}`, failedCount > 0 ? 'error' : undefined);
         }
 
         
