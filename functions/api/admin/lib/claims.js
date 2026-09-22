@@ -107,11 +107,11 @@ export async function syncUserClaims(env, input = {}) {
         indexFields
     );
 
-    // 停用（或管理員明確要求）時一併撤銷已簽發的 refresh token／工作階段
-    const revoke = input.forceRevoke === true || claims.active === false;
+    // 停用（或管理員明確要求）時一併撤銷 refresh token／工作階段
+    const revoked = input.forceRevoke === true || claims.active === false;
     await identity.updateAccount(targetUid, {
         customAttributes: serializeCustomAttributes(claims),
-        validSince: revoke ? Math.floor(Date.now() / 1000) : undefined
+        validSince: revoked ? Math.floor(Date.now() / 1000) : undefined
     });
 
     return {
