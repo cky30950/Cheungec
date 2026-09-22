@@ -71,6 +71,55 @@ export class FirestoreClient {
     }
 
     /**
+     * 以 PATCH 更新單一文件（Service Account 繞過 Rules）。
+     * @param {string} docPath 相對於 documents 的路徑（如 userAuthIndex/abc）
+     * @param {object} fields 一般 JSON 形態的欄位（自動轉 Firestore value 格式）
+     * @param {object} [options]
+     * @param {boolean} [options.merge=true] true 使用 updateMask 合併；false 覆蓋
+     * @returns {Promise<object>} 寫入後的文件（normalizeDocument 形態）
+     */
+    async patchDocument(docPath, fields, options = {}) {
+        const merge = options.merge !== false;
+        const body = { fields: jsObjectToFirestoreFields(fields || {}) };
+        let url = `${this.documentsPath()}/${docPath}`;
+        if (merge) {
+            // 不帶 currentDocument 前置條件：文件不存在時 PATCH 會直接建立
+            const mask = Object.keys(fields || {}).map(encodeURIComponent).join(',');
+            if (mask) url += `?updateMask=${mask}`;
+        } else {
+            url += '?currentDocument.exists=true';
+        }
+        const response = await fetch(url, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${this.token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+        const text = await response.text();
+        if (!response.ok) {
+            throw new Error(`PATCH 文件 ${docPath} 失敗 (HTTP ${response.status}): ${text.slice(0, 300)}`);
+        }
+        return normalizeDocument(text ? JSON.parse(text) : {});
+    }
+
+    /**
+     * 刪除單一文件（Service Account 繞過 Rules）。不存在視為成功。
+     */
+    async deleteDocument(docPath) {
+        const response = await fetch(`${this.documentsPath()}/${docPath}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${this.token}` }
+        });
+        if (!response.ok && response.status !== 404) {
+            const text = await response.text();
+            throw new Error(`DELETE 文件 ${docPath} 失敗 (HTTP ${response.status}): ${text.slice(0, 200)}`);
+        }
+        return true;
+    }
+
+    /**
      * 疊代查詢結果，自動分頁。
      * @param {object} options
      * @param {string} options.collectionId collectionId（如 patients）
@@ -296,6 +345,39 @@ function normalizeValue(value) {
     }
     // 罕見型別（increment 等 sentinel 不應出現在讀取結果）
     return null;
+}
+
+/**
+ * 一般 JSON → Firestore v1 write 用的 {fields: {...}} 值格式。
+ * 支援 string/boolean/number/null/Date/陣列/物件；其餘型別視為 null。
+ */
+export function jsObjectToFirestoreFields(obj) {
+    const out = {};
+    for (const [key, value] of Object.entries(obj || {})) {
+        out[key] = jsValueToFirestore(value);
+    }
+    return out;
+}
+
+function jsValueToFirestore(value) {
+    if (value === null || value === undefined) return { nullValue: null };
+    if (typeof value === 'string') return { stringValue: value };
+    if (typeof value === 'boolean') return { booleanValue: value };
+    if (typeof value === 'number') {
+        return Number.isSafeInteger(value)
+            ? { integerValue: String(value) }
+            : { doubleValue: value };
+    }
+    if (value instanceof Date) {
+        return { timestampValue: value.toISOString().replace(/\.\d{3}Z$/, 'Z') };
+    }
+    if (Array.isArray(value)) {
+        return { arrayValue: { values: value.map(jsValueToFirestore) } };
+    }
+    if (typeof value === 'object') {
+        return { mapValue: { fields: jsObjectToFirestoreFields(value) } };
+    }
+    return { nullValue: null };
 }
 
 /**

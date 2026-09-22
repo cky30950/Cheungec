@@ -16,6 +16,7 @@
 const FIREBASE_SCOPES = [
     'https://www.googleapis.com/auth/datastore',
     'https://www.googleapis.com/auth/firebase.database',
+    'https://www.googleapis.com/auth/identitytoolkit.admin',
     'https://www.googleapis.com/auth/userinfo.email'
 ].join(' ');
 

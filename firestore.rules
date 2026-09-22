@@ -1,0 +1,187 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // 授權基礎
+    // ------------------------------------------------------------
+    // 主要機制：Firebase Auth Custom Claims（由 Pages Function 以
+    // Service Account 寫入，客戶端無法自行竄改）：
+    //   staff=true、active=true、admin=true、userId、clinicId、position
+    //
+    // 過渡 fallback：userAuthIndex 文件（供部署後一小時內、尚未刷新
+    // ID Token 的舊工作階段使用）。所有用戶重新登入後可移除
+    // isActiveByIndex / isAdminByIndex 及 canAccess/canAdmin 中的引用。
+    // ============================================================
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // ── Custom claims（主要）──
+    function isActiveStaff() {
+      return isSignedIn()
+        && request.auth.token.staff == true
+        && request.auth.token.active == true;
+    }
+    function isAdmin() {
+      return isActiveStaff() && request.auth.token.admin == true;
+    }
+
+    // ── userAuthIndex 過渡 fallback ──
+    function indexPath() {
+      return /databases/$(database)/documents/userAuthIndex/$(request.auth.uid);
+    }
+    function staffIndex() {
+      return get(indexPath()).data;
+    }
+    function isActiveByIndex() {
+      return isSignedIn()
+        && exists(indexPath())
+        && staffIndex().active == true;
+    }
+    function isAdminByIndex() {
+      return isActiveByIndex()
+        && staffIndex().position == '診所管理';
+    }
+
+    function canAccess() {
+      return isActiveStaff() || isActiveByIndex();
+    }
+    function canAdmin() {
+      return isAdmin() || isAdminByIndex();
+    }
+
+    // 本人更新自己的 users 文件：只允許個人設定與登入時間，
+    // 身份/權限欄位一律不得透過此路徑變更。
+    function selfProfileUpdate() {
+      return canAccess()
+        && (request.auth.token.userId == resource.id
+            || (exists(indexPath()) && staffIndex().userId == resource.id))
+        && request.resource.data.position == resource.data.position
+        && request.resource.data.active == resource.data.active
+        && request.resource.data.clinicId == resource.data.clinicId
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['lastLogin', 'personalSettings', 'updatedAt', 'updatedBy']);
+    }
+
+    // ============================================================
+    // 公開（病人無登入）集合
+    // ============================================================
+
+    // inquiry 表單：病人只可匿名「建立」；讀取/更新/刪除皆須職員身份
+    // （舊規則允許匿名 update，任何人可竄改已提交內容，已封閉）
+    match /inquiries/{document=**} {
+      allow create: if true;
+      allow read, update, delete: if canAccess();
+    }
+
+    // 視訊診間雙方就緒信號：病人無登入，僅限 tcm-consult- 開頭的單一診間文件，
+    // 且內容只能有 doctor / patient 兩個心跳欄位；不開放匿名列出整個集合或刪除
+    match /videoPresence/{channelId} {
+      allow get: if channelId.matches('tcm-consult-.{1,64}');
+      allow create, update: if channelId.matches('tcm-consult-.{1,64}')
+        && request.resource.data.keys().hasOnly(['doctor', 'patient']);
+    }
+
+    match /videoConsents/{channelId} {
+      allow get: if channelId.matches('tcm-consult-.{1,64}');
+      allow create: if channelId.matches('tcm-consult-.{1,64}')
+        && request.resource.data.keys()
+           .hasOnly(['channel','appointmentId','version','clientAt','at','userAgent']);
+    }
+
+    // ============================================================
+    // 身份與授權集合
+    // ============================================================
+
+    // 登入授權索引：客戶端只可讀自己的索引文件；
+    // 寫入一律拒絕——索引只由 Pages Function 以 Service Account 維護
+    match /userAuthIndex/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // 授權用戶主資料
+    //  - 讀取：活躍員工
+    //  - 新增/刪除：管理員（診所管理）
+    //  - 更新：管理員，或本人僅改個人設定/登入時間
+    match /users/{userId} {
+      allow read: if canAccess();
+      allow create, delete: if canAdmin();
+      allow update: if canAdmin() || selfProfileUpdate();
+    }
+
+    // ============================================================
+    // 業務輔助集合
+    // ============================================================
+
+    // 病人清單變更通知 metadata
+    match /patientsMeta/{document=**} {
+      allow read, write: if canAccess();
+    }
+
+    // 備份記錄 metadata
+    match /backupMeta/{document=**} {
+      allow read, write: if canAccess();
+    }
+
+    // 病歷附件（R2）：
+    // 新文件由 Pages Function 以 Service Account 經 REST 建立（繞過 Rules），
+    // 客戶端不允許 create；刪除為伺服器端軟刪，客戶端不允許 delete。
+    // 客戶端僅可 update：上傳完成 PATCH uploadStatus、保存診症後歸戶
+    // （consultationId/sessionId/consultationDate），其餘欄位不可竄改。
+    match /patientAttachments/{fileId} {
+      allow read: if canAccess();
+      allow update: if canAccess()
+        && request.resource.data.fileId == resource.data.fileId
+        && request.resource.data.patientId == resource.data.patientId
+        && request.resource.data.uploadedByUid == resource.data.uploadedByUid
+        && request.resource.data.originalKey == resource.data.originalKey
+        && request.resource.data.thumbKey == resource.data.thumbKey
+        && request.resource.data.category == resource.data.category
+        && request.resource.data.deleted == false
+        && request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['uploadStatus', 'consultationId', 'sessionId',
+                     'consultationDate', 'updatedAt']);
+      allow create, delete: if false;
+    }
+
+    // 手機代拍 session：只由 Pages Function 以 Service Account 讀寫
+    // （含 token hash、病人歸屬、過期時間），客戶端任何操作一律拒絕。
+    // 手機端不登入，憑 sid+token 直接呼叫 Function 端點，不碰 Firestore。
+    match /attachmentCaptureSessions/{sid} {
+      allow read, write: if false;
+    }
+
+    // 視訊入房 pass：只由 Pages Function 以 Service Account 讀寫
+    // （含 pass hash、綁定頻道、過期時間），客戶端任何操作一律拒絕。
+    // 病人端不登入，憑 ?k=<pass> 直接呼叫 Function 端點，不碰 Firestore。
+    match /videoRoomPasses/{passId} {
+      allow read, write: if false;
+    }
+
+    // ============================================================
+    // Catch-all：其他業務集合（patients、consultations、clinics、
+    // patientPackages、clinicExpenses、globalBillingItems 等）。
+    // 必須持有活躍員工身份（claims 或過渡索引）才可讀寫。
+    // 注意：Firestore 多條 match 為聯集（OR），故所有上方專用集合
+    // 都必須在此排除，否則這條規則會重新放寬它們。
+    // ============================================================
+    match /{collectionId}/{document=**} {
+      allow read, write: if canAccess()
+        && collectionId != 'patientAttachments'
+        && collectionId != 'attachmentCaptureSessions'
+        && collectionId != 'videoRoomPasses'
+        && collectionId != 'userAuthIndex'
+        && collectionId != 'users'
+        && collectionId != 'inquiries'
+        && collectionId != 'videoPresence'
+        && collectionId != 'videoConsents'
+        && collectionId != 'patientsMeta'
+        && collectionId != 'backupMeta';
+    }
+  }
+}

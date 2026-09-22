@@ -5643,6 +5643,67 @@ async function removeAuthorizedUserIndex(uid) {
     return true;
 }
 
+/* ============================================================
+ * Custom Claims 同步（經 Cloudflare Pages Function 以 Service Account 寫入）
+ * ------------------------------------------------------------
+ * users 文件是授權事實來源；新增/編輯/啟用/停用/刪除用戶後，
+ * 由下列函式通知後端把身份同步到 Firebase Auth custom claims 與
+ * userAuthIndex 索引。客戶端無權直接寫這兩處（見 firestore.rules）。
+ * ============================================================ */
+
+async function callAdminClaimsApi(path, payload) {
+    await waitForFirebase();
+    const fbUser = window.firebase.auth && window.firebase.auth.currentUser;
+    if (!fbUser) throw new Error('未登入，無法同步用戶授權');
+    // 強制刷新，確保管理員自身的 admin claims 為最新（例如 bootstrap 後）
+    const token = await fbUser.getIdToken(true);
+    const res = await fetch('/api/admin/' + path, {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload || {})
+    });
+    let data = null;
+    try { data = await res.json(); } catch (_e) {}
+    if (!res.ok) {
+        throw new Error((data && data.message) || ('HTTP ' + res.status));
+    }
+    return data || {};
+}
+
+// 由後端以 SA 建立 Auth 帳號（避免 createUserWithEmailAndPassword 搶走管理員工作階段）
+async function createStaffAuthAccount({ email, password, displayName }) {
+    const data = await callAdminClaimsApi('accounts/create', { email, password, displayName });
+    if (!data || !data.uid) throw new Error('建立帳號時伺服器未回傳 uid');
+    return data;
+}
+
+// users 文件變更後同步 claims；forceRevoke 用於停用（即時撤銷 refresh token）
+async function syncStaffClaims(user, options) {
+    const uid = user && user.uid ? String(user.uid) : '';
+    const userId = user && user.id ? String(user.id) : '';
+    if (!uid || !userId) {
+        console.warn('同步 claims 跳過：缺少 uid/userId', user);
+        return { ok: false, skipped: true };
+    }
+    const forceRevoke = !!(options && options.forceRevoke);
+    return callAdminClaimsApi('claims/sync', { targetUid: uid, userId, forceRevoke });
+}
+
+// 刪除用戶後，一併移除授權索引並刪除 Auth 帳號
+async function deleteStaffAuthAccount(uid) {
+    if (!uid) return { ok: false, skipped: true };
+    return callAdminClaimsApi('claims/delete', { targetUid: String(uid) });
+}
+
+// 一次性批量同步所有現有用戶（首次部署/修復用）；回傳 {synced, orphaned, ...}
+async function bootstrapAllUserClaims() {
+    return callAdminClaimsApi('claims/bootstrap', {});
+}
+window.adminClaimsBootstrap = bootstrapAllUserClaims;
+
 async function fetchLegacyAuthorizedUserByUidOrEmail(uid, email) {
     await waitForFirebaseDb();
     const colRef = window.firebase.collection(window.firebase.db, 'users');
@@ -6197,6 +6258,17 @@ async function attemptMainLogin() {
         } catch (claimsErr) {
             console.warn('取得使用者自訂權限失敗:', claimsErr);
             window.currentUserClaims = {};
+        }
+
+        // Custom claims 閘門：ID Token 已標示 staff 但 active=false（帳號被停用）→ 即時拒絕。
+        // 後端停用時另會撤銷 refresh token，已簽發的 ID Token 最遲一小時後失效。
+        if (window.currentUserClaims
+            && window.currentUserClaims.staff === true
+            && window.currentUserClaims.active === false) {
+            showToast('您的帳號已被停用，請聯繫管理員', 'error');
+            await window.firebase.signOut(window.firebase.auth);
+            try { clearLocalClinicData(); } catch (_e) {}
+            return;
         }
 
         let matchingUser = await fetchAuthorizedUserByUidOrEmail(uid, firebaseUser && firebaseUser.email);
@@ -22600,7 +22672,22 @@ async function saveUser() {
                     document.getElementById('userRole').textContent = `當前用戶：${getUserDisplayName(currentUserData)}`;
                     document.getElementById('sidebarUserRole').textContent = `當前用戶：${getUserDisplayName(currentUserData)}`;
                 }
-                
+
+                // 同步授權到 custom claims（職位/診所/啟用狀態變更即時反映到 ID Token）
+                if (existingUserRecord.uid) {
+                    try {
+                        await syncStaffClaims(
+                            { id: editingUserId, uid: existingUserRecord.uid },
+                            { forceRevoke: userData.active === false }
+                        );
+                    } catch (claimsErr) {
+                        console.error('同步用戶授權 claims 失敗:', claimsErr);
+                        showToast('用戶資料已更新，但授權同步失敗：請重試或執行 adminClaimsBootstrap() 修復', 'error');
+                    }
+                } else {
+                    console.warn('用戶缺少 Auth uid，無法同步 claims:', editingUserId);
+                }
+
                 showToast('用戶資料已成功更新！', 'success');
             } else {
                 showToast('更新用戶資料失敗，請稍後再試', 'error');
@@ -22628,19 +22715,11 @@ async function saveUser() {
                     return;
                 }
                 try {
-                    // 使用 Firebase Auth 創建新帳號
-                    const userCredential = await window.firebase.createUserWithEmailAndPassword(window.firebase.auth, email, password);
-                    if (userCredential && userCredential.user) {
-                        newUid = userCredential.user.uid;
-                        // 更新顯示名稱
-                        if (window.firebase.updateProfile && typeof window.firebase.updateProfile === 'function') {
-                            try {
-                                await window.firebase.updateProfile(userCredential.user, { displayName: name });
-                            } catch (_err) {
-                                console.error('更新新用戶顯示名稱失敗:', _err);
-                            }
-                        }
-                    }
+                    // 經後端 Service Account 建立 Auth 帳號：
+                    // 不可用客戶端 createUserWithEmailAndPassword，否則管理員的
+                    // 瀏覽器工作階段會被切換成新帳號（無 admin claims，後續寫入全被拒）
+                    const created = await createStaffAuthAccount({ email, password, displayName: name });
+                    newUid = created.uid;
                 } catch (authErr) {
                     console.error('建立 Firebase 帳號失敗:', authErr);
                     showToast('建立 Firebase 帳號失敗：' + (authErr && authErr.message ? authErr.message : ''), 'error');
@@ -22672,6 +22751,17 @@ async function saveUser() {
                 };
                 users.push(newUser);
                 usersFromFirebase.push(newUser);
+
+                // 同步授權到 custom claims 與 userAuthIndex（後端 SA 寫入）
+                if (newUid) {
+                    try {
+                        await syncStaffClaims({ id: result.id, uid: newUid }, { forceRevoke: !userData.active });
+                    } catch (claimsErr) {
+                        console.error('同步新用戶授權 claims 失敗:', claimsErr);
+                        showToast('用戶已建立，但授權同步失敗：請重新編輯此用戶並儲存，或執行 adminClaimsBootstrap() 修復', 'error');
+                    }
+                }
+
                 showToast('用戶已成功新增！', 'success');
             } else {
                 showToast('新增用戶失敗，請稍後再試', 'error');
@@ -22764,7 +22854,21 @@ async function toggleUserStatus(id) {
                 if (firebaseUserIndex !== -1) {
                     usersFromFirebase[firebaseUserIndex].active = !user.active;
                 }
-                
+
+                // 同步 claims：停用时 active=false 並撤銷 refresh token；
+                // 啟用時恢復 active=true
+                if (user.uid) {
+                    try {
+                        await syncStaffClaims(
+                            { id, uid: user.uid },
+                            { forceRevoke: user.active === true }
+                        );
+                    } catch (claimsErr) {
+                        console.error('同步用戶啟用狀態 claims 失敗:', claimsErr);
+                        showToast('帳號狀態已更新，但授權同步失敗：請重試或執行 adminClaimsBootstrap() 修復', 'error');
+                    }
+                }
+
                 localStorage.setItem('users', JSON.stringify(users));
                 displayUsers();
                 {
@@ -22853,6 +22957,18 @@ async function deleteUser(id) {
 
                 localStorage.setItem('users', JSON.stringify(users));
                 displayUsers();
+
+                // 後端一併清除授權索引並刪除 Auth 帳號（舊流程只刪 Firestore 文件，
+                // 殘留 Auth 帳號仍可登入）
+                if (user.uid) {
+                    try {
+                        await deleteStaffAuthAccount(user.uid);
+                    } catch (claimsErr) {
+                        console.error('刪除 Auth 帳號失敗:', claimsErr);
+                        showToast('用戶文件已刪除，但 Auth 帳號刪除失敗：請於系統管理頁重試或手動處理', 'error');
+                    }
+                }
+
                 {
                     const lang = localStorage.getItem('lang') || 'zh';
                     const zhMsg = `用戶「${user.name}」已刪除！`;
@@ -29278,14 +29394,9 @@ class FirebaseDataManager {
                 }
             );
 
-            if (dataToWrite && dataToWrite.uid) {
-                try {
-                    await upsertAuthorizedUserIndex({ id: docRef.id, ...dataToWrite }, dataToWrite.uid);
-                } catch (indexErr) {
-                    console.warn('新增用戶後建立授權索引失敗:', indexErr);
-                }
-            }
-            
+            // 授權索引 userAuthIndex 與 custom claims 統一由後端
+            // /api/admin/claims/sync 以 Service Account 寫入（客戶端已被 Rules 拒絕）
+
             console.log('用戶數據已添加到 Firebase:', docRef.id);
             // 新增用戶後清除快取並移除本地存檔
             this.usersCache = null;
@@ -29456,18 +29567,8 @@ class FirebaseDataManager {
                     updatedBy: currentUser || 'system'
                 }
             );
-            const mergedUser = {
-                ...(existingUser || {}),
-                ...(dataToWrite || {}),
-                id: userId
-            };
-            if (mergedUser.uid) {
-                try {
-                    await upsertAuthorizedUserIndex(mergedUser, mergedUser.uid);
-                } catch (indexErr) {
-                    console.warn('更新授權用戶索引失敗:', indexErr);
-                }
-            }
+            // 授權索引與 custom claims 由後端 /api/admin/claims/sync 維護，
+            // 此處不再做客戶端索引寫入（Rules 已拒絕）
             // 更新用戶後清除用戶緩存並移除本地存檔
             this.usersCache = null;
             try {
@@ -29497,13 +29598,7 @@ class FirebaseDataManager {
             await window.firebase.deleteDoc(
                 window.firebase.doc(window.firebase.db, 'users', userId)
             );
-            if (existingUser && existingUser.uid) {
-                try {
-                    await removeAuthorizedUserIndex(existingUser.uid);
-                } catch (indexErr) {
-                    console.warn('刪除授權用戶索引失敗:', indexErr);
-                }
-            }
+            // userAuthIndex 與 Auth 帳號由後端 /api/admin/claims/delete 一併清除
             // 刪除用戶後清除緩存並移除本地存檔
             this.usersCache = null;
             try {

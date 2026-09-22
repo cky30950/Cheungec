@@ -16,8 +16,10 @@ import {
 import { FirestoreClient } from '../../backup/lib/firestore.js';
 
 /**
- * 驗證請求者為有效登入使用者。
- * @returns {Promise<{uid:string, email:string, claims:object}>}
+ * 驗證請求者為有效員工。
+ * 優先以 custom claims 判斷（staff=true、active!=false）；
+ * claims 未同步的過渡期，退回 users 文件驗證（文件不存在或 active=false 拒絕）。
+ * @returns {Promise<{uid:string, email:string, claims:object, via:string}>}
  */
 export async function authenticateStaff(request, env) {
     const token = extractBearerToken(request);
@@ -27,14 +29,34 @@ export async function authenticateStaff(request, env) {
         throw err;
     }
     const projectId = getServiceAccount(env).project_id;
+    let claims;
     try {
-        const claims = await verifyIdToken(token, projectId);
-        return { uid: claims.sub, email: claims.email || '', claims };
+        claims = await verifyIdToken(token, projectId);
     } catch (error) {
         const err = new Error('登入憑證無效或已過期：' + (error.message || ''));
         err.status = 401;
         throw err;
     }
+
+    // 主要路徑：custom claims
+    if (claims.staff === true) {
+        if (claims.active === false) {
+            const err = new Error('帳號已停用');
+            err.status = 403;
+            throw err;
+        }
+        return { uid: claims.sub, email: claims.email || '', claims, via: 'claims' };
+    }
+
+    // 過渡 fallback：以 users 文件（userAuthIndex → uid → email）確認員工身份
+    const userData = await resolveUserData(claims, env);
+    if (userData && userData.active !== false) {
+        console.warn('員工 claims 未同步，暫以 users 文件放行：', claims.sub);
+        return { uid: claims.sub, email: claims.email || '', claims, via: 'legacy-doc' };
+    }
+    const err = new Error('未授權：此帳號不是啟用中的員工');
+    err.status = 403;
+    throw err;
 }
 
 /**
