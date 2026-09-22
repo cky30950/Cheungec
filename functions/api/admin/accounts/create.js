@@ -45,11 +45,16 @@ export async function onRequestPost({ request, env }) {
         result.createdBy = admin.email || admin.uid;
         return jsonResponse({ ok: true, ...result }, 200);
     } catch (error) {
-        // EMAIL_EXISTS 等 API 錯誤維持 400，其餘 500
-        const msg = String(error.message || '');
-        const status = /EMAIL_EXISTS|EMAIL_NOT_FOUND|INVALID_EMAIL|WEAK_PASSWORD|TOO_MANY|400/i.test(msg)
-            ? 400
-            : (error.status === 403 ? 403 : 500);
-        return errorResponse(Object.assign({}, error, { status }), status);
+        // 保留原始 Error（message 為不可列舉屬性，Object.assign 會丟失）；
+        // EMAIL_EXISTS／WEAK_PASSWORD 等帳號類錯誤回 400，權限不足 403，其餘 500
+        const msg = String((error && error.message) || '');
+        const hasHttpStatus = Number.isInteger(error && error.status)
+            && error.status >= 400 && error.status < 600;
+        const status = hasHttpStatus
+            ? error.status
+            : (/EMAIL_EXISTS|EMAIL_NOT_FOUND|INVALID_EMAIL|WEAK_PASSWORD|TOO_MANY/i.test(msg)
+                ? 400
+                : ((error && error.status) === 403 ? 403 : 500));
+        return errorResponse(error, status);
     }
 }

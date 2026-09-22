@@ -3,12 +3,17 @@
  * ------------------------------------------------------------
  * 以 Service Account OAuth token 呼叫 v1 管理端點（與 firebase-admin
  * 使用同一組 API）：
+ *   POST /v1/projects/{pid}/accounts          建立單一帳號（明文密碼，同 createUser）
  *   POST /v1/projects/{pid}/accounts:update   設定 custom claims／撤銷 token
  *   POST /v1/projects/{pid}/accounts:delete   刪除 Auth 帳號
  *   GET  /v1/projects/{pid}/accounts:batchGet 分頁列出所有帳號（bootstrap 用）
  *
- * 需要 scope：https://www.googleapis.com/auth/identitytoolkit.admin
- * （已加諸 backup/lib/google-auth.js 的 FIREBASE_SCOPES）
+ * 注意：accounts:batchCreate 是「批量匯入已有雜湊密碼帳號」（importUsers）
+ * 專用，必須帶 hashAlgorithm 且每個用戶要有 localId／passwordHash，
+ * 不能用它建立明文密碼帳號。
+ *
+ * 需要 OAuth scope：cloud-platform（見 backup/lib/google-auth.js 的
+ * FIREBASE_SCOPES）；Service Account 本身需具「Firebase 管理員」角色。
  * ============================================================ */
 
 const IDENTITY_BASE = 'https://identitytoolkit.googleapis.com/v1/projects';
@@ -52,10 +57,12 @@ export class IdentityClient {
     }
 
     /**
-     * 更新帳號。可同時設定 custom claims 及／或撤銷 refresh token。
+     * 更新帳號。可同時設定 custom claims、停用／啟用帳號及／或撤銷 refresh token。
      * @param {string} localId Firebase Auth uid
      * @param {object} options
      * @param {string} [options.customAttributes] JSON 字串（claims，總大小 ≤ 1000 bytes）
+     * @param {boolean} [options.disableUser] true＝停用 Auth 帳號（封存/離職），
+     *   false＝重新啟用（復職）；undefined＝不變更
      * @param {number} [options.validSince] Unix 秒；設定後早於此時間簽發的
      *   refresh token／工作階段失效（ID token 在到期前仍有效，故另以 active claim 阻擋）
      */
@@ -64,6 +71,9 @@ export class IdentityClient {
         const body = { localId: String(localId) };
         if (typeof options.customAttributes === 'string') {
             body.customAttributes = options.customAttributes;
+        }
+        if (typeof options.disableUser === 'boolean') {
+            body.disableUser = options.disableUser;
         }
         if (options.validSince) {
             // API 要求字串形態的 Unix 秒
@@ -74,6 +84,8 @@ export class IdentityClient {
 
     /**
      * 以管理端 API 建立電郵／密碼帳號（不會影響管理員自己的瀏覽器工作階段）。
+     * 對應 firebase-admin 的 createUser()：POST .../accounts（明文密碼）。
+     * 切勿改用 accounts:batchCreate，那是匯入雜湊密碼帳號的端點。
      * @param {object} props {email, password, displayName}
      * @returns {Promise<{uid:string, email:string}>}
      */
@@ -87,15 +99,15 @@ export class IdentityClient {
         }
         const account = { email, password };
         if (props.displayName) account.displayName = String(props.displayName).slice(0, 100);
-        const data = await this._post(':batchCreate', { users: [account] });
-        const created = data.users && data.users[0] ? data.users[0] : {};
-        if (!created.localId) {
-            const err = new Error('batchCreate 未回傳 localId');
+        // path 傳空字串：URL 即 .../accounts（無 :verb 後綴）
+        const data = await this._post('', account);
+        if (!data.localId) {
+            const err = new Error('建立帳號時伺服器未回傳 localId');
             err.status = 502;
             err.apiError = data;
             throw err;
         }
-        return { uid: String(created.localId), email };
+        return { uid: String(data.localId), email: data.email || email };
     }
 
     /**

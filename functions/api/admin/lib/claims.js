@@ -63,6 +63,8 @@ function buildIndexFields(userDoc, uid) {
         userId: String(userDoc.id || ''),
         email: cleanText(data.email, 200),
         active: data.active !== false,
+        archived: data.archived === true,
+        status: cleanText(data.status, 20) || (data.archived === true ? 'archived' : 'active'),
         clinicId: cleanText(data.clinicId, 100),
         position: cleanText(data.position, 40),
         username: cleanText(data.username, 60),
@@ -162,6 +164,70 @@ export async function deleteStaffAuth(env, targetUid) {
     const result = await identity.deleteAccount(uid);
     authNotFound = !!result.notFound;
     return { uid, authDeleted: !authNotFound, authNotFound };
+}
+
+/**
+ * 封存（離職）／復職員工（軟刪除，Auth 帳號保留）。
+ *  - 封存：users 文件 active=false/archived=true（客戶端先行寫入），
+ *    後端把 Auth 帳號設為 disabled、同步 active=false claims、撤銷工作階段，
+ *    但不刪除帳號，以保留病歷／財務記錄的身份審計追溯。
+ *  - 復職：重新啟用 Auth 帳號，並依 users 文件現況同步 claims。
+ *
+ * @param {object} env Pages 環境
+ * @param {object} input
+ * @param {string} input.targetUid Firebase Auth uid
+ * @param {string} input.userId users 文件 ID（伺服器重讀，不信客户端其餘欄位）
+ * @param {boolean} input.archived true＝封存，false＝復職
+ * @returns {Promise<{uid,userId,archived,active,authNotFound}>}
+ */
+export async function archiveStaffAuth(env, input = {}) {
+    const targetUid = String(input.targetUid || '').trim();
+    const userId = String(input.userId || '').trim();
+    const archived = input.archived !== false;
+    if (!targetUid || !userId) {
+        const err = new Error('缺少 targetUid 或 userId');
+        err.status = 400;
+        throw err;
+    }
+    const { db, identity } = await getClients(env);
+
+    // 以 users 文件為唯一事實來源重讀，避免客户端偽造
+    const userDoc = await db.getDocument(`users/${encodeURIComponent(userId)}`);
+    if (!userDoc) {
+        const err = new Error(`users/${userId} 不存在，無法同步封存狀態`);
+        err.status = 404;
+        throw err;
+    }
+
+    const claims = buildClaimsFromUser(userDoc, userId);
+    const indexFields = buildIndexFields({ ...userDoc, id: userId }, targetUid);
+    // 以本次操作的封存狀態為準（文件寫入與索引更新可能存在極短時間差）
+    indexFields.archived = archived;
+    indexFields.status = archived ? 'archived' : 'active';
+    await db.patchDocument(
+        `userAuthIndex/${encodeURIComponent(targetUid)}`,
+        indexFields
+    );
+
+    // Auth 帳號可能已被舊流程硬刪：索引仍如實更新，帳號缺失則回報 notFound
+    let authNotFound = false;
+    try {
+        await identity.updateAccount(targetUid, {
+            customAttributes: serializeCustomAttributes(claims),
+            disableUser: archived,
+            // 封存時一併撤銷 refresh token／工作階段
+            validSince: archived ? Math.floor(Date.now() / 1000) : undefined
+        });
+    } catch (error) {
+        const code = error.apiError && error.apiError.error && error.apiError.error.message;
+        if (error.status === 404 || /USER_NOT_FOUND/i.test(String(code || ''))) {
+            authNotFound = true;
+        } else {
+            throw error;
+        }
+    }
+
+    return { uid: targetUid, userId, archived, active: claims.active, authNotFound };
 }
 
 /**

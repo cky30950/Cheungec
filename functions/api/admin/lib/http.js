@@ -48,9 +48,33 @@ export function isAuthorizedBootstrapCall(request, env) {
 }
 
 export function errorResponse(error, fallbackStatus = 500) {
-    const status = error.status || fallbackStatus;
-    return jsonResponse({
-        error: String(error.code || 'ADMIN_API_ERROR'),
-        message: String((error && error.message) || error)
-    }, status);
+    const status = (error && error.status) || fallbackStatus;
+
+    // Error.message 是不可列舉屬性；型別也可能不是字串，逐一兜底，
+    // 避免前端收到 "[object Object]" 這類無資訊量的訊息
+    let message = error && error.message;
+    if (message && typeof message === 'object') {
+        try { message = JSON.stringify(message); } catch (_e) { message = String(message); }
+    }
+    message = message ? String(message) : '';
+    if (!message) {
+        try { message = JSON.stringify(error); } catch (_e) { message = String(error); }
+        if (message === '{}') message = 'ADMIN_API_ERROR';
+    }
+
+    const payload = {
+        error: String((error && error.code) || 'ADMIN_API_ERROR'),
+        message
+    };
+
+    // Identity Toolkit／Firestore 的原始錯誤本體（若有），方便前端顯示與排查
+    const upstream = error && error.apiError && error.apiError.error;
+    if (upstream) {
+        if (upstream.code) payload.upstreamStatus = upstream.code;
+        if (upstream.message && payload.message.indexOf(String(upstream.message)) === -1) {
+            payload.upstreamMessage = String(upstream.message);
+        }
+    }
+
+    return jsonResponse(payload, status);
 }

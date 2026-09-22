@@ -5668,7 +5668,18 @@ async function callAdminClaimsApi(path, payload) {
     let data = null;
     try { data = await res.json(); } catch (_e) {}
     if (!res.ok) {
-        throw new Error((data && data.message) || ('HTTP ' + res.status));
+        // 後端錯誤訊息理應是字串；物件型態時先序列化，避免出現 Error: [object Object]
+        let message = data && data.message;
+        if (message && typeof message === 'object') {
+            try { message = JSON.stringify(message); } catch (_e2) { message = ''; }
+        }
+        message = message ? String(message) : '';
+        // 附上 Google 上游原始錯誤（EMAIL_EXISTS／權限不足等），方便診斷
+        const upstream = data && data.upstreamMessage ? String(data.upstreamMessage) : '';
+        if (upstream && message.indexOf(upstream) === -1) {
+            message = message ? (message + '（' + upstream + '）') : upstream;
+        }
+        throw new Error(message || ('HTTP ' + res.status));
     }
     return data || {};
 }
@@ -5696,6 +5707,16 @@ async function syncStaffClaims(user, options) {
 async function deleteStaffAuthAccount(uid) {
     if (!uid) return { ok: false, skipped: true };
     return callAdminClaimsApi('claims/delete', { targetUid: String(uid) });
+}
+
+// 封存（離職）／復職：停用或重新啟用 Auth 帳號（帳號保留，不作硬刪除）
+async function archiveStaffAuthAccount(uid, userId, archived) {
+    if (!uid) return { ok: false, skipped: true };
+    return callAdminClaimsApi('claims/archive', {
+        targetUid: String(uid),
+        userId: String(userId),
+        archived: archived !== false
+    });
 }
 
 // 一次性批量同步所有現有用戶（首次部署/修復用）；回傳 {synced, orphaned, ...}
@@ -6293,9 +6314,16 @@ async function attemptMainLogin() {
         }
 
         if (matchingUser) {
-            
+
             if (!matchingUser.active) {
-                showToast('您的帳號已被停用，請聯繫管理員', 'error');
+                const accountArchived = matchingUser.archived === true
+                    || matchingUser.status === 'archived';
+                showToast(
+                    accountArchived
+                        ? '您的帳號已離職封存，請聯繫管理員'
+                        : '您的帳號已被停用，請聯繫管理員',
+                    'error'
+                );
                 await window.firebase.signOut(window.firebase.auth);
                 // 拒絕登入一併完整清掃（localStorage＋IndexedDB）後重新整理
                 wipeDeviceDataAndReload(1000);
@@ -22406,10 +22434,18 @@ function displayUsers() {
                             (user.email && user.email.toLowerCase().includes(searchTerm));
         
         let matchesFilter = true;
-        if (currentUserFilter === 'inactive') {
-            matchesFilter = !user.active;
+        const isArchivedUser = user.archived === true || user.status === 'archived';
+        if (currentUserFilter === 'archived') {
+            // 已離職：僅顯示封存用戶
+            matchesFilter = isArchivedUser;
+        } else if (currentUserFilter === 'inactive') {
+            // 已停用：排除已封存（離職）者
+            matchesFilter = !isArchivedUser && !user.active;
+        } else {
+            // 全部用戶：預設只顯示在職者（含停用但未離職），隱藏已封存者
+            matchesFilter = !isArchivedUser;
         }
-        
+
         return matchesSearch && matchesFilter;
     });
     
@@ -22427,8 +22463,19 @@ function displayUsers() {
     }
     
         filteredUsers.forEach(user => {
-        const statusClass = user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-        const statusText = user.active ? '啟用' : '停用';
+        const isUserArchived = user.archived === true || user.status === 'archived';
+        let statusClass;
+        let statusText;
+        if (isUserArchived) {
+            statusClass = 'bg-gray-200 text-gray-600';
+            statusText = '已離職';
+        } else if (user.active) {
+            statusClass = 'bg-green-100 text-green-800';
+            statusText = '啟用';
+        } else {
+            statusClass = 'bg-red-100 text-red-800';
+            statusText = '停用';
+        }
         
         // 處理 Firebase Timestamp 格式
         let lastLogin = '從未登入';
@@ -22456,13 +22503,18 @@ function displayUsers() {
                         <button onclick="editUser('${safeId}')" class="text-blue-600 hover:text-blue-800">編輯</button>
                         <span class="text-gray-400 text-xs ml-1">當前用戶</span>
                     `;
+        } else if (isUserArchived) {
+            actionsHtml = `
+                        <button onclick="editUser('${safeId}')" class="text-blue-600 hover:text-blue-800">編輯</button>
+                        <button onclick="restoreUser('${safeId}')" class="text-green-600 hover:text-green-800">復職</button>
+                    `;
         } else {
             actionsHtml = `
                         <button onclick="editUser('${safeId}')" class="text-blue-600 hover:text-blue-800">編輯</button>
                         <button onclick="toggleUserStatus('${safeId}')" class="text-orange-600 hover:text-orange-800">
                             ${user.active ? '停用' : '啟用'}
                         </button>
-                        <button onclick="deleteUser('${safeId}')" class="text-red-600 hover:text-red-800">刪除</button>
+                        <button onclick="archiveUser('${safeId}')" class="text-red-600 hover:text-red-800">封存</button>
                     `;
         }
         const row = document.createElement('tr');
@@ -22748,6 +22800,13 @@ async function saveUser() {
                 showToast('登入電子郵件目前不可在此直接修改，請維持原值。', 'error');
                 return;
             }
+            // 已封存（離職）用戶不可透過編輯表單直接啟用；恢復帳號請使用「復職」
+            const editingArchived = existingUserRecord.archived === true
+                || existingUserRecord.status === 'archived';
+            const effectiveActive = editingArchived ? false : active;
+            if (editingArchived && active) {
+                showToast('該用戶已離職封存，請使用「已離職」清單中的「復職」按鈕恢復帳號', 'warning');
+            }
             // 更新現有用戶
             const userData = {
                 name: name,
@@ -22756,7 +22815,7 @@ async function saveUser() {
                 email: lockedEmail,
                 phone: phone,
                 uid: existingUserRecord.uid || '',
-                active: active,
+                active: effectiveActive,
                 clinicId: clinicIdForLimit
             };
             // 保留已有的權限設定；沒有的用戶不帶此欄位（Firestore 不接受 undefined）
@@ -23016,7 +23075,30 @@ async function toggleUserStatus(id) {
     }
 }
 
-async function deleteUser(id) {
+// 將封存/復職後的用戶資料同步更新到本地各份快取
+function patchLocalUserRecord(id, patch) {
+    const applyPatch = (list) => {
+        if (!Array.isArray(list)) return list;
+        return list.map(u => (u && u.id === id ? { ...u, ...patch } : u));
+    };
+    users = applyPatch(users);
+    usersFromFirebase = applyPatch(usersFromFirebase);
+    try {
+        if (Array.isArray(userCache)) {
+            userCache = applyPatch(userCache);
+        }
+    } catch (_e) {
+        // userCache 未定義或不可用時忽略
+    }
+    try {
+        localStorage.setItem('users', JSON.stringify(users));
+    } catch (_lsErr) {
+        // localStorage 寫入失敗時忽略
+    }
+}
+
+// 封存用戶（離職）：軟刪除，保留 users 文件與 Auth 帳號作審計追溯
+async function archiveUser(id) {
     // 檢查權限：未具備用戶管理權限則阻止操作
     if (!hasAccessToSection('userManagement')) {
         showToast('權限不足，無法執行此操作', 'error');
@@ -23025,81 +23107,162 @@ async function deleteUser(id) {
     const currentUsers = usersFromFirebase.length > 0 ? usersFromFirebase : users;
     const user = currentUsers.find(u => u.id === id);
     if (!user) return;
-    
-    // 防止刪除自己的帳號
+
+    // 防止封存自己的帳號
     if (user.id === currentUserData.id) {
-        showToast('不能刪除自己的帳號！', 'error');
+        showToast('不能封存自己的帳號！', 'error');
         return;
     }
-    // 禁止刪除主管理員帳號（使用電子郵件判斷）
+    // 禁止封存主管理員帳號（使用電子郵件判斷）
     const superAdminEmail = 'admin@clinic.com';
     if (user.email && user.email.toLowerCase() === superAdminEmail) {
-        showToast('主管理員帳號不可刪除！', 'error');
+        showToast('主管理員帳號不可封存！', 'error');
         return;
     }
-    
-    // 檢查是否為最後一個管理員
-    const adminUsers = currentUsers.filter(u => u.position === '診所管理' && u.active && u.id !== id);
-    if (user.position === '診所管理' && adminUsers.length === 0) {
-        showToast('不能刪除最後一個診所管理帳號！', 'error');
+
+    // 檢查是否為最後一個在職管理員
+    const activeAdmins = currentUsers.filter(
+        u => u.position === '診所管理'
+            && u.active !== false
+            && u.archived !== true
+            && u.status !== 'archived'
+            && u.id !== id
+    );
+    if (user.position === '診所管理' && activeAdmins.length === 0) {
+        showToast('不能封存最後一個在職診所管理帳號！', 'error');
         return;
     }
-    
-    // 刪除用戶確認訊息支援中英文
-    const lang9 = localStorage.getItem('lang') || 'zh';
-    const zhMsg9 = `確定要刪除用戶「${user.name}」嗎？\n\n職位：${user.position}\n電子郵件：${user.email || '未設定'}\n\n注意：此操作無法復原！`;
-    const enMsg9 = `Are you sure you want to delete user \"${user.name}\"?\n\nPosition: ${user.position}\nEmail: ${user.email || 'Not set'}\n\nNote: this action cannot be undone!`;
-    const confirmMsg9 = lang9 === 'en' ? enMsg9 : zhMsg9;
-    const confirmedDelUser = await showConfirmation(confirmMsg9, 'warning');
-    if (confirmedDelUser) {
-        // 顯示刪除中狀態
-        showToast('刪除中...', 'info');
 
-        try {
-            const result = await window.firebaseDataManager.deleteUser(id);
-            
-            if (result.success) {
-                // 更新本地數據
-                users = users.filter(u => u.id !== id);
-                usersFromFirebase = usersFromFirebase.filter(u => u.id !== id);
+    // 封存確認（可選填離職原因），支援中英文
+    const lang = localStorage.getItem('lang') || 'zh';
+    const safeName = window.escapeHtml(user.name || '');
+    const safePosition = window.escapeHtml(user.position || '');
+    const safeEmail = window.escapeHtml(user.email || (lang === 'en' ? 'Not set' : '未設定'));
+    const swalResult = await Swal.fire({
+        icon: 'warning',
+        title: lang === 'en' ? 'Archive user (resigned)?' : '封存用戶（離職）？',
+        html: lang === 'en'
+            ? `User: <b>${safeName}</b><br/>Position: ${safePosition}<br/>Email: ${safeEmail}<br/><br/>The account will be disabled and cannot log in. Records are retained for audit and can be restored later.`
+            : `用戶：<b>${safeName}</b><br/>職位：${safePosition}<br/>電子郵件：${safeEmail}<br/><br/>封存後該帳號將停用且無法登入，資料保留供日後審計，可隨時復職。`,
+        input: 'text',
+        inputPlaceholder: lang === 'en' ? 'Resignation reason (optional)' : '離職原因（選填）',
+        showCancelButton: true,
+        confirmButtonText: lang === 'en' ? 'Archive' : '確定封存',
+        cancelButtonText: lang === 'en' ? 'Cancel' : '取消',
+        focusConfirm: false
+    });
+    if (!swalResult || !swalResult.isConfirmed) return;
+    const reason = String(swalResult.value || '').trim().slice(0, 200);
 
-                // 同步移除全域快取，以免刪除的用戶重新出現
-                try {
-                    if (Array.isArray(userCache)) {
-                        userCache = userCache.filter(u => u.id !== id);
-                    }
-                } catch (_e) {
-                    // 如果 userCache 未定義或不可用則忽略
-                }
+    showToast(lang === 'en' ? 'Archiving...' : '封存中...', 'info');
 
-                localStorage.setItem('users', JSON.stringify(users));
-                displayUsers();
-
-                // 後端一併清除授權索引並刪除 Auth 帳號（舊流程只刪 Firestore 文件，
-                // 殘留 Auth 帳號仍可登入）
-                if (user.uid) {
-                    try {
-                        await deleteStaffAuthAccount(user.uid);
-                    } catch (claimsErr) {
-                        console.error('刪除 Auth 帳號失敗:', claimsErr);
-                        showToast('用戶文件已刪除，但 Auth 帳號刪除失敗：請於系統管理頁重試或手動處理', 'error');
-                    }
-                }
-
-                {
-                    const lang = localStorage.getItem('lang') || 'zh';
-                    const zhMsg = `用戶「${user.name}」已刪除！`;
-                    const enMsg = `User "${user.name}" has been deleted!`;
-                    const msg = lang === 'en' ? enMsg : zhMsg;
-                    showToast(msg, 'success');
-                }
-            } else {
-                showToast('刪除用戶失敗，請稍後再試', 'error');
-            }
-        } catch (error) {
-            console.error('刪除用戶錯誤:', error);
-            showToast('刪除用戶時發生錯誤', 'error');
+    try {
+        const result = await window.firebaseDataManager.archiveUser(id, true, reason);
+        if (!result.success) {
+            showToast(lang === 'en' ? 'Failed to archive user, please try again later' : '封存用戶失敗，請稍後再試', 'error');
+            return;
         }
+
+        // 更新本地數據
+        patchLocalUserRecord(id, {
+            active: false,
+            status: 'archived',
+            archived: true,
+            archivedAt: new Date().toISOString(),
+            archivedBy: currentUser || 'system',
+            archiveReason: reason
+        });
+
+        // 後端停用 Auth 帳號、同步 active=false claims 並撤銷工作階段（Auth 帳號保留）
+        if (user.uid) {
+            try {
+                await archiveStaffAuthAccount(user.uid, id, true);
+            } catch (claimsErr) {
+                console.error('封存 Auth 帳號失敗:', claimsErr);
+                showToast('用戶已封存，但 Auth 帳號停用失敗：請於已離職清單重試或手動處理', 'error');
+            }
+        } else {
+            console.warn('用戶缺少 Auth uid，封存時未同步 Auth 狀態:', id);
+            showToast('用戶已封存，但缺少 Auth 帳號關聯，該帳號無法被停用，請手動核查', 'warning');
+        }
+
+        displayUsers();
+        const zhMsg = `用戶「${user.name}」已封存（離職）！`;
+        const enMsg = `User "${user.name}" has been archived!`;
+        showToast(lang === 'en' ? enMsg : zhMsg, 'success');
+    } catch (error) {
+        console.error('封存用戶錯誤:', error);
+        showToast(lang === 'en' ? 'Error while archiving user' : '封存用戶時發生錯誤', 'error');
+    }
+}
+
+// 復職用戶：重新啟用帳號並恢復登入
+async function restoreUser(id) {
+    // 檢查權限：未具備用戶管理權限則阻止操作
+    if (!hasAccessToSection('userManagement')) {
+        showToast('權限不足，無法執行此操作', 'error');
+        return;
+    }
+    const currentUsers = usersFromFirebase.length > 0 ? usersFromFirebase : users;
+    const user = currentUsers.find(u => u.id === id);
+    if (!user) return;
+
+    // 復職等同重新啟用，須符合診所人數上限
+    const limitCheck = canActivateUserUnderClinicLimit({
+        users: currentUsers,
+        clinicId: (user.clinicId !== undefined && user.clinicId !== null) ? String(user.clinicId) : (currentClinicId || 'local-default'),
+        position: user.position,
+        active: true,
+        excludeUserId: String(id)
+    });
+    if (!limitCheck.ok) {
+        showToast(`此診所「${limitCheck.label}」人數已達上限（${limitCheck.count}/${limitCheck.limit}），無法復職。`, 'error');
+        return;
+    }
+
+    const lang = localStorage.getItem('lang') || 'zh';
+    const zhMsg0 = `確定要讓用戶「${user.name}」復職嗎？\n\n復職後該用戶可以正常登入系統。`;
+    const enMsg0 = `Are you sure you want to restore user \"${user.name}\"?\n\nOnce restored, the user will be able to log in normally.`;
+    const confirmed = await showConfirmation(lang === 'en' ? enMsg0 : zhMsg0, 'warning');
+    if (!confirmed) return;
+
+    showToast(lang === 'en' ? 'Restoring...' : '復職處理中...', 'info');
+
+    try {
+        const result = await window.firebaseDataManager.archiveUser(id, false);
+        if (!result.success) {
+            showToast(lang === 'en' ? 'Failed to restore user, please try again later' : '復職失敗，請稍後再試', 'error');
+            return;
+        }
+
+        // 更新本地數據
+        patchLocalUserRecord(id, {
+            active: true,
+            status: 'active',
+            archived: false,
+            restoredAt: new Date().toISOString(),
+            restoredBy: currentUser || 'system'
+        });
+
+        // 後端重新啟用 Auth 帳號並同步 active=true claims
+        if (user.uid) {
+            try {
+                await archiveStaffAuthAccount(user.uid, id, false);
+            } catch (claimsErr) {
+                console.error('復職啟用 Auth 帳號失敗:', claimsErr);
+                showToast('用戶已復職，但 Auth 帳號啟用失敗：請重試或手動處理', 'error');
+            }
+        } else {
+            console.warn('用戶缺少 Auth uid，復職時未同步 Auth 狀態:', id);
+        }
+
+        displayUsers();
+        const zhMsg = `用戶「${user.name}」已復職！`;
+        const enMsg = `User "${user.name}" has been restored!`;
+        showToast(lang === 'en' ? enMsg : zhMsg, 'success');
+    } catch (error) {
+        console.error('復職用戶錯誤:', error);
+        showToast(lang === 'en' ? 'Error while restoring user' : '復職用戶時發生錯誤', 'error');
     }
 }
 
@@ -29747,6 +29910,44 @@ class FirebaseDataManager {
             return { success: true };
         } catch (error) {
             console.error('刪除用戶數據失敗:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 封存（離職）／復職用戶：軟刪除，users 文件保留、Auth 帳號由後端停用/啟用
+    async archiveUser(userId, archived, reason = '') {
+        try {
+            const now = new Date();
+            const data = archived
+                ? {
+                    active: false,
+                    status: 'archived',
+                    archived: true,
+                    archivedAt: now,
+                    archivedBy: currentUser || 'system',
+                    archiveReason: reason || ''
+                }
+                : {
+                    active: true,
+                    status: 'active',
+                    archived: false,
+                    restoredAt: now,
+                    restoredBy: currentUser || 'system'
+                };
+            await window.firebase.updateDoc(
+                window.firebase.doc(window.firebase.db, 'users', userId),
+                { ...data, updatedAt: now, updatedBy: currentUser || 'system' }
+            );
+            // 封存/復職後清除用戶緩存並移除本地存檔
+            this.usersCache = null;
+            try {
+                localStorage.removeItem('users');
+            } catch (_lsErr) {
+                // 忽略 localStorage 錯誤
+            }
+            return { success: true };
+        } catch (error) {
+            console.error(archived ? '封存用戶數據失敗:' : '復職用戶數據失敗:', error);
             return { success: false, error: error.message };
         }
     }
