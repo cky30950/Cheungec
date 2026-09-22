@@ -13,10 +13,14 @@
  *   FIREBASE_PROJECT_ID       選填，未提供時取 JSON 內 project_id
  * ============================================================ */
 
+// 注意：Identity Toolkit Admin API（accounts:update / batchCreate 等）
+// 的 discovery 文件只接受 cloud-platform 或 firebase 兩個 scope，
+// 並不存在 identitytoolkit.admin OAuth scope（寫入會換不到 access token）。
+// 此處用最小權限的 firebase；Service Account 本身需具「Firebase 管理員」角色。
 const FIREBASE_SCOPES = [
     'https://www.googleapis.com/auth/datastore',
     'https://www.googleapis.com/auth/firebase.database',
-    'https://www.googleapis.com/auth/identitytoolkit.admin',
+    'https://www.googleapis.com/auth/firebase',
     'https://www.googleapis.com/auth/userinfo.email'
 ].join(' ');
 
@@ -139,8 +143,10 @@ export async function getAccessToken(env) {
     });
     const data = await response.json();
     if (!response.ok || !data.access_token) {
+        // 常見原因：scope 名稱無效（invalid_scope）、SA 金鑰過期
         throw new Error(
-            '交換 Google access token 失敗: ' + (data.error_description || data.error || response.status)
+            '交換 Google access token 失敗 (HTTP ' + response.status + '): '
+            + (data.error_description || (typeof data.error === 'string' ? data.error : JSON.stringify(data.error || data)))
         );
     }
     cachedAccessToken = {
