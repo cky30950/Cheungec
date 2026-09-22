@@ -6529,6 +6529,7 @@ const LOCAL_CLINIC_DATA_KEYS = Object.freeze([
     'clinicSettings',
     'categories',
     'billingItems',
+    'personalStatsV2',
     'personalStatsV3',
     'inventoryLogs',
     'financialSummaryCoverage',
@@ -6536,6 +6537,8 @@ const LOCAL_CLINIC_DATA_KEYS = Object.freeze([
 ]);
 const LOCAL_CLINIC_DATA_PREFIXES = Object.freeze([
     'patientConsultations:',   // 單一病人病歷快取
+    'patientPackages_',        // 單一病人收費套票快取
+    'tcmDraft:consultation:',  // 診症症狀草稿（含病人 ID／掛號號／主訴）
     'billingItems_',           // 分科診所收費項目快取
     'chat_lastSeen_',          // 聊天未讀時間（依員工 UID）
     'chat_lastPreview_',       // 聊天訊息預覽（依員工 UID）
@@ -6638,6 +6641,10 @@ async function logout() {
         // 此類快取僅供離線使用，下次登入由 Firestore 重新載入），並同步清空
         // 記憶體中的個資陣列，避免同分頁換帳殘留前一位使用者資料。
         try {
+            // 先停診症草稿自動保存，否則防抖排程可能在清掃後把主訴草稿寫回
+            if (typeof stopConsultationSymptomsDraftAutosave === 'function') {
+                stopConsultationSymptomsDraftAutosave();
+            }
             clearLocalClinicData();
             if (typeof patients !== 'undefined') patients = [];
             if (typeof consultations !== 'undefined') consultations = [];

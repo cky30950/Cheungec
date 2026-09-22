@@ -19,6 +19,12 @@
     // 加入後遲遲未見醫師的自動掛斷計時器（避免病人單獨在頻道內持續計費）
     var aloneTimer = null;
     var ALONE_LIMIT_MS = 90000;
+    // 通話中醫師離開後的自動掛斷計時器（含斷線重返寬限）
+    var peerGoneTimer = null;
+    // 醫師「主動掛斷」（user-left reason=Quit）：幾秒後即結束
+    var PEER_QUIT_GRACE_MS = 5000;
+    // 醫師「斷線／當機」（ServerTimeOut）：給 45 秒重返，逾時才結束
+    var PEER_DROP_GRACE_MS = 45000;
     // 自動結束等候時要顯示的原因
     var endReason = '';
     var state = {
@@ -142,17 +148,27 @@
             hideLocalUntilPeer: true,
             waitingText: '正在與醫師連線…',
             onStatus: function (kind) {
-                // 醫師影像送達 → 取消自動離開計時
-                if (kind === 'connected') clearAloneTimer();
+                // 醫師影像送達／重新接通 → 取消所有自動離開計時
+                if (kind === 'connected') {
+                    clearAloneTimer();
+                    clearPeerGoneTimer();
+                }
+            },
+            // 醫師離開頻道（主動掛斷或斷線逾時）：啟動寬限計時，
+            // 逾時未重返即自動掛斷，避免病人獨留頻道持續計費
+            onPeerLeft: function (reason) {
+                armPeerGoneTimer(reason);
             },
             onError: function (message) {
                 // 權限／設備錯誤時，回到錯誤頁並顯示具體原因
                 clearAloneTimer();
+                clearPeerGoneTimer();
                 leaveCallScreen();
                 showError(message);
             },
             onLeft: function () {
                 clearAloneTimer();
+                clearPeerGoneTimer();
                 leaveCallScreen();
                 if (endReason) {
                     showError(endReason);
@@ -255,8 +271,38 @@
         }
     }
 
+    // 醫師於通話中離開頻道：主動掛斷只留 5 秒緩衝（防誤觸與收尾），
+    // 斷線／當機則給 45 秒重返寬限；期間醫師重新發布串流（status=connected）
+    // 會取消計時。逾時病人自動掛斷並顯示結束原因。
+    function armPeerGoneTimer(reason) {
+        clearPeerGoneTimer();
+        var intentional = reason === 'Quit';
+        var delay = intentional ? PEER_QUIT_GRACE_MS : PEER_DROP_GRACE_MS;
+        if (callController) {
+            callController.setStatus('waiting', intentional
+                ? '醫師已離開診間，即將自動結束通話…'
+                : '醫師連線中斷，若 ' + Math.round(PEER_DROP_GRACE_MS / 1000) +
+                  ' 秒內未返回，將自動結束通話…');
+        }
+        peerGoneTimer = setTimeout(function () {
+            peerGoneTimer = null;
+            if (!callController) return;
+            endReason = '醫師已離開診間，通話已結束。' +
+                '若診療尚未完成，請聯絡診所重新取得連結。';
+            callController.leave();
+        }, delay);
+    }
+
+    function clearPeerGoneTimer() {
+        if (peerGoneTimer) {
+            clearTimeout(peerGoneTimer);
+            peerGoneTimer = null;
+        }
+    }
+
     function leaveCallScreen() {
         clearAloneTimer();
+        clearPeerGoneTimer();
         if (presence) {
             try { presence.leave(); } catch (e) { /* ignore */ }
             presence = null;

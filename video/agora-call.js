@@ -11,6 +11,7 @@
  *       remoteName: '陳大文',           // 遠端顯示名（選填）
  *       onStatus: function (kind, text) {},   // connecting|waiting|connected|error|left
  *       onParticipants: function (count) {},  // 含自己在內的人數
+ *       onPeerLeft: function (reason) {},     // 最後一位遠端離開（Quit|ServerTimeOut|BecomeAudience）
  *       onError: function (message, detail) {},
  *       onLeft: function () {},
  *       layout: 'grid'                 // 選填，'grid'（預設並排）或 'spotlight'（遠端滿版、本機小畫面）
@@ -327,10 +328,23 @@
             setTileName(tile, st.name, st.audio, st.video);
         }
 
-        function onUserLeft(user) {
+        function onUserLeft(user, reason) {
             removeTile(String(user.uid));
             delete remoteState[String(user.uid)];
             evaluateConnection();
+            // 最後一位遠端與會者離開頻道時通知上層：病人端用於自動掛斷、
+            // 醫師端用於重啟獨留計時。reason：'Quit'（主動掛斷）、
+            // 'ServerTimeOut'（斷線／當機逾時）、'BecomeAudience'（轉為觀眾）
+            if (joined && typeof options.onPeerLeft === 'function') {
+                var remaining = Object.keys(tiles).length - (tiles.local ? 1 : 0);
+                if (remaining <= 0) {
+                    try {
+                        options.onPeerLeft(reason || '');
+                    } catch (cbErr) {
+                        console.warn('[AgoraCall] onPeerLeft 回呼失敗:', cbErr);
+                    }
+                }
+            }
         }
 
         function onUserInfoUpdated(uid, msg) {

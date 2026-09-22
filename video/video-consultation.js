@@ -266,6 +266,11 @@
                 // 病人影像送達 → 取消自動離開計時
                 if (kind === 'connected') clearAloneTimer();
             },
+            // 病人接通後又離開頻道（掛斷／當機／斷線逾時）：重啟獨留計時，
+            // 60 秒未重返即自動離開頻道停止計費，並回到等待流程供病人再進入
+            onPeerLeft: function () {
+                armAloneTimer(channel, patientName, doctorName);
+            },
             onError: function (message) {
                 clearAloneTimer();
                 notify(message, 'error');
