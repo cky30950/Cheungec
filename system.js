@@ -5554,6 +5554,7 @@ async function waitForFirebaseDb() {
 }
 
 async function waitForFirebaseDataManager(timeoutMs = 10000) {
+    await waitForFirebase();
     const start = Date.now();
     while (!(window.firebaseDataManager && window.firebaseDataManager.isReady)) {
         if (Date.now() - start > timeoutMs) return false;
@@ -5758,6 +5759,24 @@ async function fetchLegacyAuthorizedUserByUidOrEmail(uid, email) {
     return null;
 }
 
+// 登入時查詢 users／userAuthIndex 的暫時性錯誤代碼。
+// 注意：permission-denied 不在此列——依 firestore.rules，users 集合僅活躍
+// 員工可讀，未授權帳號查詢本來就會被規則拒絕，屬於「確定性拒絕」，
+// 應照原流程視為未授權；網路/逾時/實例已終止等才需要讓使用者重試。
+const TRANSIENT_USER_LOOKUP_CODES = new Set([
+    'unavailable',          // 網路中斷或服務暫時不可用
+    'deadline-exceeded',    // 要求逾時
+    'unauthenticated',      // 工作階段中途失效
+    'resource-exhausted',   // 配額/流量暫時用盡
+    'cancelled',            // 要求被取消（例如切換分頁）
+    'internal',             // 伺服器暫時性內部錯誤
+    'failed-precondition'   // Firestore 實例已被 terminate（未登入守衛清掃中）
+]);
+function isTransientUserLookupError(error) {
+    const code = error && error.code ? String(error.code) : '';
+    return TRANSIENT_USER_LOOKUP_CODES.has(code);
+}
+
 async function fetchAuthorizedUserByUidOrEmail(uid, email) {
     try {
         if (uid) {
@@ -5801,6 +5820,9 @@ async function fetchAuthorizedUserByUidOrEmail(uid, email) {
         return hydratedUser;
     } catch (error) {
         console.error('查詢授權用戶資料失敗:', error);
+        // 暫時性錯誤（網路／逾時／Firestore 重整中）向上拋，由登入流程提示重試；
+        // 只有規則面的確定性拒絕（permission-denied＝查無授權）才回 null。
+        if (isTransientUserLookupError(error)) throw error;
         return null;
     }
 }
@@ -6035,14 +6057,9 @@ window.recomputeAllPatientAggregates = async function() {
 };
 
 
-
-async function waitForFirebaseDataManager() {
-  
-  await waitForFirebase();
-  while (!window.firebaseDataManager || !window.firebaseDataManager.isReady) {
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-}
+// 注意：waitForFirebaseDataManager 唯一定義在前方（含逾時保護，預設 10 秒），
+// 此處曾有一個無逾時的重複宣告，於同層級經典腳本中覆蓋前者，導致傳入的
+// 8000ms 逾時完全失效、初始化失敗時登入永久卡住，已移除。
 
 
 async function safeGetPatients(_forceRefresh = false) {
@@ -6231,6 +6248,14 @@ async function attemptMainLogin() {
         return;
     }
 
+    // 未登入守衛可能正在 terminate Firestore 並準備重新整理（前一位使用者
+    // 未登出直接關分頁的最常見路徑）。此期間 Firestore 已不可用，登入的
+    // 授權查詢必失敗並可能被誤判「未授權」，故直接擋下等待重整完成。
+    if (window.__authGuardWipeInProgress === true) {
+        showToast('系統正在重新整理，請稍候…', 'error');
+        return;
+    }
+
     
     
     const loginButton = document.getElementById('loginButton');
@@ -6242,10 +6267,13 @@ async function attemptMainLogin() {
         
         await waitForFirebase();
 
-        
-        await waitForFirebaseConnectionStatus(1500);
-        if (window.firebaseStatusInitialized === true && window.firebaseConnected === false) {
-            showToast('無法連接到伺服器，請稍後再試', 'error');
+        // 不以 Realtime Database 連線狀態作為登入前置門檻：Auth 與 RTDB 是
+        // 獨立通道，RTDB websocket 被網路環境阻擋或只等 1.5 秒就判定離線，
+        // 會把 Auth 其實可用的情境誤殺成「無法連接到伺服器」。
+        // 僅保留瀏覽器層級的明確離線判定；其餘情況交由 signIn 自身的
+        // 網路錯誤（auth/network-request-failed）於 catch 中提示。
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+            showToast('目前沒有網路連線，請檢查網路後再試', 'error');
             return;
         }
 
@@ -6297,7 +6325,17 @@ async function attemptMainLogin() {
             return;
         }
 
-        let matchingUser = await fetchAuthorizedUserByUidOrEmail(uid, firebaseUser && firebaseUser.email);
+        let matchingUser;
+        try {
+            matchingUser = await fetchAuthorizedUserByUidOrEmail(uid, firebaseUser && firebaseUser.email);
+        } catch (lookupErr) {
+            // 網路／逾時／Firestore 實例重整中：切勿誤判為「未授權」而簽退清掃。
+            // Auth 已成功，保留工作階段，讓使用者直接再按一次登入重試。
+            console.error('登入時查詢授權用戶資料暫時失敗:', lookupErr);
+            showToast('網路連線不穩，無法確認帳號，請稍後重試', 'error');
+            document.getElementById('mainLoginPassword').value = '';
+            return;
+        }
         if (matchingUser && uid && (!matchingUser.uid || matchingUser.uid !== uid)) {
             matchingUser.uid = uid;
             try {
@@ -25161,6 +25199,18 @@ async function exportClinicBackupFromCloud() {
                         if (!wipeTried) sessionStorage.setItem(IDB_WIPE_ATTEMPTED, '1');
                     } catch (_e) {}
                     if (!wipeTried) {
+                        // 清掃＋重新整理最長約 10 秒，期間 Firestore 已 terminate。
+                        // 設旗標並停用登入表單，避免登入請求打到已終結的實例而
+                        // 被誤判「未授權」（attemptMainLogin 會檢查此旗標）。
+                        try { window.__authGuardWipeInProgress = true; } catch (_e) {}
+                        try {
+                            const guardBtn = document.getElementById('loginButton');
+                            const guardUserInput = document.getElementById('mainLoginUsername');
+                            const guardPassInput = document.getElementById('mainLoginPassword');
+                            if (guardBtn) guardBtn.disabled = true;
+                            if (guardUserInput) guardUserInput.disabled = true;
+                            if (guardPassInput) guardPassInput.disabled = true;
+                        } catch (_e) {}
                         shutdownFirestoreAndWipePersistence().then(function (cleared) {
                             if (cleared) {
                                 try { localStorage.removeItem(IDB_PHI_MARKER); } catch (_e) {}
