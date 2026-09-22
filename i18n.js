@@ -587,11 +587,15 @@ window.translations = {
         "更新密碼": "更新密碼",
         "刪除帳號": "刪除帳號",
         "刪除帳號後，您將無法再登入系統，且所有與此帳號相關的資料將無法恢復。請慎重操作！": "刪除帳號後，您將無法再登入系統，且所有與此帳號相關的資料將無法恢復。請慎重操作！",
+        "封存帳號": "封存帳號",
+        "封存後您將無法再登入系統；帳號資料會保留供日後審計，如需復職請聯絡診所管理員。請慎重操作！": "封存後您將無法再登入系統；帳號資料會保留供日後審計，如需復職請聯絡診所管理員。請慎重操作！",
+        "在此可以安全地變更您的登入密碼或封存帳號。封存後帳號將停用且無法登入，請謹慎操作。": "在此可以安全地變更您的登入密碼或封存帳號。封存後帳號將停用且無法登入，請謹慎操作。",
         "密碼確認": "密碼確認",
         "請輸入您的密碼": "請輸入您的密碼",
-        
+
         "統計個人用藥與穴位偏好": "統計個人用藥與穴位偏好",
         "變更密碼及刪除帳號": "變更密碼及刪除帳號",
+        "變更密碼及封存帳號": "變更密碼及封存帳號",
 
         
         "編輯庫存": "編輯庫存",
@@ -1222,11 +1226,15 @@ window.translations = {
         "更新密碼": "更新密码",
         "刪除帳號": "删除帐号",
         "刪除帳號後，您將無法再登入系統，且所有與此帳號相關的資料將無法恢復。請慎重操作！": "删除帐号后，您将无法再登入系统，且所有与此帐号相关的资料将无法恢复。请慎重操作！",
+        "封存帳號": "封存帐号",
+        "封存後您將無法再登入系統；帳號資料會保留供日後審計，如需復職請聯絡診所管理員。請慎重操作！": "封存后您将无法再登入系统；帐号资料会保留供日后审计，如需复职请联系诊所管理员。请慎重操作！",
+        "在此可以安全地變更您的登入密碼或封存帳號。封存後帳號將停用且無法登入，請謹慎操作。": "在此可以安全地变更您的登入密码或封存帐号。封存后帐号将停用且无法登入，请谨慎操作。",
         "密碼確認": "密码确认",
         "請輸入您的密碼": "请输入您的密码",
-        
+
         "統計個人用藥與穴位偏好": "统计个人用药与穴位偏好",
         "變更密碼及刪除帳號": "变更密码及删除帐号",
+        "變更密碼及封存帳號": "变更密码及封存帐号",
 
         
         "編輯庫存": "编辑库存",
@@ -2516,11 +2524,15 @@ window.translations = {
             '更新密碼': 'Update Password',
             '刪除帳號': 'Delete Account',
             '刪除帳號後，您將無法再登入系統，且所有與此帳號相關的資料將無法恢復。請慎重操作！': 'After deleting your account, you will no longer be able to log into the system, and all data associated with this account will be irrecoverable. Please proceed carefully.',
+            '封存帳號': 'Archive Account',
+            '封存後您將無法再登入系統；帳號資料會保留供日後審計，如需復職請聯絡診所管理員。請慎重操作！': 'After archiving, you will no longer be able to log into the system. Your account data is retained for audit; please contact a clinic administrator if you need to be restored. Proceed carefully!',
+            '在此可以安全地變更您的登入密碼或封存帳號。封存後帳號將停用且無法登入，請謹慎操作。': 'Here you can safely change your login password or archive your account. Once archived, the account will be disabled and unable to log in. Please proceed with caution.',
             '密碼確認': 'Password Confirmation',
             '請輸入您的密碼': 'Please enter your password',
-            
+
             '統計個人用藥與穴位偏好': 'Analyze personal herb and acupoint preferences',
             '變更密碼及刪除帳號': 'Change Password and Delete Account',
+            '變更密碼及封存帳號': 'Change Password and Archive Account',
             '只有管理員可以刪除病人': 'Only administrators can delete patients',
             '只有該掛號的醫師才能開始診症！': 'Only the doctor of this registration can start the consultation!',
             '只能列印已完成診症的到診證明！': 'Only arrival certificates for completed consultations can be printed!',

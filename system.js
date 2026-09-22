@@ -1106,7 +1106,10 @@ async function changeCurrentUserPassword() {
 }
 
 
-async function deleteCurrentUserAccount() {
+// 帳號安全設定：員工自我封存（離職）。
+// 需重新輸入密碼確認身份；後端停用 Auth 帳號但不刪除，記錄保留供審計，
+// 日後須由診所管理員於「已離職」清單辦理復職。
+async function archiveCurrentUserAccount() {
     const pwdEl = document.getElementById('deleteAccountPassword');
     const lang = localStorage.getItem('lang') || 'zh';
     if (!pwdEl) {
@@ -1118,77 +1121,60 @@ async function deleteCurrentUserAccount() {
         showToast(lang === 'en' ? 'Please enter your password' : '請輸入密碼', 'error');
         return;
     }
-    
+
     try {
         const user = window.firebase.auth.currentUser;
         if (!user || !user.email) {
             showToast(lang === 'en' ? 'No authenticated user found' : '未找到已登入用戶', 'error');
             return;
         }
-        
+
         const confirmMsg = lang === 'en'
-            ? 'Are you sure you want to delete your account?\nThis action cannot be undone.'
-            : '確定要刪除您的帳號嗎？\n此操作無法復原！';
-        const confirmedDelAccount = await showConfirmation(confirmMsg, 'warning');
-        if (!confirmedDelAccount) {
+            ? 'Are you sure you want to archive (deactivate) your account?\n\nYour account will be disabled and you will no longer be able to log in. Your records will be retained for audit; ask a clinic administrator to restore it if you return.'
+            : '確定要封存（停用）您的帳號嗎？\n\n封存後帳號將停用，您將無法再登入系統；帳號資料會保留供日後審計，如需復職請聯絡診所管理員。';
+        const confirmedArchive = await showConfirmation(confirmMsg, 'warning');
+        if (!confirmedArchive) {
             return;
         }
-        
-        const deleteButton = document.getElementById('deleteAccountButton');
-        
-        setButtonLoading(deleteButton, window.t ? window.t('刪除中...') : (lang === 'en' ? 'Deleting...' : '刪除中...'));
+
+        const archiveButton = document.getElementById('deleteAccountButton');
+
+        setButtonLoading(archiveButton, lang === 'en' ? 'Archiving...' : '封存中...');
         try {
-            
+            // 重新認證，確認為本人操作
             const credential = window.firebase.EmailAuthProvider.credential(user.email, password);
-            
-            
             await window.firebase.reauthenticateWithCredential(window.firebase.auth.currentUser, credential);
 
-            
-            try {
-                const userRecordId = currentUserData && currentUserData.id;
-                if (userRecordId) {
-                    await window.firebaseDataManager.deleteUser(userRecordId);
-                    
-                    if (Array.isArray(userCache)) {
-                        userCache = userCache.filter(u => u.id !== userRecordId);
-                    }
-                }
-            } catch (delErr) {
-                console.error('刪除診所用戶紀錄失敗:', delErr);
-            }
+            // 後端統一處理：代寫 users 封存欄位、停用 Auth 帳號、撤銷工作階段（不刪帳號）
+            const selfUid = user.uid;
+            const selfUserId = currentUserData && currentUserData.id;
+            await archiveStaffAuthAccount(selfUid, selfUserId, true, 'self-requested');
 
-            
-            await window.firebase.deleteAuthUser(window.firebase.auth.currentUser);
+            showToast(lang === 'en' ? 'Account archived' : '帳號已封存', 'success');
 
-            showToast(lang === 'en' ? 'Account deleted' : '帳號已刪除', 'success');
-            
             await logout();
         } catch (error) {
-            console.error('刪除帳號錯誤:', error);
+            console.error('封存帳號錯誤:', error);
             let errMsg;
             if (error && error.code) {
                 switch (error.code) {
                     case 'auth/wrong-password':
                     case 'auth/invalid-credential':
-                        
                         errMsg = lang === 'en' ? 'Password is incorrect' : '密碼錯誤';
                         break;
                     default:
-                        errMsg = error.message || (lang === 'en' ? 'Failed to delete account' : '刪除帳號失敗');
+                        errMsg = error.message || (lang === 'en' ? 'Failed to archive account' : '封存帳號失敗');
                 }
             } else {
-                errMsg = lang === 'en' ? 'Failed to delete account' : '刪除帳號失敗';
+                errMsg = (error && error.message) || (lang === 'en' ? 'Failed to archive account' : '封存帳號失敗');
             }
             showToast(errMsg, 'error');
         } finally {
-            
-            clearButtonLoading(deleteButton);
+            clearButtonLoading(archiveButton);
         }
     } catch (error) {
-        
-        console.error('刪除帳號錯誤:', error);
-        let errMsg = lang === 'en' ? 'Failed to delete account' : '刪除帳號失敗';
+        console.error('封存帳號錯誤:', error);
+        let errMsg = lang === 'en' ? 'Failed to archive account' : '封存帳號失敗';
         if (error && error.message) {
             errMsg = error.message;
         }
@@ -5711,12 +5697,14 @@ async function deleteStaffAuthAccount(uid) {
 }
 
 // 封存（離職）／復職：停用或重新啟用 Auth 帳號（帳號保留，不作硬刪除）
-async function archiveStaffAuthAccount(uid, userId, archived) {
+// 管理員傳入目標 uid/userId；員工自我封存時 uid 為本人，後端會自行解析 userId
+async function archiveStaffAuthAccount(uid, userId, archived, reason = '') {
     if (!uid) return { ok: false, skipped: true };
     return callAdminClaimsApi('claims/archive', {
         targetUid: String(uid),
-        userId: String(userId),
-        archived: archived !== false
+        userId: userId ? String(userId) : '',
+        archived: archived !== false,
+        reason: reason || ''
     });
 }
 
@@ -6983,7 +6971,7 @@ async function logout() {
                 
                 personalSettings: { title: '個人設置', icon: '🔧', description: '管理慣用藥方及穴位組合' },
                 
-                accountSecurity: { title: '帳號安全設定', icon: '🔐', description: '變更密碼及刪除帳號' },
+                accountSecurity: { title: '帳號安全設定', icon: '🔐', description: '變更密碼及封存帳號' },
                 
                 templateLibrary: { title: '模板庫', icon: '📚', description: '查看醫囑與診斷模板' }
             };
@@ -32885,7 +32873,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
   // 帳號安全相關函式掛載至全域，供帳號安全設定頁的按鈕呼叫
   window.loadAccountSecurity = loadAccountSecurity;
   window.changeCurrentUserPassword = changeCurrentUserPassword;
-  window.deleteCurrentUserAccount = deleteCurrentUserAccount;
+  window.archiveCurrentUserAccount = archiveCurrentUserAccount;
 
   // 病人管理按鈕的封裝函式：為查看、病歷、編輯和刪除操作添加讀取圈，並在操作完成後清除。
   async function handleViewPatient(ev, id) {

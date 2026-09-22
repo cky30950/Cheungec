@@ -3,6 +3,8 @@
  * ============================================================ */
 
 import { authenticateAdmin } from '../../backup/lib/http.js';
+import { getAccessToken, verifyIdToken, extractBearerToken, getServiceAccount } from '../../backup/lib/google-auth.js';
+import { FirestoreClient } from '../../backup/lib/firestore.js';
 
 export function corsHeaders() {
     return {
@@ -11,6 +13,91 @@ export function corsHeaders() {
         'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Admin-Bootstrap-Secret',
         'Access-Control-Max-Age': '86400'
     };
+}
+
+/**
+ * 驗證請求者的 Firebase ID Token（任何已登入用戶，不要求管理員）。
+ * @returns {Promise<object>} token claims
+ */
+export async function authenticateSignedIn(request, env) {
+    const token = extractBearerToken(request);
+    const sa = getServiceAccount(env);
+    return verifyIdToken(token, sa.project_id);
+}
+
+/**
+ * 以 Auth uid 解析對應的 users 文件（後端自我服務用，不信客户端傳入的 userId）。
+ * 解析順序同 authenticateAdmin：userAuthIndex → uid 欄位 → email。
+ * @returns {Promise<{userId:string, data:object}>}
+ */
+export async function resolveStaffUser(env, claims) {
+    const auth = await getAccessToken(env);
+    const client = new FirestoreClient(auth.token, auth.projectId, env.FIREBASE_RTDB_URL || '');
+    const uid = claims.sub;
+    let userId = '';
+    let data = null;
+
+    // 1. 授權索引：userAuthIndex/{uid} -> users/{userId}
+    try {
+        const indexDoc = await client.getDocument(
+            `userAuthIndex/${encodeURIComponent(uid)}`
+        );
+        const mappedUserId = indexDoc && indexDoc.data && indexDoc.data.userId;
+        if (mappedUserId) {
+            userId = String(mappedUserId);
+            const target = await client.getDocument(
+                `users/${encodeURIComponent(userId)}`
+            );
+            if (target) data = target.data;
+        }
+    } catch (error) {
+        console.warn('讀取 userAuthIndex 失敗，嘗試舊式解析:', error.message);
+    }
+
+    // 2. users where uid == Auth uid
+    if (!data) {
+        const byUid = await client.queryCollection({
+            collectionId: 'users',
+            where: {
+                fieldFilter: {
+                    field: { fieldPath: 'uid' },
+                    op: 'EQUAL',
+                    value: { stringValue: uid }
+                }
+            },
+            limit: 1
+        });
+        if (byUid.docs[0]) {
+            userId = String(byUid.docs[0].id);
+            data = byUid.docs[0].data;
+        }
+    }
+
+    // 3. users where email == token email
+    if (!data && claims.email) {
+        const byEmail = await client.queryCollection({
+            collectionId: 'users',
+            where: {
+                fieldFilter: {
+                    field: { fieldPath: 'email' },
+                    op: 'EQUAL',
+                    value: { stringValue: String(claims.email).trim() }
+                }
+            },
+            limit: 1
+        });
+        if (byEmail.docs[0]) {
+            userId = String(byEmail.docs[0].id);
+            data = byEmail.docs[0].data;
+        }
+    }
+
+    if (!data) {
+        const err = new Error('找不到對應的診所用戶資料');
+        err.status = 404;
+        throw err;
+    }
+    return { userId, data };
 }
 
 export function jsonResponse(data, status = 200) {

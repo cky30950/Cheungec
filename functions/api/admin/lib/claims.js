@@ -168,25 +168,37 @@ export async function deleteStaffAuth(env, targetUid) {
 
 /**
  * 封存（離職）／復職員工（軟刪除，Auth 帳號保留）。
- *  - 封存：users 文件 active=false/archived=true（客戶端先行寫入），
+ *  - 管理員封存：users 文件 active=false/archived=true（客戶端先行寫入），
  *    後端把 Auth 帳號設為 disabled、同步 active=false claims、撤銷工作階段，
  *    但不刪除帳號，以保留病歷／財務記錄的身份審計追溯。
- *  - 復職：重新啟用 Auth 帳號，並依 users 文件現況同步 claims。
+ *  - 員工自我封存（selfService=true）：users 文件由後端 Service Account
+ *    代寫（客戶端 Rules 不允許自行變更 active/archived），僅可封存、不可自我復職；
+ *    主管理員及最後一個在職管理員不得自我封存。
+ *  - 復職：重新啟用 Auth 帳號，並依 users 文件現況同步 claims（僅管理員）。
  *
  * @param {object} env Pages 環境
  * @param {object} input
  * @param {string} input.targetUid Firebase Auth uid
  * @param {string} input.userId users 文件 ID（伺服器重讀，不信客户端其餘欄位）
  * @param {boolean} input.archived true＝封存，false＝復職
+ * @param {boolean} [input.selfService] 員工自我封存
+ * @param {string} [input.reason] 離職原因
+ * @param {string} [input.actorEmail] 執行者電郵（審計記錄）
  * @returns {Promise<{uid,userId,archived,active,authNotFound}>}
  */
 export async function archiveStaffAuth(env, input = {}) {
     const targetUid = String(input.targetUid || '').trim();
     const userId = String(input.userId || '').trim();
     const archived = input.archived !== false;
+    const selfService = input.selfService === true;
     if (!targetUid || !userId) {
         const err = new Error('缺少 targetUid 或 userId');
         err.status = 400;
+        throw err;
+    }
+    if (selfService && !archived) {
+        const err = new Error('自我封存僅可封存帳號，復職需由管理員操作');
+        err.status = 403;
         throw err;
     }
     const { db, identity } = await getClients(env);
@@ -198,9 +210,49 @@ export async function archiveStaffAuth(env, input = {}) {
         err.status = 404;
         throw err;
     }
+    const currentData = (userDoc && userDoc.data) || userDoc || {};
 
-    const claims = buildClaimsFromUser(userDoc, userId);
-    const indexFields = buildIndexFields({ ...userDoc, id: userId }, targetUid);
+    // 員工自我封存：後端代寫 users 文件並執行保護性檢查
+    let sourceData = currentData;
+    if (selfService) {
+        const email = cleanText(currentData.email, 200).toLowerCase();
+        if (email === 'admin@clinic.com') {
+            const err = new Error('主管理員帳號不可封存');
+            err.status = 403;
+            throw err;
+        }
+        if (cleanText(currentData.position, 40) === ADMIN_POSITION) {
+            const allUsers = await db.queryCollection({ collectionId: 'users' });
+            const otherActiveAdmins = (allUsers.docs || []).filter(d => {
+                const dd = d.data || {};
+                if (String(d.id) === String(userId)) return false;
+                if (dd.active === false || dd.archived === true || dd.status === 'archived') return false;
+                return cleanText(dd.position, 40) === ADMIN_POSITION;
+            });
+            if (otherActiveAdmins.length === 0) {
+                const err = new Error('您是最後一個在職診所管理帳號，不可封存，請先安排其他管理員');
+                err.status = 403;
+                throw err;
+            }
+        }
+        const now = new Date();
+        const actor = cleanText(input.actorEmail, 200) || 'self';
+        await db.patchDocument(`users/${encodeURIComponent(userId)}`, {
+            active: false,
+            status: 'archived',
+            archived: true,
+            archivedAt: now,
+            archivedBy: actor,
+            archiveReason: cleanText(input.reason, 200) || 'self-requested',
+            updatedAt: now,
+            updatedBy: actor
+        });
+        sourceData = { ...currentData, active: false, status: 'archived', archived: true };
+    }
+
+    const sourceDoc = { ...userDoc, data: sourceData, id: userId };
+    const claims = buildClaimsFromUser(sourceDoc, userId);
+    const indexFields = buildIndexFields(sourceDoc, targetUid);
     // 以本次操作的封存狀態為準（文件寫入與索引更新可能存在極短時間差）
     indexFields.archived = archived;
     indexFields.status = archived ? 'archived' : 'active';

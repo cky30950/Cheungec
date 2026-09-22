@@ -2867,7 +2867,7 @@
               <span class="text-3xl mr-3">🔐</span>
               帳號安全設定
             </h2>
-            <p class="text-gray-600 mb-6">在此可以安全地變更您的登入密碼或刪除帳號。此操作將影響您在系統中的登入權限，請謹慎操作。</p>
+            <p class="text-gray-600 mb-6">在此可以安全地變更您的登入密碼或封存帳號。封存後帳號將停用且無法登入，請謹慎操作。</p>
             <div class="space-y-8">
 
               <div class="bg-amber-50 rounded-lg p-6">
@@ -2922,8 +2922,8 @@
               </div>
               
               <div class="bg-red-50 rounded-lg p-6">
-                <h3 class="text-lg font-semibold text-red-800 mb-4">刪除帳號</h3>
-                <p class="text-sm text-red-700 mb-4">刪除帳號後，您將無法再登入系統，且所有與此帳號相關的資料將無法恢復。請慎重操作！</p>
+                <h3 class="text-lg font-semibold text-red-800 mb-4">封存帳號</h3>
+                <p class="text-sm text-red-700 mb-4">封存後您將無法再登入系統；帳號資料會保留供日後審計，如需復職請聯絡診所管理員。請慎重操作！</p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label for="deleteAccountPassword" class="block text-sm font-medium text-gray-700 mb-1">密碼確認</label>
@@ -2931,8 +2931,8 @@
                   </div>
                 </div>
                 <div class="mt-4 flex justify-end">
-                  
-                  <button id="deleteAccountButton" onclick="deleteCurrentUserAccount()" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition duration-200">刪除帳號</button>
+
+                  <button id="deleteAccountButton" onclick="archiveCurrentUserAccount()" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition duration-200">封存帳號</button>
                 </div>
               </div>
             </div>
