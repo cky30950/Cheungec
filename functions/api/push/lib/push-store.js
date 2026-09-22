@@ -5,8 +5,8 @@
  * 存取；通知去重狀態則存於 Realtime Database（RTDB）：
  *  - RTDB 路徑：/pushState/{event} = { notifiedIds:[], updatedAt:ISO }
  *  - 原因：高頻讀取，RTDB 不計 Firestore 文件讀取費。
- *  - 認證：Service Account OAuth2 token（含 firebase.database scope，
- *    與 presence.js 相同模式；該 token 對 RTDB 具管理員存取權，不受規則限制）。
+ *  - 認證：Service Account OAuth2 token（cloud-platform scope），
+ *    該 token 對 RTDB 具管理員存取權，不受規則限制。
  *
  * 部署後首次讀到 RTDB 無資料時，會自舊 Firestore pushState 集合
  * 單次搬移（每事件最多一次），避免切換初期重複推播；搬移完成後
@@ -167,7 +167,7 @@ export async function listSubscriptions(env) {
 }
 
 /**
- * RTDB 根 URL（與 presence.js 相同慣例：env 優先，否則預設 asia-southeast1）。
+ * RTDB 根 URL（env 優先，否則預設 asia-southeast1）。
  */
 async function getRtdbBase(env) {
   const auth = await getAccessToken(env);

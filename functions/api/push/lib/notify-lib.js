@@ -19,7 +19,6 @@ import {
     COMPLETED_NOTIFY_POSITIONS
 } from './events.js';
 import { getPushState, savePushState, listSubscriptions } from './push-store.js';
-import { getOnlineUserIds } from './presence.js';
 import { sendToSubscriptions } from './sender.js';
 
 const LIMITS = {
@@ -130,15 +129,14 @@ function parseAppointment(body) {
 /* ---------- 收件訂閱篩選 ---------- */
 
 function hasEvent(sub, event) {
-    const list = Array.isArray(sub.events) && sub.events.length > 0 ? sub.events : [];
-    return list.includes(event);
+    // 無 events 欄位的舊訂閱文件視為全訂閱（與 upsertSubscription 的 DEFAULT_EVENTS 一致）
+    if (!Array.isArray(sub.events) || sub.events.length === 0) return true;
+    return sub.events.includes(event);
 }
 
-function filterTargets(subs, spec, auth, onlineIds) {
+function filterTargets(subs, spec, auth) {
     return subs.filter((sub) => {
         if (!hasEvent(sub, spec.event)) return false;
-        // 派送閘門：登出或關閉系統（presence 非在線）者不收通知
-        if (!onlineIds.has(String(sub.userId))) return false;
         if (spec.kind === 'chat') {
             if (spec.event === EVENT_CHAT_PUBLIC) {
                 return String(sub.userId) !== String(auth.uid);
@@ -230,9 +228,12 @@ export async function processNotify(env, auth, body) {
         return { deduped: true, notified: 0, targets: 0, results: [] };
     }
 
+    // 推播對象＝有有效訂閱的裝置，不再以 RTDB presence 設閘門：
+    // 手機背景／其他分頁／未開聊天頁時 RTDB 連線會斷，presence 消失，
+    // 但這些場景正是推播要觸達的時機；是否「正在看畫面而不彈通知」
+    // 交由各裝置 SW 自行判斷（sw.js isAnyClientVisible）。
     const subs = await listSubscriptions(env);
-    const onlineIds = await getOnlineUserIds(env);
-    const targets = filterTargets(subs, spec, auth, onlineIds);
+    const targets = filterTargets(subs, spec, auth);
 
     if (targets.length === 0) {
         // 無對象仍寫鍵：避免日後新增訂閱時補推舊事件
