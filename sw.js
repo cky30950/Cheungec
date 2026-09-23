@@ -93,6 +93,10 @@ self.addEventListener('fetch', (event) => {
     if (url.origin === self.location.origin) {
         if (EXCLUDED_PREFIXES.some((p) => url.pathname.startsWith(p))) return;
 
+        // SW 腳本本身絕不可走 SWR 快取：瀏覽器以位元組比對偵測 SW 更新，
+        // 若由舊 SW 回傳舊 sw.js，新版永遠不會被安裝（更新提示也就不會出現）。
+        if (url.pathname === '/sw.js') return;
+
         if (req.destination === 'document') {
             if (isSensitiveDocument(url)) {
                 event.respondWith(handleSensitiveDocument(req));
