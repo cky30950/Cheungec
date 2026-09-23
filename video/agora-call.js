@@ -115,7 +115,14 @@
             if (!res.ok) {
                 var err = new Error('TOKEN_HTTP_' + res.status);
                 err.httpStatus = res.status;
-                throw err;
+                // 帶出伺服器錯誤碼／訊息（如 CONSENT_REQUIRED）供 UI 精確提示
+                return res.json().catch(function () { return null; }).then(function (data) {
+                    if (data) {
+                        err.code = data.error || '';
+                        err.serverMessage = data.message || '';
+                    }
+                    throw err;
+                });
             }
             return res.json();
         }).then(function (data) {
@@ -483,11 +490,17 @@
                 return '鏡頭或麥克風正被其他程式佔用，請關閉其他視訊應用程式（如 FaceTime、Zoom）後再試。';
             }
             if (/TOKEN_HTTP_/.test(name)) {
-                // 401/403/404：入房 pass 過期、失效或醫師登入憑證逾期
+                // 同意書閘門拒發：顯示伺服器的具體原因（未同意／版本過期）
+                if (err && /^CONSENT_/.test(err.code || '')) {
+                    return err.serverMessage
+                        || '請先完成視像診症同意書後再進入診間。';
+                }
+                // 401/403/404：入房 session 過期、失效或醫師登入憑證逾期
                 if (err.httpStatus === 401 || err.httpStatus === 403 || err.httpStatus === 404) {
                     return typeof options.authTokenProvider === 'function'
                         ? '登入憑證已逾期，請重新整理頁面後再試。'
-                        : '診間連結已失效或過期，請聯絡診所重新索取連結。';
+                        : (err && err.serverMessage)
+                            || '診間連結已失效或過期，請聯絡診所重新索取連結。';
                 }
                 return '視訊伺服器連線失敗（錯誤 ' + (err.httpStatus || '') + '），請聯絡診所或稍後再試。';
             }

@@ -86,11 +86,14 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['doctor', 'patient']);
     }
 
+    // 視像診症同意書：權威記錄只由 Pages Function 以 Service Account
+    // 寫入（POST room-consent，須持有效入房 session），客戶端不可
+    // create/update/delete——匿名 create 可用掛號號偽造同意記錄。
+    // 匿名 get 同樣關閉（可用掛號號探測是否已看診、讀 userAgent）；
+    // 僅員工可讀單一文件，供醫師端即時監聽簽署狀態。
     match /videoConsents/{channelId} {
-      allow get: if channelId.matches('tcm-consult-.{1,64}');
-      allow create: if channelId.matches('tcm-consult-.{1,64}')
-        && request.resource.data.keys()
-           .hasOnly(['channel','appointmentId','version','clientAt','at','userAgent']);
+      allow get: if canAccess();
+      allow list, create, update, delete: if false;
     }
 
     // ============================================================

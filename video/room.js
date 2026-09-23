@@ -211,21 +211,66 @@
         var acceptBtn = $('acceptConsentBtn');
         if (check) check.checked = false;
         if (acceptBtn) acceptBtn.disabled = true;
+        hideConsentError();
     }
 
-    // 病人勾選同意：記錄後才進入診間（鏡頭探測與 Agora 皆在其後）
+    function showConsentError(message) {
+        var el = $('consentErrorLine');
+        if (el) {
+            el.textContent = message || '儲存同意書失敗，請稍後再試。';
+            el.classList.remove('hidden');
+        }
+    }
+
+    function hideConsentError() {
+        var el = $('consentErrorLine');
+        if (el) {
+            el.textContent = '';
+            el.classList.add('hidden');
+        }
+    }
+
+    function describeConsentError(error) {
+        var status = error && error.httpStatus;
+        var code = error && error.code;
+        if (code === 'CONSENT_VERSION_MISMATCH' || status === 409) {
+            return '同意書已有新版本，請重新整理頁面後重新簽署。';
+        }
+        if (status === 401 || status === 403 || status === 404) {
+            return '診間連線階段已失效，請重新開啟醫師提供的連結。';
+        }
+        if (error && error.message === 'NO_PASS') {
+            return '診間連結不完整，請重新開啟醫師提供的連結。';
+        }
+        return (error && error.message) || '儲存同意書失敗，請檢查網路後再試。';
+    }
+
+    // 病人勾選同意：伺服器寫入同意記錄成功後才進入診間；
+    // 任何失敗（含網路／規則拒絕）皆封鎖，停留於同意頁可重試
     function acceptConsent() {
         var acceptBtn = $('acceptConsentBtn');
         if (acceptBtn) acceptBtn.disabled = true;
+        hideConsentError();
 
-        var proceed = function () { joinRoom(); };
-        if (window.VideoConsent) {
-            // recordConsent 一定會 resolve（Firestore 失敗僅警告，不阻斷）
-            window.VideoConsent.recordConsent(state.channel, state.appointmentId)
-                .then(proceed, proceed);
-        } else {
-            proceed();
-        }
+        // 同意記錄須憑入房 session 由後端寫入，故先確保 session 已建立
+        Promise.resolve()
+            .then(function () { return ensureRoomSession(state); })
+            .then(function () {
+                if (!window.VideoConsent) {
+                    throw new Error('同意書元件尚未載入，請重新整理頁面');
+                }
+                return window.VideoConsent.recordConsent(
+                    state.channel, state.appointmentId, state.roomSession
+                );
+            })
+            .then(function () { joinRoom(); })
+            .catch(function (error) {
+                console.error('[Room] 同意流程失敗:', error);
+                showConsentError(describeConsentError(error));
+                // 恢復按鈕（勾選仍保留時可直接重按）
+                var check = $('consentAgreeCheck');
+                if (acceptBtn) acceptBtn.disabled = !(check && check.checked);
+            });
     }
 
     // session 換發／驗證失敗時的面向病人提示
@@ -293,11 +338,19 @@
                 onPeerLeft: function (reason) {
                     armPeerGoneTimer(reason);
                 },
-                onError: function (message) {
-                    // 權限／設備錯誤時，回到錯誤頁並顯示具體原因
+                onError: function (message, err) {
                     clearAloneTimer();
                     clearPeerGoneTimer();
                     leaveCallScreen();
+                    // 伺服器同意閘門拒發（同意記錄缺失／版本過期）：
+                    // 回到同意頁重簽，而非停留於無路可退的錯誤頁
+                    if (err && /^CONSENT_/.test(err.code || '')) {
+                        resetConsentScreen();
+                        showScreen('consent');
+                        showConsentError(message);
+                        return;
+                    }
+                    // 權限／設備錯誤時，回到錯誤頁並顯示具體原因
                     showError(message);
                 },
                 onLeft: function () {

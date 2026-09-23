@@ -16,6 +16,8 @@
  *      token。pass 僅可換發一次且不進 query（不進伺服器日誌）；
  *      病人的 Agora uid 與 publisher 角色由後端 session 記錄強制派生，
  *      路徑中的 uid/role 無法頂用，杜绝匿名列舉頻道潛入。
+ *      病人另須已在伺服器端留下現行版本的視像診症同意記錄
+ *      （videoConsents，經 POST room-consent 以 SA 寫入），否則拒發。
  *
  * Cloudflare 環境變數（Pages → 專案 → Settings → Variables）：
  *   AGORA_APP_ID            Agora 專案 App ID（32 碼）
@@ -30,6 +32,7 @@
 
 import { authenticateStaff } from '../attachments/lib/auth.js';
 import { validateRoomSession, touchRoomSession } from './lib/room-pass.js';
+import { assertChannelConsent } from './lib/consent.js';
 import { enforceAnonRateLimit } from '../_lib/rate-limit.js';
 
 const TOKEN_VERSION = '007';
@@ -295,6 +298,24 @@ export async function onRequestGet(context) {
             error: authError && authError.code ? authError.code : 'UNAUTHORIZED',
             message: (authError && authError.message) || '鑑權失敗'
         }, status);
+    }
+
+    // 病人端硬性合規閘門：必須已在伺服器端留下現行版本的同意記錄，
+    // 純前端勾選／直接打本端點皆無法繞過。員工（醫師）端不適用。
+    if (sessionInfo) {
+        try {
+            await assertChannelConsent(env, channelName);
+        } catch (consentError) {
+            const status = Number(consentError && consentError.status) > 0
+                ? Number(consentError.status)
+                : 503;
+            // 基礎設施錯誤採 fail-closed：查證失敗寧可不發 token
+            console.error('同意書查核失敗:', consentError && consentError.message ? consentError.message : consentError);
+            return jsonResponse({
+                error: consentError && consentError.code ? consentError.code : 'CONSENT_CHECK_FAILED',
+                message: (consentError && consentError.message) || '同意書查核服務暫不可用，請稍後再試'
+            }, status);
+        }
     }
 
     // 病人端：uid 與角色一律由後端 session 記錄強制決定，
