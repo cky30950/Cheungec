@@ -9,17 +9,38 @@
  * ============================================================ */
 
 import { runBackupSync } from './api/backup/lib/sync.js';
+import { runAttachmentReaper } from './api/attachments/lib/reaper.js';
 
 // 舊「新預診推播掃描」使用的每分鐘排程已移除。
 // 若 Cloudflare 後台仍殘留 "* * * * *" Cron Trigger，此處直接略過，
 // 避免每分鐘誤觸發備份同步；後台刪除該 Trigger 後可一併移除此判斷。
 const LEGACY_NOTIFY_CRON = '* * * * *';
 
+// 每日 03:17 UTC 執行病歷附件孤兒回收（R2 無主物件＋重試佇列）。
+// 須於 Pages → Settings → Functions → Cron Triggers 新增此排程；
+// 未啟用 Cron 時，亦可由外部排程帶 X-Attachment-Reap-Secret
+// POST /api/attachments/reap，效果相同。
+const ATTACHMENT_REAPER_CRON = '17 3 * * *';
+
 export async function scheduled(controller, env, ctx) {
     const cron = (controller && controller.cron) || 'unknown';
 
     if (cron === LEGACY_NOTIFY_CRON) {
         console.log(`[push] 新預診推播已移除，略過舊排程：${cron}`);
+        return;
+    }
+
+    if (cron === ATTACHMENT_REAPER_CRON) {
+        console.log(`[reaper] cron 觸發：${cron}`);
+        try {
+            const result = await runAttachmentReaper(env, { trigger: `cron:${cron}` });
+            console.log(`[reaper] 回收完成：超齡刪除 ${result.stalePurged}，`
+                + `佇列成功 ${result.queueSucceeded}，安全網刪除 ${result.sweepPurged}，`
+                + `DLQ ${result.queueDlq}`);
+        } catch (error) {
+            console.error('[reaper] cron 回收失敗:', error);
+            throw error;
+        }
         return;
     }
 

@@ -16,6 +16,7 @@
  * ============================================================ */
 
 import { authenticateStaff, resolveUserData } from './lib/auth.js';
+import { enqueuePurge } from './lib/reaper.js';
 import { jsonResponse, optionsResponse } from '../backup/lib/http.js';
 import { getAccessToken } from '../backup/lib/google-auth.js';
 import { FirestoreClient } from '../backup/lib/firestore.js';
@@ -25,13 +26,51 @@ const COLLECTION = 'patientAttachments';
 
 export const onRequestOptions = () => optionsResponse();
 
-async function softDeleteDocument(env, fileId, deletedByUid, deletedByName) {
+async function softDeleteDocument(env, fileId, deletedByUid, deletedByName, purged) {
     const auth = await getAccessToken(env);
     const base = `https://firestore.googleapis.com/v1/projects/${auth.projectId}` +
         `/databases/(default)/documents/${COLLECTION}/${encodeURIComponent(fileId)}`;
     // updateMask 是 DocumentMask 訊息類型，gRPC transcoding 要求以
     // 重複 query 參數 updateMask.fieldPaths=<field> 傳遞（不可寫成 updateMask=a,b）
     const maskFields = ['deleted', 'deletedAt', 'deletedByUid', 'deletedByName', 'updatedAt'];
+    // R2 物件本次已確認刪淨：順手蓋 objectPurged，讓 reaper 安全網略過此文件
+    if (purged) maskFields.push('objectPurged', 'objectPurgedAt');
+    const url = `${base}?${maskFields
+        .map((f) => 'updateMask.fieldPaths=' + encodeURIComponent(f))
+        .join('&')}`;
+    const nowIso = new Date().toISOString();
+    const fields = {
+        deleted: { booleanValue: true },
+        deletedAt: { timestampValue: nowIso },
+        deletedByUid: { stringValue: deletedByUid },
+        deletedByName: { stringValue: deletedByName || '' },
+        // 觸發 R2 增量備份（以 updatedAt 判斷文件變更）
+        updatedAt: { timestampValue: nowIso }
+    };
+    if (purged) {
+        fields.objectPurged = { booleanValue: true };
+        fields.objectPurgedAt = { timestampValue: nowIso };
+    }
+    const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${auth.token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ fields })
+    });
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Firestore 軟刪失敗 (HTTP ${response.status}): ${text.slice(0, 200)}`);
+    }
+}
+
+// 文件早已軟刪、本次 R2 補刪成功時，只補 objectPurged 兩個欄位
+async function markObjectPurged(env, fileId) {
+    const auth = await getAccessToken(env);
+    const base = `https://firestore.googleapis.com/v1/projects/${auth.projectId}` +
+        `/databases/(default)/documents/${COLLECTION}/${encodeURIComponent(fileId)}`;
+    const maskFields = ['objectPurged', 'objectPurgedAt', 'updatedAt'];
     const url = `${base}?${maskFields
         .map((f) => 'updateMask.fieldPaths=' + encodeURIComponent(f))
         .join('&')}`;
@@ -44,18 +83,15 @@ async function softDeleteDocument(env, fileId, deletedByUid, deletedByName) {
         },
         body: JSON.stringify({
             fields: {
-                deleted: { booleanValue: true },
-                deletedAt: { timestampValue: nowIso },
-                deletedByUid: { stringValue: deletedByUid },
-                deletedByName: { stringValue: deletedByName || '' },
-                // 觸發 R2 增量備份（以 updatedAt 判斷文件變更）
+                objectPurged: { booleanValue: true },
+                objectPurgedAt: { timestampValue: nowIso },
                 updatedAt: { timestampValue: nowIso }
             }
         })
     });
     if (!response.ok) {
         const text = await response.text();
-        throw new Error(`Firestore 軟刪失敗 (HTTP ${response.status}): ${text.slice(0, 200)}`);
+        throw new Error(`objectPurged 標記失敗 (HTTP ${response.status}): ${text.slice(0, 200)}`);
     }
 }
 
@@ -135,6 +171,7 @@ export async function onRequestPost(context) {
         // thumbKey 與 originalKey 相同，故先去重再逐個刪除；
         // 舊記錄仍可能有兩個不同 key。
         const r2Errors = [];
+        const failedKeys = [];
         const keysToDelete = [...new Set(
             ['originalKey', 'thumbKey']
                 .map((f) => String(data[f] || ''))
@@ -144,13 +181,27 @@ export async function onRequestPost(context) {
             try {
                 await env.ATTACHMENTS_BUCKET.delete(key);
             } catch (r2Err) {
+                failedKeys.push(key);
                 r2Errors.push(`${key}: ${r2Err.message}`);
             }
         }
+        const allPurged = r2Errors.length === 0;
         if (r2Errors.length > 0) {
-            // 伺服器端留痕：軟刪已完成但 R2 物件可能殘留，供日後重掃回收
+            // 伺服器端留痕：軟刪已完成但 R2 物件可能殘留；
+            // 同時寫入 KV 重試佇列，由每日 reaper 接手補刪
             console.warn('Attachment R2 delete partial failure',
                 JSON.stringify({ fileId, patientId: data.patientId, r2Errors }));
+            try {
+                await enqueuePurge(env, {
+                    fileId,
+                    keys: failedKeys,
+                    action: 'purge-deleted',
+                    reason: 'delete-request-partial'
+                });
+            } catch (enqErr) {
+                console.warn('Attachment purge enqueue failed',
+                    JSON.stringify({ fileId, error: String(enqErr && enqErr.message || enqErr) }));
+            }
         }
 
         // 已軟刪文件屬冪等成功；否則寫入軟刪欄位
@@ -160,7 +211,10 @@ export async function onRequestPost(context) {
                 const me = currentUserData || await resolveUserData(auth.claims, env);
                 deleterName = (me && (me.name || me.username)) || deleterName;
             } catch (_e) {}
-            await softDeleteDocument(env, fileId, auth.uid, deleterName);
+            await softDeleteDocument(env, fileId, auth.uid, deleterName, allPurged);
+        } else if (allPurged && data.objectPurged !== true) {
+            // 舊軟刪文件這次終於把殘留物件刪淨：補上 purge 標記
+            await markObjectPurged(env, fileId);
         }
 
         return jsonResponse({
