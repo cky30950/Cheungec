@@ -20,6 +20,8 @@
     var presence = null;
     // 面板是否處於開啟狀態（自動重返等待流程時用，避免與手動關閉競態）
     var panelActive = false;
+    // 面板已顯示但診間連結尚在核發（防止等待期間重複點擊開兩個面板）
+    var opening = false;
     // 自動重返等待中（此時 Agora 的 onLeft 不應關閉面板）
     var reattaching = false;
     // 加入後遲遲未見病人的自動離開計時器
@@ -27,6 +29,99 @@
     var DOCTOR_ALONE_MS = 60000;
     // 病人電子同意書記錄監聽取消函式
     var consentUnwatch = null;
+
+    // ── 手機全螢幕診間 ─────────────────────────────────────────────
+    // 手機（觸控＋寬度小於 lg 斷點 1024px，此時面板本會堆在病歷表單下方
+    // 僅 60vh）開啟診間時，面板自動改為覆蓋整個視口的全螢幕版面：
+    //   - CSS 固定覆蓋層（100dvh）在 iOS／Android 皆可用（iPhone Safari
+    //     不支援任意元素 requestFullscreen，這是唯一可靠路徑）；
+    //   - Android Chrome 等有原生 Fullscreen API 的瀏覽器，於點擊「視訊
+    //     診症」的手勢時序內對 <html> 請求真全螢幕（隱藏瀏覽器列）；
+    //     對 documentElement 全螢幕可保留 body 層的 toast／SweetAlert。
+    var PHONE_FS_STYLE_ID = 'vc-phone-fullscreen-style';
+    var PHONE_FS_PANEL_CLASS = 'vc-phone-fullscreen';
+    var PHONE_FS_BODY_CLASS = 'vc-phone-fullscreen-open';
+    var PHONE_QUERY = '(pointer: coarse) and (max-width: 1023px)';
+
+    function injectPhoneFullscreenStyle() {
+        if (document.getElementById(PHONE_FS_STYLE_ID)) return;
+        var style = document.createElement('style');
+        style.id = PHONE_FS_STYLE_ID;
+        style.textContent =
+            '@media (pointer: coarse) and (max-width: 1023px) {\n' +
+            '  #videoConsultPanel.' + PHONE_FS_PANEL_CLASS + ' {\n' +
+            '    position: fixed !important;\n' +
+            '    inset: 0 !important;\n' +
+            '    z-index: 900 !important;\n' +
+            '    width: 100vw !important;\n' +
+            '    height: 100vh !important;\n' +
+            '    height: 100dvh !important;\n' +
+            '    max-height: none !important;\n' +
+            '    margin: 0 !important;\n' +
+            '    border: 0 !important;\n' +
+            '    border-radius: 0 !important;\n' +
+            '  }\n' +
+            '  #videoConsultPanel.' + PHONE_FS_PANEL_CLASS + ' > div:first-child {\n' +
+            '    padding-top: max(0.75rem, env(safe-area-inset-top));\n' +
+            '    padding-left: max(1rem, env(safe-area-inset-left));\n' +
+            '    padding-right: max(1rem, env(safe-area-inset-right));\n' +
+            '  }\n' +
+            '}\n' +
+            'body.' + PHONE_FS_BODY_CLASS + ' { overflow: hidden !important; }';
+        document.head.appendChild(style);
+    }
+
+    function isPhoneLayout() {
+        try {
+            return typeof window.matchMedia === 'function' &&
+                window.matchMedia(PHONE_QUERY).matches;
+        } catch (e) { return false; }
+    }
+
+    function currentFullscreenElement() {
+        return document.fullscreenElement ||
+            document.webkitFullscreenElement || null;
+    }
+
+    // 於使用者手勢時序內呼叫（openVideoConsultation 的點擊鏈路）
+    function requestBrowserFullscreen() {
+        var root = document.documentElement;
+        try {
+            if (typeof root.requestFullscreen === 'function') {
+                var p = root.requestFullscreen();
+                if (p && typeof p.catch === 'function') p.catch(function () { /* 拒絕就用 CSS 覆蓋層 */ });
+            } else if (typeof root.webkitRequestFullscreen === 'function') {
+                root.webkitRequestFullscreen();
+            }
+        } catch (e) { /* iOS 等不支援：CSS 覆蓋層已足夠 */ }
+    }
+
+    function exitBrowserFullscreen() {
+        try {
+            // 僅退出由診間開啟的全螢幕（目標為 <html>），不干擾其他元素
+            if (currentFullscreenElement() !== document.documentElement) return;
+            if (typeof document.exitFullscreen === 'function') {
+                var p = document.exitFullscreen();
+                if (p && typeof p.catch === 'function') p.catch(function () { /* ignore */ });
+            } else if (typeof document.webkitExitFullscreen === 'function') {
+                document.webkitExitFullscreen();
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    function enterPhoneFullscreenMode(panel) {
+        if (!panel) return;
+        panel.classList.add(PHONE_FS_PANEL_CLASS);
+        document.body.classList.add(PHONE_FS_BODY_CLASS);
+        requestBrowserFullscreen();
+    }
+
+    function exitPhoneFullscreenMode() {
+        var panel = document.getElementById('videoConsultPanel');
+        if (panel) panel.classList.remove(PHONE_FS_PANEL_CLASS);
+        document.body.classList.remove(PHONE_FS_BODY_CLASS);
+        exitBrowserFullscreen();
+    }
 
     function getConfig() {
         return window.AGORA_CONFIG || {};
@@ -411,8 +506,8 @@
                 return;
             }
 
-            // 已在通訊中再次點擊 → 直接關閉視訊（按鈕這時顯示為「關閉視訊」）
-            if (callController) {
+            // 已在通訊中（或診間連結核發中）再次點擊 → 直接關閉視訊
+            if (callController || opening) {
                 window.closeVideoConsultation();
                 return;
             }
@@ -435,6 +530,14 @@
             }
 
             var channel = buildChannelName(appointment);
+
+            // 先顯示視訊面板：手機在此同步進入全螢幕（原生 Fullscreen 須處於
+            // 使用者點擊的手勢時序，故必須在任何 await 之前請求）
+            var panel = document.getElementById('videoConsultPanel');
+            opening = true;
+            setEmbeddedVideoUI(true);
+            if (isPhoneLayout()) enterPhoneFullscreenMode(panel);
+
             var patientName = await resolvePatientName(appointment);
             var doctorName = getDoctorName();
 
@@ -444,28 +547,32 @@
             if (channelEl) channelEl.textContent = '頻道：' + channel;
 
             // 向後端核發本次診間的病人入房 pass，組成 #k= fragment 病人連結；
-            // 核發失敗（未登入／後端異常）則不開啟面板，避免產生無用連結
+            // 核發失敗（未登入／後端異常）則關閉面板（含退出全螢幕）
             var roomUrl;
             try {
                 roomUrl = await mintRoomUrl(appointment.id, channel);
             } catch (mintError) {
                 console.error('[視訊診症] 核發診間連結失敗:', mintError);
                 notify('無法核發診間連結：' + (mintError && mintError.message ? mintError.message : mintError), 'error');
+                window.closeVideoConsultation();
                 return;
             }
+            // 等待核發期間醫師可能已按 × 關閉面板，那就不再建立通話
+            if (panel && panel.classList.contains('hidden')) return;
+
             var roomUrlInput = document.getElementById('videoConsultRoomUrl');
             if (roomUrlInput) roomUrlInput.value = roomUrl;
-
-            // 顯示右半側視訊面板，診症資料順移至左半側
-            setEmbeddedVideoUI(true);
 
             // 監聽病人同意書簽署狀態（標題列顯示「已簽同意書」）
             startConsentWatch(channel);
 
             createCall(channel, patientName, doctorName);
+            opening = false;
         } catch (error) {
             console.error('開啟視訊診症失敗:', error);
             notify('開啟視訊診症失敗：' + (error && error.message ? error.message : error), 'error');
+            // 面板已開但通話尚未建立（例外發生在 await 階段）：還原版面／全螢幕
+            if (opening && !callController) window.closeVideoConsultation();
         }
     };
 
@@ -475,11 +582,14 @@
 
         var finish = function () {
             panelActive = false;
+            opening = false;
             clearAloneTimer();
             callController = null;
             clearPresence();
             stopConsentWatch();
             if (stage) stage.innerHTML = '';
+            // 退出手機全螢幕（CSS 覆蓋層＋瀏覽器原生全螢幕）
+            exitPhoneFullscreenMode();
             // 隱藏右半側面板，診症資料恢復滿版
             setEmbeddedVideoUI(false);
         };
@@ -580,10 +690,12 @@
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
+            injectPhoneFullscreenStyle();
             initCopyRoomUrlButton();
             initRoleGate();
         });
     } else {
+        injectPhoneFullscreenStyle();
         initCopyRoomUrlButton();
         initRoleGate();
     }
