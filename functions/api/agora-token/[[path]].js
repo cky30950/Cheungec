@@ -27,6 +27,7 @@
 
 import { authenticateStaff } from '../attachments/lib/auth.js';
 import { validateRoomPass } from './lib/room-pass.js';
+import { enforceAnonRateLimit } from '../_lib/rate-limit.js';
 
 const TOKEN_VERSION = '007';
 
@@ -262,6 +263,14 @@ export async function onRequestGet(context) {
     //  匿名（無任一憑證）一律拒發，避免列舉掛號號潛入診間。
     const roomPassKey = new URL(request.url).searchParams.get('k') || '';
     const hasBearer = /^Bearer\s+/i.test(request.headers.get('Authorization') || '');
+
+    // 病人端匿名換發（?k=）先做每 IP 每分鐘限流，避免列舉／爆破
+    // pass 時每次猜擊都消耗一次 SA Firestore 讀取；員工 Bearer 不限
+    if (!hasBearer) {
+        const limited = await enforceAnonRateLimit(request, env, 'rtc');
+        if (limited) return limited;
+    }
+
     try {
         if (hasBearer) {
             await authenticateStaff(request, env);

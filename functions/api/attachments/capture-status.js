@@ -7,12 +7,18 @@
  * ============================================================ */
 
 import { jsonResponse, optionsResponse } from '../backup/lib/http.js';
-import { validateCaptureSession, SessionError } from './lib/capture-session.js';
+import { enforceAnonRateLimit } from '../_lib/rate-limit.js';
+import { validateCaptureSession, getSessionQuota, SessionError } from './lib/capture-session.js';
 
 export const onRequestOptions = () => optionsResponse();
 
 export async function onRequestPost(context) {
     const { request, env } = context;
+
+    // 匿名端點：每 IP 每分鐘限流（須在任何 Firestore 讀取之前）
+    const limited = await enforceAnonRateLimit(request, env, 'capture');
+    if (limited) return limited;
+
     try {
         let body;
         try {
@@ -25,13 +31,16 @@ export async function onRequestPost(context) {
         const expiresMs = s.expiresAt && s.expiresAt.seconds
             ? s.expiresAt.seconds * 1000
             : Date.now();
+        const quota = getSessionQuota(s);
 
         return jsonResponse({
             valid: true,
             patientName: s.patientName || '',
             mode: s.mode || 'all',
             expiresAt: new Date(expiresMs).toISOString(),
-            remainingSec: Math.max(0, Math.round((expiresMs - Date.now()) / 1000))
+            remainingSec: Math.max(0, Math.round((expiresMs - Date.now()) / 1000)),
+            remainingUploads: quota.remaining,
+            uploadLimit: quota.limit
         });
     } catch (error) {
         if (error instanceof SessionError) {

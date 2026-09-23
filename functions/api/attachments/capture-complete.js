@@ -9,6 +9,7 @@
  * ============================================================ */
 
 import { jsonResponse, optionsResponse } from '../backup/lib/http.js';
+import { enforceAnonRateLimit } from '../_lib/rate-limit.js';
 import { getAccessToken } from '../backup/lib/google-auth.js';
 import { FirestoreClient } from '../backup/lib/firestore.js';
 import { COLLECTION } from './lib/attachments-store.js';
@@ -47,6 +48,11 @@ async function markReady(env, fileId) {
 
 export async function onRequestPost(context) {
     const { request, env } = context;
+
+    // 匿名端點：每 IP 每分鐘限流（須在任何 Firestore 讀取之前）
+    const limited = await enforceAnonRateLimit(request, env, 'capture');
+    if (limited) return limited;
+
     try {
         let body;
         try {

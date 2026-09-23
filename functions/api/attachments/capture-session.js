@@ -66,7 +66,8 @@ export async function onRequestPost(context) {
             appointmentId,
             consultationId,
             consultationDate,
-            mode
+            mode,
+            uploadLimit: env.CAPTURE_MAX_UPLOADS
         });
 
         const origin = new URL(request.url).origin;
