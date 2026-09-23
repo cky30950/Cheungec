@@ -3796,6 +3796,48 @@ async function setHerbInventory(itemId, quantity, threshold, unit, disabled, def
 }
 
 
+function normalizeHerbInventoryEntry(inv) {
+    if (!inv || typeof inv !== 'object') return null;
+    return {
+        quantity: inv.quantity ?? 0,
+        threshold: inv.threshold ?? 0,
+        unit: inv.unit || 'g',
+        disabled: !!inv.disabled,
+        defaultDosage: (typeof inv.defaultDosage === 'number' && !Number.isNaN(inv.defaultDosage)) ? inv.defaultDosage : null
+    };
+}
+
+/**
+ * 一次 get 整個庫存節點（clinic 節點不存在的品項以 global 節點補位，
+ * 語義與 getHerbInventoryForMode 的逐品項 fallback 相同）。
+ * 兩個節點平行讀取，固定 2 次往返、與藥味數無關。
+ */
+async function readHerbInventoryNodesForMode(mode) {
+    await waitForFirebaseDb();
+    const clinicId = (function() {
+        try {
+            return localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+        } catch (_e) {
+            return (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default') || 'local-default';
+        }
+    })();
+    const path = (mode === 'slice') ? 'herbInventorySlice' : 'herbInventory';
+    const safeGet = async (r) => {
+        try {
+            const snap = await window.firebase.get(r);
+            return snap && snap.exists() ? (snap.val() || {}) : {};
+        } catch (_e) {
+            return {};
+        }
+    };
+    const [clinic, global] = await Promise.all([
+        safeGet(window.firebase.ref(window.firebase.rtdb, 'clinics/' + String(clinicId) + '/' + path)),
+        safeGet(window.firebase.ref(window.firebase.rtdb, path))
+    ]);
+    return { clinic, global };
+}
+
+
 async function getHerbInventoryForMode(itemId, mode) {
     await waitForFirebaseDb();
     const clinicId = (function() {
@@ -3892,55 +3934,110 @@ async function setHerbInventoryForMode(itemId, quantity, threshold, unit, disabl
 async function revertInventoryForConsultation(consultationId) {
     if (!consultationId) return;
     await waitForFirebaseDb();
-    
-    
+
     try {
         if (typeof initHerbInventory === 'function') {
-            
             await initHerbInventory(false);
         }
-    } catch (_initErr) {
-        
-    }
-    const logRef = window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId));
+    } catch (_initErr) {}
+
     try {
+        const logRef = window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId));
         const logSnap = await window.firebase.get(logRef);
-        if (logSnap && logSnap.exists()) {
-            const log = logSnap.val() || {};
-            for (const rawKey in log) {
-                const consumption = Number(log[rawKey]) || 0;
-                const parts = String(rawKey).split(':');
-                let mode = 'granule';
-                let itemId = String(rawKey);
-                if (parts.length === 2) { mode = parts[0] === 'slice' ? 'slice' : 'granule'; itemId = parts[1]; }
-                const inv = await getHerbInventoryForMode(itemId, mode);
-                const newQty = (inv.quantity || 0) + consumption;
-                const unitToUse = inv.unit || 'g';
-                const thresholdToUse = typeof inv.threshold === 'number' ? inv.threshold : 0;
-                await setHerbInventoryForMode(itemId, newQty, thresholdToUse, unitToUse, inv.disabled, mode, inv.defaultDosage);
-                try {
-                    if (mode === 'slice') {
-                        herbInventorySlice[String(itemId)] = {
-                            quantity: newQty,
-                            threshold: thresholdToUse,
-                            unit: unitToUse,
-                            disabled: !!inv.disabled,
-                            defaultDosage: (typeof inv.defaultDosage === 'number' && Number.isFinite(inv.defaultDosage)) ? inv.defaultDosage : null
-                        };
-                    } else {
-                        herbInventoryGranule[String(itemId)] = {
-                            quantity: newQty,
-                            threshold: thresholdToUse,
-                            unit: unitToUse,
-                            disabled: !!inv.disabled,
-                            defaultDosage: (typeof inv.defaultDosage === 'number' && Number.isFinite(inv.defaultDosage)) ? inv.defaultDosage : null
-                        };
-                    }
-                } catch (_e) {}
-            }
-            
-            await window.firebase.remove(logRef);
+        if (!logSnap || !logSnap.exists()) return;
+        const log = logSnap.val() || {};
+
+        // ① 純記憶體解析 log，按 mode 聚合回補量（舊 log 可能無 mode 前綴＝granule）
+        const restoreByMode = { granule: {}, slice: {} };
+        for (const rawKey in log) {
+            const consumption = Number(log[rawKey]) || 0;
+            if (consumption === 0) continue;
+            const parts = String(rawKey).split(':');
+            let mode = 'granule';
+            let itemId = String(rawKey);
+            if (parts.length === 2) { mode = parts[0] === 'slice' ? 'slice' : 'granule'; itemId = parts[1]; }
+            restoreByMode[mode][String(itemId)] = (restoreByMode[mode][String(itemId)] || 0) + consumption;
         }
+
+        // ② 每種模式一次 get 整個庫存節點（clinic＋global 平行），
+        //    取代過去每味藥 1～2 次序列化 get（20 味最多 40 次往返）
+        const modes = ['granule', 'slice'].filter(m => Object.keys(restoreByMode[m]).length > 0);
+        const nodesByMode = {};
+        await Promise.all(modes.map(async (mode) => {
+            nodesByMode[mode] = await readHerbInventoryNodesForMode(mode);
+        }));
+        const resolveEntry = (mode, itemId) => {
+            const nodes = nodesByMode[mode] || { clinic: {}, global: {} };
+            return normalizeHerbInventoryEntry(nodes.clinic[itemId])
+                || normalizeHerbInventoryEntry(nodes.global[itemId])
+                || { quantity: 0, threshold: 0, unit: 'g', disabled: false, defaultDosage: null };
+        };
+
+        const clinicId = (function() {
+            try {
+                return localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+            } catch (_e) {
+                return (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default') || 'local-default';
+            }
+        })();
+
+        // ③ 記憶體算回補後數量；所有庫存回補＋inventoryLogs 刪除放進同一筆
+        //    root multi-path update：全部成功或全部失敗，避免回補一半或
+        //    log 已刪導致無法重跑（舊式逐筆 update + 事後 remove 皆有此風險）
+        const updates = {};
+        const cachePatches = [];
+        for (const mode of modes) {
+            const basePath = 'clinics/' + String(clinicId) + '/' + (mode === 'slice' ? 'herbInventorySlice' : 'herbInventory');
+            for (const itemId of Object.keys(restoreByMode[mode])) {
+                const inv = resolveEntry(mode, itemId);
+                const newQty = (inv.quantity || 0) + restoreByMode[mode][itemId];
+                const unit = inv.unit || 'g';
+                const writeData = {
+                    quantity: Number(newQty),
+                    threshold: Number(inv.threshold) || 0,
+                    unit,
+                    disabled: !!inv.disabled
+                };
+                if (typeof inv.defaultDosage === 'number' && !Number.isNaN(inv.defaultDosage)) {
+                    writeData.defaultDosage = Number(inv.defaultDosage);
+                }
+                updates[basePath + '/' + itemId] = writeData;
+                cachePatches.push({
+                    mode,
+                    itemId,
+                    entry: {
+                        quantity: newQty,
+                        threshold: writeData.threshold,
+                        unit,
+                        disabled: !!inv.disabled,
+                        defaultDosage: ('defaultDosage' in writeData) ? writeData.defaultDosage : null
+                    }
+                });
+            }
+        }
+        updates['inventoryLogs/' + String(consultationId)] = null;
+        await window.firebase.update(window.firebase.ref(window.firebase.rtdb), updates);
+
+        // ④ 提交成功後更新本地快取與 localStorage 鏡像
+        for (const patch of cachePatches) {
+            try {
+                if (patch.mode === 'slice') {
+                    herbInventorySlice[String(patch.itemId)] = patch.entry;
+                } else {
+                    herbInventoryGranule[String(patch.itemId)] = patch.entry;
+                }
+            } catch (_e) {}
+        }
+        try {
+            const ls = localStorage.getItem('inventoryLogs');
+            if (ls) {
+                const obj = JSON.parse(ls);
+                if (Object.prototype.hasOwnProperty.call(obj, String(consultationId))) {
+                    delete obj[String(consultationId)];
+                    localStorage.setItem('inventoryLogs', JSON.stringify(obj));
+                }
+            }
+        } catch (_e) {}
     } catch (err) {
         console.error('還原診症庫存資料失敗:', err);
     }
@@ -4079,10 +4176,33 @@ async function updateInventoryAfterConsultationMulti(consultationId, prescriptio
     }
     const historyOut = [];
     const historyIn = [];
+
+    // ① 先算本次藥單的各 mode 合計（edit 寫 log/history 用，純記憶體）
+    const totals = {};
+    const totalsByMode = { granule: {}, slice: {} };
+    for (const k of Object.keys(newLog)) {
+        const parts = String(k).split(':');
+        const m = parts.length === 2 ? (parts[0] === 'slice' ? 'slice' : 'granule') : 'granule';
+        const itemId = parts.length === 2 ? parts[1] : String(k);
+        const qty = Number(newLog[k]) || 0;
+        totals[itemId] = (totals[itemId] || 0) + qty;
+        totalsByMode[m][itemId] = (totalsByMode[m][itemId] || 0) + qty;
+    }
+
+    // ② 記憶體計算全部差異（無 I/O）
     const allItemIds = new Set([
         ...Object.keys(newLog),
         ...(previousLog ? Object.keys(previousLog) : [])
     ]);
+    const deductions = [];
+    const neededModes = new Set();
+    // edit 模式的 history finalEntries 需全部品項的 unit（含差異為 0 者），
+    // 故需預載所有出現過的 mode；非 edit 只需差異品項所屬的 mode
+    if (isEditing) {
+        for (const m of ['granule', 'slice']) {
+            if (Object.keys(totalsByMode[m]).length > 0) neededModes.add(m);
+        }
+    }
     for (const key of allItemIds) {
         const prev = previousLog ? (Number(previousLog[key]) || 0) : 0;
         const next = Number(newLog[key]) || 0;
@@ -4092,76 +4212,106 @@ async function updateInventoryAfterConsultationMulti(consultationId, prescriptio
         let mode = 'granule';
         let itemId = String(key);
         if (parts.length === 2) { mode = parts[0] === 'slice' ? 'slice' : 'granule'; itemId = parts[1]; }
-        const inv = await getHerbInventoryForMode(itemId, mode);
-        const unit = inv.unit || 'g';
-        const currQty = inv.quantity || 0;
-        const newQty = currQty - delta;
-        await setHerbInventoryForMode(itemId, newQty, inv.threshold, unit, inv.disabled, mode, inv.defaultDosage);
+        deductions.push({ mode, itemId: String(itemId), delta });
+        neededModes.add(mode);
+    }
+
+    // ③ 每種模式一次 get 整個庫存節點（clinic＋global 平行），取代過去
+    //    每味藥 1～2 次序列化 get（20 味藥 20～40 次往返）
+    const nodesByMode = {};
+    await Promise.all([...neededModes].map(async (mode) => {
+        nodesByMode[mode] = await readHerbInventoryNodesForMode(mode);
+    }));
+    const resolveEntry = (mode, itemId) => {
+        const nodes = nodesByMode[mode] || { clinic: {}, global: {} };
+        return normalizeHerbInventoryEntry(nodes.clinic[itemId])
+            || normalizeHerbInventoryEntry(nodes.global[itemId])
+            || { quantity: 0, threshold: 0, unit: 'g', disabled: false, defaultDosage: null };
+    };
+
+    // ④ 記憶體算差異，組單一 multi-path update：所有庫存增減＋inventoryLogs
+    //    同一筆寫入，全部成功或全部失敗，不再中途失敗只扣一半
+    const clinicId = (function() {
         try {
-            if (mode === 'slice') {
-                herbInventorySlice[String(itemId)] = {
-                    quantity: newQty,
-                    threshold: inv.threshold,
-                    unit,
-                    disabled: !!inv.disabled,
-                    defaultDosage: (typeof inv.defaultDosage === 'number' && Number.isFinite(inv.defaultDosage)) ? inv.defaultDosage : null
-                };
-            } else {
-                herbInventoryGranule[String(itemId)] = {
-                    quantity: newQty,
-                    threshold: inv.threshold,
-                    unit,
-                    disabled: !!inv.disabled,
-                    defaultDosage: (typeof inv.defaultDosage === 'number' && Number.isFinite(inv.defaultDosage)) ? inv.defaultDosage : null
-                };
+            return localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+        } catch (_e) {
+            return (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default') || 'local-default';
+        }
+    })();
+    const updates = {};
+    const cachePatches = [];
+    for (const { mode, itemId, delta } of deductions) {
+        const inv = resolveEntry(mode, itemId);
+        const newQty = (inv.quantity || 0) - delta;
+        const unit = inv.unit || 'g';
+        const basePath = 'clinics/' + String(clinicId) + '/' + (mode === 'slice' ? 'herbInventorySlice' : 'herbInventory');
+        const writeData = {
+            quantity: Number(newQty),
+            threshold: Number(inv.threshold) || 0,
+            unit,
+            disabled: !!inv.disabled
+        };
+        if (typeof inv.defaultDosage === 'number' && !Number.isNaN(inv.defaultDosage)) {
+            writeData.defaultDosage = Number(inv.defaultDosage);
+        }
+        updates[basePath + '/' + itemId] = writeData;
+        cachePatches.push({
+            mode,
+            itemId,
+            entry: {
+                quantity: newQty,
+                threshold: writeData.threshold,
+                unit,
+                disabled: !!inv.disabled,
+                defaultDosage: ('defaultDosage' in writeData) ? writeData.defaultDosage : null
             }
-        } catch (_e) {}
+        });
         if (delta > 0) {
             historyOut.push({ itemId: String(itemId), quantity: delta, unit, mode });
         } else {
             historyIn.push({ itemId: String(itemId), quantity: Math.abs(delta), unit, mode });
         }
     }
-    if (!isEditing) {
-        await window.firebase.set(window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId)), newLog);
+
+    const inventoryLogPath = 'inventoryLogs/' + String(consultationId);
+    updates[inventoryLogPath] = isEditing ? totals : newLog;
+    if (deductions.length > 0) {
+        await window.firebase.update(window.firebase.ref(window.firebase.rtdb), updates);
+    } else {
+        await window.firebase.set(window.firebase.ref(window.firebase.rtdb, inventoryLogPath), updates[inventoryLogPath]);
+    }
+
+    // ⑤ 提交成功後更新本地快取與 localStorage 記錄
+    for (const patch of cachePatches) {
         try {
-            const ls = localStorage.getItem('inventoryLogs');
-            const obj = ls ? JSON.parse(ls) : {};
-            obj[String(consultationId)] = newLog;
-            localStorage.setItem('inventoryLogs', JSON.stringify(obj));
+            if (patch.mode === 'slice') {
+                herbInventorySlice[String(patch.itemId)] = patch.entry;
+            } else {
+                herbInventoryGranule[String(patch.itemId)] = patch.entry;
+            }
         } catch (_e) {}
+    }
+    try {
+        const ls = localStorage.getItem('inventoryLogs');
+        const obj = ls ? JSON.parse(ls) : {};
+        obj[String(consultationId)] = isEditing ? totals : newLog;
+        localStorage.setItem('inventoryLogs', JSON.stringify(obj));
+    } catch (_e) {}
+
+    // ⑥ 歷史記錄（失敗不影響已提交的庫存）
+    if (!isEditing) {
         try { if (historyIn.length) await recordInventoryHistory('in', historyIn, { consultationId: String(consultationId) }); } catch (_e) {}
         try { if (historyOut.length) await recordInventoryHistory('out', historyOut, { consultationId: String(consultationId) }); } catch (_e) {}
     } else {
-        const totals = {};
-        const totalsByMode = { granule: {}, slice: {} };
-        for (const k of Object.keys(newLog)) {
-            const parts = String(k).split(':');
-            const m = parts.length === 2 ? (parts[0] === 'slice' ? 'slice' : 'granule') : 'granule';
-            const itemId = parts.length === 2 ? parts[1] : String(k);
-            const qty = Number(newLog[k]) || 0;
-            totals[itemId] = (totals[itemId] || 0) + qty;
-            totalsByMode[m][itemId] = (totalsByMode[m][itemId] || 0) + qty;
-        }
+        // unit 直接用已載入的庫存節點解析，不再逐品項重跑 getHerbInventoryForMode
         const finalEntries = [];
         for (const m of ['granule', 'slice']) {
             for (const itemId of Object.keys(totalsByMode[m])) {
-                let unit = 'g';
-                try {
-                    const inv = await getHerbInventoryForMode(itemId, m);
-                    if (inv && inv.unit) unit = inv.unit;
-                } catch (_e) {}
-                finalEntries.push({ itemId: String(itemId), quantity: totalsByMode[m][itemId], unit, mode: m });
+                const inv = resolveEntry(m, itemId);
+                finalEntries.push({ itemId: String(itemId), quantity: totalsByMode[m][itemId], unit: inv.unit || 'g', mode: m });
             }
         }
         try { await recordInventoryHistory('out', finalEntries, { consultationId: String(consultationId), replaceExistingForConsultation: true }); } catch (_e) {}
-        try {
-            await window.firebase.set(window.firebase.ref(window.firebase.rtdb, 'inventoryLogs/' + String(consultationId)), totals);
-            const ls = localStorage.getItem('inventoryLogs');
-            const obj = ls ? JSON.parse(ls) : {};
-            obj[String(consultationId)] = totals;
-            localStorage.setItem('inventoryLogs', JSON.stringify(obj));
-        } catch (_e) {}
     }
     try { if (typeof updatePrescriptionDisplay === 'function') updatePrescriptionDisplay(); } catch (_e) {}
 }
