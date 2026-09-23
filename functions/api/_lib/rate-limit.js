@@ -3,7 +3,8 @@
  * ------------------------------------------------------------
  * 用於「無 Firebase 登入」的公開端點，防止以請求量刷 Firestore
  * 讀取帳單或濫用 R2 上傳：
- *   - GET  /api/agora-token/rtc/*（病人憑 ?k= 換發 token）
+ *   - GET  /api/agora-token/rtc/*（病人憑 X-Room-Session 換發 token）
+ *   - POST /api/agora-token/room-session（病人以一次性 pass 換 session）
  *   - POST /api/attachments/capture-presign|status|complete
  *
  * 限流身份：CF-Connecting-IP（由 Cloudflare edge 保證填入，
@@ -64,7 +65,7 @@ function corsHeaders() {
     return {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+        'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Room-Session',
         'Access-Control-Max-Age': '86400'
     };
 }

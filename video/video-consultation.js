@@ -71,9 +71,9 @@
         return Promise.resolve(user.getIdToken());
     }
 
-    // 病人端診間頁面網址：video/room.html?apt=<掛號編號>&k=<入房 pass>
-    // pass 由後端核發、只存 hash、與 Agora 頻道綁定（預設 4 小時有效），
-    // 病人憑 pass 換發 Agora token，無 pass 的舊連結無法再進入診間。
+    // 病人端診間頁面網址：video/room.html?apt=<掛號編號>#k=<入房 pass>
+    // pass 放在 hash fragment：不會送到伺服器、不會進 Referer 與存取日誌；
+    // 病人開頁時以 POST room-session 將一次性 pass 換成短 TTL session token。
     async function mintRoomUrl(appointmentId, channel) {
         var idToken = await getFreshIdToken();
         var base = String(getConfig().TOKEN_URL || '/api/agora-token').replace(/\/+$/, '');
@@ -92,8 +92,28 @@
         }
         var url = new URL('video/room.html', window.location.href);
         url.searchParams.set('apt', String(appointmentId));
-        url.searchParams.set('k', String(data.pass));
+        // pass 放 fragment 而非 query：不進伺服器日誌、不隨 Referer 外洩
+        url.hash = 'k=' + encodeURIComponent(String(data.pass));
         return url.href;
+    }
+
+    // 診症完成時批次作廢該頻道所有入房 pass 與有效 session（best-effort，
+    // 失敗不影響診症完成流程；pass 本身最長 4 小時、session 90 分鐘亦會自然失效）
+    async function revokeRoomAccess(channel) {
+        var idToken = await getFreshIdToken();
+        var base = String(getConfig().TOKEN_URL || '/api/agora-token').replace(/\/+$/, '');
+        var res = await fetch(base + '/room-pass', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Bearer ' + idToken,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ channel: String(channel), action: 'revoke' })
+        });
+        if (!res.ok) {
+            throw new Error('作廢診間連結失敗（HTTP ' + res.status + '）');
+        }
+        return res.json().catch(function () { return null; });
     }
 
     // Agora 頻道名稱只接受 ASCII，長度 ≤ 64
@@ -423,7 +443,7 @@
             var channelEl = document.getElementById('videoConsultChannel');
             if (channelEl) channelEl.textContent = '頻道：' + channel;
 
-            // 向後端核發本次診間的病人入房 pass，組成含 ?k= 的病人連結；
+            // 向後端核發本次診間的病人入房 pass，組成 #k= fragment 病人連結；
             // 核發失敗（未登入／後端異常）則不開啟面板，避免產生無用連結
             var roomUrl;
             try {
@@ -475,6 +495,28 @@
             controller.leave().then(finish, finish);
         } else {
             finish();
+        }
+    };
+
+    // 診症完成時由 system.js 呼叫：依掛號編號派生頻道名並批次作廢 pass／session。
+    // 回傳 Promise（呼叫端可 fire-and-forget）；任何失敗皆內部吸收，不阻斷完成流程。
+    window.VideoRoomPass = {
+        revokeForAppointment: function (appointmentId) {
+            var id = String(appointmentId == null ? '' : appointmentId);
+            if (!id) return Promise.resolve(null);
+            var fakeAppointment = { id: id };
+            return Promise.resolve()
+                .then(function () { return revokeRoomAccess(buildChannelName(fakeAppointment)); })
+                .catch(function (error) {
+                    console.warn('[視訊診症] 診症完成作廢入房連結失敗:',
+                        error && error.message ? error.message : error);
+                    return null;
+                });
+        },
+        revokeForChannel: function (channel) {
+            return Promise.resolve()
+                .then(function () { return revokeRoomAccess(channel); })
+                .catch(function () { return null; });
         }
     };
 

@@ -13412,6 +13412,14 @@ async function saveConsultation() {
                 localStorage.setItem('appointments', JSON.stringify(appointments));
                 await window.firebaseDataManager.updateAppointment(String(appointment.id), appointment);
                 showToast('診症記錄已保存！', 'success');
+                // 診症完成：批次作廢本次診間的入房 pass 與病人 session（best-effort，
+                // 避免連結外洩後於診後被重用；定義於 video/video-consultation.js）
+                try {
+                    if (window.VideoRoomPass &&
+                        typeof window.VideoRoomPass.revokeForAppointment === 'function') {
+                        window.VideoRoomPass.revokeForAppointment(String(appointment.id));
+                    }
+                } catch (_eRoomRevoke) { /* 不作廢失敗不影響診症完成 */ }
                 // 記錄新產生的診症 ID 供後續庫存更新
                 newConsultationIdForInventory = result.id;
 

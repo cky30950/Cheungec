@@ -96,18 +96,21 @@
     /* ---------------- Token 取得 ---------------- */
     // credentials：
     //   { idToken: '<Firebase ID Token>' }      醫師／員工端（每次請求動態取最新 token）
-    //   { roomPass: '<入房 pass>' }             病人端（無登入，以醫師核發的 pass 換 token）
+    //   { roomSession: '<session token>' }      病人端（無登入，以一次性 pass 換發的入房 session）
     function fetchRtcToken(tokenUrl, channel, credentials) {
         credentials = credentials || {};
         var url = String(tokenUrl).replace(/\/+$/, '') +
             '/rtc/' + encodeURIComponent(channel) + '/publisher/uid/0/';
         var init = null;
-        if (credentials.roomPass) {
-            url += '?k=' + encodeURIComponent(credentials.roomPass);
+        var headers = {};
+        if (credentials.roomSession) {
+            // session token 走 header：不進 query string，故不進伺服器存取日誌
+            headers['X-Room-Session'] = String(credentials.roomSession);
         }
         if (credentials.idToken) {
-            init = { headers: { 'Authorization': 'Bearer ' + credentials.idToken } };
+            headers['Authorization'] = 'Bearer ' + credentials.idToken;
         }
+        if (Object.keys(headers).length) init = { headers: headers };
         return fetch(url, init).then(function (res) {
             if (!res.ok) {
                 var err = new Error('TOKEN_HTTP_' + res.status);
@@ -125,7 +128,7 @@
 
     // 依 create() 帶入的鑑權方式取 token：
     //   options.authTokenProvider() → Promise<ID Token>（醫師端，可自動刷新）
-    //   options.roomPass            → 入房 pass（病人端）
+    //   options.roomSession        → 入房 session token（病人端）
     function requestRtcToken(options) {
         if (typeof options.authTokenProvider === 'function') {
             return Promise.resolve()
@@ -135,7 +138,7 @@
                 });
         }
         return Promise.resolve(
-            fetchRtcToken(options.tokenUrl, options.channel, { roomPass: options.roomPass || '' })
+            fetchRtcToken(options.tokenUrl, options.channel, { roomSession: options.roomSession || '' })
         );
     }
 
@@ -520,8 +523,10 @@
                 : Promise.resolve(null);
 
             return tokenPromise.then(function (token) {
+                // 病人端 token 綁定後端派生的專屬 uid（不帶萬用 uid 0），
+                // join 必須帶同一 uid；醫師端不指定，由 Agora 配置
                 return Promise.all([
-                    client.join(options.appId, options.channel, token, null),
+                    client.join(options.appId, options.channel, token, options.uid || null),
                     RTC.createMicrophoneAudioTrack({ encoderConfig: 'speech_standard' }),
                     RTC.createCameraVideoTrack({ encoderConfig: '720p_1' })
                 ]);

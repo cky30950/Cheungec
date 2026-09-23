@@ -164,9 +164,16 @@ service cloud.firestore {
     }
 
     // 視訊入房 pass：只由 Pages Function 以 Service Account 讀寫
-    // （含 pass hash、綁定頻道、過期時間），客戶端任何操作一律拒絕。
-    // 病人端不登入，憑 ?k=<pass> 直接呼叫 Function 端點，不碰 Firestore。
+    // （含 pass hash、綁定頻道、過期時間、consumed/revoked 狀態），客戶端
+    // 任何操作一律拒絕。病人端不登入，連結 pass 走 fragment，經 POST
+    // room-session（Function 端點）換發，全程不碰 Firestore。
     match /videoRoomPasses/{passId} {
+      allow read, write: if false;
+    }
+
+    // 視訊入房 session：pass 換發後的短 TTL 憑證記錄（派生 uid、
+    // 綁定頻道、active/revoked 狀態），同樣只由 Service Account 讀寫。
+    match /videoRoomSessions/{sessionId} {
       allow read, write: if false;
     }
 
@@ -182,6 +189,7 @@ service cloud.firestore {
         && collectionId != 'patientAttachments'
         && collectionId != 'attachmentCaptureSessions'
         && collectionId != 'videoRoomPasses'
+        && collectionId != 'videoRoomSessions'
         && collectionId != 'userAuthIndex'
         && collectionId != 'users'
         && collectionId != 'inquiries'

@@ -2,7 +2,8 @@
  * Agora RTC Token 伺服器（Cloudflare Pages Function）
  * ------------------------------------------------------------
  * 配合 Agora Web UI Kit 的 tokenUrl 機制，路由格式：
- *   GET /api/agora-token/rtc/<頻道名稱>/publisher/uid/<uid>/?k=<入房pass>
+ *   GET /api/agora-token/rtc/<頻道名稱>/publisher/uid/<uid>/?
+ *       Header: X-Room-Session: <入房 session token>（病人端）
  *   GET /api/agora-token/rtc/<頻道名稱>/publisher/uid/<uid>/
  *       （Header: Authorization: Bearer <Firebase ID Token>，員工/醫師端）
  *   GET /api/agora-token/rtc/<頻道名稱>/subscriber/uid/<uid>/  （鑑權方式同上）
@@ -10,9 +11,11 @@
  *
  * 鑑權（必要，二擇一）：
  *   1. 醫師／員工端：Authorization: Bearer <Firebase ID Token>
- *   2. 病人端（無登入）：query 帶醫師開診時核發、與頻道綁定的
- *      一次性入房 pass（POST /api/agora-token/room-pass 核發）。
- *      無 pass 或 pass 與頻道不符一律拒發，杜绝匿名列舉頻道潛入。
+ *   2. 病人端（無登入）：X-Room-Session 帶醫師開診時核發、以入房
+ *      pass 換發（POST /api/agora-token/room-session）的短 TTL session
+ *      token。pass 僅可換發一次且不進 query（不進伺服器日誌）；
+ *      病人的 Agora uid 與 publisher 角色由後端 session 記錄強制派生，
+ *      路徑中的 uid/role 無法頂用，杜绝匿名列舉頻道潛入。
  *
  * Cloudflare 環境變數（Pages → 專案 → Settings → Variables）：
  *   AGORA_APP_ID            Agora 專案 App ID（32 碼）
@@ -26,7 +29,7 @@
  * ============================================================ */
 
 import { authenticateStaff } from '../attachments/lib/auth.js';
-import { validateRoomPass } from './lib/room-pass.js';
+import { validateRoomSession, touchRoomSession } from './lib/room-pass.js';
 import { enforceAnonRateLimit } from '../_lib/rate-limit.js';
 
 const TOKEN_VERSION = '007';
@@ -196,7 +199,7 @@ function corsHeaders() {
     return {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+        'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Room-Session',
         'Access-Control-Max-Age': '86400'
     };
 }
@@ -258,28 +261,30 @@ export async function onRequestGet(context) {
 
     // ── 鑑權閘門（必要，二擇一）────────────────────────────────────
     //  1) 員工／醫師端：Authorization: Bearer <Firebase ID Token>
-    //  2) 病人端（無登入）：?k=<入房 pass>，pass 必須有效、未過期，
-    //     且文件中綁定的頻道與本次請求的頻道完全一致。
+    //  2) 病人端（無登入）：X-Room-Session 入房 session token（由
+    //     POST room-session 以一次性 pass 換發）；session 必須有效、
+    //     未過期／未被作廢，且綁定頻道與本次請求完全一致。
     //  匿名（無任一憑證）一律拒發，避免列舉掛號號潛入診間。
-    const roomPassKey = new URL(request.url).searchParams.get('k') || '';
+    const sessionToken = request.headers.get('X-Room-Session') || '';
     const hasBearer = /^Bearer\s+/i.test(request.headers.get('Authorization') || '');
 
-    // 病人端匿名換發（?k=）先做每 IP 每分鐘限流，避免列舉／爆破
-    // pass 時每次猜擊都消耗一次 SA Firestore 讀取；員工 Bearer 不限
+    // 病人端匿名換發先做每 IP 每分鐘限流，避免偽造 session 時每個
+    // 請求都消耗一次 SA Firestore 讀取；員工 Bearer 不限
     if (!hasBearer) {
         const limited = await enforceAnonRateLimit(request, env, 'rtc');
         if (limited) return limited;
     }
 
+    let sessionInfo = null;
     try {
         if (hasBearer) {
             await authenticateStaff(request, env);
-        } else if (roomPassKey) {
-            await validateRoomPass(env, roomPassKey, channelName);
+        } else if (sessionToken) {
+            sessionInfo = await validateRoomSession(env, sessionToken, channelName);
         } else {
             return jsonResponse({
                 error: 'UNAUTHORIZED',
-                message: '需要登入憑證或有效的診間連結'
+                message: '需要登入憑證或有效的診間連線階段'
             }, 401);
         }
     } catch (authError) {
@@ -292,20 +297,35 @@ export async function onRequestGet(context) {
         }, status);
     }
 
+    // 病人端：uid 與角色一律由後端 session 記錄強制決定，
+    // 忽略路徑中的 uid/role，避免頂用任意 uid（含醫師）或降級繞限制
+    let effectiveUid = uid;
+    let effectiveRole = role;
+    if (sessionInfo) {
+        effectiveUid = String(sessionInfo.uid);
+        effectiveRole = 'publisher';
+    }
+
     try {
         const rtcToken = await buildRtcToken(
             appId,
             appCertificate,
             channelName,
-            uid,
+            effectiveUid,
             expirySeconds,
-            role
+            effectiveRole
         );
+        // 成功換發後 best-effort 滑動順延 session（失敗不影響本次 token）
+        if (sessionInfo) {
+            touchRoomSession(env, sessionInfo.id).catch((error) => {
+                console.warn('順延入房 session 失敗:', error && error.message ? error.message : error);
+            });
+        }
         return jsonResponse({
             rtcToken: rtcToken,
             appId: appId,
             channel: channelName,
-            uid: Number(uid) || 0
+            uid: Number(effectiveUid) || 0
         });
     } catch (error) {
         console.error('簽發 Agora Token 失敗:', error);

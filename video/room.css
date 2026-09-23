@@ -1,0 +1,147 @@
+/* ============================================================
+ * 視訊診間 room.html 本機樣式
+ * ------------------------------------------------------------
+ * 取代生產環境的 https://cdn.tailwindcss.com（運行時編譯、
+ * 第三方指令碼風險）。只收錄 room.html 靜態標記實際使用的
+ * Tailwind 相容 utility 類別；通話中由 agora-call.js injectStyle
+ * 注入的介面不在此檔範圍。
+ * ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+                 "Helvetica Neue", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    line-height: 1.5;
+}
+
+h1, p { margin: 0; }
+
+button {
+    font-family: inherit;
+    font-size: 100%;
+    line-height: inherit;
+    border: none;
+    cursor: pointer;
+}
+
+a { color: inherit; text-decoration: none; }
+
+.hidden { display: none !important; }
+
+/* ── 版面 ── */
+.h-screen { height: 100vh; }
+.flex { display: flex; }
+.inline-flex { display: inline-flex; }
+.flex-col { flex-direction: column; }
+.flex-1 { flex: 1 1 0%; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.justify-center { justify-content: center; }
+.shrink-0 { flex-shrink: 0; }
+.min-h-0 { min-height: 0; }
+.max-h-full { max-height: 100%; }
+.relative { position: relative; }
+.text-center { text-align: center; }
+.w-full { width: 100%; }
+
+.max-w-7xl { max-width: 80rem; }
+.max-w-lg { max-width: 32rem; }
+.max-w-md { max-width: 28rem; }
+
+.mx-auto { margin-left: auto; margin-right: auto; }
+.mt-0\.5 { margin-top: 0.125rem; }
+.mt-1 { margin-top: 0.25rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-3 { margin-top: 0.75rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-5 { margin-top: 1.25rem; }
+.mt-6 { margin-top: 1.5rem; }
+.mr-3 { margin-right: 0.75rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-4 { margin-bottom: 1rem; }
+
+.p-4 { padding: 1rem; }
+.p-6 { padding: 1.5rem; }
+.p-8 { padding: 2rem; }
+.px-4 { padding-left: 1rem; padding-right: 1rem; }
+.px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+.py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+
+/* ── 文字 ── */
+.text-xs { font-size: 0.75rem; line-height: 1rem; }
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.text-base { font-size: 1rem; line-height: 1.5rem; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+.text-2xl { font-size: 1.5rem; line-height: 2rem; }
+.text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
+.text-5xl { font-size: 3rem; line-height: 1; }
+
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+.leading-relaxed { line-height: 1.625; }
+
+.text-white { color: #ffffff; }
+.text-gray-400 { color: #9ca3af; }
+.text-gray-500 { color: #6b7280; }
+.text-gray-600 { color: #4b5563; }
+.text-gray-700 { color: #374151; }
+.text-gray-800 { color: #1f2937; }
+
+/* ── 背景／邊框 ── */
+.bg-white { background-color: #ffffff; }
+.bg-gray-50 { background-color: #f9fafb; }
+.bg-gray-100 { background-color: #f3f4f6; }
+.bg-gray-300 { background-color: #d1d5db; }
+.bg-gray-900 { background-color: #111827; }
+.bg-green-600 { background-color: #16a34a; }
+.border-green-500 { border-color: #22c55e; }
+.border-gray-200 { border-color: #e5e7eb; }
+.border-gray-300 { border-color: #d1d5db; }
+
+.border { border-width: 1px; border-style: solid; border-color: #e5e7eb; }
+.border-b-4 { border-bottom-width: 4px; border-bottom-style: solid; }
+
+.rounded-xl { border-radius: 0.75rem; }
+.rounded-2xl { border-radius: 1rem; }
+
+.shadow { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1); }
+.shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1); }
+.shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+
+.overflow-y-auto { overflow-y: auto; }
+.space-y-3 > * + * { margin-top: 0.75rem; }
+
+/* ── 按鈕狀態（hover／disabled）與轉場 ── */
+.hover\:bg-green-700:hover { background-color: #15803d; }
+.hover\:bg-gray-50:hover { background-color: #f9fafb; }
+.disabled\:bg-gray-300:disabled { background-color: #d1d5db; }
+.disabled\:cursor-not-allowed:disabled { cursor: not-allowed; }
+.transition {
+    transition-property: background-color, border-color, color, box-shadow;
+    transition-duration: 0.2s;
+    transition-timing-function: ease;
+}
+.duration-200 { transition-duration: 0.2s; }
+
+/* ── 表單 ── */
+.cursor-pointer { cursor: pointer; }
+.w-4 { width: 1rem; }
+.h-4 { height: 1rem; }
+.h-7 { height: 1.75rem; }
+.accent-green-600 { accent-color: #16a34a; }
+
+img { max-width: 100%; }
+
+/* ── 響應式（sm：640px 起，等同 Tailwind 預設斷點）── */
+@media (min-width: 640px) {
+    .sm\:text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+    .sm\:p-8 { padding: 2rem; }
+    .sm\:flex-row { flex-direction: row; }
+}

@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 入房連結帶 fragment 憑證：全域不送出 Referer，避免憑證經外連資源外洩 -->
+    <meta name="referrer" content="no-referrer">
     <link rel="manifest" href="/manifest.webmanifest">
-    <meta name="theme-color" content="#D9782B">
+    <meta name="theme-color" content="#D9782D">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="名醫診所">
     <link rel="apple-touch-icon" href="/images/icons/apple-touch-icon.png">
     <title>視訊診間</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 僅載入本頁實際使用到的 utility 類別；不在正式環境使用 cdn.tailwindcss.com -->
+    <link rel="stylesheet" href="room.css">
     <style>
         html, body { height: 100%; }
     </style>

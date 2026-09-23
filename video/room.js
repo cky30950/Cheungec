@@ -2,8 +2,14 @@
  * 病人端視訊診間（video/room.html）— RTC SDK 原生 API
  * ------------------------------------------------------------
  * 病人打開醫師提供的連結即可就診，無需登入系統：
- *   video/room.html?apt=<掛號編號>
- *   video/room.html?channel=<完整頻道名稱>
+ *   video/room.html?apt=<掛號編號>#k=<入房 pass>
+ *   video/room.html?channel=<完整頻道名稱>#k=<入房 pass>
+ *
+ * pass 放在 location.hash：不會送到伺服器、不會進 Referer／日誌。
+ * 開頁時以 POST room-session 把「一次性」pass 換成 90 分鐘滑動 TTL
+ * 的 session token（pass 隨即作廢），session token 僅存記憶體與
+ * sessionStorage，供重新整理／斷線重返；換發 Agora token 時經
+ * X-Room-Session header 傳送，病人 uid 由後端派生且不可指定。
  *
  * 頻道 = agora-config.js 的 CHANNEL_PREFIX + 掛號編號，
  * 與醫師端 video-consultation.js 使用同一規則，雙方自動接通。
@@ -29,7 +35,13 @@
     var endReason = '';
     var state = {
         channel: '',
-        appointmentId: ''
+        appointmentId: '',
+        // 連結中的一次性 pass（換發 session 後就不再需要）
+        roomPass: '',
+        // 入房 session（pass 換發後保存；僅存記憶體與同源 sessionStorage）
+        roomSession: '',
+        // 後端派生字該 session 的 Agora uid（join 時必須一致）
+        patientUid: 0
     };
 
     function $(id) {
@@ -53,14 +65,17 @@
         showScreen('error');
     }
 
-    // 由網址參數解析頻道與入房 pass，並限定只能進入診症前綴的頻道
+    // 由網址解析頻道與入房 pass，並限定只能進入診症前綴的頻道。
+    // pass 新制走 location.hash（#k=），相容舊制 query ?k=（換發後即清除）；
+    // 已換發過 session 的頁面重新整理時網址不含 k，需靠 sessionStorage 重返。
     function resolveChannel() {
         var cfg = getConfig();
         var prefix = cfg.CHANNEL_PREFIX || 'tcm-consult-';
         var params = new URLSearchParams(window.location.search);
+        var hashParams = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
         var appointmentId = params.get('apt') || '';
         var channel = params.get('channel') || '';
-        var roomPass = (params.get('k') || '').trim();
+        var roomPass = (hashParams.get('k') || params.get('k') || '').trim();
 
         if (!channel && appointmentId) {
             channel = prefix + appointmentId;
@@ -74,10 +89,110 @@
 
         if (!safe || safe.indexOf(prefix) !== 0) return null;
 
-        // 入房 pass 由後端核發（256-bit hex）；舊連結沒有 k 會在此被擋下
-        if (!/^[a-f0-9]{32,256}$/i.test(roomPass)) return null;
+        // pass 為 64 碼 hex（後端核發）；缺 pass 不立即失敗，可能已有 session
+        if (roomPass && !/^[a-f0-9]{32,256}$/i.test(roomPass)) return null;
 
         return { channel: safe, appointmentId: appointmentId, roomPass: roomPass };
+    }
+
+    function sessionStorageKey(channel) {
+        return 'roomSession:' + channel;
+    }
+
+    // 讀取已保存且憑證本身未過期的 session（伺服器仍會再次驗證）
+    function readStoredSession(channel) {
+        try {
+            var raw = window.sessionStorage.getItem(sessionStorageKey(channel));
+            if (!raw) return null;
+            var parsed = JSON.parse(raw);
+            var exp = parseSessionExp(parsed && parsed.token);
+            if (!parsed || !parsed.token || !parsed.uid || !exp || exp * 1000 <= Date.now()) {
+                window.sessionStorage.removeItem(sessionStorageKey(channel));
+                return null;
+            }
+            return parsed;
+        } catch (e) { return null; }
+    }
+
+    function saveStoredSession(channel, token, uid) {
+        try {
+            window.sessionStorage.setItem(sessionStorageKey(channel), JSON.stringify({
+                token: token,
+                uid: uid
+            }));
+        } catch (e) { /* 無痕模式等：僅靠記憶體仍可完成本次診症 */ }
+    }
+
+    function clearStoredSession(channel) {
+        try { window.sessionStorage.removeItem(sessionStorageKey(channel)); } catch (e) { /* ignore */ }
+    }
+
+    // 從 session token 第二段（base64url JSON）取得 exp
+    function parseSessionExp(token) {
+        try {
+            var part = String(token || '').split('.')[1] || '';
+            var json = JSON.parse(decodeURIComponent(escape(
+                atob(part.replace(/-/g, '+').replace(/_/g, '/'))
+            )));
+            return Number(json && json.exp) || 0;
+        } catch (e) { return 0; }
+    }
+
+    // 以一次性 pass 換發 session；成功後把 pass 自網址移除（歷史紀錄／網址列不留密文）
+    function exchangeRoomSession(channel, pass) {
+        var cfg = getConfig();
+        var base = String(cfg.TOKEN_URL || '/api/agora-token').replace(/\/+$/, '');
+        return fetch(base + '/room-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ channel: channel, pass: pass })
+        }).then(function (res) {
+            return res.json().catch(function () { return null; }).then(function (data) {
+                if (!res.ok || !data || !data.sessionToken) {
+                    var err = new Error((data && data.message) || ('換發診間連線失敗（HTTP ' + res.status + '）'));
+                    err.httpStatus = res.status;
+                    err.code = data && data.error;
+                    throw err;
+                }
+                return data;
+            });
+        }).then(function (data) {
+            saveStoredSession(channel, data.sessionToken, data.uid);
+            stripSecretFromUrl();
+            return data;
+        });
+    }
+
+    function stripSecretFromUrl() {
+        try {
+            var cleanUrl = window.location.pathname + window.location.search;
+            // 舊制 ?k= 一併移除，其餘參數（apt／channel）保留
+            if (window.location.search && window.location.search.indexOf('k=') !== -1) {
+                var kept = new URLSearchParams(window.location.search);
+                kept.delete('k');
+                var qs = kept.toString();
+                cleanUrl = window.location.pathname + (qs ? '?' + qs : '');
+            }
+            window.history.replaceState(null, '', cleanUrl);
+        } catch (e) { /* ignore */ }
+    }
+
+    // 進入診間前確保已有 session：既存 session 直接用，否則以 pass 換發
+    function ensureRoomSession(resolved) {
+        if (state.roomSession) return Promise.resolve();
+        var stored = readStoredSession(resolved.channel);
+        if (stored) {
+            state.roomSession = stored.token;
+            state.patientUid = Number(stored.uid) || 0;
+            return Promise.resolve();
+        }
+        if (!resolved.roomPass) {
+            return Promise.reject(new Error('NO_PASS'));
+        }
+        return exchangeRoomSession(resolved.channel, resolved.roomPass).then(function (data) {
+            state.roomSession = data.sessionToken;
+            state.patientUid = Number(data.uid) || 0;
+        });
     }
 
     // 進入前閘門：未簽同意書者先看同意書，已簽（同一診間、同一版本）則直接進入
@@ -113,6 +228,22 @@
         }
     }
 
+    // session 換發／驗證失敗時的面向病人提示
+    function describeSessionError(error) {
+        var status = error && error.httpStatus;
+        if (error && error.message === 'NO_PASS') {
+            return '診間連結不完整，請重新開啟醫師提供的連結。';
+        }
+        if (status === 409 || (error && error.code === 'ROOM_PASS_ALREADY_USED')) {
+            // 一次性 pass 已在其他裝置消耗；原裝置可直接重返
+            return '此診間連結已在其他裝置使用，請在原裝置重新進入，或聯絡診所重新索取連結。';
+        }
+        if (status === 403 || status === 401 || status === 404) {
+            return '診間連結已失效、過期或被關閉，請聯絡診所重新索取。';
+        }
+        return (error && error.message) || '無法建立診間連線，請稍後再試。';
+    }
+
     function joinRoom() {
         var cfg = getConfig();
 
@@ -128,48 +259,51 @@
         var stage = $('roomStage');
         if (!stage) return;
 
-        // 離開上一通話後重新進入：先清空容器
-        if (callController) {
-            callController.destroy();
-            callController = null;
-        }
+        // 先以一次性 pass 換發（或取回已保存的）入房 session
+        ensureRoomSession(state).then(function () {
+            // 離開上一通話後重新進入：先清空容器
+            if (callController) {
+                callController.destroy();
+                callController = null;
+            }
 
-        callController = window.AgoraCall.create(stage, {
-            appId: cfg.APP_ID,
-            channel: state.channel,
-            tokenUrl: cfg.TOKEN_URL || '',
-            // 病人端鑑權：以醫師核發、與頻道綁定的入房 pass 換發 Agora token
-            roomPass: state.roomPass,
-            localName: '我',
-            remoteName: '醫師',
-            // 醫師畫面佔滿、病人自己的畫面縮小於右上角
-            layout: 'spotlight',
-            // 病人只在醫師已進入頻道後才加入，加入後數秒內隱藏自己的滿版畫面
-            hideLocalUntilPeer: true,
-            waitingText: '正在與醫師連線…',
-            onStatus: function (kind) {
-                // 醫師影像送達／重新接通 → 取消所有自動離開計時
-                if (kind === 'connected') {
+            callController = window.AgoraCall.create(stage, {
+                appId: cfg.APP_ID,
+                channel: state.channel,
+                tokenUrl: cfg.TOKEN_URL || '',
+                // 病人端鑑權：入房 session token（header 傳送）＋後端派生 uid
+                roomSession: state.roomSession,
+                uid: state.patientUid,
+                localName: '我',
+                remoteName: '醫師',
+                // 醫師畫面佔滿、病人自己的畫面縮小於右上角
+                layout: 'spotlight',
+                // 病人只在醫師已進入頻道後才加入，加入後數秒內隱藏自己的滿版畫面
+                hideLocalUntilPeer: true,
+                waitingText: '正在與醫師連線…',
+                onStatus: function (kind) {
+                    // 醫師影像送達／重新接通 → 取消所有自動離開計時
+                    if (kind === 'connected') {
+                        clearAloneTimer();
+                        clearPeerGoneTimer();
+                    }
+                },
+                // 醫師離開頻道（主動掛斷或斷線逾時）：啟動寬限計時，
+                // 逾時未重返即自動掛斷，避免病人獨留頻道持續計費
+                onPeerLeft: function (reason) {
+                    armPeerGoneTimer(reason);
+                },
+                onError: function (message) {
+                    // 權限／設備錯誤時，回到錯誤頁並顯示具體原因
                     clearAloneTimer();
                     clearPeerGoneTimer();
-                }
-            },
-            // 醫師離開頻道（主動掛斷或斷線逾時）：啟動寬限計時，
-            // 逾時未重返即自動掛斷，避免病人獨留頻道持續計費
-            onPeerLeft: function (reason) {
-                armPeerGoneTimer(reason);
-            },
-            onError: function (message) {
-                // 權限／設備錯誤時，回到錯誤頁並顯示具體原因
-                clearAloneTimer();
-                clearPeerGoneTimer();
-                leaveCallScreen();
-                showError(message);
-            },
-            onLeft: function () {
-                clearAloneTimer();
-                clearPeerGoneTimer();
-                leaveCallScreen();
+                    leaveCallScreen();
+                    showError(message);
+                },
+                onLeft: function () {
+                    clearAloneTimer();
+                    clearPeerGoneTimer();
+                    leaveCallScreen();
                 if (endReason) {
                     showError(endReason);
                     endReason = '';
@@ -226,6 +360,18 @@
                 joinNow();
             }
         }
+        }).catch(function (error) {
+            // 此處錯誤來自 session 換發（pass 已用／過期／作廢／網路等）
+            console.error('[Room] 建立入房連線失敗:', error);
+            var status = error && error.httpStatus;
+            if (status === 401 || status === 403 || status === 404 || status === 409) {
+                // 伺服器明確拒絕：清除已保存 session（若有）與記憶體狀態
+                clearStoredSession(state.channel);
+                state.roomSession = '';
+                state.patientUid = 0;
+            }
+            showError(describeSessionError(error));
+        });
     }
 
     // 預先取得鏡頭與麥克風授權：通過後立即釋放，Agora 稍後建立軌道時
