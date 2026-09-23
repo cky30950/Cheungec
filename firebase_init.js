@@ -31,7 +31,11 @@ import {
   terminate
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import { getDatabase, ref, set, get, update, remove, onValue, off,
-        
+
+        onChildAdded,
+        onChildChanged,
+        onChildRemoved,
+
         onDisconnect,
         push,
         serverTimestamp,
@@ -183,7 +187,11 @@ setPersistence(auth, browserSessionPersistence).catch((error) => {
         remove,
         onValue,
         off,
-        
+
+        onChildAdded,
+        onChildChanged,
+        onChildRemoved,
+
         onDisconnect,
         push,
         serverTimestamp,

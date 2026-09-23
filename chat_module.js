@@ -23,14 +23,19 @@
       this.presenceHeartbeatTimer = null;
       this.presenceRootRef = null;
       this.presenceListener = null;
+      // presence 改用 child 事件：本地只維護精簡 map，事件只承載變動的那位使用者
+      this.presenceMap = {};
+      this.presenceHandlers = null;
+      this.statusDotIndex = null;
       this.messagesRef = null;
-      
-      
-      
-      
-      
-      
-      this.currentMessageCallback = null;
+
+      // 訊息增量同步：child 事件只收新／變更／移除的單一訊息，
+      // 不再每則訊息重送整個 limitToLast(100) snapshot
+      this.messageDataByKey = new Map();
+      this.messageNodeByKey = new Map();
+      this.messageHandlers = null;
+      this.messageSideEffectScheduled = false;
+      this.currentMessageChannelId = null;
       this.dragOffset = { x: 0, y: 0 };
       this.isDragging = false;
       
@@ -86,11 +91,16 @@
       
       this.lastMessageInfo = {};
 
-      
-      
-      
-      
-      
+      // 歷史對話 summary 補挖：每 session 最多一次，負面結果（無 summary 的
+      // 舊對話）寫 localStorage 快取 24h——之後該對話有新訊息時 userSummaries
+      // listener 自動涵蓋，故負面快取安全，開頁不再對每位員工各發一次 get
+      this.bootstrapCompleted = false;
+      this.publicSummaryResolved = false;
+      this.bootstrapAttemptedChats = new Set();
+      this.bootstrapNegativeCache = null;
+
+
+
       this.lastNotificationTimestamp = 0;
 
       
@@ -169,23 +179,25 @@
       if (!this.initialized) return;
       
       try {
-        if (this.presenceRootRef && this.presenceListener) {
-          window.firebase.off(this.presenceRootRef, 'value', this.presenceListener);
+        if (this.presenceRootRef && this.presenceHandlers) {
+          window.firebase.off(this.presenceRootRef, 'child_added', this.presenceHandlers.child_added);
+          window.firebase.off(this.presenceRootRef, 'child_changed', this.presenceHandlers.child_changed);
+          window.firebase.off(this.presenceRootRef, 'child_removed', this.presenceHandlers.child_removed);
         }
       } catch (err) {
         console.error('ChatModule: error detaching presence listener', err);
       }
       this.presenceRootRef = null;
       this.presenceListener = null;
-      
+      this.presenceHandlers = null;
+      this.presenceMap = {};
+      this.statusDotIndex = null;
+
       try {
-        if (this.messagesRef) {
-          window.firebase.off(this.messagesRef, 'value');
-        }
+        this.detachMessageListeners();
       } catch (err) {
         console.error('ChatModule: error detaching messages listener', err);
       }
-      this.messagesRef = null;
       
       try {
         if (this.presenceHeartbeatTimer) {
@@ -266,6 +278,10 @@
       this.privateChatId = null;
       this.usersList = [];
       this.lastMessageTime = {};
+      this.bootstrapCompleted = false;
+      this.publicSummaryResolved = false;
+      this.bootstrapAttemptedChats = new Set();
+      this.bootstrapNegativeCache = null;
     }
 
     
@@ -766,39 +782,73 @@
       return entry.online === true;
     }
 
+    // 建立 uid → 狀態點 的索引，避免每次 presence 事件掃整個使用者清單
+    refreshStatusDotIndex() {
+      const index = {};
+      try {
+        const items = this.userListContainer.querySelectorAll('div[data-uid]');
+        items.forEach(item => {
+          const uid = item.dataset.uid;
+          if (!uid || uid === 'public') return;
+          const dot = item.querySelector('span[data-status-dot="true"]');
+          if (dot) index[uid] = dot;
+        });
+      } catch (_e) {}
+      this.statusDotIndex = index;
+      return index;
+    }
+
+    paintPresenceDotForUid(uid) {
+      try {
+        if (!this.statusDotIndex) this.refreshStatusDotIndex();
+        let dot = this.statusDotIndex && this.statusDotIndex[uid];
+        if (!dot) {
+          // 索引可能因使用者清單重新建立而過期，重建一次再試
+          this.refreshStatusDotIndex();
+          dot = this.statusDotIndex && this.statusDotIndex[uid];
+          if (!dot) return;
+        }
+        const isOnline = this.isPresenceEntryOnline(this.presenceMap[uid]);
+        dot.style.backgroundColor = isOnline ? '#10B981' : '#9CA3AF';
+      } catch (_e) {}
+    }
+
     listenToPresence() {
       try {
+        this.presenceMap = {};
+        this.refreshStatusDotIndex();
         this.presenceRootRef = window.firebase.ref(window.firebase.rtdb, 'presence');
-        this.presenceListener = (snapshot) => {
-          const presenceData = snapshot.val() || {};
 
-          let onlineCount = 0;
-          Object.keys(presenceData).forEach(uid => {
-            if (uid !== this.currentUserUid && this.isPresenceEntryOnline(presenceData[uid])) {
-              onlineCount++;
-            }
-          });
-
-          const items = this.userListContainer.querySelectorAll('div[data-uid]');
-          items.forEach(item => {
-            const uid = item.dataset.uid;
-            const dot = item.querySelector('span[data-status-dot="true"]');
-            if (!dot) return;
-
-
-            if (uid === 'public') {
-              dot.style.backgroundColor = 'transparent';
-              return;
-            }
-            const isOnline = this.isPresenceEntryOnline(presenceData[uid]);
-            if (isOnline) {
-              dot.style.backgroundColor = '#10B981';
-            } else {
-              dot.style.backgroundColor = '#9CA3AF';
-            }
-          });
+        // 用 child 事件取代整個根節點的 value 監聽：
+        // 初始 child_added 各送一次既有使用者（O(n) 僅此一次），之後每個
+        // 上／下線事件只送變動的那一位（O(1)），不會再把整棵 presence
+        // 反覆推送給所有分頁（人數越多平方成長的流量）。
+        const addedHandler = (snapshot) => {
+          const uid = snapshot.key;
+          if (!uid || uid === this.currentUserUid) return;
+          this.presenceMap[uid] = snapshot.val();
+          this.paintPresenceDotForUid(uid);
         };
-        window.firebase.onValue(this.presenceRootRef, this.presenceListener);
+        const changedHandler = (snapshot) => {
+          const uid = snapshot.key;
+          if (!uid || uid === this.currentUserUid) return;
+          this.presenceMap[uid] = snapshot.val();
+          this.paintPresenceDotForUid(uid);
+        };
+        const removedHandler = (snapshot) => {
+          const uid = snapshot.key;
+          if (!uid || uid === this.currentUserUid) return;
+          delete this.presenceMap[uid];
+          this.paintPresenceDotForUid(uid);
+        };
+        this.presenceHandlers = {
+          child_added: addedHandler,
+          child_changed: changedHandler,
+          child_removed: removedHandler
+        };
+        window.firebase.onChildAdded(this.presenceRootRef, addedHandler);
+        window.firebase.onChildChanged(this.presenceRootRef, changedHandler);
+        window.firebase.onChildRemoved(this.presenceRootRef, removedHandler);
       } catch (err) {
         console.error('ChatModule: Failed to listen to presence', err);
       }
@@ -862,48 +912,42 @@
     }
 
     
-    listenToMessages(channelId) {
-      
-      
-      
-      
-      
-      
-      
-      if (this.messagesRef && this.currentMessageCallback) {
+    detachMessageListeners() {
+      if (this.messagesRef && this.messageHandlers) {
         try {
-          window.firebase.off(this.messagesRef, 'value', this.currentMessageCallback);
+          window.firebase.off(this.messagesRef, 'child_added', this.messageHandlers.child_added);
+          window.firebase.off(this.messagesRef, 'child_changed', this.messageHandlers.child_changed);
+          window.firebase.off(this.messagesRef, 'child_removed', this.messageHandlers.child_removed);
         } catch (err) {
-          console.error('ChatModule: error detaching old message listener', err);
+          console.error('ChatModule: error detaching message child listeners', err);
         }
       }
-      
-      let path;
-      if (channelId === 'public') {
-        path = 'chat/messages/public';
-      } else {
-        path = `chat/private/${channelId}`;
-      }
-      
-      const baseRef = window.firebase.ref(window.firebase.rtdb, path);
-      const q = window.firebase.query(baseRef, window.firebase.orderByChild('timestamp'), window.firebase.limitToLast(100));
-      this.messagesRef = q;
-      
-      this.currentMessageCallback = (snapshot) => {
-        const data = snapshot.val() || {};
-        const messages = Object.values(data);
-        
-        messages.sort((a, b) => {
-          const ta = this.getMessageTimestamp(a);
-          const tb = this.getMessageTimestamp(b);
-          return ta - tb;
-        });
-        
-        this.renderMessages(messages);
-        
+      this.messagesRef = null;
+      this.messageHandlers = null;
+      this.messageSideEffectScheduled = false;
+      this.currentMessageChannelId = null;
+      this.messageDataByKey = new Map();
+      this.messageNodeByKey = new Map();
+    }
+
+    // 一個事件批次（初始 100 則 burst 或單則新訊息）的附帶效果收斂成一次：
+    // 最新訊息摘要／預覽／已讀／排序／捲動。微任务在 SDK 同步分派完
+    // 該批 child 事件後才執行，初始 burst 不會觸發 100 次預覽或已讀寫入。
+    scheduleMessageSideEffects(channelId) {
+      if (this.messageSideEffectScheduled) return;
+      this.messageSideEffectScheduled = true;
+      Promise.resolve().then(() => {
+        this.messageSideEffectScheduled = false;
+        if (channelId !== this.currentMessageChannelId) return;
+        this.flushMessageSideEffects(channelId);
+      });
+    }
+
+    flushMessageSideEffects(channelId) {
+      try {
         let latestTs = 0;
         let latestMsg = null;
-        messages.forEach((msg) => {
+        this.messageDataByKey.forEach((msg) => {
           const ts = this.getMessageTimestamp(msg);
           if (ts > latestTs) {
             latestTs = ts;
@@ -911,7 +955,6 @@
           }
         });
         this.lastMessageTime[channelId] = latestTs;
-        
         if (latestMsg) {
           this.lastMessageInfo[channelId] = {
             senderId: latestMsg.senderId || null,
@@ -921,11 +964,7 @@
           };
         }
         this.handleIncomingPreview(channelId, this.lastMessageInfo[channelId] || latestMsg, latestTs);
-        
-        
-        
-        
-        
+
         try {
           let isCurrent = false;
           if (this.currentChannel === 'public' && channelId === 'public') {
@@ -933,93 +972,174 @@
           } else if (this.currentChannel === 'private' && this.privateChatId && channelId === this.privateChatId) {
             isCurrent = true;
           }
-          
           const popupHidden = (this.chatPopup && this.chatPopup.classList.contains('hidden'));
           if (isCurrent && !popupHidden) {
             this.markChannelAsRead(channelId);
           }
-        } catch (_e) {
-          
-        }
-        
+        } catch (_e) {}
+
         if (typeof this.updateUserListOrder === 'function') {
           this.updateUserListOrder();
         }
+        try {
+          if (this.messageContainer) {
+            this.messageContainer.scrollTop = this.messageContainer.scrollHeight;
+          }
+        } catch (_e) {}
+      } catch (err) {
+        console.error('ChatModule: error flushing message side effects', err);
+      }
+    }
+
+    listenToMessages(channelId) {
+      this.detachMessageListeners();
+
+      let path;
+      if (channelId === 'public') {
+        path = 'chat/messages/public';
+      } else {
+        path = `chat/private/${channelId}`;
+      }
+
+      const baseRef = window.firebase.ref(window.firebase.rtdb, path);
+      const q = window.firebase.query(baseRef, window.firebase.orderByChild('timestamp'), window.firebase.limitToLast(100));
+      this.messagesRef = q;
+      this.currentMessageChannelId = channelId;
+      this.messageDataByKey = new Map();
+      this.messageNodeByKey = new Map();
+      if (this.messageContainer) this.messageContainer.innerHTML = '';
+
+      // child 事件增量同步：初始各 child_added 送一次既有訊息（合計 100），
+      // 之後每則新訊息只送該則；舊訊息滑出 100 則視窗時 child_removed。
+      // 取代 value 監聽「每則訊息重送整個 100 則 snapshot」的 O(n) 流量。
+      const insertMessageNode = (key, node, prevChildKey) => {
+        try {
+          const prevNode = prevChildKey ? this.messageNodeByKey.get(prevChildKey) : null;
+          if (prevNode && prevNode.parentNode) {
+            prevNode.parentNode.insertBefore(node, prevNode.nextSibling);
+          } else if (this.messageContainer) {
+            this.messageContainer.insertBefore(node, this.messageContainer.firstChild);
+          }
+          this.messageNodeByKey.set(key, node);
+        } catch (_e) {}
       };
-      
-      window.firebase.onValue(this.messagesRef, this.currentMessageCallback);
+
+      const addedHandler = (snapshot, prevChildKey) => {
+        const msg = snapshot.val();
+        if (!msg || typeof msg !== 'object') return;
+        const key = snapshot.key;
+        if (this.messageNodeByKey.has(key)) return;
+        this.messageDataByKey.set(key, msg);
+        const node = this.buildMessageElement(msg);
+        insertMessageNode(key, node, prevChildKey);
+        this.scheduleMessageSideEffects(channelId);
+      };
+      const changedHandler = (snapshot) => {
+        const key = snapshot.key;
+        const msg = snapshot.val();
+        if (!msg || typeof msg !== 'object') return;
+        this.messageDataByKey.set(key, msg);
+        const oldNode = this.messageNodeByKey.get(key);
+        if (oldNode && oldNode.parentNode) {
+          const node = this.buildMessageElement(msg);
+          oldNode.parentNode.replaceChild(node, oldNode);
+          this.messageNodeByKey.set(key, node);
+        }
+        this.scheduleMessageSideEffects(channelId);
+      };
+      const removedHandler = (snapshot) => {
+        const key = snapshot.key;
+        this.messageDataByKey.delete(key);
+        const oldNode = this.messageNodeByKey.get(key);
+        if (oldNode && oldNode.parentNode) {
+          oldNode.parentNode.removeChild(oldNode);
+        }
+        this.messageNodeByKey.delete(key);
+        this.scheduleMessageSideEffects(channelId);
+      };
+      this.messageHandlers = {
+        child_added: addedHandler,
+        child_changed: changedHandler,
+        child_removed: removedHandler
+      };
+      window.firebase.onChildAdded(this.messagesRef, addedHandler);
+      window.firebase.onChildChanged(this.messagesRef, changedHandler);
+      window.firebase.onChildRemoved(this.messagesRef, removedHandler);
     }
 
     
+    buildMessageElement(msg) {
+      const isSelf = (msg.senderId === this.currentUserUid);
+      const wrapper = document.createElement('div');
+      wrapper.className = 'flex items-start space-x-2 ' + (isSelf ? 'justify-end' : '');
+
+      if (!isSelf) {
+        const avatar = document.createElement('div');
+        avatar.className = 'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0';
+        const firstChar = (msg.senderName || '?').charAt(0);
+        avatar.textContent = firstChar;
+        const colors = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6'];
+        let index = 0;
+        if (msg.senderId) {
+          for (let i = 0; i < String(msg.senderId).length; i++) {
+            index = (index + String(msg.senderId).charCodeAt(i)) % colors.length;
+          }
+        }
+        avatar.style.backgroundColor = colors[index];
+        wrapper.appendChild(avatar);
+      }
+
+      const content = document.createElement('div');
+      content.className = 'flex flex-col max-w-[70%]';
+
+      const header = document.createElement('div');
+      header.className = 'flex items-center text-xs text-gray-500 mb-1';
+      if (!isSelf) {
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'font-medium text-gray-700 mr-1';
+        nameSpan.textContent = msg.senderName || '';
+        header.appendChild(nameSpan);
+      }
+      const timeSpan = document.createElement('span');
+      timeSpan.textContent = this.formatTimestamp(this.getMessageTimestamp(msg));
+      header.appendChild(timeSpan);
+
+      const bubble = document.createElement('div');
+      bubble.className = (isSelf ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800') + ' rounded-2xl px-3 py-2 text-sm break-words';
+      bubble.textContent = msg.text || '';
+      content.appendChild(header);
+      content.appendChild(bubble);
+      wrapper.appendChild(content);
+      if (isSelf) {
+        const avatar = document.createElement('div');
+        avatar.className = 'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ml-2';
+        const nameSourceSelf = (this.currentUser && (this.currentUser.name || this.currentUser.username)) || '?';
+        const firstChar = nameSourceSelf.charAt(0);
+        avatar.textContent = firstChar;
+        const colors = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6'];
+        let index = 0;
+        for (let i = 0; i < String(this.currentUserUid).length; i++) {
+          index = (index + String(this.currentUserUid).charCodeAt(i)) % colors.length;
+        }
+        avatar.style.backgroundColor = colors[index];
+        wrapper.appendChild(avatar);
+      }
+      return wrapper;
+    }
+
     renderMessages(messages) {
       if (!this.messageContainer) return;
       this.messageContainer.innerHTML = '';
       const fragment = document.createDocumentFragment();
       messages.forEach(msg => {
-        const isSelf = (msg.senderId === this.currentUserUid);
-        const wrapper = document.createElement('div');
-        wrapper.className = 'flex items-start space-x-2 ' + (isSelf ? 'justify-end' : '');
-        
-        if (!isSelf) {
-          const avatar = document.createElement('div');
-          avatar.className = 'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0';
-          const firstChar = (msg.senderName || '?').charAt(0);
-          avatar.textContent = firstChar;
-          const colors = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6'];
-          let index = 0;
-          if (msg.senderId) {
-            for (let i = 0; i < String(msg.senderId).length; i++) {
-              index = (index + String(msg.senderId).charCodeAt(i)) % colors.length;
-            }
-          }
-          avatar.style.backgroundColor = colors[index];
-          wrapper.appendChild(avatar);
-        }
-        
-        const content = document.createElement('div');
-        content.className = 'flex flex-col max-w-[70%]';
-        
-        const header = document.createElement('div');
-        header.className = 'flex items-center text-xs text-gray-500 mb-1';
-        if (!isSelf) {
-          const nameSpan = document.createElement('span');
-          nameSpan.className = 'font-medium text-gray-700 mr-1';
-          nameSpan.textContent = msg.senderName || '';
-          header.appendChild(nameSpan);
-        }
-        const timeSpan = document.createElement('span');
-        timeSpan.textContent = this.formatTimestamp(this.getMessageTimestamp(msg));
-        header.appendChild(timeSpan);
-        
-        const bubble = document.createElement('div');
-        bubble.className = (isSelf ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-800') + ' rounded-2xl px-3 py-2 text-sm break-words';
-        bubble.textContent = msg.text || '';
-        content.appendChild(header);
-        content.appendChild(bubble);
-        wrapper.appendChild(content);
-        if (isSelf) {
-          
-          const avatar = document.createElement('div');
-          avatar.className = 'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ml-2';
-          const nameSourceSelf = (this.currentUser && (this.currentUser.name || this.currentUser.username)) || '?';
-          const firstChar = nameSourceSelf.charAt(0);
-          avatar.textContent = firstChar;
-          const colors = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6'];
-          let index = 0;
-          for (let i = 0; i < String(this.currentUserUid).length; i++) {
-            index = (index + String(this.currentUserUid).charCodeAt(i)) % colors.length;
-          }
-          avatar.style.backgroundColor = colors[index];
-          wrapper.appendChild(avatar);
-        }
-        fragment.appendChild(wrapper);
+        fragment.appendChild(this.buildMessageElement(msg));
       });
       this.messageContainer.appendChild(fragment);
-      
+
       try {
         this.messageContainer.scrollTop = this.messageContainer.scrollHeight;
       } catch (_e) {
-        
+
       }
     }
 
@@ -1274,6 +1394,9 @@
       try {
         const publicSummaryRef = window.firebase.ref(window.firebase.rtdb, 'chat/summaries/public');
         const publicCallback = (snapshot) => {
+          // 專屬 listener 已涵蓋主頻道 summary（含節點不存在的情況），
+          // bootstrap 不需再對 chat/messages/public 發一次 get
+          this.publicSummaryResolved = true;
           const summary = snapshot.val();
           if (summary) {
             this.applySummaryToChannel('public', summary);
@@ -1314,7 +1437,46 @@
     }
 
     
+    // 補挖「summary 機制上線前」舊私人對話的最後訊息。這是一次性遷移需求：
+    // 任何新訊息發送時都已同時寫入雙方的 userSummaries，listener 會自動帶出。
+    // 因此：① 每個 session 只跑一次（原本每個 summary 事件都重跑）；
+    // ② 查無舊訊息的 chatId 記負面快取 24h（之後有新訊息由 listener 涵蓋，
+    // 快取不會造成永久遺漏），穩態開頁對員工的 get 數為 0。
+    loadBootstrapNegativeCache() {
+      if (this.bootstrapNegativeCache) return this.bootstrapNegativeCache;
+      let cache = {};
+      try {
+        const raw = localStorage.getItem(`chat_bootstrapEmpty_${this.currentUserUid}`);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === 'object') {
+            const now = Date.now();
+            const TTL = 24 * 3600 * 1000;
+            Object.keys(parsed).forEach((chatId) => {
+              const ts = Number(parsed[chatId]) || 0;
+              if (now - ts < TTL) cache[chatId] = ts;
+            });
+          }
+        }
+      } catch (_e) {
+        cache = {};
+      }
+      this.bootstrapNegativeCache = cache;
+      return cache;
+    }
+
+    persistBootstrapNegativeCache() {
+      try {
+        localStorage.setItem(
+          `chat_bootstrapEmpty_${this.currentUserUid}`,
+          JSON.stringify(this.bootstrapNegativeCache || {})
+        );
+      } catch (_e) {}
+    }
+
     bootstrapMissingConversationSummaries(summaryMap = {}) {
+      if (this.bootstrapCompleted) return;
+      this.bootstrapCompleted = true;
       try {
         const get = window.firebase && window.firebase.get;
         const ref = window.firebase && window.firebase.ref;
@@ -1326,20 +1488,9 @@
           return;
         }
 
+        const negativeCache = this.loadBootstrapNegativeCache();
+        let cacheDirty = false;
         const tasks = [];
-        if (!summaryMap.public && !this.lastMessageInfo['public']) {
-          const publicRef = ref(rtdb, 'chat/messages/public');
-          const publicQuery = query(publicRef, orderByChild('timestamp'), limitToLast(1));
-          tasks.push(
-            get(publicQuery).then((snapshot) => {
-              snapshot.forEach((child) => {
-                this.applySummaryToChannel('public', child.val() || {});
-              });
-            }).catch((err) => {
-              console.error('ChatModule: Failed to bootstrap public summary', err);
-            })
-          );
-        }
 
         const list = Array.isArray(this.usersList) ? this.usersList : [];
         list.forEach((u) => {
@@ -1350,15 +1501,26 @@
 
           const chatId = [String(this.currentUserUid), String(uid)].sort().join('_');
           if (summaryMap[chatId] || this.lastMessageInfo[chatId]) return;
+          if (this.bootstrapAttemptedChats.has(chatId)) return;
+          if (negativeCache[chatId]) return;
+          this.bootstrapAttemptedChats.add(chatId);
 
           const chatRef = ref(rtdb, `chat/private/${chatId}`);
           const lastMessageQuery = query(chatRef, orderByChild('timestamp'), limitToLast(1));
           tasks.push(
             get(lastMessageQuery).then((snapshot) => {
+              let found = false;
               snapshot.forEach((child) => {
+                found = true;
                 this.applySummaryToChannel(chatId, child.val() || {});
               });
+              if (!found) {
+                negativeCache[chatId] = Date.now();
+                cacheDirty = true;
+              }
             }).catch((err) => {
+              // 失敗者允許下次 session 重試：不寫負面快取，移出已嘗試集合
+              this.bootstrapAttemptedChats.delete(chatId);
               console.error('ChatModule: Failed to bootstrap private summary', err);
             })
           );
@@ -1366,6 +1528,7 @@
 
         if (tasks.length > 0) {
           Promise.allSettled(tasks).then(() => {
+            if (cacheDirty) this.persistBootstrapNegativeCache();
             if (typeof this.updateUserListOrder === 'function') {
               this.updateUserListOrder();
             }
