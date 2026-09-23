@@ -429,7 +429,30 @@
 
     /* ----------------------------------------------------------
      * 圖片本端處理（canvas 原圖；不再產生獨立縮圖）
+     * 一律盡量輸出 WebP 以節省 R2 容量；舊瀏覽器不支援時回退 JPEG/PNG
      * ---------------------------------------------------------- */
+
+    // WebP 輸出品質（對照片相當於 JPEG q0.9 左右的視覺品質，檔案約小 25-35%）
+    var WEBP_QUALITY = 0.85;
+    var webpSupportCached = null; // null=未探測；true/false=探測結果
+
+    /** 探測目前瀏覽器 canvas 是否能真正輸出 image/webp（舊 Safari 會靜默回退成 PNG） */
+    function supportsWebP() {
+        if (webpSupportCached !== null) return Promise.resolve(webpSupportCached);
+        return new Promise(function (resolve) {
+            try {
+                var c = document.createElement('canvas');
+                c.width = 1; c.height = 1;
+                c.toBlob(function (blob) {
+                    webpSupportCached = !!(blob && blob.type === 'image/webp');
+                    resolve(webpSupportCached);
+                }, 'image/webp', WEBP_QUALITY);
+            } catch (_e) {
+                webpSupportCached = false;
+                resolve(false);
+            }
+        });
+    }
 
     function loadImageElement(fileOrUrl) {
         return new Promise(function (resolve, reject) {
@@ -506,7 +529,10 @@
     }
 
     /**
-     * 產出原圖（≤2048，JPEG；含透明的 PNG 保留 PNG）。
+     * 產出原圖（≤2048）。
+     * 優先 WebP（含透明通道，照片與截圖皆可，體積最小）；
+     * PNG 來源（多為文字檢驗報告截圖）會同時比一次無損 PNG 輸出，取體積較小者；
+     * 瀏覽器不支援 WebP 時回退：含透明的 PNG 保留 PNG，其餘 JPEG q0.9。
      * 不再產生獨立縮圖：列表縮圖位置以原圖靠 CSS 縮放顯示。
      * @returns {Promise<{original:Blob, contentType:string, width:number, height:number}>}
      */
@@ -519,21 +545,41 @@
             throw new Error('檔案超過大小上限（' + Math.round(maxBytes / 1024 / 1024) + 'MB）');
         }
         var source = await decodeSource(file);
-        var hasAlpha = sourceHasAlpha(source, inType);
-        // PNG 有 alpha 才保留 PNG；其餘（含 GIF/WebP）一律 JPEG
-        var contentType = (inType === 'image/png' && hasAlpha) ? 'image/png' : 'image/jpeg';
-        var original = await drawResized(source, 2048, contentType, 0.9);
-        if (typeof source.close === 'function') {
-            try { source.close(); } catch (_e) {}
+        var encoded;
+        var contentType;
+        try {
+            if (await supportsWebP()) {
+                var webpResult = await drawResized(source, 2048, 'image/webp', WEBP_QUALITY);
+                encoded = webpResult;
+                contentType = 'image/webp';
+                // PNG 來源常為文字／表單截圖，無損 PNG 偶爾比有損 WebP 更小：
+                // 同尺寸再壓一次 PNG，兩相比較取較小者，確保「只省不浪費」。
+                if (inType === 'image/png') {
+                    var pngResult = await drawResized(source, 2048, 'image/png');
+                    if (pngResult.blob.size < webpResult.blob.size) {
+                        encoded = pngResult;
+                        contentType = 'image/png';
+                    }
+                }
+            } else {
+                // 舊瀏覽器回退：PNG 有 alpha 才保留 PNG；其餘（含 GIF/WebP 來源）一律 JPEG
+                var hasAlpha = sourceHasAlpha(source, inType);
+                contentType = (inType === 'image/png' && hasAlpha) ? 'image/png' : 'image/jpeg';
+                encoded = await drawResized(source, 2048, contentType, 0.9);
+            }
+        } finally {
+            if (typeof source.close === 'function') {
+                try { source.close(); } catch (_e) {}
+            }
         }
-        if (original.blob.size > maxBytes) {
+        if (encoded.blob.size > maxBytes) {
             throw new Error('壓縮後圖片仍超過大小上限（' + Math.round(maxBytes / 1024 / 1024) + 'MB）');
         }
         return {
-            original: original.blob,
+            original: encoded.blob,
             contentType: contentType,
-            width: original.width,
-            height: original.height
+            width: encoded.width,
+            height: encoded.height
         };
     }
 

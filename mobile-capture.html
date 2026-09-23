@@ -141,6 +141,28 @@
     'image/png': 'image/png', 'image/webp': 'image/webp', 'image/gif': 'image/gif'
   };
 
+  // WebP 輸出品質（對照片相當於 JPEG q0.9 左右的視覺品質，檔案約小 25-35%，節省 R2 容量）
+  var WEBP_QUALITY = 0.85;
+  var webpSupportCached = null; // null=未探測；true/false=探測結果
+
+  // 探測手機瀏覽器 canvas 是否能真正輸出 image/webp（舊 iOS Safari 會靜默回退成 PNG）
+  function supportsWebP() {
+    if (webpSupportCached !== null) return Promise.resolve(webpSupportCached);
+    return new Promise(function (resolve) {
+      try {
+        var c = document.createElement('canvas');
+        c.width = 1; c.height = 1;
+        c.toBlob(function (blob) {
+          webpSupportCached = !!(blob && blob.type === 'image/webp');
+          resolve(webpSupportCached);
+        }, 'image/webp', WEBP_QUALITY);
+      } catch (_e) {
+        webpSupportCached = false;
+        resolve(false);
+      }
+    });
+  }
+
   var qs = new URLSearchParams(location.search);
   var sid = qs.get('sid') || '';
   var token = qs.get('t') || '';
@@ -247,15 +269,32 @@
     if (!inType) throw new Error(L.heic);
     if (file.size && file.size > maxBytes) throw new Error(L.errPrefix + '>15MB');
     return decodeSource(file).then(function (source) {
-      var hasAlpha = inType === 'image/png' && sourceHasAlpha(source);
-      var contentType = hasAlpha ? 'image/png' : 'image/jpeg';
-      return drawResized(source, 2048, contentType, 0.9).then(function (r) {
+      var done = function (encoded, contentType) {
         if (typeof source.close === 'function') { try { source.close(); } catch (_e) {} }
-        if (r.blob.size > maxBytes) throw new Error(L.errPrefix + '>15MB');
+        if (encoded.blob.size > maxBytes) throw new Error(L.errPrefix + '>15MB');
         return {
-          original: r.blob,
-          contentType: contentType, width: r.width, height: r.height
+          original: encoded.blob,
+          contentType: contentType, width: encoded.width, height: encoded.height
         };
+      };
+      // 優先 WebP（含透明通道，體積最小）；舊瀏覽器不支援時回退 JPEG/PNG
+      return supportsWebP().then(function (webpOk) {
+        if (webpOk) {
+          return drawResized(source, 2048, 'image/webp', WEBP_QUALITY).then(function (webpResult) {
+            // PNG 來源常為文字／表單截圖，無損 PNG 偶爾更小：同尺寸比一次取較小者
+            if (inType !== 'image/png') return done(webpResult, 'image/webp');
+            return drawResized(source, 2048, 'image/png').then(function (pngResult) {
+              return pngResult.blob.size < webpResult.blob.size
+                ? done(pngResult, 'image/png')
+                : done(webpResult, 'image/webp');
+            });
+          });
+        }
+        var hasAlpha = inType === 'image/png' && sourceHasAlpha(source);
+        var contentType = hasAlpha ? 'image/png' : 'image/jpeg';
+        return drawResized(source, 2048, contentType, 0.9).then(function (r) {
+          return done(r, contentType);
+        });
       });
     });
   }
