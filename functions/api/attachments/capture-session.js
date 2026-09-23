@@ -70,7 +70,10 @@ export async function onRequestPost(context) {
         });
 
         const origin = new URL(request.url).origin;
-        const captureUrl = `${origin}/mobile-capture.html?sid=${encodeURIComponent(sid)}` +
+        // 使用 Cloudflare Pages 的 clean URL（無 .html）：
+        // 帶 .html 的網址會被 308 重新導向，在手機已安裝／曾造訪 PWA
+        // （Service Worker 接管）時會導向成 opaqueredirect 而開頁失敗。
+        const captureUrl = `${origin}/mobile-capture?sid=${encodeURIComponent(sid)}` +
             `&t=${encodeURIComponent(token)}`;
 
         return jsonResponse({ sid, token, expiresAt: expiresAt.toISOString(), captureUrl });

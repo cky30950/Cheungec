@@ -8,12 +8,12 @@
  *  - 版本化快取；更新時由用戶端訊息觸發 skipWaiting，不強制中斷
  * ============================================================ */
 
-const CACHE_VERSION = 'v1.0.3';
+const CACHE_VERSION = 'v1.0.4';
 const SHELL_CACHE = 'shell-' + CACHE_VERSION;
 const CDN_CACHE = 'cdn-' + CACHE_VERSION;
 
 const PRECACHE_URLS = [
-    '/offline.html',
+    '/offline',
     '/manifest.webmanifest',
     '/images/icons/icon-192.png'
 ];
@@ -25,8 +25,11 @@ const EXCLUDED_PREFIXES = ['/api/', '/_sdk/', '/cdn-cgi/'];
    帶有憑證類 query 參數的網址亦同，避免權杖殘留於共用裝置或被 XSS 讀取 */
 const SENSITIVE_DOC_PATHS = new Set([
     '/mobile-capture.html',
+    '/mobile-capture',
     '/video/room.html',
-    '/inquiry.html'
+    '/video/room',
+    '/inquiry.html',
+    '/inquiry'
 ]);
 const SENSITIVE_QUERY_RE = /[?&](?:sid|t|k|apt|channel)=/i;
 
@@ -177,10 +180,24 @@ self.addEventListener('fetch', (event) => {
 
 /* ---------- 導航文件：network-first → 快取 → 離線備援 ---------- */
 
+/* Cloudflare Pages 會把所有 /xxx.html 以 308 永久重新導向到 clean URL
+   （/xxx）。FetchEvent 的導航請求 redirect 模式為 'manual'，若直接
+   fetch(event.request)，只會拿到 status 0 的 opaqueredirect 回應：
+   把它回給導航會變成 net::ERR_FAILED（手機掃 QR 開拍照頁時的症狀），
+   重新包裝 Response 亦同。故這裡以字串 URL 另發 redirect:'follow'
+   的同源請求，直接取得最終 200 回應（快取時也只存非 redirected 回應，
+   否則同樣會因 manual 導航而觸發 ERR_FAILED）。 */
+function fetchDocument(req) {
+    return fetch(req.url, {
+        redirect: 'follow',
+        credentials: 'same-origin'
+    });
+}
+
 async function handleDocument(req) {
     const cache = await caches.open(SHELL_CACHE);
     try {
-        const fresh = await fetchWithTimeout(req, DOCUMENT_NETWORK_TIMEOUT_MS);
+        const fresh = await fetchWithTimeout(function () { return fetchDocument(req); }, DOCUMENT_NETWORK_TIMEOUT_MS);
         if (fresh.ok) {
             cache.put(req, fresh.clone());
             return fresh;
@@ -191,7 +208,7 @@ async function handleDocument(req) {
     } catch (_err) {
         const cached = await cache.match(req);
         if (cached) return cached;
-        const fallback = await caches.match('/offline.html');
+        const fallback = await caches.match('/offline');
         if (fallback) return fallback;
         return new Response('您目前離線', {
             status: 503,
@@ -204,7 +221,7 @@ async function handleDocument(req) {
 
 async function handleSensitiveDocument(req) {
     try {
-        const res = await fetch(req);
+        const res = await fetchDocument(req);
         // 加上 no-store，避免瀏覽器 HTTP 快取與歷史預覽殘留一次性權杖頁
         const headers = new Headers(res.headers);
         headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -216,7 +233,7 @@ async function handleSensitiveDocument(req) {
         });
     } catch (_err) {
         // 離線時只顯示通用離線頁，絕不回放曾快取的敏感頁
-        const fallback = await caches.match('/offline.html');
+        const fallback = await caches.match('/offline');
         if (fallback) return fallback;
         return new Response('您目前離線', {
             status: 503,
@@ -225,10 +242,10 @@ async function handleSensitiveDocument(req) {
     }
 }
 
-function fetchWithTimeout(req, ms) {
+function fetchWithTimeout(fetchFactory, ms) {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('network timeout')), ms);
-        fetch(req).then(
+        fetchFactory().then(
             (res) => { clearTimeout(timer); resolve(res); },
             (err) => { clearTimeout(timer); reject(err); }
         );

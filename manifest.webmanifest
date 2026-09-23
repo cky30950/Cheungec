@@ -4,7 +4,7 @@
   "description": "香港中醫診所管理系統：電子病歷、中藥庫存、針灸穴位與預約管理。",
   "lang": "zh-TW",
   "dir": "ltr",
-  "start_url": "/system.html",
+  "start_url": "/system",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

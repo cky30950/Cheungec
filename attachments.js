@@ -693,27 +693,46 @@
      * Gallery Modal
      * ---------------------------------------------------------- */
 
+    // 診症中「醫學報告」入口（visit＋all）：判斷附件是否屬於本次診症
+    // （已儲存＝consultationId 相符；未儲存＝無 consultationId 且 sessionId 相符）
+    function isCurrentVisitDoc(d) {
+        if (!gallery || gallery.scope !== 'visit') return false;
+        if (gallery.consultationId) {
+            return String(d.consultationId || '') === String(gallery.consultationId);
+        }
+        return !d.consultationId && String(d.sessionId || '') === String(gallery.sessionId);
+    }
+
     function galleryVisibleDocs() {
         var docs = patientCache[gallery.patientId] || [];
         var list = docs.slice();
         if (gallery.scope === 'visit') {
-            if (gallery.consultationId) {
-                list = list.filter(function (d) {
-                    return String(d.consultationId || '') === String(gallery.consultationId);
+            if (gallery.category === 'all') {
+                // 「醫學報告」入口：過往記錄一律不含舌象（舌象由「舌象圖片」按鈕專管）；
+                // 舊分類 'other' 亦歸入醫學報告。
+                // 可切換檢視：全部（本次優先）｜本次診症｜過往醫學報告
+                var reports = list.filter(function (d) { return d.category !== 'tongue'; });
+                var current = reports.filter(isCurrentVisitDoc);
+                var view = gallery.reportView || 'all';
+                if (view === 'current') return current;
+                var currentIds = {};
+                current.forEach(function (d) {
+                    currentIds[String(d.fileId || d.id)] = true;
                 });
-            } else {
-                list = list.filter(function (d) {
-                    return !d.consultationId && String(d.sessionId || '') === String(gallery.sessionId);
+                var history = reports.filter(function (d) {
+                    return !currentIds[String(d.fileId || d.id)];
                 });
+                if (view === 'history') return history;
+                // 全部：本次診症排在最前，其餘過往報告在後
+                return current.concat(history);
             }
+            // 舌象入口（保留原行為）：只看本次診次的舌象
+            return list.filter(isCurrentVisitDoc).filter(function (d) {
+                return d.category === 'tongue';
+            });
         }
         if (gallery.category === 'tongue') {
             list = list.filter(function (d) { return d.category === 'tongue'; });
-        }
-        if (gallery.scope === 'visit' && gallery.category === 'all') {
-            // 過往記錄的「醫學報告」不含舌象（舌象由「舌象圖片」按鈕專管）；
-            // 舊分類 'other' 亦歸入醫學報告
-            list = list.filter(function (d) { return d.category !== 'tongue'; });
         }
         if (gallery.scope === 'patient' && gallery.category === 'all' && gallery.filter !== 'all') {
             // 病人層級綜合入口的下拉篩選：舌象圖片／醫學報告（舊分類 'other' 歸入醫學報告）
@@ -729,8 +748,16 @@
     function cardHtml(doc) {
         var meta = CATEGORY_META[doc.category] || CATEGORY_META.report;
         var thumbSrc = publicUrl(doc.thumbKey);
+        // 診症中「醫學報告」檢視過往報告時，縮圖可能來自不同診次；
+        // Lightbox 需以「該病人所有醫學報告」為一組，故 visit 用 'all'，
+        // 點任一張都能在全部報告間滑動檢視。
+        var mixedVisitView = gallery.scope === 'visit'
+            && gallery.category === 'all'
+            && (gallery.reportView || 'all') !== 'current';
         var visitAttr = gallery.scope === 'visit'
-            ? (gallery.consultationId || 'session:' + gallery.sessionId)
+            ? (mixedVisitView
+                ? 'all'
+                : (gallery.consultationId || 'session:' + gallery.sessionId))
             : 'all';
         var kindAttr;
         if (gallery.category === 'tongue') {
@@ -749,6 +776,13 @@
             visitLabel = doc.consultationId
                 ? tt('診症') + ' ' + (doc.consultationDate || '')
                 : '<span class="text-amber-600">' + tt('未歸檔診症') + '</span>';
+        } else if (mixedVisitView) {
+            // 本次／過往一目了然：本次掛藍色標記，過往顯示所屬診症日期
+            visitLabel = isCurrentVisitDoc(doc)
+                ? '<span class="text-blue-700">■ ' + tt('本次診症') + '</span>'
+                : (doc.consultationId
+                    ? tt('診症') + ' ' + (doc.consultationDate || '')
+                    : '<span class="text-amber-600">' + tt('未歸檔診症') + '</span>');
         }
         var delBtn = canDelete(doc)
             ? '<button type="button" data-ma-delete="' + esc(doc.fileId || doc.id) + '" ' +
@@ -795,12 +829,30 @@
             '</div>';
     }
 
-    // 僅病人層級「醫學報告及舌象圖片」提供下拉選單，
-    // 可按「舌象圖片／醫學報告」兩類篩選；其餘入口只顯示單一類型，無需選單。
+    // 病人層級「醫學報告及舌象圖片」提供「舌象圖片／醫學報告」分類下拉；
+    // 診症中「醫學報告」入口提供「全部／本次診症／過往醫學報告」檢視下拉。
     // 選單置於上傳按鈕列最右側（maFilterSlot，ml-auto 推到右上角）
     function renderFilters() {
         var el = document.getElementById('maFilterSlot');
         if (!el) return;
+        if (gallery.scope === 'visit' && gallery.category === 'all') {
+            el.innerHTML =
+                '<label for="maReportViewSelect" class="text-sm font-medium text-gray-700 whitespace-nowrap">' + tt('顯示') + '</label>' +
+                '<select id="maReportViewSelect" class="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">' +
+                    '<option value="all">' + tt('全部') + '</option>' +
+                    '<option value="current">' + tt('本次診症') + '</option>' +
+                    '<option value="history">' + tt('過往醫學報告') + '</option>' +
+                '</select>';
+            var viewSel = document.getElementById('maReportViewSelect');
+            if (viewSel) {
+                viewSel.value = gallery.reportView || 'all';
+                viewSel.addEventListener('change', function () {
+                    gallery.reportView = viewSel.value;
+                    renderGrid();
+                });
+            }
+            return;
+        }
         if (gallery.scope !== 'patient' || gallery.category !== 'all') {
             el.innerHTML = '';
             return;
@@ -1015,6 +1067,8 @@
             category: category,
             // 病人層級「醫學報告及舌象圖片」的下拉篩選：all | tongue | report
             filter: 'all',
+            // 診症中「醫學報告」入口的檢視範圍：all（本次+過往）| current | history
+            reportView: 'all',
             patientId: ctx.patientId,
             patientName: ctx.patientName,
             // 列表過濾用：僅 visit scope 限定診次
@@ -1038,7 +1092,8 @@
         document.getElementById('maSubtitle').textContent =
             (ctx.patientName ? ctx.patientName + '　' : '') +
             (scope === 'visit'
-                ? (gallery.consultationId ? tt('本次診症附件') : tt('本次診症（尚未儲存）'))
+                ? ((gallery.consultationId ? tt('本次診症附件') : tt('本次診症（尚未儲存）')) +
+                    (category === 'all' ? '·' + tt('可查看過往報告') : ''))
                 : tt('所有歷史附件'));
 
         renderUploadBar();
