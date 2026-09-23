@@ -2174,10 +2174,21 @@
                     expireAt: expireAt
                 };
                 // 新增至 inquiries 集合
-                await window.firebase.addDoc(
+                const docRef = await window.firebase.addDoc(
                     window.firebase.collection(window.firebase.db, 'inquiries'),
                     inquiryPayload
                 );
+                // 遞交成功後即時觸發員工推播（匿名限流端點；後端會再以 SA 驗單）。
+                // 失敗不影響病人遞交流程，亦不等待回應。
+                if (docRef && docRef.id) {
+                    try {
+                        fetch('/api/push/inquiry', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: docRef.id })
+                        }).catch(function () { /* 推播失敗不影響遞交 */ });
+                    } catch (_notifyErr) { /* ignore */ }
+                }
                 await syncMedicalProfileToPatient(results);
                 console.log('預診資料已成功儲存');
             } catch (err) {

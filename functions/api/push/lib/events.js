@@ -4,6 +4,10 @@
  * 訂閱文件 events、subscribe 白名單校驗、notify 派送皆引用此處。
  * ============================================================ */
 
+// 病人提交新預診（公開 inquiry 頁寫入 Firestore 後，由匿名限流端點
+// POST /api/push/inquiry 即時派送，取代舊的每分鐘 cron 掃描）
+export const EVENT_NEW_INQUIRY = 'new_inquiry';
+
 // 病人進入候診中（推送給歸屬醫師）
 export const EVENT_APPOINTMENT_WAITING = 'appointment_waiting';
 
@@ -18,6 +22,7 @@ export const EVENT_CHAT_PRIVATE = 'chat_private';
 
 /** 全部允許訂閱的事件（順序即設定 UI 顯示順序） */
 export const ALL_PUSH_EVENTS = [
+    EVENT_NEW_INQUIRY,
     EVENT_APPOINTMENT_WAITING,
     EVENT_APPOINTMENT_COMPLETED,
     EVENT_CHAT_PUBLIC,

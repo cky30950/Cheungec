@@ -29,7 +29,9 @@ export const RL_BUCKETS = {
     // 病人入房換發 RTC token：正常入房 1～2 次，宽限重試與重連
     rtc: { key: 'rtc', defaultLimit: 12, periodSec: 60, envLimit: 'RL_RTC_LIMIT' },
     // 手機代拍三個端點共用同一額度（每張照片約 presign+complete 2 次）
-    capture: { key: 'cap', defaultLimit: 40, periodSec: 60, envLimit: 'RL_CAPTURE_LIMIT' }
+    capture: { key: 'cap', defaultLimit: 40, periodSec: 60, envLimit: 'RL_CAPTURE_LIMIT' },
+    // 公開預診頁遞交後觸發新預診推播（人為遞交頻率很低，額度從嚴）
+    inquiry: { key: 'inq', defaultLimit: 8, periodSec: 60, envLimit: 'RL_INQUIRY_LIMIT' }
 };
 
 const warned = new Set();

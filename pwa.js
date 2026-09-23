@@ -95,6 +95,7 @@
 
     // 事件顯示順序與中英標籤（id 需與後端 events.js 一致）
     var PUSH_EVENT_ITEMS = [
+        { id: 'new_inquiry', zh: '新預診資料', en: 'New pre-consultation inquiry' },
         { id: 'appointment_waiting', zh: '病人候診通知（醫師）', en: 'Patient waiting (doctor)' },
         { id: 'appointment_completed', zh: '診症完成通知（護理／管理／助理）', en: 'Consultation completed (nurse/manager/assistant)' },
         { id: 'chat_public', zh: '公開頻道訊息', en: 'Public channel messages' },
@@ -128,7 +129,22 @@
             if (raw) {
                 var arr = JSON.parse(raw);
                 if (Array.isArray(arr)) {
-                    return arr.filter(function (e) { return ALL_EVENT_IDS.indexOf(e) !== -1; });
+                    var list = arr.filter(function (e) { return ALL_EVENT_IDS.indexOf(e) !== -1; });
+                    // 一次性遷移：new_inquiry 曾在重構期間短暫移出可訂閱清單，
+                    // 期間儲存的偏好會缺這個事件。它原為預設全選事件，幫已存
+                    // 偏好的員工補回一次（使用者之後可自行取消勾選）。
+                    var MIG_KEY = 'pushPrefsMigratedNewInquiryV1';
+                    var migrated = false;
+                    try { migrated = localStorage.getItem(MIG_KEY) === '1'; } catch (_e) {}
+                    if (!migrated && list.indexOf('new_inquiry') === -1
+                        && ALL_EVENT_IDS.indexOf('new_inquiry') !== -1) {
+                        list.push('new_inquiry');
+                        try {
+                            localStorage.setItem(PREFS_KEY, JSON.stringify(list));
+                            localStorage.setItem(MIG_KEY, '1');
+                        } catch (_e) {}
+                    }
+                    return list;
                 }
             }
         } catch (_e) {}
