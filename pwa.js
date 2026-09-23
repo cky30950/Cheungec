@@ -103,6 +103,23 @@
     var ALL_EVENT_IDS = PUSH_EVENT_ITEMS.map(function (i) { return i.id; });
     var PREFS_KEY = 'pushEventPrefs';
 
+    // 「此裝置推播應保持開啟」標記：
+    // 最後一個系統分頁關閉時 SW 會自動退訂（使用者要求關頁後不再收廣播），
+    // 重開頁面時依此標記自動恢復訂閱；手動關閉開關或登出時移除。
+    var ENABLED_MARKER_KEY = 'pushDeviceEnabled';
+
+    function markPushEnabled() {
+        try { localStorage.setItem(ENABLED_MARKER_KEY, '1'); } catch (_e) {}
+    }
+
+    function clearPushEnabledMarker() {
+        try { localStorage.removeItem(ENABLED_MARKER_KEY); } catch (_e) {}
+    }
+
+    function isPushEnabledMarked() {
+        try { return localStorage.getItem(ENABLED_MARKER_KEY) === '1'; } catch (_e) { return false; }
+    }
+
     var selectedEvents = loadEventPrefs();
 
     function loadEventPrefs() {
@@ -525,6 +542,7 @@
 
             await pushSubscriptionUpsert(sub);
 
+            markPushEnabled();
             setToggle(true, true);
             setStatus('pushStatusOn');
             message(t('pushOn') + (isZh ? '。' : '. ') + t('pushSettingsHint'), { type: 'success' });
@@ -565,6 +583,8 @@
                     console.warn('後端移除訂閱失敗:', apiErr);
                 }
             }
+            // 手動關閉：移除標記，爾後重開頁面不再自動恢復
+            clearPushEnabledMarker();
             setToggle(false, true);
             setStatus('pushStatusOff');
             message(t('pushOff') + (isZh ? '。' : '. ') + t('pushSettingsHint'), { type: 'info' });
@@ -686,8 +706,14 @@
                         return;
                     }
                 }
+                // 既有訂閱（含先前版本使用者）補寫啟用標記，供關頁後重開自動恢復
+                markPushEnabled();
                 setToggle(true, true);
                 setStatus('pushStatusOn');
+            } else if (isPushEnabledMarked() && Notification.permission === 'granted') {
+                // 最後一個分頁關閉時 SW 已自動退訂；標記仍在＝使用者希望保持開啟，
+                // 靜默恢復訂閱（不彈任何權限提示）
+                restorePushSubscription();
             } else {
                 setToggle(false, true);
                 setStatus('pushStatusOff');
@@ -696,6 +722,78 @@
         } catch (err) {
             console.warn('同步推播狀態失敗:', err);
             setToggle(false, true);
+        }
+    }
+
+    // 防止重入：關頁後重開時的靜默恢復
+    var restoringPush = false;
+
+    /**
+     * 靜默重新建立推播訂閱（分頁關閉期間 SW 已退訂，重開頁面自動恢復）。
+     * 不彈任何提示；失敗則清除標記並回到未開啟狀態，避免每次載入重試循環。
+     */
+    async function restorePushSubscription() {
+        if (restoringPush) return;
+        restoringPush = true;
+        setStatus('pushStatusWorking');
+        setToggle(false, false);
+        try {
+            var vapid = await getVapidConfig();
+            var reg = await navigator.serviceWorker.ready;
+            var sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: decodeVapidKey(vapid)
+            });
+            await pushSubscriptionUpsert(sub);
+            markPushEnabled();
+            setToggle(true, true);
+            setStatus('pushStatusOn');
+            postClientOpenToSW();
+        } catch (err) {
+            console.warn('自動恢復推播訂閱失敗:', err);
+            clearPushEnabledMarker();
+            setToggle(false, true);
+            setStatus('pushStatusOff');
+        } finally {
+            restoringPush = false;
+        }
+    }
+
+    /**
+     * 登出專用：在 firebase.signOut() 之前（ID token 仍有效）移除本裝置訂閱。
+     * 同時取消 SW 可能正在等待的「最後分頁關閉」退訂計時。
+     * 任何失敗都不可阻斷登出流程。
+     */
+    async function teardownPushOnLogout() {
+        try {
+            if (!('serviceWorker' in navigator)) return;
+            var reg = await navigator.serviceWorker.ready;
+            var sub = null;
+            try { sub = await reg.pushManager.getSubscription(); } catch (_e) {}
+            if (sub) {
+                var endpoint = sub.endpoint;
+                // 後端刪除需帶登入 token，必須在 signOut() 前完成
+                try {
+                    await apiCall('/unsubscribe', {
+                        method: 'POST',
+                        body: JSON.stringify({ endpoint: endpoint })
+                    });
+                } catch (apiErr) {
+                    console.warn('登出時後端移除推播訂閱失敗:', apiErr);
+                }
+                try { await sub.unsubscribe(); } catch (_unsubErr) {}
+            }
+            clearPushEnabledMarker();
+            try {
+                if (reg.active) reg.active.postMessage({ type: 'TCM_LOGGED_OUT' });
+            } catch (_msgErr) {}
+            setToggle(false, true);
+            setStatus('pushStatusOff');
+            hideEnableCard();
+        } catch (err) {
+            // 即使失敗也要移除標記：登出後不應自動恢復前一使用者的訂閱
+            console.warn('登出移除推播訂閱失敗:', err);
+            clearPushEnabledMarker();
         }
     }
 
@@ -735,6 +833,7 @@
             });
             await pushSubscriptionUpsert(newSub);
 
+            markPushEnabled();
             setToggle(true, true);
             setStatus('pushStatusOn');
             message(t('pushClaimOther'), { type: 'info' });
@@ -976,6 +1075,51 @@
         } catch (_e) {}
     }
 
+    /* ---------- 分頁開關生命週期：最後一個分頁關閉即退訂 ---------- */
+
+    // 通知 SW「本分頁仍開著」：取消它可能正在等待的關頁退訂計時。
+    // 頁面剛載入、從 bfcache 恢復、SW 換代控制本分頁時都要告知。
+    function postClientOpenToSW() {
+        postToSW({ type: 'TCM_CLIENT_OPEN' });
+    }
+
+    function postToSW(msg) {
+        try {
+            var ctrl = navigator.serviceWorker.controller;
+            if (ctrl) {
+                ctrl.postMessage(msg);
+                return;
+            }
+            // 首次安裝時尚無 controller：等 ready 後再送
+            navigator.serviceWorker.ready.then(function (reg) {
+                if (reg.active) reg.active.postMessage(msg);
+            }).catch(function () {});
+        } catch (_e) {}
+    }
+
+    function bindClientLifecycle() {
+        if (!('serviceWorker' in navigator)) return;
+
+        // 真正關閉分頁／視窗／結束瀏覽器時才觸發；
+        // 僅切到背景或鎖屏（手機常見）不觸發，否則 iPhone PWA 背景推播會失效。
+        window.addEventListener('pagehide', function (event) {
+            if (event.persisted) return; // 進入 bfcache：分頁仍活著
+            postToSW({ type: 'TCM_CLIENT_CLOSING' });
+        });
+
+        window.addEventListener('pageshow', function (event) {
+            postClientOpenToSW();
+            if (event.persisted) syncPushState(); // 從 bfcache 恢復
+        });
+
+        // SW 更新換代控制本分頁時，新 SW 不知道本分頁存在，主動告知
+        navigator.serviceWorker.addEventListener('controllerchange', function () {
+            postClientOpenToSW();
+        });
+
+        postClientOpenToSW();
+    }
+
     /* ---------- 啟動 ---------- */
 
     function init() {
@@ -983,6 +1127,7 @@
         initOfflineBanner();
         bindUi();
         observeLoginGate();
+        bindClientLifecycle();
         syncPushState();
         handleChatDeepLink();
         listenDeepLinkMessages();
@@ -1001,7 +1146,8 @@
         init: init,
         syncPushState: syncPushState,
         isPushSupported: isPushSupported,
-        notify: notifyPushEvent
+        notify: notifyPushEvent,
+        teardownPushOnLogout: teardownPushOnLogout
     };
 
     if (document.readyState === 'loading') {

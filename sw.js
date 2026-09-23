@@ -8,7 +8,7 @@
  *  - 版本化快取；更新時由用戶端訊息觸發 skipWaiting，不強制中斷
  * ============================================================ */
 
-const CACHE_VERSION = 'v1.0.2';
+const CACHE_VERSION = 'v1.0.3';
 const SHELL_CACHE = 'shell-' + CACHE_VERSION;
 const CDN_CACHE = 'cdn-' + CACHE_VERSION;
 
@@ -76,8 +76,69 @@ self.addEventListener('message', (event) => {
     const msg = event.data;
     if (msg === 'SKIP_WAITING' || (msg && msg.type === 'SKIP_WAITING')) {
         self.skipWaiting();
+        return;
+    }
+    if (!msg || typeof msg !== 'object') return;
+
+    // 分頁開啟（含重整後新文件、bfcache 恢復、SW 換代）：取消待执行的退訂計時
+    if (msg.type === 'TCM_CLIENT_OPEN' || msg.type === 'TCM_LOGGED_OUT') {
+        cancelPendingTeardown();
+        return;
+    }
+
+    // 某分頁真正關閉：等待短暫過渡期（重整／跨頁導覽），
+    // 若同源下已無任何系統分頁，則退訂推播——關頁後不再收到任何廣播。
+    if (msg.type === 'TCM_CLIENT_CLOSING') {
+        event.waitUntil(schedulePushTeardownWhenNoClients());
     }
 });
+
+/* 最後分頁關閉後的推播退訂（瀏覽器端）。
+ * 後端訂閱記錄不需在此直連刪除（SW 無有效登入 token）：
+ * 退訂後推送服務會對舊端點回 404/410，sender 派送時即自動清除記錄。
+ * 重開頁面時 pwa.js 依 pushDeviceEnabled 標記自動恢復訂閱。 */
+const CLIENT_GONE_GRACE_MS = 2000;
+let pendingTeardown = null;
+
+function cancelPendingTeardown() {
+    if (pendingTeardown) {
+        pendingTeardown.canceled = true;
+        pendingTeardown = null;
+    }
+}
+
+async function schedulePushTeardownWhenNoClients() {
+    // 新的關閉事件取代前一個等待（多分頁依序關閉）
+    cancelPendingTeardown();
+    const state = { canceled: false };
+    pendingTeardown = state;
+
+    // 不用 clearTimeout 取消等待（會讓 waitUntil 的 Promise 懸著）：
+    // 一律等完緩衝時間，再以 canceled 旗標與客戶端清單決定是否退訂。
+    await new Promise((resolve) => {
+        setTimeout(resolve, CLIENT_GONE_GRACE_MS);
+    });
+    if (state.canceled || pendingTeardown !== state) return;
+    pendingTeardown = null;
+
+    // 過渡期後仍有任何同源分頁（含 clinic／inquiry／room）→ 不退訂
+    const clients = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true
+    });
+    if (clients.length > 0) return;
+
+    let sub = null;
+    try {
+        sub = await self.registration.pushManager.getSubscription();
+    } catch (_e) {
+        return;
+    }
+    if (!sub) return;
+    try {
+        await sub.unsubscribe();
+    } catch (_e) {}
+}
 
 self.addEventListener('fetch', (event) => {
     const req = event.request;
