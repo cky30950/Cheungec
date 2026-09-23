@@ -5961,6 +5961,12 @@ function generateConsultationSearchKeywords(consultation = {}) {
  * 執行方式：在瀏覽器 Console 執行 `await window.backfillConsultationSearchKeywords()`
  * 支援中斷後續跑：傳入上次最後處理的 doc id：
  *   await window.backfillConsultationSearchKeywords('lastDocIdFromPrevRun')
+ *
+ * 全量掃描完成後會自動寫入 systemMeta/searchKeywordsBackfill 完成旗標
+ * （須診所管理身份），旗標寫入後所有客戶端最遲 1 小時內關閉病歷搜尋的
+ * legacy fallback；若以非管理員執行導致寫入失敗，請管理員補跑
+ * `await window.markSearchKeywordsBackfillComplete()`。
+ * 注意：中斷續跑若未掃到最後一頁，不會寫入完成旗標。
  */
 window.backfillConsultationSearchKeywords = async function(startAfterDocId = null) {
     await waitForFirebaseDb();
@@ -6017,9 +6023,52 @@ window.backfillConsultationSearchKeywords = async function(startAfterDocId = nul
         );
     }
 
-    const result = { totalScanned, totalBackfilled, lastProcessedId };
+    // 掃到最後一頁＝全量完成（中斷續跑例外：傳入的斷點之後若從一開始就
+    // 小於一頁，仍代表已掃完剩餘全部，視同完成）。寫入完成旗標關閉 fallback。
+    let markerWritten = false;
+    let markerError = '';
+    try {
+        await writeSearchKeywordsBackfillMarker({ totalScanned, totalBackfilled });
+        markerWritten = true;
+        console.log('[backfill] 完成旗標已寫入 systemMeta/searchKeywordsBackfill，本機 legacy fallback 已關閉；其他客戶端最遲 1 小時內生效（重新整理可立即檢查）');
+    } catch (e) {
+        markerError = (e && e.message) || String(e);
+        console.warn('[backfill] 完成旗標寫入失敗（需診所管理身份，且 firestore.rules 需已部署 systemMeta 規則）：', markerError, '。請管理員執行 await window.markSearchKeywordsBackfillComplete() 補寫');
+    }
+
+    const result = { totalScanned, totalBackfilled, lastProcessedId, markerWritten, markerError };
     console.log('[backfill] 完成', result);
     return result;
+};
+
+/**
+ * 管理員手動標記 searchKeywords 回填完成（關閉 legacy fallback）。
+ * 用於回填時旗標寫入失敗，或已確定全部文件皆有 searchKeywords 的情境。
+ */
+window.markSearchKeywordsBackfillComplete = async function(stats = {}) {
+    await waitForFirebaseDb();
+    await writeSearchKeywordsBackfillMarker(stats || {});
+    console.log('[backfill] 完成旗標已手動寫入，本機 legacy fallback 已關閉');
+    return { ok: true };
+};
+
+/**
+ * 管理員手動清除完成旗標（重新開啟 legacy fallback）。
+ * 用於發現回填遺漏或 searchKeywords 詞條規則需要重跑時的逃生口。
+ * 注意：其他客戶端正面快取最久 24h；本機立即生效。
+ */
+window.clearSearchKeywordsBackfillMarker = async function() {
+    await waitForFirebaseDb();
+    await window.firebase.deleteDoc(
+        window.firebase.doc(
+            window.firebase.db,
+            SEARCH_KEYWORDS_BACKFILL_COLLECTION,
+            SEARCH_KEYWORDS_BACKFILL_DOC
+        )
+    );
+    clearSearchKeywordsBackfillCache();
+    console.log('[backfill] 完成旗標已清除，本機 legacy fallback 已重新開啟');
+    return { ok: true };
 };
 
 /**
@@ -31969,6 +32018,130 @@ async function fetchMedicalRecordPageOptimized(page = 1, pageSize = 10) {
     }
 }
 
+// ============================================================
+// searchKeywords 回填完成旗標 → 關閉病歷搜尋 legacy fallback
+// ------------------------------------------------------------
+// 歷史 consultations 經 window.backfillConsultationSearchKeywords()
+// 全量回填 searchKeywords 後（或管理員手動標記），於 Firestore
+// systemMeta/searchKeywordsBackfill 寫入完成旗標，此後病歷搜尋只走
+// array-contains（每次約 1～2 次 getDocs），不再執行一輪最多 34 次
+// getDocs 的舊邏輯（debounce 300ms 下打字越快讀取越多）。
+//
+// 單一真相來源在 Firestore（全裝置共用）；客戶端雙層快取控制讀取成本：
+//  - 記憶體：本頁生命週期；
+//  - localStorage：正面結論快取 24h，負面結論快取 1h（回填完成前
+//    避免每次搜尋都多一次 meta getDoc）；異常時 fail-open 走 fallback。
+// 若日後修改 generateConsultationSearchKeywords 的詞條邏輯，務必遞增
+// SEARCH_KEYWORDS_BACKFILL_VERSION，版本不符視同未回填，自動恢復 fallback。
+// ============================================================
+const SEARCH_KEYWORDS_BACKFILL_VERSION = 1;
+const SEARCH_KEYWORDS_BACKFILL_COLLECTION = 'systemMeta';
+const SEARCH_KEYWORDS_BACKFILL_DOC = 'searchKeywordsBackfill';
+const SEARCH_KEYWORDS_BACKFILL_LS_KEY = 'sys:searchKeywordsBackfillV1';
+const BACKFILL_POSITIVE_CACHE_MS = 24 * 3600 * 1000;
+const BACKFILL_NEGATIVE_CACHE_MS = 3600 * 1000;
+
+let _searchKeywordsBackfillComplete = null;
+
+function readSearchKeywordsBackfillCache() {
+    try {
+        const raw = localStorage.getItem(SEARCH_KEYWORDS_BACKFILL_LS_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed.complete !== 'boolean') return null;
+        if (!Number.isFinite(parsed.until) || parsed.until <= Date.now()) return null;
+        return parsed.complete;
+    } catch (_e) {
+        return null;
+    }
+}
+
+function writeSearchKeywordsBackfillCache(complete, ttlMs) {
+    try {
+        localStorage.setItem(SEARCH_KEYWORDS_BACKFILL_LS_KEY, JSON.stringify({
+            v: SEARCH_KEYWORDS_BACKFILL_VERSION,
+            complete,
+            until: Date.now() + ttlMs
+        }));
+    } catch (_e) {}
+}
+
+function clearSearchKeywordsBackfillCache() {
+    _searchKeywordsBackfillComplete = null;
+    try {
+        localStorage.removeItem(SEARCH_KEYWORDS_BACKFILL_LS_KEY);
+    } catch (_e) {}
+}
+
+/**
+ * legacy fallback 是否已關閉（＝searchKeywords 回填完成且版本相符）。
+ * 失敗時回 false（fail-open：寧可多查也不要讓舊資料搜不到）。
+ */
+async function isLegacySearchFallbackDisabled() {
+    // 記憶體結論（含負面）於本頁生命週期直接信任；同一頁執行回填或
+    // 管理員切換旗標時會主動重設此變數，故不會卡住
+    if (typeof _searchKeywordsBackfillComplete === 'boolean') {
+        return _searchKeywordsBackfillComplete;
+    }
+
+    // localStorage 快取（正面 24h／負面 1h）
+    const cached = readSearchKeywordsBackfillCache();
+    if (typeof cached === 'boolean') {
+        _searchKeywordsBackfillComplete = cached;
+        return cached;
+    }
+
+    try {
+        const ref = window.firebase.doc(
+            window.firebase.db,
+            SEARCH_KEYWORDS_BACKFILL_COLLECTION,
+            SEARCH_KEYWORDS_BACKFILL_DOC
+        );
+        const snap = await window.firebase.getDoc(ref);
+        const data = snap.exists() ? snap.data() : null;
+        const complete = !!data
+            && Number(data.version) === SEARCH_KEYWORDS_BACKFILL_VERSION
+            && !!data.completedAt;
+        _searchKeywordsBackfillComplete = complete;
+        writeSearchKeywordsBackfillCache(
+            complete,
+            complete ? BACKFILL_POSITIVE_CACHE_MS : BACKFILL_NEGATIVE_CACHE_MS
+        );
+        return complete;
+    } catch (_e) {
+        // 網路/權限異常：本輪 fail-open，不寫長期負面快取
+        return false;
+    }
+}
+
+/**
+ * 寫入回填完成旗標（systemMeta 規則僅診所管理可寫）。
+ * 由 backfill 完成時自動呼叫，亦可由管理員 Console 手動補寫。
+ */
+async function writeSearchKeywordsBackfillMarker(extra = {}) {
+    let completedBy = '';
+    try {
+        const cur = window.firebase.auth && window.firebase.auth.currentUser
+            ? window.firebase.auth.currentUser
+            : null;
+        completedBy = (cur && (cur.email || cur.uid)) || '';
+    } catch (_e) {}
+    await window.firebase.setDoc(
+        window.firebase.doc(
+            window.firebase.db,
+            SEARCH_KEYWORDS_BACKFILL_COLLECTION,
+            SEARCH_KEYWORDS_BACKFILL_DOC
+        ),
+        Object.assign({
+            version: SEARCH_KEYWORDS_BACKFILL_VERSION,
+            completedAt: new Date().toISOString(),
+            completedBy
+        }, extra)
+    );
+    _searchKeywordsBackfillComplete = true;
+    writeSearchKeywordsBackfillCache(true, BACKFILL_POSITIVE_CACHE_MS);
+}
+
 async function searchMedicalRecords(term, limitCount = 50) {
     try {
         await waitForFirebaseDb();
@@ -32006,11 +32179,19 @@ async function searchMedicalRecords(term, limitCount = 50) {
             });
         } catch (_e) {}
 
-        // ③ 回退：如果 searchKeywords 沒結果（舊資料沒有這個欄位），用舊邏輯補查
+        // ③ 回退：如果 searchKeywords 沒結果（舊資料沒有這個欄位），
+        // 用舊邏輯補查。回填完成旗標寫入後此路徑關閉（一輪最多 34 次
+        // getDocs，debounce 下成本過高），只走 array-contains。
         if (out.length < limitCount) {
+            let fallbackDisabled = false;
             try {
-                await searchMedicalRecordsLegacy(lc, limitCount, out, seen);
+                fallbackDisabled = await isLegacySearchFallbackDisabled();
             } catch (_e) {}
+            if (!fallbackDisabled) {
+                try {
+                    await searchMedicalRecordsLegacy(lc, limitCount, out, seen);
+                } catch (_e) {}
+            }
         }
 
         out = out.filter(rec => canCurrentUserViewConsultationEntry(rec));

@@ -128,6 +128,13 @@ service cloud.firestore {
       allow read, write: if canAccess();
     }
 
+    // 系統級遷移狀態（如 consultations searchKeywords 回填完成旗標，
+    // 旗標會關閉病歷搜尋的 legacy fallback）：員工可讀，僅管理員可寫
+    match /systemMeta/{document=**} {
+      allow read: if canAccess();
+      allow write: if canAdmin();
+    }
+
     // 病歷附件（R2）：
     // 新文件由 Pages Function 以 Service Account 經 REST 建立（繞過 Rules），
     // 客戶端不允許 create；刪除為伺服器端軟刪，客戶端不允許 delete。
