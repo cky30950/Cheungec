@@ -194,6 +194,142 @@
         return settledConfig;
     }
 
+    /* ----------------------------------------------------------
+     * 短 TTL 簽章讀取 URL 解析層
+     * ----------------------------------------------------------
+     * R2 bucket 收斂為私營後，前端不持有永久公開網址：
+     *  - <img> 一律只標 data-r2-key，由 MutationObserver 統一補 src
+     *  - 同一畫面的 key 合併為單一 /sign 請求（60ms 內去重）
+     *  - 記憶體快取至到期前 75 秒，過期自動重簽
+     *  - 簽章服務暫時失敗時降級 publicBase（關閉公開網域過渡期用）
+     * ---------------------------------------------------------- */
+    var signedCache = Object.create(null);   // key -> { url, exp(ms) }
+    var CACHE_MARGIN_MS = 75 * 1000;
+    var SIGN_FLUSH_MS = 60;
+    var SIGN_BATCH = 100;
+    var signQueue = [];                     // { key, resolve, reject }
+    var signTimer = 0;
+
+    function cachedSigned(key) {
+        var hit = signedCache[key];
+        return hit && hit.exp > Date.now() ? hit.url : '';
+    }
+
+    function seedSignedUrl(key, url, expiresAt) {
+        if (!key || !url) return;
+        var t = Date.parse(expiresAt);
+        signedCache[key] = {
+            url: String(url),
+            exp: isFinite(t) ? t - CACHE_MARGIN_MS : Date.now() + 5 * 60 * 1000
+        };
+    }
+
+    function enqueueSigned(key) {
+        return new Promise(function (resolve, reject) {
+            signQueue.push({ key: key, resolve: resolve, reject: reject });
+            if (!signTimer) signTimer = setTimeout(flushSignedQueue, SIGN_FLUSH_MS);
+        });
+    }
+
+    async function flushSignedQueue() {
+        signTimer = 0;
+        var items = signQueue.splice(0, signQueue.length);
+        // 同批先解記憶體快取命中者
+        var waiters = Object.create(null);
+        items.forEach(function (it) {
+            var hit = cachedSigned(it.key);
+            if (hit) { it.resolve(hit); return; }
+            (waiters[it.key] = waiters[it.key] || []).push(it);
+        });
+        var keys = Object.keys(waiters);
+        if (keys.length === 0) return;
+
+        var chunks = [];
+        for (var i = 0; i < keys.length; i += SIGN_BATCH) {
+            chunks.push(keys.slice(i, i + SIGN_BATCH));
+        }
+        await Promise.all(chunks.map(function (chunk) {
+            return apiFetch('/sign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ keys: chunk })
+            }).then(function (data) {
+                var t = Date.parse(data && data.expiresAt);
+                var exp = isFinite(t) ? t - CACHE_MARGIN_MS : Date.now() + 5 * 60 * 1000;
+                chunk.forEach(function (k) {
+                    var url = data && data.urls ? data.urls[k] : '';
+                    var list = waiters[k];
+                    if (!url) {
+                        list.forEach(function (w) { w.reject(new Error('NO_SIGNED_URL')); });
+                        return;
+                    }
+                    signedCache[k] = { url: String(url), exp: exp };
+                    list.forEach(function (w) { w.resolve(signedCache[k].url); });
+                });
+            }).catch(function (err) {
+                chunk.forEach(function (k) {
+                    waiters[k].forEach(function (w) { w.reject(err); });
+                });
+            });
+        }));
+    }
+
+    /** Lightbox 等需 await 拿單一 URL 時使用；失敗降級永久公開網址 */
+    async function resolveImageUrl(key) {
+        if (!key) return '';
+        var hit = cachedSigned(key);
+        if (hit) return hit;
+        try {
+            return await enqueueSigned(String(key));
+        } catch (_e) {
+            return publicUrl(key);
+        }
+    }
+
+    function hydrateImage(img) {
+        if (!img || img.getAttribute('data-r2-state') === 'pending') return;
+        var key = img.getAttribute('data-r2-key');
+        if (!key) return;
+        img.setAttribute('data-r2-state', 'pending');
+        resolveImageUrl(key).then(function (url) {
+            if (url) {
+                img.setAttribute('data-r2-state', 'ok');
+                img.src = url;
+            } else {
+                img.setAttribute('data-r2-state', 'fail');
+            }
+        }).catch(function () { img.setAttribute('data-r2-state', 'fail'); });
+    }
+
+    function scanHydrate(root) {
+        var scope = root && root.querySelectorAll ? root : document;
+        var imgs;
+        try {
+            imgs = scope.querySelectorAll('img[data-r2-key]:not([data-r2-state])');
+        } catch (_e) { return; }
+        Array.prototype.forEach.call(imgs, hydrateImage);
+    }
+
+    var imgObserver = null;
+    function initImageHydrator() {
+        if (imgObserver || typeof MutationObserver === 'undefined' || !document.body) return;
+        imgObserver = new MutationObserver(function (mutations) {
+            for (var i = 0; i < mutations.length; i++) {
+                var added = mutations[i].addedNodes;
+                for (var j = 0; j < added.length; j++) {
+                    var node = added[j];
+                    if (node.nodeType !== 1) continue;
+                    if (node.tagName === 'IMG' && node.hasAttribute('data-r2-key')) hydrateImage(node);
+                    scanHydrate(node);
+                }
+            }
+        });
+        imgObserver.observe(document.body, { childList: true, subtree: true });
+        scanHydrate(document);
+    }
+    if (document.body) initImageHydrator();
+    else document.addEventListener('DOMContentLoaded', initImageHydrator);
+
     async function requestPresign(payload) {
         return apiFetch('/presign', {
             method: 'POST',
@@ -592,6 +728,8 @@
             var xhr = new XMLHttpRequest();
             xhr.open('PUT', url, true);
             xhr.setRequestHeader('Content-Type', contentType);
+            // 必須與後端 PUT 簽章的 SignedHeaders 完全一致，否則 R2 403
+            xhr.setRequestHeader('Cache-Control', 'private, no-store');
             if (xhr.upload) {
                 xhr.upload.onprogress = function (e) {
                     if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
@@ -631,6 +769,14 @@
             width: prepared.width,
             height: prepared.height
         });
+        // 預植剛上傳物件的短 TTL 讀取 URL：上傳完成後立刻顯示不須再打 /sign
+        if (presign.uploads && presign.uploads.original && presign.uploads.original.getUrl) {
+            seedSignedUrl(
+                presign.uploads.original.key,
+                presign.uploads.original.getUrl,
+                presign.uploads.original.getExpiresAt
+            );
+        }
         var uploader = currentUploader();
 
         // 本端快取用中繼（伺服器文件已由 presign 端點以權威身分建立）
@@ -793,7 +939,8 @@
 
     function cardHtml(doc) {
         var meta = CATEGORY_META[doc.category] || CATEGORY_META.report;
-        var thumbSrc = publicUrl(doc.thumbKey);
+        // 僅輸出 key，src 由 MutationObserver 批量換短 TTL 簽章 URL
+        var thumbKey = doc.thumbKey || '';
         // 診症中「醫學報告」檢視過往報告時，縮圖可能來自不同診次；
         // Lightbox 需以「該病人所有醫學報告」為一組，故 visit 用 'all'，
         // 點任一張都能在全部報告間滑動檢視。
@@ -843,8 +990,8 @@
                     'data-ma-visit="' + esc(visitAttr) + '" ' +
                     'data-ma-kind="' + kindAttr + '">' +
                     '<div class="w-full h-40 bg-gray-100 flex items-center justify-center">' +
-                        (thumbSrc
-                            ? '<img src="' + esc(thumbSrc) + '" alt="' + esc(meta.label) + '" loading="lazy" class="w-full h-40 object-cover" onerror="this.classList.add(\'opacity-20\')">'
+                        (thumbKey
+                            ? '<img data-r2-key="' + esc(thumbKey) + '" alt="' + esc(meta.label) + '" loading="lazy" class="w-full h-40 object-cover" onerror="this.classList.add(\'opacity-20\')">'
                             : '<span class="text-3xl">🖼️</span>') +
                     '</div>' +
                 '</button>' +
@@ -1153,8 +1300,8 @@
 
         try {
             var cfg = await ensureConfig();
-            if (!cfg.publicBase) {
-                noticeEl.textContent = tt('附件公開讀取網域尚未設定（R2_PUBLIC_BASE），圖片可能無法顯示，請聯絡管理員完成 Cloudflare 設定。');
+            if (cfg.configured === false) {
+                noticeEl.textContent = tt('附件儲存服務尚未完成設定（R2 S3 憑證），圖片可能無法顯示，請聯絡管理員完成 Cloudflare 設定。');
                 noticeEl.classList.remove('hidden');
             }
             await listForPatient(ctx.patientId);
@@ -1202,13 +1349,22 @@
         return { docs: docs, index: idx };
     }
 
+    // 每次切圖／關閉遞增，避免舊圖的簽章 URL 晚回來蓋掉新圖
+    var lightboxSeq = 0;
+
     function renderLightbox() {
         if (!lightbox) return;
         var doc = lightbox.docs[lightbox.index];
         if (!doc) { closeLightbox(); return; }
-        var src = publicUrl(doc.originalKey) || publicUrl(doc.thumbKey);
+        var seq = ++lightboxSeq;
+        var key = doc.originalKey || doc.thumbKey || '';
         resetZoom(false);
-        document.getElementById('lbImage').src = src;
+        var lbImage = document.getElementById('lbImage');
+        lbImage.removeAttribute('src');
+        resolveImageUrl(key).then(function (url) {
+            if (seq !== lightboxSeq || !lightbox) return;
+            if (url) lbImage.src = url;
+        }).catch(function () {});
         var visitInfo = '';
         if (doc.consultationId) {
             visitInfo = '<span class="mr-3">' + tt('診症') + '：' +
@@ -1241,6 +1397,7 @@
     }
 
     function closeLightbox() {
+        lightboxSeq++;
         document.getElementById('attachmentLightbox').classList.add('hidden');
         document.getElementById('lbImage').src = '';
         resetZoom(false);
@@ -1554,14 +1711,14 @@
             ? '<span class="block text-xs font-semibold text-gray-600 mt-2">' + tt(label) + '</span>'
             : '';
         return labelHtml + '<div class="flex flex-wrap gap-2 mt-1">' + docs.map(function (d) {
-            var src = publicUrl(d.thumbKey);
+            var thumbKey = d.thumbKey || '';
             return '<button type="button" class="block w-24 h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 hover:opacity-80 transition" ' +
                 'data-ma-file="' + esc(d.fileId || d.id) + '" ' +
                 'data-ma-patient="' + esc(patientId) + '" ' +
                 'data-ma-visit="' + esc(visitKey) + '" ' +
                 'data-ma-kind="' + kind + '" ' +
                 'title="' + esc(fmtDateTime(d.uploadedAt)) + '">' +
-                (src ? '<img src="' + esc(src) + '" loading="lazy" class="w-full h-full object-cover" onerror="this.classList.add(\'opacity-20\')">' : '<span class="text-xl">🖼️</span>') +
+                (thumbKey ? '<img data-r2-key="' + esc(thumbKey) + '" loading="lazy" class="w-full h-full object-cover" onerror="this.classList.add(\'opacity-20\')">' : '<span class="text-xl">🖼️</span>') +
             '</button>';
         }).join('') + '</div>';
     }
@@ -1946,10 +2103,10 @@
             return isReady(d) && String(d.relaySessionId || '') === String(relay.sid);
         });
         els.received.innerHTML = docs.map(function (d) {
-            var src = publicUrl(d.thumbKey);
+            var thumbKey = d.thumbKey || '';
             return '<div class="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">' +
-                (src
-                    ? '<img src="' + esc(src) + '" alt="" loading="lazy" class="w-full h-full object-cover">'
+                (thumbKey
+                    ? '<img data-r2-key="' + esc(thumbKey) + '" alt="" loading="lazy" class="w-full h-full object-cover">'
                     : '<span class="text-2xl flex items-center justify-center h-full">🖼️</span>') +
             '</div>';
         }).join('');

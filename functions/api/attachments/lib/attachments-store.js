@@ -8,7 +8,7 @@
  *   建文件，回傳與 presign 端點相同的合約
  * ============================================================ */
 
-import { buildPresignedPutUrl } from './r2-sign.js';
+import { buildPresignedPutUrl, buildPresignedGetUrl } from './r2-sign.js';
 import { getAccessToken } from '../../backup/lib/google-auth.js';
 
 export const COLLECTION = 'patientAttachments';
@@ -26,6 +26,20 @@ export const SAFE_PATIENT_ID = /^[A-Za-z0-9_-]{1,128}$/;
 export const SAFE_OPT_ID = /^[A-Za-z0-9_-]{0,128}$/;
 export const SAFE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 export const DEFAULT_TTL_SEC = 300;
+// 員工／代拍端讀取用簽章 URL 預設效期（10 分鐘）
+export const DEFAULT_GET_TTL_SEC = 600;
+export const MAX_GET_TTL_SEC = 3600;
+// 所有病歷物件上傳時寫死的快取政策：禁瀏覽器與中繼快取
+// （身分證、體檢報告等敏感影像尤須避免落到本機磁碟快取）
+export const STORED_CACHE_CONTROL = 'private, no-store';
+// 批次簽章讀取端點單次最多 key 數
+export const MAX_SIGN_KEYS = 100;
+// 物件 key 嚴格白名單：attachments/<病人ID>/<YYYYMMDD>/<fileId>/<original|thumb>.<副檔名>
+// 與 issuePresignedUpload 產生規則一致，杜絕簽任意 key（如跨前綴讀取）
+export const SAFE_OBJECT_KEY = new RegExp(
+    '^attachments/[A-Za-z0-9_-]{1,128}/\\d{8}/[A-Za-z0-9_-]{1,128}/' +
+    '(?:original|thumb)\\.(?:jpe?g|png|webp|gif)$'
+);
 export const DEFAULT_MAX_BYTES = 15 * 1024 * 1024;
 
 export function fsStr(value) { return { stringValue: String(value) }; }
@@ -142,6 +156,12 @@ export async function issuePresignedUpload(env, p) {
         ? Math.floor(Number(env.ATTACHMENT_URL_TTL))
         : DEFAULT_TTL_SEC;
 
+    // 讀取簽章 URL 效期（員工列表/lightbox 與手機頁剛上傳的預覽皆用之）
+    let getTtlSec = Number(env.ATTACHMENT_GET_URL_TTL) > 0
+        ? Math.floor(Number(env.ATTACHMENT_GET_URL_TTL))
+        : DEFAULT_GET_TTL_SEC;
+    getTtlSec = Math.min(Math.max(getTtlSec, 60), MAX_GET_TTL_SEC);
+
     // 後端完全掌控 key：UUID 不可預測，杜絕客戶端指定路徑
     const fileId = crypto.randomUUID();
     const now = new Date();
@@ -163,10 +183,30 @@ export async function issuePresignedUpload(env, p) {
             secretAccessKey: cfg.secretAccessKey,
             key,
             contentType,
+            // 物件存入後一律帶 private, no-store（瀏覽器實際 PUT
+            // 時亦須送相同 Cache-Control 標頭，否則簽章不符）
+            cacheControl: STORED_CACHE_CONTROL,
             expiresSec: ttlSec,
             now
         });
-        return { url: signed.url, key, contentType };
+        // 手機匿名頁於上傳後需立即預覽：直接附該物件的短 TTL 讀取 URL，
+        // 匿名端無法呼叫員工專用的批次簽章端點
+        const signedGet = await buildPresignedGetUrl({
+            accountId: cfg.accountId,
+            bucket: cfg.bucket,
+            accessKeyId: cfg.accessKeyId,
+            secretAccessKey: cfg.secretAccessKey,
+            key,
+            expiresSec: getTtlSec,
+            now
+        });
+        return {
+            url: signed.url,
+            key,
+            contentType,
+            getUrl: signedGet.url,
+            getExpiresAt: signedGet.expiresAt
+        };
     })();
 
     const nowIso = now.toISOString();
@@ -206,7 +246,57 @@ export async function issuePresignedUpload(env, p) {
         uploadedByUid: p.uid || '',
         maxBytes,
         expiresAt: new Date(now.getTime() + ttlSec * 1000).toISOString(),
+        getExpiresAt: original.getExpiresAt,
         publicBase: String(env.R2_PUBLIC_BASE || '').replace(/\/+$/, ''),
         uploads: { original }
     };
+}
+
+/**
+ * 批次簽發病歷物件的短 TTL 讀取 URL（員工端列表／lightbox 用）。
+ *
+ * 零 Firestore 讀取：能通過 authenticateStaff 者本來就有全部
+ * patientAttachments 讀權，此處只做 key 白名單把關。
+ *
+ * @param {object} env
+ * @param {string[]} keys 去重後不超過 MAX_SIGN_KEYS 個
+ * @returns {Promise<{urls:Object<string,string>, expiresAt:string, ttlSec:number}>}
+ */
+export async function signGetUrls(env, keys) {
+    const cfg = ensureR2Config(env);
+    if (!Array.isArray(keys)) {
+        throw new StoreError(400, 'INVALID_REQUEST', 'keys 必須為陣列');
+    }
+    const unique = Array.from(new Set(keys.map((k) => String(k))));
+    if (unique.length === 0) {
+        throw new StoreError(400, 'INVALID_REQUEST', '至少需要一個 key');
+    }
+    if (unique.length > MAX_SIGN_KEYS) {
+        throw new StoreError(400, 'TOO_MANY_KEYS',
+            `單次最多簽 ${MAX_SIGN_KEYS} 個 key`);
+    }
+    for (const key of unique) {
+        if (!SAFE_OBJECT_KEY.test(key)) {
+            throw new StoreError(400, 'INVALID_KEY', 'key 格式不在允許範圍內');
+        }
+    }
+
+    let ttlSec = Number(env.ATTACHMENT_GET_URL_TTL) > 0
+        ? Math.floor(Number(env.ATTACHMENT_GET_URL_TTL))
+        : DEFAULT_GET_TTL_SEC;
+    ttlSec = Math.min(Math.max(ttlSec, 60), MAX_GET_TTL_SEC);
+
+    const now = new Date();
+    const signed = await Promise.all(unique.map((key) => buildPresignedGetUrl({
+        accountId: cfg.accountId,
+        bucket: cfg.bucket,
+        accessKeyId: cfg.accessKeyId,
+        secretAccessKey: cfg.secretAccessKey,
+        key,
+        expiresSec: ttlSec,
+        now
+    })));
+    const urls = {};
+    unique.forEach((key, i) => { urls[key] = signed[i].url; });
+    return { urls, expiresAt: signed[0].expiresAt, ttlSec };
 }

@@ -2,11 +2,15 @@
  * Cloudflare R2（S3 相容）AWS SigV4 Query-Presigned URL 工具
  * ------------------------------------------------------------
  * 零 npm 依賴，只使用 Web Crypto（HMAC-SHA256 / SHA-256）。
- * 供病歷附件功能簽發瀏覽器直傳用的 PUT URL：
- *   - service 固定 's3'、region 固定 'auto'（R2 規定）
- *   - payload 使用 UNSIGNED-PAYLOAD（presigned URL 慣例）
- *   - 簽入 host 與 content-type，瀏覽器上傳時必須帶相同
- *     Content-Type，R2 才會以正確型別提供公開讀取
+ * 供病歷附件功能使用：
+ *   - buildPresignedPutUrl：瀏覽器直傳用 PUT URL
+ *     · service 固定 's3'、region 固定 'auto'（R2 規定）
+ *     · payload 使用 UNSIGNED-PAYLOAD（presigned URL 慣例）
+ *     · 簽入 host、content-type、cache-control，瀏覽器上傳時必須
+ *       帶相同標頭；cache-control 使所有病歷物件於讀取時回帶
+ *       'private, no-store'，不進瀏覽器／中繼快取
+ *   - buildPresignedGetUrl：短時效簽章讀取 URL（bucket 轉私營後
+ *     「知道網址即可永久讀」不再成立，員工須憑此 URL 讀取）
  *
  * R2 S3 endpoint（path-style）：
  *   https://<ACCOUNT_ID>.r2.cloudflarestorage.com/<bucket>/<key>
@@ -78,36 +82,37 @@ function formatAmzDate(date) {
 }
 
 /**
- * 產生單一物件的 query-presigned PUT URL。
+ * SigV4 query-presigned URL 共用核心（PUT / GET 同構）。
  *
  * @param {object} p
+ * @param {'PUT'|'GET'} p.method HTTP 方法
  * @param {string} p.accountId       Cloudflare Account ID
  * @param {string} p.bucket          R2 bucket 名稱
  * @param {string} p.accessKeyId     R2 S3 Access Key ID
  * @param {string} p.secretAccessKey R2 S3 Secret Access Key
- * @param {string} p.key             物件 key（如 attachments/p123/20260920/uuid/original.jpg）
- * @param {string} p.contentType     上傳時必須使用的 Content-Type（會被簽入 header）
+ * @param {string} p.key             物件 key
  * @param {number} p.expiresSec      URL 有效秒數
- * @param {Date}   [p.now]           注入簽章時間（測試用）
+ * @param {Date}   p.now             簽章時間
+ * @param {Array<[string,string]>} p.headers
+ *        會被簽入的標頭（名稱需小寫）；瀏覽器實際請求時必須帶上相同值。
+ * @param {boolean} p.includeUnsignedPayloadQuery
+ *        是否於 query 放 X-Amz-Content-Sha256=UNSIGNED-PAYLOAD。
+ *        PUT：R2 嚴格要求此參數；GET：AWS SDK 慣例不放（canonical
+ *        request 的 payload hash 仍為 UNSIGNED-PAYLOAD）。
  * @returns {Promise<{url:string, signedAt:string, expiresAt:string}>}
  */
-export async function buildPresignedPutUrl({
+async function buildPresignedUrl({
+    method,
     accountId,
     bucket,
     accessKeyId,
     secretAccessKey,
     key,
-    contentType,
     expiresSec,
-    now = new Date()
+    now,
+    headers,
+    includeUnsignedPayloadQuery
 }) {
-    for (const [name, val] of Object.entries({
-        accountId, bucket, accessKeyId, secretAccessKey, key, contentType
-    })) {
-        if (!val || typeof val !== 'string') {
-            throw new Error(`buildPresignedPutUrl 缺少必要參數: ${name}`);
-        }
-    }
     const ttl = Number.isFinite(Number(expiresSec)) && Number(expiresSec) > 0
         ? Math.floor(Number(expiresSec))
         : 300;
@@ -123,32 +128,36 @@ export async function buildPresignedPutUrl({
             .map((part) => part.split('/').map(awsUriEncode).join('/'))
             .join('/');
 
+    const signedHeaderNames = headers.map(([name]) => name).sort();
     const queryParams = {
         'X-Amz-Algorithm': ALGORITHM,
-        // AWS SDK 對 presigned PUT 的慣例：UNSIGNED-PAYLOAD 必須同時出現在
-        // query 參數與 canonical request payload hash，R2 嚴格比對此參數。
-        'X-Amz-Content-Sha256': UNSIGNED_PAYLOAD,
         'X-Amz-Credential': `${accessKeyId}/${credentialScope}`,
         'X-Amz-Date': amzDate,
         'X-Amz-Expires': String(ttl),
-        'X-Amz-SignedHeaders': 'content-type;host'
+        'X-Amz-SignedHeaders': signedHeaderNames.join(';')
     };
+    if (includeUnsignedPayloadQuery) {
+        // AWS SDK 對 presigned PUT 的慣例：UNSIGNED-PAYLOAD 同時出現在
+        // query 參數與 canonical request payload hash，R2 嚴格比對。
+        queryParams['X-Amz-Content-Sha256'] = UNSIGNED_PAYLOAD;
+    }
     const canonicalQueryString = Object.keys(queryParams)
         .sort()
         .map((k) => `${awsUriEncode(k)}=${awsUriEncode(queryParams[k])}`)
         .join('&');
 
     // Canonical headers：名稱小寫、值 trim、以換行結尾；順序依名稱排序
-    const canonicalHeaders =
-        `content-type:${String(contentType).trim()}\n` +
-        `host:${host}\n`;
+    const headerMap = new Map(headers.map(([name, val]) => [name, String(val).trim()]));
+    const canonicalHeaders = signedHeaderNames
+        .map((name) => `${name}:${headerMap.get(name)}\n`)
+        .join('');
 
     const canonicalRequest = [
-        'PUT',
+        method,
         canonicalUri,
         canonicalQueryString,
         canonicalHeaders,
-        'content-type;host',
+        signedHeaderNames.join(';'),
         UNSIGNED_PAYLOAD
     ].join('\n');
 
@@ -168,4 +177,109 @@ export async function buildPresignedPutUrl({
 
     const expiresAt = new Date(now.getTime() + ttl * 1000).toISOString();
     return { url, signedAt: now.toISOString(), expiresAt };
+}
+
+/**
+ * 產生單一物件的 query-presigned PUT URL（瀏覽器直傳）。
+ *
+ * @param {object} p
+ * @param {string} p.accountId       Cloudflare Account ID
+ * @param {string} p.bucket          R2 bucket 名稱
+ * @param {string} p.accessKeyId     R2 S3 Access Key ID
+ * @param {string} p.secretAccessKey R2 S3 Secret Access Key
+ * @param {string} p.key             物件 key（如 attachments/p123/20260920/uuid/original.jpg）
+ * @param {string} p.contentType     上傳時必須使用的 Content-Type（會被簽入 header）
+ * @param {string} [p.cacheControl]  上傳時必須使用的 Cache-Control（簽入，
+ *                                   物件日後讀取時由 R2 原樣回帶）
+ * @param {number} p.expiresSec      URL 有效秒數
+ * @param {Date}   [p.now]           注入簽章時間（測試用）
+ * @returns {Promise<{url:string, signedAt:string, expiresAt:string}>}
+ */
+export async function buildPresignedPutUrl({
+    accountId,
+    bucket,
+    accessKeyId,
+    secretAccessKey,
+    key,
+    contentType,
+    cacheControl,
+    expiresSec,
+    now = new Date()
+}) {
+    for (const [name, val] of Object.entries({
+        accountId, bucket, accessKeyId, secretAccessKey, key, contentType
+    })) {
+        if (!val || typeof val !== 'string') {
+            throw new Error(`buildPresignedPutUrl 缺少必要參數: ${name}`);
+        }
+    }
+    const headers = [
+        ['content-type', contentType],
+        ['host', `${accountId}.r2.cloudflarestorage.com`]
+    ];
+    if (cacheControl) {
+        if (typeof cacheControl !== 'string') {
+            throw new Error('buildPresignedPutUrl 的 cacheControl 必須為字串');
+        }
+        headers.push(['cache-control', cacheControl]);
+    }
+    return buildPresignedUrl({
+        method: 'PUT',
+        accountId,
+        bucket,
+        accessKeyId,
+        secretAccessKey,
+        key,
+        expiresSec,
+        now,
+        headers,
+        includeUnsignedPayloadQuery: true
+    });
+}
+
+/**
+ * 產生單一物件的 query-presigned GET URL（短時效簽章讀取）。
+ *
+ * 簽章標頭僅含 host（與 AWS SDK presigned GET 一致），故可直接放入
+ * <img src>，無須請求標頭；瀏覽器／中繼是否快取另由物件本身的
+ * Cache-Control 中繼資料決定（上傳時統一寫入 private, no-store）。
+ *
+ * @param {object} p
+ * @param {string} p.accountId       Cloudflare Account ID
+ * @param {string} p.bucket          R2 bucket 名稱
+ * @param {string} p.accessKeyId     R2 S3 Access Key ID
+ * @param {string} p.secretAccessKey R2 S3 Secret Access Key
+ * @param {string} p.key             物件 key
+ * @param {number} p.expiresSec      URL 有效秒數
+ * @param {Date}   [p.now]           注入簽章時間（測試用）
+ * @returns {Promise<{url:string, signedAt:string, expiresAt:string}>}
+ */
+export async function buildPresignedGetUrl({
+    accountId,
+    bucket,
+    accessKeyId,
+    secretAccessKey,
+    key,
+    expiresSec,
+    now = new Date()
+}) {
+    for (const [name, val] of Object.entries({
+        accountId, bucket, accessKeyId, secretAccessKey, key
+    })) {
+        if (!val || typeof val !== 'string') {
+            throw new Error(`buildPresignedGetUrl 缺少必要參數: ${name}`);
+        }
+    }
+    return buildPresignedUrl({
+        method: 'GET',
+        accountId,
+        bucket,
+        accessKeyId,
+        secretAccessKey,
+        key,
+        expiresSec,
+        now,
+        headers: [['host', `${accountId}.r2.cloudflarestorage.com`]],
+        includeUnsignedPayloadQuery: false
+    });
 }
