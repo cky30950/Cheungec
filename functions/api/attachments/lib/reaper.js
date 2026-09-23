@@ -128,6 +128,24 @@ async function purgeObjects(bucket, keys) {
     return failed;
 }
 
+/**
+ * Dry-run 專用：只 head 查證物件是否存在，不做任何寫入。
+ * head 失敗時保守計入 existing（避免因一時錯誤誤報「無物件可刪」）。
+ */
+async function inspectObjects(bucket, keys) {
+    const existing = [];
+    const missing = [];
+    for (const key of keys) {
+        try {
+            const head = await bucket.head(key);
+            (head ? existing : missing).push(key);
+        } catch (_e) {
+            existing.push(key);
+        }
+    }
+    return { existing, missing };
+}
+
 async function patchSoftReap(client, fileId, nowIso) {
     await client.patchDocument(`${COLLECTION}/${encodeURIComponent(fileId)}`, {
         // 改成終態，避免文件每天繼續命中 uploadStatus=='uploading' 查詢
@@ -226,6 +244,18 @@ async function drainQueue(deps, stats, limit) {
         if (!entry || !Array.isArray(entry.keys)) continue;
         if (Number(entry.nextAt || 0) > nowSec) { stats.queueWaiting += 1; continue; }
 
+        // Dry-run：只回報佇列中「到期待處理」的項目，不刪物件、不搬動佇列
+        if (deps.dryRun) {
+            stats.queueWouldRetry += 1;
+            stats.queueDryRun.push({
+                fileId: entry.fileId,
+                action: entry.action,
+                attempts: Number(entry.attempts || 0),
+                keys: entry.keys
+            });
+            continue;
+        }
+
         try {
             const failed = await purgeObjects(bucket, entry.keys);
             if (failed.length > 0) throw new Error(failed.map((f) => `${f.key}:${f.error}`).join(';'));
@@ -287,6 +317,12 @@ async function reapStaleUploads(deps, stats, staleHours, batchLimit) {
         if (invalid) {
             stats.invalidKeys.push(doc.id);
             console.warn('[reaper] 跳過 key 不符白名單的文件：', doc.id);
+            continue;
+        }
+        if (deps.dryRun) {
+            const { existing, missing } = await inspectObjects(bucket, keys);
+            stats.staleWouldPurge += 1;
+            stats.staleDryRun.push({ fileId: doc.id, uploadedAt: data.uploadedAt, keys: existing, missing });
             continue;
         }
         try {
@@ -357,6 +393,12 @@ async function sweepDeleted(deps, stats) {
             stats.sweepInvalidKeys.push(doc.id);
             continue;
         }
+        if (deps.dryRun) {
+            const { existing, missing } = await inspectObjects(bucket, keys);
+            stats.sweepWouldPurge += 1;
+            stats.sweepDryRun.push({ fileId: doc.id, keys: existing, missing });
+            continue;
+        }
         try {
             const failed = keys.length ? await purgeObjects(bucket, keys) : [];
             if (failed.length > 0) {
@@ -382,7 +424,12 @@ async function sweepDeleted(deps, stats) {
         }
     }
 
-    // 一頁未滿＝掃完一輪，游標歸零重新循環；否則存最後一筆供明日接續
+    // 一頁未滿＝掃完一輪，游標歸零重新循環；否則存最後一筆供明日接續。
+    // Dry-run 不推進游標，避免「只預覽」就跳過後面的軟刪文件。
+    if (deps.dryRun) {
+        stats.sweepCursorDryRun = cursorName || null;
+        return;
+    }
     try {
         if (docs.length < SWEEP_PAGE_SIZE) {
             await kv.delete(SWEEP_CURSOR_KEY);
@@ -400,6 +447,7 @@ async function sweepDeleted(deps, stats) {
  * @param {object} env
  * @param {object} [options]
  * @param {string} [options.trigger]
+ * @param {boolean} [options.dryRun] true＝只掃描預覽，不做任何寫入
  * @param {number} [options.nowMs] 測試用
  * @returns {Promise<object>} 本輪統計
  */
@@ -419,6 +467,7 @@ export async function runAttachmentReaper(env, options = {}) {
     const stats = {
         trigger: options.trigger || 'manual',
         ranAt: nowIso,
+        dryRun: options.dryRun === true,
         staleHours,
         batchLimit,
         queueBound: !!kv,
@@ -429,26 +478,36 @@ export async function runAttachmentReaper(env, options = {}) {
         staleQueued: 0,
         staleFailed: 0,
         staleBatchExceeded: 0,
+        staleWouldPurge: 0,
+        staleDryRun: [],
         skippedNoTimestamp: 0,
         invalidKeys: [],
         queueSucceeded: 0,
         queueRetried: 0,
         queueDlq: 0,
         queueWaiting: 0,
+        queueWouldRetry: 0,
+        queueDryRun: [],
         queueError: '',
         sweepScanned: 0,
         sweepAlreadyPurged: 0,
         sweepPurged: 0,
         sweepQueued: 0,
         sweepFailed: 0,
+        sweepWouldPurge: 0,
+        sweepDryRun: [],
         sweepInvalidKeys: [],
         sweepCursorReset: false,
+        sweepCursorDryRun: null,
         sweepCursorError: ''
     };
 
     // 本日處理中已入隊的 fileId，避免管線間重複 enqueue
     const queuedFileIds = new Set();
-    const deps = { env, kv, bucket, client, nowSec, nowIso, cutoffSec, queuedFileIds };
+    const deps = {
+        env, kv, bucket, client, nowSec, nowIso, cutoffSec, queuedFileIds,
+        dryRun: options.dryRun === true
+    };
 
     // 1. 先清重試佇列（昨日失敗者優先）
     if (kv) {

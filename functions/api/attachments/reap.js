@@ -3,6 +3,9 @@
  * ------------------------------------------------------------
  * 手動／外部排程觸發病歷附件孤兒回收。
  * 認證：Header  X-Attachment-Reap-Secret: <env.ATTACHMENT_CRON_SECRET>
+ * Body（選填 JSON）：
+ *   { "dryRun": true }  只掃描預覽，不刪 R2、不寫 Firestore、
+ *                       不動 KV 佇列與安全網游標
  * （Pages Cron Trigger 直接呼叫 runAttachmentReaper，不走 HTTP）
  * ============================================================ */
 
@@ -29,7 +32,16 @@ export async function onRequestPost(context) {
         return jsonResponse({ error: 'UNAUTHORIZED', message: '缺少或不正確的排程密碼' }, 401);
     }
     try {
-        const result = await runAttachmentReaper(env, { trigger: 'cron-secret' });
+        let body = {};
+        try {
+            body = await request.json();
+        } catch (_e) {
+            body = {};
+        }
+        const result = await runAttachmentReaper(env, {
+            trigger: 'cron-secret',
+            dryRun: body && body.dryRun === true
+        });
         return jsonResponse(result, 200);
     } catch (error) {
         const status = Number(error.status) > 0 ? Number(error.status) : 500;
