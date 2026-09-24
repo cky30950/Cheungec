@@ -7035,16 +7035,10 @@ async function logout() {
             console.error('移除收費項目監聽器失敗:', billingErr);
         }
 
-        // 登出一併移除本裝置推播訂閱（瀏覽器端＋後端記錄）：
-        // 必須在 signOut() 前完成，後端 /unsubscribe 需帶有效 ID token。
-        // 失敗不阻斷登出；殘留的後端記錄於下次派送收到 404/410 時自動清除。
-        try {
-            if (window.TCMPwa && typeof window.TCMPwa.teardownPushOnLogout === 'function') {
-                await window.TCMPwa.teardownPushOnLogout();
-            }
-        } catch (pushErr) {
-            console.warn('登出移除推播訂閱失敗:', pushErr);
-        }
+        // 登出不再拆除本裝置推播訂閱：瀏覽器訂閱、後端記錄與 pushDeviceEnabled
+        // 標記皆保留，同一帳號重新登入後 syncPushState() 會自動恢復開啟狀態。
+        // 共用裝置由不同帳號登入時，pwa.js 偵測 403 後經 claimDeviceSubscription
+        // 自動接管；最後一個分頁關閉時 SW 的退訂機制亦不受影響。
 
         if (window.firebase && window.firebase.auth) {
             await window.firebase.signOut(window.firebase.auth);

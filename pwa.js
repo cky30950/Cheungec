@@ -775,44 +775,6 @@
         }
     }
 
-    /**
-     * 登出專用：在 firebase.signOut() 之前（ID token 仍有效）移除本裝置訂閱。
-     * 同時取消 SW 可能正在等待的「最後分頁關閉」退訂計時。
-     * 任何失敗都不可阻斷登出流程。
-     */
-    async function teardownPushOnLogout() {
-        try {
-            if (!('serviceWorker' in navigator)) return;
-            var reg = await navigator.serviceWorker.ready;
-            var sub = null;
-            try { sub = await reg.pushManager.getSubscription(); } catch (_e) {}
-            if (sub) {
-                var endpoint = sub.endpoint;
-                // 後端刪除需帶登入 token，必須在 signOut() 前完成
-                try {
-                    await apiCall('/unsubscribe', {
-                        method: 'POST',
-                        body: JSON.stringify({ endpoint: endpoint })
-                    });
-                } catch (apiErr) {
-                    console.warn('登出時後端移除推播訂閱失敗:', apiErr);
-                }
-                try { await sub.unsubscribe(); } catch (_unsubErr) {}
-            }
-            clearPushEnabledMarker();
-            try {
-                if (reg.active) reg.active.postMessage({ type: 'TCM_LOGGED_OUT' });
-            } catch (_msgErr) {}
-            setToggle(false, true);
-            setStatus('pushStatusOff');
-            hideEnableCard();
-        } catch (err) {
-            // 即使失敗也要移除標記：登出後不應自動恢復前一使用者的訂閱
-            console.warn('登出移除推播訂閱失敗:', err);
-            clearPushEnabledMarker();
-        }
-    }
-
     // 防止 init 與 onAuthStateChanged 近乎同時觸發造成重複接管
     var claimingDevice = false;
 
@@ -1162,8 +1124,7 @@
         init: init,
         syncPushState: syncPushState,
         isPushSupported: isPushSupported,
-        notify: notifyPushEvent,
-        teardownPushOnLogout: teardownPushOnLogout
+        notify: notifyPushEvent
     };
 
     if (document.readyState === 'loading') {
