@@ -169,9 +169,9 @@ function loadTurnstileScript() {
     return new Promise((resolve, reject) => {
         const s = document.createElement('script');
         s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-        s.async = true;
-        s.defer = true;
-        s.onload = () => window.turnstile.ready(resolve);
+        // 官方規定：使用 turnstile.ready() 時不可加 async/defer；
+        // 這裡以 onload 判斷載入完成，故不需要 ready()。
+        s.onload = () => resolve();
         s.onerror = () => reject(new Error('TURNSTILE_SCRIPT_FAILED'));
         document.head.appendChild(s);
     });
