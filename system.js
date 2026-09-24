@@ -10802,6 +10802,15 @@ async function loadConsultationForEdit(consultationId) {
             console.error('讀取診療記錄錯誤:', error);
         }
         if (consultation) {
+            // 記錄已保存病歷的時間戳，供恢復草稿時判斷本機草稿是否已過期
+            try {
+                const savedDate = parseConsultationDate(consultation.updatedAt)
+                    || parseConsultationDate(consultation.date)
+                    || getConsultationEffectiveDate(consultation);
+                consultationSymptomsDraftState.loadedRecordUpdatedAt = savedDate ? savedDate.getTime() : 0;
+            } catch (_tsErr) {
+                consultationSymptomsDraftState.loadedRecordUpdatedAt = 0;
+            }
             // 載入診症記錄內容
             document.getElementById('formSymptoms').value = consultation.symptoms || '';
             document.getElementById('formTongue').value = consultation.tongue || '';
@@ -11969,7 +11978,13 @@ let consultationSymptomsDraftState = {
     key: null,
     meta: null,
     listeners: [],
-    saveSoon: null
+    saveSoon: null,
+    // 程式化載入/清空表單期間暫停草稿寫入，避免殘影覆蓋
+    suspended: false,
+    // 每次 setup 遞增，作廢前一診次已排程的防抖寫入
+    generation: 0,
+    // 編輯模式下本次從資料庫載入之已保存病歷的時間戳（ms）
+    loadedRecordUpdatedAt: 0
 };
 
 function buildConsultationSymptomsDraftKey(appointment, patient) {
@@ -12113,6 +12128,9 @@ function hasMeaningfulConsultationDraft(payload) {
 function persistConsultationSymptomsDraft() {
     const key = consultationSymptomsDraftState && consultationSymptomsDraftState.key ? consultationSymptomsDraftState.key : null;
     if (!key) return;
+    // 表單正在程式化載入/清空（例如切換病人、修改病歷載入中）時不寫草稿，
+    // 否則會把空白或其他病人的內容誤寫入目前 key。
+    if (consultationSymptomsDraftState.suspended) return;
     const payload = collectConsultationDraftPayload();
     if (!hasMeaningfulConsultationDraft(payload)) {
         clearConsultationSymptomsDraft(key);
@@ -12136,6 +12154,24 @@ function restoreConsultationSymptomsDraft(appointment, patient) {
         draft = readConsultationSymptomsDraft(buildLegacyConsultationSymptomsDraftKey(appointment, patient));
     }
     if (!draft) return;
+
+    // 編輯病歷模式：本機草稿若不是「晚於」本次載入的已保存病歷，即為遺留的舊草稿
+    // （可能是上次異常退出、或切換病人時被誤寫入的空白/他人內容），不得覆蓋剛從
+    // 資料庫載入的處方、收費與其他欄位，直接丟棄 v2/v1 兩個暫存鍵。
+    // 只有在保存後又繼續編輯而未儲存的真正新草稿（updatedAt 較新）才會恢復。
+    const isEditModeDraft = !!(appointment && appointment.status === 'completed' && appointment.consultationId);
+    if (isEditModeDraft) {
+        const draftUpdatedAt = Number(draft && draft.updatedAt) || 0;
+        const savedRecordAt = Number(consultationSymptomsDraftState.loadedRecordUpdatedAt) || 0;
+        const isStaleDraft = !draftUpdatedAt || (savedRecordAt > 0 && draftUpdatedAt <= savedRecordAt);
+        if (isStaleDraft) {
+            try {
+                clearConsultationSymptomsDraft(key);
+                clearConsultationSymptomsDraft(buildLegacyConsultationSymptomsDraftKey(appointment, patient));
+            } catch (_e) {}
+            return;
+        }
+    }
 
     let restored = false;
     const isBillingOnlyEdit = !!(
@@ -12250,6 +12286,10 @@ function restoreConsultationSymptomsDraft(appointment, patient) {
 
 function setupConsultationSymptomsDraftAutosave(appointment, patient) {
     const key = buildConsultationSymptomsDraftKey(appointment, patient);
+    // 遞增世代：前一診次（可能是另一個病人）已排程但尚未觸發的防抖寫入，
+    // 觸發時會因世代不符而自我作廢，不會把現下的表單內容誤寫進舊 key。
+    const setupGeneration = (consultationSymptomsDraftState.generation || 0) + 1;
+    consultationSymptomsDraftState.generation = setupGeneration;
     consultationSymptomsDraftState.key = key;
     consultationSymptomsDraftState.meta = {
         appointmentId: appointment && appointment.id !== undefined && appointment.id !== null ? String(appointment.id) : (typeof currentConsultingAppointmentId !== 'undefined' ? String(currentConsultingAppointmentId) : ''),
@@ -12268,16 +12308,15 @@ function setupConsultationSymptomsDraftAutosave(appointment, patient) {
         });
     }
     consultationSymptomsDraftState.listeners = [];
-    const persistDraftDebounced = debounce(() => {
+    const persistIfCurrent = () => {
         try {
+            if (consultationSymptomsDraftState.generation !== setupGeneration) return;
+            if (consultationSymptomsDraftState.suspended) return;
             persistConsultationSymptomsDraft();
         } catch (_e) {}
-    }, 400);
-    consultationSymptomsDraftState.saveSoon = debounce(() => {
-        try {
-            persistConsultationSymptomsDraft();
-        } catch (_e) {}
-    }, 50);
+    };
+    const persistDraftDebounced = debounce(persistIfCurrent, 400);
+    consultationSymptomsDraftState.saveSoon = debounce(persistIfCurrent, 50);
 
     CONSULTATION_DRAFT_TEXT_FIELD_IDS.forEach(id => {
         const el = document.getElementById(id);
@@ -12312,7 +12351,8 @@ function stopConsultationSymptomsDraftAutosave() {
 
 function queueConsultationSymptomsDraftSave() {
     try {
-        if (consultationSymptomsDraftState && typeof consultationSymptomsDraftState.saveSoon === 'function') {
+        if (!consultationSymptomsDraftState || consultationSymptomsDraftState.suspended) return;
+        if (typeof consultationSymptomsDraftState.saveSoon === 'function') {
             consultationSymptomsDraftState.saveSoon();
         }
     } catch (_e) {}
@@ -12326,10 +12366,16 @@ function updateConsultationCancelButtonLabel(isEditingMode) {
 
 // 修復診症表單顯示函數
 async function showConsultationForm(appointment) {
+    // 整個表單程式化填充（清空／從病歷載入／恢復草稿）期間暫停草稿自動寫入：
+    // updateBillingDisplay 等渲染函式也會 queue 草稿寫入，若不在此懸浮，
+    // 切換病人的 await 期間舊診次的防抖計時器可能把空白或他人資料寫進舊草稿 key。
+    consultationSymptomsDraftState.suspended = true;
+    consultationSymptomsDraftState.loadedRecordUpdatedAt = 0;
     try {
         const patient = await getPatientByIdWithRefresh(appointment.patientId);
         if (!patient) {
             showToast('找不到病人資料！', 'error');
+            consultationSymptomsDraftState.suspended = false;
             return;
         }
         
@@ -12498,15 +12544,18 @@ async function showConsultationForm(appointment) {
             restoreConsultationSymptomsDraft(appointment, patient);
             setupConsultationSymptomsDraftAutosave(appointment, patient);
         } catch (_e) {}
-        
+        // 表單內容就緒、自動保存已重新綁定後才恢復草稿寫入
+        consultationSymptomsDraftState.suspended = false;
+
         setConsultationEditRestrictionState(appointment, null);
 
         document.getElementById('consultationForm').classList.remove('hidden');
-        
+
         // 滾動到表單位置
         document.getElementById('consultationForm').scrollIntoView({ behavior: 'smooth' });
-        
+
     } catch (error) {
+        consultationSymptomsDraftState.suspended = false;
         console.error('顯示診症表單錯誤:', error);
         showToast('載入診症表單時發生錯誤', 'error');
     }
