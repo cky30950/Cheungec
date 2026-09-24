@@ -593,6 +593,9 @@ const ROLE_PERMISSIONS = {
   '護理師': ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'walletManagement', 'accountSecurity'],
 
   '診所助理': ['patientManagement', 'consultationSystem', 'scheduleManagement', 'walletManagement', 'accountSecurity'],
+
+  // 部分舊帳號職位名為「助理」，權限與「診所助理」相同
+  '助理': ['patientManagement', 'consultationSystem', 'scheduleManagement', 'walletManagement', 'accountSecurity'],
   
   '用戶': ['patientManagement', 'consultationSystem', 'templateLibrary', 'accountSecurity']
 };
@@ -665,12 +668,27 @@ function getEffectivePermissionSettingsForPosition(position) {
   const sections = {};
   const actions = {};
   CLINIC_SECTION_PERMISSION_OPTIONS.forEach(item => {
-    if (typeof storedSections[item.key] === 'boolean') sections[item.key] = storedSections[item.key];
-    else sections[item.key] = !!sectionDefaults[item.key];
+    const baseline = !!sectionDefaults[item.key];
+    // 會員儲值為醫師／護理師／助理等角色的系統基準權限：
+    // 舊診所設定中殘留的 false（基準開放前儲存）不得將其剝奪
+    if (item.key === 'walletManagement' && baseline) {
+      sections[item.key] = true;
+    } else if (typeof storedSections[item.key] === 'boolean') {
+      sections[item.key] = storedSections[item.key];
+    } else {
+      sections[item.key] = baseline;
+    }
   });
   CLINIC_ACTION_PERMISSION_OPTIONS.forEach(item => {
-    if (typeof storedActions[item.key] === 'boolean') actions[item.key] = storedActions[item.key];
-    else actions[item.key] = !!actionDefaults[item.key];
+    const baseline = !!actionDefaults[item.key];
+    // 充值權限同理，基準開放的職位一律保留
+    if (item.key === 'walletTopup' && baseline) {
+      actions[item.key] = true;
+    } else if (typeof storedActions[item.key] === 'boolean') {
+      actions[item.key] = storedActions[item.key];
+    } else {
+      actions[item.key] = baseline;
+    }
   });
   return { sections, actions };
 }

@@ -175,6 +175,16 @@
 
         .empty { font-size: 13px; color: var(--muted); text-align: center; padding: 18px 0; }
 
+        .pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; font-size: 13px; }
+        .pager.hidden { display: none; }
+        .pager .pager-btns { display: flex; gap: 4px; }
+        .pager button {
+            border: 1px solid var(--line); background: #fff; color: var(--brand-dark);
+            border-radius: 6px; padding: 4px 10px; font-size: 13px; cursor: pointer;
+        }
+        .pager button:disabled { color: #bbb; cursor: default; }
+        .pager .page-info { color: var(--muted); white-space: nowrap; }
+
         .footer-actions { margin-top: 20px; }
         .hidden { display: none !important; }
 
@@ -244,6 +254,7 @@
         <div class="card">
             <h2>📋 <span data-i18n="transactions">最近交易</span></h2>
             <ul class="list" id="txList"></ul>
+            <div class="pager hidden" id="txPager"></div>
         </div>
 
         <div class="footer-actions">

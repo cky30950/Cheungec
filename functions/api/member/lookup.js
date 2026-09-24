@@ -78,6 +78,18 @@ function eqFilter(fieldPath, value) {
     };
 }
 
+// 套票到期日可能以 ISO 字串（現行寫法）或 Firestore Timestamp（{seconds}）儲存，
+// 統一轉成毫秒；無法解析回 null。
+function expiryToMs(v) {
+    if (v === null || v === undefined || v === '') return null;
+    if (typeof v === 'object') {
+        if (Number.isFinite(Number(v.seconds))) return Number(v.seconds) * 1000;
+        if (Number.isFinite(Number(v._seconds))) return Number(v._seconds) * 1000;
+    }
+    const t = Date.parse(v);
+    return Number.isNaN(t) ? null : t;
+}
+
 // ── Turnstile 伺服端驗證 ──
 async function verifyTurnstile(token, ip, env) {
     const secret = env && env.TURNSTILE_SECRET_KEY ? String(env.TURNSTILE_SECRET_KEY) : '';
@@ -154,8 +166,9 @@ async function buildPatientEntry(client, patientDoc) {
         .filter((p) => {
             if (!(Number(p.remainingUses) > 0)) return false;
             if (!p.expiresAt) return true;
-            const expSec = Number(p.expiresAt.seconds);
-            return !isNaN(expSec) && expSec * 1000 >= nowMs;
+            const expMs = expiryToMs(p.expiresAt);
+            // 無法解析到期日時不誤殺，保留該套票
+            return expMs === null ? true : expMs >= nowMs;
         })
         .map((p) => ({
             name: p.name || p.packageName || '',

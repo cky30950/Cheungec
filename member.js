@@ -27,6 +27,8 @@ const I18N = {
         packages: '有效套票',
         transactions: '最近交易',
         back: '返回',
+        prevPage: '上一頁',
+        nextPage: '下一頁',
         noPackages: '目前沒有有效套票',
         noTransactions: '暫無交易記錄',
         noAccount: '未找到儲值帳戶',
@@ -61,6 +63,8 @@ const I18N = {
         packages: 'Active packages',
         transactions: 'Recent transactions',
         back: 'Back',
+        prevPage: 'Previous',
+        nextPage: 'Next',
         noPackages: 'No active packages',
         noTransactions: 'No transactions yet',
         noAccount: 'No stored-value account found',
@@ -238,6 +242,8 @@ async function initTurnstile() {
 
 let patientEntries = [];
 let activePatientIndex = 0;
+let txPage = 1;
+const TX_PAGE_SIZE = 10;
 
 async function lookup() {
     clearAuthMsg();
@@ -369,12 +375,21 @@ function txTypeLabel(type) {
 
 function renderTransactions() {
     const ul = $('txList');
+    const pager = $('txPager');
     const txs = patientEntries[activePatientIndex].transactions || [];
     if (!txs.length) {
         ul.innerHTML = `<li class="empty">${t('noTransactions')}</li>`;
+        if (pager) pager.classList.add('hidden');
         return;
     }
-    ul.innerHTML = txs.map((tx) => {
+
+    const totalPages = Math.ceil(txs.length / TX_PAGE_SIZE);
+    if (txPage > totalPages) txPage = totalPages;
+    if (txPage < 1) txPage = 1;
+    const start = (txPage - 1) * TX_PAGE_SIZE;
+    const pageTxs = txs.slice(start, start + TX_PAGE_SIZE);
+
+    ul.innerHTML = pageTxs.map((tx) => {
         const amount = Number(tx.amount) || 0;
         const isNeg = amount < 0;
         const cls = isNeg ? 'amt-neg' : 'amt-pos';
@@ -391,9 +406,38 @@ function renderTransactions() {
                 <div class="meta">${meta}</div>
             </li>`;
     }).join('');
+
+    if (pager) {
+        if (totalPages > 1) {
+            const pageInfo = lang === 'en'
+                ? `Page ${txPage} / ${totalPages}`
+                : `第 ${txPage} / ${totalPages} 頁`;
+            pager.innerHTML = `
+                <div class="pager-btns">
+                    <button type="button" id="txPrevBtn" ${txPage <= 1 ? 'disabled' : ''}>${t('prevPage')}</button>
+                    <button type="button" id="txNextBtn" ${txPage >= totalPages ? 'disabled' : ''}>${t('nextPage')}</button>
+                </div>
+                <span class="page-info">${pageInfo}`;
+            $('txPrevBtn').addEventListener('click', () => goToTxPage(txPage - 1));
+            $('txNextBtn').addEventListener('click', () => goToTxPage(txPage + 1));
+            pager.classList.remove('hidden');
+        } else {
+            pager.classList.add('hidden');
+        }
+    }
+}
+
+function goToTxPage(p) {
+    const txs = patientEntries[activePatientIndex].transactions || [];
+    const totalPages = Math.ceil(txs.length / TX_PAGE_SIZE);
+    const next = Math.max(1, Math.min(totalPages, Number(p)));
+    if (next === txPage) return;
+    txPage = next;
+    renderTransactions();
 }
 
 function renderAll() {
+    txPage = 1;
     renderPatientTabs();
     renderBalance();
     renderPackages();
