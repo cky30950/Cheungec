@@ -32,6 +32,10 @@ import {
 
 const JSON_TYPE = 'application/json; charset=utf-8';
 
+// 排程觸發防重入：上次成功完成後 20 分鐘內的自動觸發直接跳過，
+// 吸收 Cloudflare Cron Trigger 的 at-least-once 重投（手動／forceBaseline 不設限）。
+const MIN_SYNC_INTERVAL_MS = 20 * 60 * 1000;
+
 /**
  * 以 Cloudflare 原生 CompressionStream 將 JSON 文字壓成 gzip（零依賴）。
  * 回傳 ArrayBuffer 供 R2 put 使用。
@@ -271,15 +275,34 @@ export async function runBackupSync(env, options = {}) {
         throw new Error('缺少 R2 binding：BACKUP_BUCKET 未設定');
     }
 
+    // 先讀狀態做防重入判斷，跳過時連 Google token 與 Firestore 讀取都不發生。
+    const state = await readState(bucket);
+    state.sources = state.sources || {};
+
+    if (trigger !== 'manual'
+        && !options.forceBaseline
+        && state.lastRun
+        && state.lastRun.status === 'success'
+        && state.lastRun.at) {
+        const lastMs = Date.parse(state.lastRun.at);
+        if (!Number.isNaN(lastMs) && Date.now() - lastMs < MIN_SYNC_INTERVAL_MS) {
+            console.log(`[backup] 上次成功備份於 ${state.lastRun.at}，未過 ${MIN_SYNC_INTERVAL_MS / 60000} 分鐘，跳過本次觸發：${trigger}`);
+            return {
+                status: 'skipped',
+                reason: 'recently-succeeded',
+                lastRunAt: state.lastRun.at,
+                firestoreReads: 0,
+                failures: []
+            };
+        }
+    }
+
     const auth = await getAccessToken(env);
     const client = new FirestoreClient(
         auth.token,
         auth.projectId,
         env.FIREBASE_RTDB_URL || ''
     );
-
-    const state = await readState(bucket);
-    state.sources = state.sources || {};
 
     // 組出本次資料來源清單（頂層集合＋各診所 billingItems）
     const clinicIds = await client.listClinicIds();
