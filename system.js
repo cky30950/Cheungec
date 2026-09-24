@@ -33379,14 +33379,52 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     }
   }
 
+  // 與病人資料管理一致的本地過濾條件（姓名／電話／病人編號／身份證）
+  function walletLocalMatch(p, kw, compact) {
+    return !!(
+      (p.name && String(p.name).toLowerCase().includes(kw))
+      || (p.phone && String(p.phone).replace(/\s/g, '').toLowerCase().includes(compact))
+      || (p.patientNumber && String(p.patientNumber).toLowerCase().includes(kw))
+      || (p.idCard && String(p.idCard).toLowerCase().includes(kw))
+    );
+  }
+
   async function searchWalletMembers(keyword) {
     const listEl = document.getElementById('walletMemberList');
     if (!listEl) return;
     walletCurrentIsSearch = true;
     listEl.innerHTML = walletListLoadingHtml();
     try {
-      const res = await window.firebaseDataManager.searchPatients(keyword, 50);
-      const found = (res && res.success && Array.isArray(res.data)) ? res.data : [];
+      const kw = String(keyword || '').trim().toLowerCase();
+      const compact = kw.replace(/\s/g, '');
+      let found = [];
+
+      // 主力：與病人資料管理相同的 searchPatients（searchKeywords 索引）
+      try {
+        if (window.firebaseDataManager) {
+          const res = await window.firebaseDataManager.searchPatients(kw, 50);
+          if (res && res.success && Array.isArray(res.data)) found = res.data;
+        }
+      } catch (searchErr) {
+        console.warn('wallet searchPatients failed, fallback to local:', searchErr);
+      }
+
+      // 兜底：索引無結果時（舊文件缺 searchKeywords、dataManager 未備妥等），
+      // 確保病人全量快取已載入後做本地過濾，保證「輸入名字就能找到」。
+      if (!found.length && kw) {
+        let all = [];
+        try {
+          if (window.firebaseDataManager) {
+            const pr = await window.firebaseDataManager.getPatients(false);
+            if (pr && pr.success && Array.isArray(pr.data)) all = pr.data;
+          }
+        } catch (allErr) {
+          console.warn('wallet load all patients failed:', allErr);
+        }
+        if (!all.length && Array.isArray(patients)) all = patients;
+        found = all.filter((p) => p && walletLocalMatch(p, kw, compact)).slice(0, 50);
+      }
+
       const ids = found.map((p) => String(p.id));
       // where in 每批最多 10 個，批量取帳戶，避免逐個讀取
       const accMap = new Map();

@@ -1976,10 +1976,10 @@
                     <div id="walletConfigForm" class="hidden mt-4 bg-white rounded-lg p-4 border border-teal-200"></div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch lg:h-[78vh]">
                     <!-- 左：已儲值會員列表 -->
-                    <div class="lg:col-span-1">
-                        <div class="border border-gray-200 rounded-xl flex flex-col max-h-[75vh]">
+                    <div class="lg:col-span-1 lg:h-full">
+                        <div class="border border-gray-200 rounded-xl flex flex-col h-full max-h-[60vh] lg:max-h-none">
                             <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
                                 <h3 class="font-semibold text-gray-800">會員列表</h3>
                                 <span id="walletMemberCount" class="text-xs text-gray-500"></span>
@@ -1989,11 +1989,11 @@
                     </div>
 
                     <!-- 右：所選會員詳情 -->
-                    <div class="lg:col-span-2">
-                        <div id="walletEmptyState" class="border-2 border-dashed border-gray-200 rounded-xl p-12 text-center text-gray-400">
+                    <div class="lg:col-span-2 lg:h-full">
+                        <div id="walletEmptyState" class="border-2 border-dashed border-gray-200 rounded-xl p-12 text-center text-gray-400 h-full flex items-center justify-center">
                             請從左邊列表選擇會員查看詳情
                         </div>
-                        <div id="walletPanel" class="hidden">
+                        <div id="walletPanel" class="hidden h-full overflow-y-auto lg:pr-2">
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
                         <div class="bg-green-50 border border-green-200 rounded-xl p-5">
                             <div class="text-sm text-green-700 mb-1">本金餘額</div>
