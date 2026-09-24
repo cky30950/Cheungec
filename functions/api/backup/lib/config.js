@@ -50,7 +50,11 @@ export const TOP_COLLECTIONS = [
     { key: 'consultationAuditLogs', collectionId: 'consultationAuditLogs', alwaysFull: false },
     // 病歷附件中繼資料（R2 檔案本體不在 Firestore）：
     // 日常走 updatedAt 增量，每 7 日 baseline 排除已軟刪文件。
-    { key: 'patientAttachments', collectionId: 'patientAttachments', alwaysFull: false }
+    { key: 'patientAttachments', collectionId: 'patientAttachments', alwaysFull: false },
+    // 會員錢包帳戶（每病人一筆，數量少），每次全量
+    { key: 'patientWalletAccounts', collectionId: 'patientWalletAccounts', alwaysFull: true },
+    // 錢包交易流水（append-only）：日常走 updatedAt 增量，每 7 日 baseline 排除已刪除
+    { key: 'patientWalletTransactions', collectionId: 'patientWalletTransactions', alwaysFull: false }
 ];
 
 // 匯出檔中「billingItems」＝全域收費項目＋各診所非公費項目

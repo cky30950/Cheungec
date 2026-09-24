@@ -586,11 +586,11 @@ const ROLE_PERMISSIONS = {
   
   
   
-  '診所管理': ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'billingManagement', 'userManagement', 'financialReports', 'systemManagement', 'accountSecurity'],
-  
+  '診所管理': ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'billingManagement', 'walletManagement', 'userManagement', 'financialReports', 'systemManagement', 'accountSecurity'],
+
   '醫師': ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'billingManagement', 'personalSettings', 'personalStatistics', 'accountSecurity'],
-  
-  '護理師': ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'accountSecurity'],
+
+  '護理師': ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'walletManagement', 'accountSecurity'],
   
   '用戶': ['patientManagement', 'consultationSystem', 'templateLibrary', 'accountSecurity']
 };
@@ -600,6 +600,7 @@ const CLINIC_SECTION_PERMISSION_OPTIONS = [
   { key: 'medicalRecordManagement', label: '病歷管理' },
   { key: 'scheduleManagement', label: '醫療排班' },
   { key: 'billingManagement', label: '收費項目管理' },
+  { key: 'walletManagement', label: '會員儲值' },
   { key: 'herbLibrary', label: '中藥庫' },
   { key: 'acupointLibrary', label: '穴位庫' },
   { key: 'templateLibrary', label: '模板庫' }
@@ -610,6 +611,9 @@ const CLINIC_ACTION_PERMISSION_OPTIONS = [
   { key: 'patientEdit', label: '病人資料管理：編輯病人' },
   { key: 'patientDelete', label: '病人資料管理：刪除病人' },
   { key: 'medicalRecordDelete', label: '病歷管理：刪除病歷' },
+  { key: 'walletTopup', label: '會員儲值：充值' },
+  { key: 'walletRefund', label: '會員儲值：退款' },
+  { key: 'walletAdjust', label: '會員儲值：人工調整' },
   { key: 'herbInventoryEdit', label: '中藥庫：編輯庫存' },
   { key: 'herbBatchInventory', label: '中藥庫：批量入庫' }
 ];
@@ -635,6 +639,9 @@ function getDefaultActionPermissionMap(position) {
     patientEdit: !!sectionDefaults.patientManagement,
     patientDelete: !!(pos === '診所管理' || pos === '護理師' || pos === '醫師'),
     medicalRecordDelete: !!(roleList.includes('medicalRecordManagement') && (pos === '診所管理' || pos === '護理師' || pos === '醫師')),
+    walletTopup: !!sectionDefaults.walletManagement,
+    walletRefund: pos === '診所管理',
+    walletAdjust: pos === '診所管理',
     herbInventoryEdit: !!sectionDefaults.herbLibrary,
     herbBatchInventory: !!sectionDefaults.herbLibrary
   };
@@ -723,6 +730,7 @@ function getCurrentVisibleSectionId() {
     'templateLibrary',
     'scheduleManagement',
     'billingManagement',
+    'walletManagement',
     'userManagement',
     'financialReports',
     'systemManagement',
@@ -7166,7 +7174,8 @@ async function logout() {
                 
                 medicalRecordManagement: { title: '病歷管理', icon: '📋', description: '查看及搜尋病歷' },
                 billingManagement: { title: '收費項目管理', icon: '💰', description: '管理診療費用及收費項目' },
-                
+                walletManagement: { title: '會員儲值', icon: '💳', description: '充值、扣款與會員帳戶管理' },
+
                 userManagement: { title: '診所用戶管理', icon: '👤', description: '管理診所用戶權限' },
                 financialReports: { title: '財務報表', icon: '📊', description: '收入分析與財務統計' },
                 systemManagement: { title: '系統管理', icon: '⚙️', description: '統計資料、備份匯出' },
@@ -7273,6 +7282,8 @@ async function logout() {
                 attachMedicalRecordListListener();
             } else if (sectionId === 'billingManagement') {
                 loadBillingManagement();
+            } else if (sectionId === 'walletManagement') {
+                loadWalletManagement();
             } else if (sectionId === 'financialReports') {
                 loadFinancialReports();
             } else if (sectionId === 'systemManagement') {
@@ -7307,7 +7318,7 @@ async function logout() {
             
             
             
-            ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'billingManagement', 'userManagement', 'financialReports', 'systemManagement', 'personalSettings', 'personalStatistics', 'accountSecurity', 'welcomePage'].forEach(id => {
+            ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'billingManagement', 'walletManagement', 'userManagement', 'financialReports', 'systemManagement', 'personalSettings', 'personalStatistics', 'accountSecurity', 'welcomePage'].forEach(id => {
                 
                 if (id === 'herbLibrary') {
                     try {
@@ -12541,6 +12552,9 @@ async function showConsultationForm(appointment) {
         // 表單內容就緒、自動保存已重新綁定後才恢復草稿寫入
         consultationSymptomsDraftState.suspended = false;
 
+        // 載入病人錢包狀態：有效會員自動帶入折扣，並顯示儲值支付選項
+        await window.setupConsultationWallet(appointment);
+
         setConsultationEditRestrictionState(appointment, null);
 
         document.getElementById('consultationForm').classList.remove('hidden');
@@ -13595,6 +13609,25 @@ async function saveConsultation() {
             } catch (pkgBackfillErr) {
                 console.error('寫入套票餘次快照失敗:', pkgBackfillErr);
             }
+
+            // 儲值餘額支付：病歷（及套票）均已處理完畢後才扣款。
+            // 扣款失敗時病歷保留、表單不關閉，由內聯按鈕重試（冪等鍵防重複扣款）。
+            const walletConsultationId = isEditing
+                ? String(appointment.consultationId)
+                : (newConsultationIdForInventory ? String(newConsultationIdForInventory) : '');
+            let walletPaymentOk = true;
+            try {
+                walletPaymentOk = await window.processConsultationWalletPayment({
+                    patientId: String(appointment.patientId || ''),
+                    consultationId: walletConsultationId
+                });
+            } catch (_wpErr) {
+                walletPaymentOk = false;
+            }
+            if (!walletPaymentOk) {
+                return;
+            }
+
             // 更新中藥庫存
             if (isClinicHerbInventoryEnabled()) {
                 try {
@@ -25534,9 +25567,10 @@ async function handleBackupFile(file) {
     }
     const button = document.getElementById('backupImportBtn');
     setButtonLoading(button);
-    // 動態計算匯入步驟。基本九步：patients、consultations、users、clinics、
-    // billingItems、patientPackages、patientPackageHistory、clinicExpenses、consultationAuditLogs。
-    let totalStepsForBackupImport = 9;
+    // 動態計算匯入步驟。基本十一步：patients、consultations、users、clinics、
+    // billingItems、patientPackages、patientPackageHistory、patientWalletAccounts、
+    // patientWalletTransactions、clinicExpenses、consultationAuditLogs。
+    let totalStepsForBackupImport = 11;
     let data;
     try {
         data = await parseBackupFileJson(file);
@@ -25574,8 +25608,9 @@ async function handleBackupFile(file) {
  */
 async function importClinicBackup(data) {
     let progressCallback = null;
-    // 還原病人、診症、用戶、診所、收費項目、套票、套票記錄、診所支出、審核追蹤，總步驟數為 9
-    let totalSteps = 9;
+    // 還原病人、診症、用戶、診所、收費項目、套票、套票記錄、錢包帳戶、錢包交易、
+    // 診所支出、審核追蹤，總步驟數為 11
+    let totalSteps = 11;
     // 若第二個參數為函式，視為進度回調；第三個參數為總步驟數（可選）
     if (arguments.length >= 2 && typeof arguments[1] === 'function') {
         progressCallback = arguments[1];
@@ -25707,6 +25742,7 @@ async function importClinicBackup(data) {
     let stepCount = 0;
     // 覆蓋需要還原的集合，順序為：patients -> consultations -> users -> clinics
     // -> billingItems -> patientPackages -> patientPackageHistory
+    // -> patientWalletAccounts -> patientWalletTransactions
     // -> clinicExpenses -> consultationAuditLogs
     // 新集合僅在備份檔「明確包含」該欄位時才覆蓋，舊備份檔缺少時跳過，避免誤刪現有資料。
     const replaceCollectionIfPresent = async (collectionName, key) => {
@@ -25739,6 +25775,15 @@ async function importClinicBackup(data) {
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
     await replaceCollection('patientPackageHistory', Array.isArray(data.patientPackageHistory) ? data.patientPackageHistory : []);
+    stepCount++;
+    if (progressCallback) progressCallback(stepCount, totalSteps);
+
+    // 錢包帳戶先於交易還原；舊備份檔缺少錢包欄位時跳過，避免誤刪現有資料。
+    await replaceCollectionIfPresent('patientWalletAccounts', 'patientWalletAccounts');
+    stepCount++;
+    if (progressCallback) progressCallback(stepCount, totalSteps);
+
+    await replaceCollectionIfPresent('patientWalletTransactions', 'patientWalletTransactions');
     stepCount++;
     if (progressCallback) progressCallback(stepCount, totalSteps);
 
@@ -33097,6 +33142,878 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
 
     return '<!DOCTYPE html>\n' + doc.documentElement.outerHTML;
   };
+
+  /* ============================================================
+   * 會員儲值：客戶端
+   * ------------------------------------------------------------
+   * 讀取走 SDK（員工規則允許，可復用離線快取）；所有寫入經
+   * /api/wallet/* 端點，客戶端無權直接寫錢包集合。
+   * ============================================================ */
+
+  const walletAccountCache = new Map();
+  let walletSelectedPatientId = '';
+  let walletMembershipConfig = null;
+
+  const WALLET_TYPE_LABELS = {
+    topup: '充值',
+    topupBonus: '充值贈送',
+    payment: '看診付款',
+    refund: '退款',
+    adjust: '調整'
+  };
+  const WALLET_STATUS_LABELS = {
+    active: '運作中',
+    frozen: '已凍結',
+    closed: '已關閉'
+  };
+
+  function walletRound2(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+  }
+
+  function newIdempotencyKey(prefix) {
+    return prefix + ':' + Date.now().toString(36)
+      + ':' + Math.random().toString(36).slice(2, 10);
+  }
+
+  async function walletApi(path, payload) {
+    await waitForFirebase();
+    const fbUser = window.firebase.auth && window.firebase.auth.currentUser;
+    if (!fbUser) throw new Error('未登入，無法操作儲值功能');
+    const token = await fbUser.getIdToken();
+    const res = await fetch('/api/wallet/' + path, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload || {})
+    });
+    let data = null;
+    try { data = await res.json(); } catch (_e) {}
+    if (!res.ok) {
+      throw new Error((data && data.message) || ('HTTP ' + res.status));
+    }
+    return data || {};
+  }
+
+  /**
+   * 讀取病人儲值帳戶（SDK 單文件，session Map 快取）。
+   * 無帳戶回 null。
+   */
+  async function getWalletAccount(patientId, force = false) {
+    if (!force && walletAccountCache.has(patientId)) {
+      return walletAccountCache.get(patientId);
+    }
+    const snap = await window.firebase.getDoc(
+      window.firebase.doc(
+        window.firebase.db,
+        'patientWalletAccounts',
+        patientId
+      )
+    );
+    const account = snap.exists()
+      ? Object.assign({ id: snap.id }, snap.data())
+      : null;
+    walletAccountCache.set(patientId, account);
+    return account;
+  }
+
+  function invalidateWalletAccount(patientId) {
+    walletAccountCache.delete(patientId);
+  }
+
+  /** 可用餘額（僅 active 帳戶） */
+  function walletAvailable(account) {
+    if (!account || account.status !== 'active') return 0;
+    return walletRound2(
+      (Number(account.balance) || 0) + (Number(account.bonusBalance) || 0)
+    );
+  }
+
+  /**
+   * 診所會員配置（clinics/*.membershipConfig），讀一次快取。
+   */
+  async function getWalletMembershipConfig() {
+    if (walletMembershipConfig) return walletMembershipConfig;
+    try {
+      const q = window.firebase.firestoreQuery(
+        window.firebase.collection(window.firebase.db, 'clinics'),
+        window.firebase.limit(5)
+      );
+      const snap = await window.firebase.getDocs(q);
+      let cfg = null;
+      snap.forEach((d) => {
+        if (!cfg && d.data() && d.data().membershipConfig) {
+          cfg = d.data().membershipConfig;
+        }
+      });
+      walletMembershipConfig = cfg || { topupBonusTiers: [] };
+    } catch (_e) {
+      walletMembershipConfig = { topupBonusTiers: [] };
+    }
+    return walletMembershipConfig;
+  }
+
+  function walletBonusFor(config, amount) {
+    const tiers = config && Array.isArray(config.topupBonusTiers)
+      ? config.topupBonusTiers
+      : [];
+    const sorted = tiers
+      .map((t) => ({
+        minAmount: Number(t && t.minAmount),
+        bonus: Number(t && t.bonus)
+      }))
+      .filter((t) => t.minAmount > 0 && t.bonus > 0)
+      .sort((a, b) => b.minAmount - a.minAmount);
+    const hit = sorted.find((t) => amount >= t.minAmount);
+    return hit ? hit.bonus : 0;
+  }
+
+  async function loadWalletTransactions(patientId) {
+    const q = window.firebase.firestoreQuery(
+      window.firebase.collection(window.firebase.db, 'patientWalletTransactions'),
+      window.firebase.where('patientId', '==', patientId),
+      window.firebase.orderBy('at', 'desc'),
+      window.firebase.limit(20)
+    );
+    const snap = await window.firebase.getDocs(q);
+    const out = [];
+    snap.forEach((d) => out.push(Object.assign({ id: d.id }, d.data())));
+    return out;
+  }
+
+  // ── 管理區塊 ──
+
+  function loadWalletManagement() {
+    const input = document.getElementById('walletPatientSearch');
+    const panel = document.getElementById('walletPanel');
+    if (panel) panel.classList.add('hidden');
+    // 「會員設定」僅診所管理（擁有 walletAdjust 權限）可見
+    const configArea = document.getElementById('walletConfigArea');
+    if (configArea) {
+      configArea.classList.toggle('hidden', !hasActionPermission('walletAdjust'));
+    }
+    const configForm = document.getElementById('walletConfigForm');
+    if (configForm) {
+      configForm.classList.add('hidden');
+      configForm.innerHTML = '';
+    }
+    const configToggle = document.getElementById('walletConfigToggle');
+    if (configToggle) configToggle.textContent = '展開';
+    walletSelectedPatientId = '';
+    if (input) {
+      input.value = '';
+      input.oninput = function () {
+        renderWalletPatientResults(this.value);
+      };
+    }
+    renderWalletPatientResults('');
+  }
+
+  function renderWalletPatientResults(keyword) {
+    const box = document.getElementById('walletPatientResults');
+    if (!box) return;
+    const kw = String(keyword || '').trim().toLowerCase();
+    let list = Array.isArray(patients) ? patients.slice() : [];
+    if (kw) {
+      const compact = kw.replace(/\s/g, '');
+      list = list.filter((p) => p && (
+        String(p.name || '').toLowerCase().includes(kw)
+        || String(p.phone || '').replace(/\s/g, '').includes(compact)
+      ));
+    }
+    list = list.slice(0, 12);
+
+    if (!list.length) {
+      box.innerHTML = '<span class="text-sm text-gray-400">無符合病人（如為冷啟動，請先到病人資料管理載入）</span>';
+      return;
+    }
+    box.innerHTML = list.map((p) => {
+      const selected = walletSelectedPatientId === String(p.id);
+      return `
+        <button onclick="selectWalletPatient('${window.escapeHtml(String(p.id))}')"
+          class="px-3 py-2 rounded-lg border text-sm transition ${selected
+            ? 'bg-green-600 text-white border-green-600'
+            : 'bg-white hover:bg-gray-50 border-gray-300 text-gray-800'}">
+          ${window.escapeHtml(p.name)}
+          <span class="${selected ? 'text-green-100' : 'text-gray-500'}">${window.escapeHtml(p.phone || '')}</span>
+        </button>`;
+    }).join('');
+  }
+
+  async function selectWalletPatient(patientId) {
+    walletSelectedPatientId = patientId;
+    renderWalletPatientResults(
+      document.getElementById('walletPatientSearch').value
+    );
+    await renderWalletPanel(patientId, true);
+  }
+
+  async function renderWalletPanel(patientId, force) {
+    const panel = document.getElementById('walletPanel');
+    if (!panel) return;
+
+    const account = await getWalletAccount(patientId, !!force);
+    let txs = [];
+    if (account) txs = await loadWalletTransactions(patientId);
+
+    panel.classList.remove('hidden');
+
+    const balance = account ? walletRound2(account.balance) : 0;
+    const bonus = account ? walletRound2(account.bonusBalance) : 0;
+    document.getElementById('walletBalanceView').textContent =
+      `HK$${balance.toFixed(2)}`;
+    document.getElementById('walletBonusView').textContent =
+      `HK$${bonus.toFixed(2)}`;
+    document.getElementById('walletStatusView').textContent = account
+      ? (WALLET_STATUS_LABELS[account.status] || account.status)
+      : '未開戶';
+
+    // 充值區：依權限顯示，金額輸入即時提示贈送額
+    const topupArea = document.getElementById('walletTopupArea');
+    const canTopup = hasActionPermission('walletTopup');
+    topupArea.style.display = canTopup ? '' : 'none';
+    const amountInput = document.getElementById('walletTopupAmount');
+    const hint = document.getElementById('walletTopupHint');
+    amountInput.oninput = async function () {
+      const amt = Number(this.value);
+      if (!(amt > 0)) { hint.textContent = ''; return; }
+      const cfg = await getWalletMembershipConfig();
+      const bonusAmount = walletBonusFor(cfg, amt);
+      hint.textContent = bonusAmount > 0
+        ? `此金額可獲贈 HK$${bonusAmount.toFixed(2)}`
+        : '此金額沒有贈送';
+    };
+
+    // 管理員區：退款/調整/狀態（帳戶存在才顯示）
+    const adminArea = document.getElementById('walletAdminArea');
+    const adminForm = document.getElementById('walletAdminForm');
+    if (adminForm) adminForm.classList.add('hidden');
+    if (account && hasAdminRole()) {
+      adminArea.classList.remove('hidden');
+    } else {
+      adminArea.classList.add('hidden');
+    }
+
+    // 交易表
+    const tbody = document.getElementById('walletTxTable');
+    if (!txs.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">尚無交易記錄</td></tr>';
+      return;
+    }
+    tbody.innerHTML = txs.map((tx) => {
+      const amount = walletRound2(tx.amount);
+      const isPayment = tx.type === 'payment' || amount < 0;
+      let atText = '';
+      try {
+        atText = new Date(tx.at).toLocaleString('zh-HK', { hour12: false });
+      } catch (_e) { atText = tx.at || ''; }
+      return `
+        <tr class="border-t border-gray-100">
+          <td class="px-4 py-2 text-gray-600 whitespace-nowrap">${window.escapeHtml(atText)}</td>
+          <td class="px-4 py-2 text-gray-800">${window.escapeHtml(WALLET_TYPE_LABELS[tx.type] || tx.type)}</td>
+          <td class="px-4 py-2 text-right font-medium ${isPayment ? 'text-red-600' : 'text-green-600'}">
+            ${isPayment ? '-' : ''}HK$${Math.abs(amount).toFixed(2)}
+          </td>
+          <td class="px-4 py-2 text-gray-500 max-w-sm truncate">${window.escapeHtml(tx.note || '')}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  async function submitWalletTopup() {
+    if (!walletSelectedPatientId) return;
+    if (!hasActionPermission('walletTopup')) {
+      showToast('您沒有充值權限', 'error');
+      return;
+    }
+    const amountInput = document.getElementById('walletTopupAmount');
+    const amount = Number(amountInput.value);
+    if (!(amount > 0)) {
+      showToast('請輸入有效的充值金額', 'error');
+      return;
+    }
+    try {
+      const result = await walletApi('topup', {
+        patientId: walletSelectedPatientId,
+        amount,
+        idempotencyKey: newIdempotencyKey('topup')
+      });
+      invalidateWalletAccount(walletSelectedPatientId);
+      amountInput.value = '';
+      document.getElementById('walletTopupHint').textContent = '';
+      showToast(
+        `充值成功${result.bonusAmount > 0 ? `，贈送 HK$${walletRound2(result.bonusAmount).toFixed(2)}` : ''}`,
+        'success'
+      );
+      await renderWalletPanel(walletSelectedPatientId, true);
+    } catch (error) {
+      showToast('充值失敗：' + error.message, 'error');
+    }
+  }
+
+  // ── 管理員內聯表單 ──
+
+  function hideWalletAdminForm() {
+    const f = document.getElementById('walletAdminForm');
+    if (f) {
+      f.classList.add('hidden');
+      f.innerHTML = '';
+    }
+  }
+
+  function showWalletRefundForm() {
+    const f = document.getElementById('walletAdminForm');
+    f.classList.remove('hidden');
+    f.innerHTML = `
+      <h4 class="font-semibold text-gray-800 mb-3">退款</h4>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">診症單 ID *</label>
+          <input type="text" id="walletRefundCid" placeholder="20 字病歷 ID" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">退款金額（留空＝全額）</label>
+          <input type="number" id="walletRefundAmount" min="0" step="0.01" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm text-gray-600 mb-1">說明</label>
+        <input type="text" id="walletRefundNote" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div class="flex gap-3">
+        <button onclick="submitWalletRefund()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm">確認退款</button>
+        <button onclick="hideWalletAdminForm()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">取消</button>
+      </div>`;
+  }
+
+  async function submitWalletRefund() {
+    const consultationId = String(document.getElementById('walletRefundCid').value || '').trim();
+    if (!consultationId) {
+      showToast('請輸入診症單 ID', 'error');
+      return;
+    }
+    const amountRaw = document.getElementById('walletRefundAmount').value;
+    const payload = {
+      patientId: walletSelectedPatientId,
+      consultationId,
+      note: document.getElementById('walletRefundNote').value,
+      idempotencyKey: newIdempotencyKey('refund')
+    };
+    if (amountRaw !== '') payload.amount = Number(amountRaw);
+    try {
+      await walletApi('refund', payload);
+      invalidateWalletAccount(walletSelectedPatientId);
+      hideWalletAdminForm();
+      showToast('退款完成', 'success');
+      await renderWalletPanel(walletSelectedPatientId, true);
+    } catch (error) {
+      showToast('退款失敗：' + error.message, 'error');
+    }
+  }
+
+  function showWalletAdjustForm() {
+    const f = document.getElementById('walletAdminForm');
+    f.classList.remove('hidden');
+    f.innerHTML = `
+      <h4 class="font-semibold text-gray-800 mb-3">人工調整</h4>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">本金調整（正增負減）</label>
+          <input type="number" id="walletAdjustBalance" step="0.01" value="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">贈送額調整</label>
+          <input type="number" id="walletAdjustBonus" step="0.01" value="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm text-gray-600 mb-1">原因 *</label>
+        <input type="text" id="walletAdjustReason" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div class="flex gap-3">
+        <button onclick="submitWalletAdjust()" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm">確認調整</button>
+        <button onclick="hideWalletAdminForm()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">取消</button>
+      </div>`;
+  }
+
+  async function submitWalletAdjust() {
+    const reason = String(document.getElementById('walletAdjustReason').value || '').trim();
+    if (!reason) {
+      showToast('必須填寫調整原因', 'error');
+      return;
+    }
+    try {
+      await walletApi('adjust', {
+        patientId: walletSelectedPatientId,
+        deltaBalance: Number(document.getElementById('walletAdjustBalance').value) || 0,
+        deltaBonus: Number(document.getElementById('walletAdjustBonus').value) || 0,
+        reason,
+        idempotencyKey: newIdempotencyKey('adjust')
+      });
+      invalidateWalletAccount(walletSelectedPatientId);
+      hideWalletAdminForm();
+      showToast('調整完成', 'success');
+      renderWalletPanel(walletSelectedPatientId, true);
+    } catch (error) {
+      showToast('調整失敗：' + error.message, 'error');
+    }
+  }
+
+  function showWalletStatusForm() {
+    const f = document.getElementById('walletAdminForm');
+    f.classList.remove('hidden');
+    f.innerHTML = `
+      <h4 class="font-semibold text-gray-800 mb-3">凍結／關閉／復用</h4>
+      <div class="mb-3">
+        <label class="block text-sm text-gray-600 mb-1">新狀態 *</label>
+        <select id="walletStatusSelect" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+          <option value="active">復用（active）</option>
+          <option value="frozen">凍結（frozen）</option>
+          <option value="closed">關閉（closed）</option>
+        </select>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm text-gray-600 mb-1">說明（凍結／關閉必填）</label>
+        <input type="text" id="walletStatusNote" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div class="flex gap-3">
+        <button onclick="submitWalletStatus()" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm">確認</button>
+        <button onclick="hideWalletAdminForm()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">取消</button>
+      </div>`;
+  }
+
+  async function submitWalletStatus() {
+    const status = String(document.getElementById('walletStatusSelect').value || '');
+    const note = String(document.getElementById('walletStatusNote').value || '');
+    try {
+      await walletApi('status', {
+        patientId: walletSelectedPatientId,
+        status,
+        note,
+        idempotencyKey: newIdempotencyKey('status')
+      });
+      invalidateWalletAccount(walletSelectedPatientId);
+      hideWalletAdminForm();
+      showToast('狀態已更新', 'success');
+      renderWalletPanel(walletSelectedPatientId, true);
+    } catch (error) {
+      showToast('更新失敗：' + error.message, 'error');
+    }
+  }
+
+  /* ============================================================
+   * 會員設定（clinics/{clinicId}.membershipConfig）
+   * 僅診所管理可見可改；直接經 SDK updateDoc（rules 允許員工寫 clinics）
+   * ============================================================ */
+  let walletClinicDocCache = null;
+
+  async function getWalletClinicDoc(force) {
+    if (!force && walletClinicDocCache) return walletClinicDocCache;
+    let preferred = '';
+    try { preferred = localStorage.getItem('currentClinicId') || ''; } catch (_e) {}
+    const q = window.firebase.firestoreQuery(
+      window.firebase.collection(window.firebase.db, 'clinics'),
+      window.firebase.limit(5)
+    );
+    const snap = await window.firebase.getDocs(q);
+    const docs = [];
+    snap.forEach((d) => docs.push({ id: d.id, data: d.data() || {} }));
+    const found = (preferred && docs.find((d) => d.id === preferred)) || docs[0] || null;
+    walletClinicDocCache = found;
+    return found;
+  }
+
+  async function toggleWalletConfigForm() {
+    const form = document.getElementById('walletConfigForm');
+    const toggle = document.getElementById('walletConfigToggle');
+    if (!form) return;
+    if (!form.classList.contains('hidden')) {
+      form.classList.add('hidden');
+      toggle.textContent = '展開';
+      return;
+    }
+    form.classList.remove('hidden');
+    toggle.textContent = '收合';
+    await renderWalletConfigForm();
+  }
+
+  function walletTierRowHtml(minAmount, bonus) {
+    return `
+      <div class="wcfg-tier-row flex flex-col md:flex-row gap-2 items-start md:items-center">
+        <div class="flex items-center gap-1">
+          <span class="text-xs text-gray-500">充值滿 HK$</span>
+          <input type="number" min="0" step="0.01"
+            class="wcfg-min w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm"
+            value="${window.escapeHtml(String(minAmount == null ? '' : minAmount))}">
+        </div>
+        <div class="flex items-center gap-1">
+          <span class="text-xs text-gray-500">送 HK$</span>
+          <input type="number" min="0" step="0.01"
+            class="wcfg-bonus w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm"
+            value="${window.escapeHtml(String(bonus == null ? '' : bonus))}">
+        </div>
+        <button type="button" onclick="removeWalletTierRow(this)" class="text-sm text-red-500">移除</button>
+      </div>`;
+  }
+
+  function addWalletTierRow() {
+    const box = document.getElementById('wcfgTiers');
+    if (box) box.insertAdjacentHTML('beforeend', walletTierRowHtml('', ''));
+  }
+
+  function removeWalletTierRow(btn) {
+    const row = btn.closest('.wcfg-tier-row');
+    if (row) row.remove();
+  }
+
+  async function renderWalletConfigForm() {
+    const form = document.getElementById('walletConfigForm');
+    const clinic = await getWalletClinicDoc();
+    if (!clinic) {
+      form.innerHTML = '<div class="text-sm text-red-600">找不到診所文件，請先建立診所。</div>';
+      return;
+    }
+    const cfg = clinic.data.membershipConfig || {};
+    const enabled = cfg.enabled !== false;
+    const deductFirst = cfg.deductBonusFirst !== false;
+    const discountId = String(cfg.discountItemId || '');
+    const tiers = Array.isArray(cfg.topupBonusTiers) ? cfg.topupBonusTiers : [];
+    const discountItems = (Array.isArray(billingItems) ? billingItems : [])
+      .filter((b) => b && b.category === 'discount');
+
+    form.innerHTML = `
+      <div class="space-y-4">
+        <label class="flex items-center text-sm text-gray-800">
+          <input type="checkbox" id="wcfgEnabled"
+            class="mr-2 h-4 w-4 rounded border-gray-300 text-teal-600"
+            ${enabled ? 'checked' : ''}>
+          啟用會員功能
+        </label>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">會員折扣項目</label>
+          <select id="wcfgDiscount" class="w-full md:w-96 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="">— 不套用自動折扣 —</option>
+            ${discountItems.map((b) => `
+              <option value="${window.escapeHtml(String(b.id))}"
+                ${String(b.id) === discountId ? 'selected' : ''}>
+                ${window.escapeHtml(b.name)}
+              </option>`).join('')}
+          </select>
+          <p class="mt-1 text-xs text-gray-500">只列出 category 為 discount 的收費項目；會員開診單時自動帶入，職員可手動移除。</p>
+        </div>
+        <label class="flex items-center text-sm text-gray-800">
+          <input type="checkbox" id="wcfgDeductFirst"
+            class="mr-2 h-4 w-4 rounded border-gray-300 text-teal-600"
+            ${deductFirst ? 'checked' : ''}>
+          扣款時先扣贈送額
+        </label>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">充值贈送級距</label>
+          <div id="wcfgTiers" class="space-y-2"></div>
+          <button type="button" onclick="addWalletTierRow()"
+            class="mt-2 text-sm text-teal-700 underline">+ 新增級距</button>
+        </div>
+        <div id="wcfgMessage" class="text-sm"></div>
+        <div class="flex gap-3">
+          <button type="button" onclick="submitWalletConfig()"
+            class="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2 rounded-lg text-sm">儲存設定</button>
+        </div>
+      </div>`;
+
+    const box = document.getElementById('wcfgTiers');
+    box.innerHTML = tiers.map((t) => walletTierRowHtml(t.minAmount, t.bonus)).join('');
+  }
+
+  async function submitWalletConfig() {
+    const msg = document.getElementById('wcfgMessage');
+    try {
+      const clinic = await getWalletClinicDoc();
+      if (!clinic) throw new Error('找不到診所文件');
+      const enabled = document.getElementById('wcfgEnabled').checked;
+      const deductFirst = document.getElementById('wcfgDeductFirst').checked;
+      const discountItemId = String(document.getElementById('wcfgDiscount').value || '');
+      const tiers = [];
+      document.querySelectorAll('#wcfgTiers .wcfg-tier-row').forEach((row) => {
+        const minAmount = parseFloat(row.querySelector('.wcfg-min').value);
+        const bonus = parseFloat(row.querySelector('.wcfg-bonus').value);
+        if (!isNaN(minAmount) && !isNaN(bonus) && minAmount > 0 && bonus > 0) {
+          tiers.push({ minAmount, bonus });
+        }
+      });
+      if (discountItemId) {
+        const valid = (Array.isArray(billingItems) ? billingItems : [])
+          .some((b) => String(b.id) === discountItemId && b.category === 'discount');
+        if (!valid) throw new Error('所選折扣項目不存在或類型不符');
+      }
+      const membershipConfig = {
+        enabled,
+        discountItemId,
+        deductBonusFirst: deductFirst,
+        topupBonusTiers: tiers
+      };
+      await window.firebase.updateDoc(
+        window.firebase.doc(window.firebase.db, 'clinics', clinic.id),
+        { membershipConfig }
+      );
+      walletClinicDocCache = {
+        id: clinic.id,
+        data: Object.assign({}, clinic.data, { membershipConfig })
+      };
+      walletMembershipConfig = membershipConfig;
+      msg.textContent = '已儲存 ✓';
+      msg.className = 'text-sm text-green-600';
+      showToast('會員設定已儲存', 'success');
+    } catch (error) {
+      msg.textContent = '儲存失敗：' + error.message;
+      msg.className = 'text-sm text-red-600';
+    }
+  }
+
+  window.loadWalletManagement = loadWalletManagement;
+  window.selectWalletPatient = selectWalletPatient;
+  window.submitWalletTopup = submitWalletTopup;
+  window.showWalletRefundForm = showWalletRefundForm;
+  window.hideWalletAdminForm = hideWalletAdminForm;
+  window.showWalletAdjustForm = showWalletAdjustForm;
+  window.showWalletStatusForm = showWalletStatusForm;
+  window.toggleWalletConfigForm = toggleWalletConfigForm;
+  window.addWalletTierRow = addWalletTierRow;
+  window.removeWalletTierRow = removeWalletTierRow;
+  window.submitWalletConfig = submitWalletConfig;
+
+  /* ============================================================
+   * 診症表單整合：會員自動折扣 + 儲值餘額支付
+   * ------------------------------------------------------------
+   * setupConsultationWallet：開表單時讀帋戶與會員設定
+   * processConsultationWalletPayment：病歷保存後扣款（冪等）
+   * 扣款失敗保留表單，提供重試／取消按鈕
+   * ============================================================ */
+  const consultWallet = {
+    patientId: '',
+    account: null,
+    config: null,
+    discountItemId: '',
+    autoDiscountApplied: false,
+    consultationId: '',
+    pendingPay: false,
+    paid: false
+  };
+
+  function showWalletPayMessage(html, isError) {
+    const m = document.getElementById('walletPaymentMessage');
+    if (!m) return;
+    if (!html) {
+      m.innerHTML = '';
+      m.classList.add('hidden');
+      return;
+    }
+    m.innerHTML = html;
+    m.classList.remove('hidden');
+    m.classList.toggle('text-red-600', !!isError);
+    m.classList.toggle('text-teal-700', !isError);
+  }
+
+  function resetConsultWalletUI() {
+    consultWallet.patientId = '';
+    consultWallet.account = null;
+    consultWallet.config = null;
+    consultWallet.discountItemId = '';
+    consultWallet.autoDiscountApplied = false;
+    consultWallet.consultationId = '';
+    consultWallet.pendingPay = false;
+    consultWallet.paid = false;
+    const area = document.getElementById('walletPaymentArea');
+    if (area) area.classList.add('hidden');
+    const cb = document.getElementById('useWalletPayment');
+    if (cb) {
+      cb.checked = false;
+      cb.disabled = false;
+      cb.onchange = null;
+    }
+    showWalletPayMessage('', false);
+  }
+
+  function readConsultationTotal() {
+    const el = document.getElementById('totalBillingAmount');
+    if (!el) return 0;
+    const n = parseFloat(String(el.textContent).replace(/[^0-9.]/g, ''));
+    return isNaN(n) ? 0 : walletRound2(n);
+  }
+
+  async function setupConsultationWallet(appointment) {
+    resetConsultWalletUI();
+    if (!appointment || !appointment.patientId) return;
+    const isEdit = appointment.status === 'completed' && appointment.consultationId;
+    consultWallet.patientId = String(appointment.patientId);
+    if (isEdit) consultWallet.consultationId = String(appointment.consultationId);
+
+    const [account, config] = await Promise.all([
+      getWalletAccount(consultWallet.patientId).catch(() => null),
+      getWalletMembershipConfig().catch(() => null)
+    ]);
+    consultWallet.account = account;
+    consultWallet.config = config;
+    consultWallet.discountItemId = config && config.discountItemId ? String(config.discountItemId) : '';
+
+    // 編輯模式：讀病歷確認是否曾以儲值支付
+    let existing = null;
+    if (isEdit && consultWallet.consultationId) {
+      try {
+        const r = await window.firebaseDataManager.getConsultationById(
+          consultWallet.consultationId, true
+        );
+        if (r && r.success) existing = r.data;
+      } catch (_e) {}
+    }
+
+    const area = document.getElementById('walletPaymentArea');
+    const cb = document.getElementById('useWalletPayment');
+
+    if (existing && existing.walletPaid) {
+      // 已付款病歷：顯示事實，不允許差額自動扣款
+      consultWallet.paid = true;
+      area.classList.remove('hidden');
+      cb.checked = true;
+      cb.disabled = true;
+      document.getElementById('walletPaymentAvailable').textContent = '';
+      showWalletPayMessage(
+        '此診症已以儲值餘額支付 HK$' +
+        Number(existing.walletPaid).toFixed(2) +
+        '。編輯時不會自動追加差額；如需退款，請使用「💳 會員錢包」內的退款功能。',
+        false
+      );
+      return;
+    }
+
+    const available = walletAvailable(account)
+      ? Number(account.balance) + Number(account.bonusBalance)
+      : 0;
+    if (available > 0) {
+      area.classList.remove('hidden');
+      document.getElementById('walletPaymentAvailable').textContent =
+        '（可用 HK$' + available.toFixed(2) + '）';
+      cb.checked = false;
+      cb.disabled = false;
+      cb.onchange = function () {
+        if (!cb.checked) {
+          consultWallet.pendingPay = false;
+          showWalletPayMessage('', false);
+          return;
+        }
+        const total = readConsultationTotal();
+        if (total > available) {
+          cb.checked = false;
+          showToast('儲值餘額不足，可用 HK$' + available.toFixed(2), 'warning');
+          return;
+        }
+        consultWallet.pendingPay = true;
+      };
+    }
+
+    // 新診症：有效會員自動帶入會員折扣項目
+    if (!isEdit) applyAutoMembershipDiscount();
+  }
+
+  function applyAutoMembershipDiscount() {
+    const id = consultWallet.discountItemId;
+    if (!id || consultWallet.autoDiscountApplied) return;
+    if (Array.isArray(selectedBillingItems) &&
+        selectedBillingItems.some(b => String(b.id) === id)) {
+      consultWallet.autoDiscountApplied = true;
+      return;
+    }
+    const def = (typeof billingItems !== 'undefined' && Array.isArray(billingItems))
+      ? billingItems.find(b => String(b.id) === id)
+      : null;
+    if (!def || def.category !== 'discount') return;
+    selectedBillingItems.push({
+      id: id,
+      name: def.name,
+      category: 'discount',
+      price: def.price,
+      unit: def.unit || '',
+      description: def.description || '',
+      quantity: 1,
+      includedInDiscount: false
+    });
+    consultWallet.autoDiscountApplied = true;
+    updateBillingDisplay();
+  }
+
+  async function processConsultationWalletPayment(opts) {
+    // 回傳 true：成功或不需扣款；false：扣款失敗（表單保留）
+    if (!consultWallet.pendingPay || consultWallet.paid) return true;
+    const patientId = String((opts && opts.patientId) || consultWallet.patientId || '');
+    const consultationId = String((opts && opts.consultationId) || consultWallet.consultationId || '');
+    if (!patientId || !consultationId) return true;
+    const amount = readConsultationTotal();
+    if (!(amount > 0)) {
+      consultWallet.pendingPay = false;
+      return true;
+    }
+    try {
+      const res = await walletApi('payment', {
+        patientId: patientId,
+        amount: amount,
+        consultationId: consultationId,
+        idempotencyKey: 'pay:' + consultationId
+      });
+      await window.firebaseDataManager.updateConsultation(consultationId, {
+        walletPaid: amount,
+        walletTxId: (res && res.txId) ? String(res.txId) : ''
+      });
+      consultWallet.paid = true;
+      consultWallet.pendingPay = false;
+      invalidateWalletAccount(patientId);
+      showWalletPayMessage('已以儲值餘額支付 HK$' + amount.toFixed(2), false);
+      return true;
+    } catch (err) {
+      const msg = (err && err.message) ? err.message : '未知錯誤';
+      showWalletPayMessage(
+        '⚠️ 儲值扣款失敗：' + escapeHtml(msg) +
+        '（病歷已保存）。' +
+        '<div class="mt-2">' +
+        '<button type="button" onclick="retryConsultationWalletPayment()" ' +
+        'class="mr-2 px-3 py-1 text-xs bg-teal-600 text-white rounded">重試扣款</button>' +
+        '<button type="button" onclick="cancelConsultationWalletPayment()" ' +
+        'class="px-3 py-1 text-xs bg-gray-500 text-white rounded">改以其他方式收款</button>' +
+        '</div>',
+        true
+      );
+      return false;
+    }
+  }
+
+  async function retryConsultationWalletPayment() {
+    const ok = await processConsultationWalletPayment({
+      patientId: consultWallet.patientId,
+      consultationId: consultWallet.consultationId
+    });
+    if (ok) {
+      showToast('儲值扣款成功', 'success');
+      closeConsultationForm();
+      loadTodayAppointments();
+      updateStatistics();
+      clearAllSearchFields();
+    }
+  }
+
+  function cancelConsultationWalletPayment() {
+    consultWallet.pendingPay = false;
+    showWalletPayMessage(
+      '已取消儲值扣款，請以現金／其他方式向病人收款，事後可於會員錢包人工調整。',
+      false
+    );
+    const cb = document.getElementById('useWalletPayment');
+    if (cb) cb.checked = false;
+  }
+
+  window.setupConsultationWallet = setupConsultationWallet;
+  window.processConsultationWalletPayment = processConsultationWalletPayment;
+  window.retryConsultationWalletPayment = retryConsultationWalletPayment;
+  window.cancelConsultationWalletPayment = cancelConsultationWalletPayment;
 
   window.filterBillingItems = filterBillingItems;
   window.filterHerbLibrary = filterHerbLibrary;

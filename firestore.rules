@@ -68,6 +68,46 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // 會員查詢（Firebase Phone Auth 病人，無 staff claim）
+    // ------------------------------------------------------------
+    // 病人以手機號碼登入後，唯讀查詢「自己電話對應」的資料。
+    // 比對前統一正規化：去除空格、橫線、括號、加號，
+    // 容許職員建檔時電話格式差異（如 +852 9xxx xxxx）。
+    // ============================================================
+    function normalizedPhone(raw) {
+      return string(raw).replace('[ \t\r\n()+ -]', '');
+    }
+    // 去除香港國碼：Firebase Phone Auth 之手機號為 +8529xxx（正規化後 8529xxx），
+    // 職員建檔時多存 8 位本地號；統一轉成本地格式比對。
+    function localPhone(raw) {
+      let p = normalizedPhone(raw);
+      return p.matches('852[0-9]{8}') ? p.replace('852', '') : p;
+    }
+    function isPhoneUser() {
+      return isSignedIn()
+        && request.auth.token.phone_number != null
+        && request.auth.token.staff != true;
+    }
+    function patientPath(patientId) {
+      return /databases/$(database)/documents/patients/$(patientId);
+    }
+    function patientPhoneNumber(patientId) {
+      return get(patientPath(patientId)).data.phone;
+    }
+    // 手機登入者是否為該病人文件的持有人
+    function ownsPatientId(patientId) {
+      return isPhoneUser()
+        && localPhone(patientPhoneNumber(patientId))
+           == localPhone(request.auth.token.phone_number);
+    }
+    // 以流水/套票文件上的 patientId 判斷持有人
+    function ownsResourcePatient() {
+      return isPhoneUser()
+        && localPhone(patientPhoneNumber(resource.data.patientId))
+           == localPhone(request.auth.token.phone_number);
+    }
+
+    // ============================================================
     // 公開（病人無登入）集合
     // ============================================================
 
@@ -181,8 +221,55 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // Catch-all：其他業務集合（patients、consultations、clinics、
-    // patientPackages、clinicExpenses、globalBillingItems 等）。
+    // 會員儲值
+    // ============================================================
+
+    // 儲值帳戶（文件 ID = patientId）：
+    //  - 員工可讀；帳戶本人（手機驗證）可取自己的帳戶
+    //  - 寫入一律拒絕——所有進出均由 Pages Function 以 SA 交易處理，
+    //    客戶端不可直接改餘額
+    match /patientWalletAccounts/{patientId} {
+      allow get: if canAccess() || ownsPatientId(patientId);
+      allow list: if canAccess();
+      allow write: if false;
+    }
+
+    // 錢包流水（只加不刪）：
+    //  - 員工可讀；本人可讀自己的流水（逐文件以 patientId 核對電話）
+    //  - 寫入一律拒絕，僅 SA 端點可建立
+    match /patientWalletTransactions/{txId} {
+      allow read: if canAccess() || ownsResourcePatient();
+      allow write: if false;
+    }
+
+    // 冪等鍵記錄：完全由 SA 維護（防重複扣款），客戶端任何操作拒絕
+    match /walletIdempotency/{keyId} {
+      allow read, write: if false;
+    }
+
+    // 病人文件：
+    //  - 員工可讀寫
+    //  - 手機登入者可取自己的文件，並可以電話查詢（list 逐文件比對，
+    //    查詢他人文件時規則拒絕故不會外洩）
+    match /patients/{patientId} {
+      allow get: if canAccess() || ownsPatientId(patientId);
+      allow list: if canAccess()
+        || (isPhoneUser()
+            && localPhone(resource.data.phone)
+               == localPhone(request.auth.token.phone_number));
+      allow write: if canAccess();
+    }
+
+    // 次數套票：員工可讀寫；本人可讀自己電話對應的套票
+    match /patientPackages/{packageId} {
+      allow get: if canAccess() || ownsResourcePatient();
+      allow list: if canAccess() || ownsResourcePatient();
+      allow write: if canAccess();
+    }
+
+    // ============================================================
+    // Catch-all：其他業務集合（consultations、clinics、
+    // clinicExpenses、globalBillingItems 等）。
     // 必須持有活躍員工身份（claims 或過渡索引）才可讀寫。
     // 注意：Firestore 多條 match 為聯集（OR），故所有上方專用集合
     // 都必須在此排除，否則這條規則會重新放寬它們。
@@ -199,7 +286,12 @@ service cloud.firestore {
         && collectionId != 'videoPresence'
         && collectionId != 'videoConsents'
         && collectionId != 'patientsMeta'
-        && collectionId != 'backupMeta';
+        && collectionId != 'backupMeta'
+        && collectionId != 'patientWalletAccounts'
+        && collectionId != 'patientWalletTransactions'
+        && collectionId != 'walletIdempotency'
+        && collectionId != 'patients'
+        && collectionId != 'patientPackages';
     }
   }
 }

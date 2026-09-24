@@ -96,7 +96,8 @@ setPersistence(auth, browserSessionPersistence).catch((error) => {
       'patients', 'consultations', 'users',
       'patientPackages', 'patientPackageHistory', 'globalBillingItems',
       'clinics', 'clinicExpenses', 'consultationAuditLogs',
-      'patientAttachments'
+      'patientAttachments',
+      'patientWalletAccounts', 'patientWalletTransactions'
     ]);
 
     function isBackupTrackedRef(reference) {
