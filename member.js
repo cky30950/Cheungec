@@ -10,7 +10,7 @@
 
 const I18N = {
     zh: {
-        clinicName: '名醫中醫診所',
+        clinicName: '名醫診所系統',
         authTitle: '會員查詢',
         authSub: '輸入於診所登記之手機號碼，即可查閱儲值餘額、套票及交易記錄。',
         phoneLabel: '手機號碼',
@@ -46,7 +46,7 @@ const I18N = {
         langToggle: 'English'
     },
     en: {
-        clinicName: 'MING YI Chinese Medicine Clinic',
+        clinicName: 'Dr.Great Clinic System',
         authTitle: 'Member Portal',
         authSub: 'Enter your mobile number registered with the clinic to view your stored-value balance, packages and transactions.',
         phoneLabel: 'Mobile number',

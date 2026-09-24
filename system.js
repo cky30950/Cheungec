@@ -24450,6 +24450,7 @@ async function restoreUser(id) {
                 updateFinancialKeyMetrics(existing.stats);
                 updateFinancialTables(existing.filteredConsultations, existing.stats);
                 document.getElementById('lastUpdateTime').textContent = new Date().toLocaleString('zh-TW');
+                await refreshWalletFinancialSection(startDate, endDate, clinicFilter);
                 showToast('財務報表已更新（短時間內使用快取）', 'success');
                 return;
             }
@@ -24468,6 +24469,7 @@ async function restoreUser(id) {
                             document.getElementById('lastUpdateTime').textContent = new Date().toLocaleString('zh-TW');
                             financialReportLastKey = cacheKey;
                             financialReportLastRunAt = Date.now();
+                            await refreshWalletFinancialSection(startDate, endDate, clinicFilter);
                             showToast('財務報表已更新（使用快取）！', 'success');
                             return;
                         }
@@ -24517,6 +24519,7 @@ async function restoreUser(id) {
                             financialReportLastKey = cacheKey;
                             financialReportLastRunAt = Date.now();
                             document.getElementById('lastUpdateTime').textContent = new Date().toLocaleString('zh-TW');
+                            await refreshWalletFinancialSection(startDate, endDate, clinicFilter);
                             showToast('財務報表已更新！', 'success');
                             return;
                         }
@@ -24558,6 +24561,7 @@ async function restoreUser(id) {
             financialReportLastKey = cacheKey;
             financialReportLastRunAt = Date.now();
             document.getElementById('lastUpdateTime').textContent = new Date().toLocaleString('zh-TW');
+            await refreshWalletFinancialSection(startDate, endDate, clinicFilter);
             showToast('財務報表已更新！', 'success');
         }
 
@@ -24829,6 +24833,248 @@ async function restoreUser(id) {
             }).join('');
         }
 
+        // ============================================================
+        // 會員儲值（財務報表專區）
+        // ------------------------------------------------------------
+        // 會計口徑：
+        //  - 充值＝現金流入（遞延收入/負債），不計入「總收入」
+        //  - 儲值支付＝沖銷負債，消費金額已按全額計入診症收入，不重複計
+        //  - 退款＝回補會員帳戶（不直接退現金）
+        //  - 期末會員餘額＝目前會員預存（本金＋贈送），屬診所負債
+        //  - 交易不帶 clinicId，診所歸屬由診症記錄 patientId→clinicId 推得
+        // ============================================================
+        const WALLET_FIN_CACHE_TTL_MS = 5 * 60 * 1000;
+        const walletFinMemCache = new Map(); // 日期範圍 -> { at, raw }
+
+        // 香港時區日界 → ISO（避免 UTC 日界造成跨日誤差）
+        function walletFinRangeIso(startDate, endDate) {
+            return {
+                startIso: new Date(`${startDate}T00:00:00+08:00`).toISOString(),
+                endIso: new Date(`${endDate}T23:59:59.999+08:00`).toISOString()
+            };
+        }
+
+        // 依日期範圍讀取錢包流水（單欄位 at 範圍查詢，使用自動索引）
+        async function loadWalletFinRaw(startDate, endDate) {
+            const fb = window.firebase;
+            const { startIso, endIso } = walletFinRangeIso(startDate, endDate);
+            const txQ = fb.firestoreQuery(
+                fb.collection(fb.db, 'patientWalletTransactions'),
+                fb.where('at', '>=', startIso),
+                fb.where('at', '<=', endIso),
+                fb.orderBy('at', 'desc'),
+                fb.limit(500)
+            );
+            const txSnap = await fb.getDocs(txQ);
+            const txs = [];
+            txSnap.forEach((d) => txs.push(Object.assign({ id: d.id }, d.data())));
+
+            const accQ = fb.firestoreQuery(
+                fb.collection(fb.db, 'patientWalletAccounts'),
+                fb.orderBy('updatedAt', 'desc'),
+                fb.limit(200)
+            );
+            const accSnap = await fb.getDocs(accQ);
+            const accounts = [];
+            accSnap.forEach((d) => accounts.push(d.data()));
+            return { txs, accounts };
+        }
+
+        async function getWalletFinRaw(startDate, endDate, forceRefresh) {
+            const key = `${startDate}|${endDate}`;
+            const hit = walletFinMemCache.get(key);
+            if (!forceRefresh && hit && (Date.now() - hit.at) < WALLET_FIN_CACHE_TTL_MS) {
+                return hit.raw;
+            }
+            const raw = await loadWalletFinRaw(startDate, endDate);
+            walletFinMemCache.set(key, { at: Date.now(), raw });
+            return raw;
+        }
+
+        // patientId → Set(clinicId)，來自記憶體診症記錄
+        function buildWalletPatientClinicMap() {
+            const map = new Map();
+            (Array.isArray(consultations) ? consultations : []).forEach((c) => {
+                if (c && c.patientId && c.clinicId) {
+                    const pid = String(c.patientId);
+                    if (!map.has(pid)) map.set(pid, new Set());
+                    map.get(pid).add(String(c.clinicId));
+                }
+            });
+            return map;
+        }
+
+        function calculateWalletFinancialStats(raw, clinicFilter) {
+            const clinicMap = buildWalletPatientClinicMap();
+            const belongs = (pid) => {
+                if (!clinicFilter) return true;
+                const set = clinicMap.get(String(pid));
+                return !!(set && set.has(String(clinicFilter)));
+            };
+
+            const stats = {
+                topupCount: 0, topupPrincipal: 0,
+                bonusCount: 0, bonusIssued: 0,
+                payCount: 0, payPrincipal: 0, payBonus: 0,
+                refundCount: 0, refundPrincipal: 0, refundBonus: 0,
+                adjustCount: 0, adjustNet: 0,
+                outstandingPrincipal: 0, outstandingBonus: 0,
+                daily: {}
+            };
+            const ensureDay = (day) => {
+                if (!stats.daily[day]) {
+                    stats.daily[day] = {
+                        topupCount: 0, topupAmount: 0,
+                        payCount: 0, payAmount: 0,
+                        refundAmount: 0
+                    };
+                }
+                return stats.daily[day];
+            };
+
+            (raw.txs || []).forEach((tx) => {
+                if (!tx || !belongs(tx.patientId)) return;
+                const amount = Number(tx.amount) || 0;
+                const day = String(tx.at || '').slice(0, 10);
+                if (!day) return;
+                const row = ensureDay(day);
+                switch (tx.type) {
+                    case 'topup':
+                        stats.topupCount += 1;
+                        stats.topupPrincipal += amount;
+                        row.topupCount += 1;
+                        row.topupAmount += amount;
+                        break;
+                    case 'topupBonus':
+                        stats.bonusCount += 1;
+                        stats.bonusIssued += amount;
+                        break;
+                    case 'payment': {
+                        stats.payCount += 1;
+                        const fromBalance = Number(tx.fromBalance) || 0;
+                        const fromBonus = Number(tx.fromBonus) || 0;
+                        stats.payPrincipal += fromBalance;
+                        stats.payBonus += fromBonus;
+                        row.payCount += 1;
+                        row.payAmount += (fromBalance + fromBonus);
+                        break;
+                    }
+                    case 'refund': {
+                        stats.refundCount += 1;
+                        const fromBalance = Number(tx.fromBalance) || 0;
+                        const fromBonus = Number(tx.fromBonus) || 0;
+                        stats.refundPrincipal += fromBalance;
+                        stats.refundBonus += fromBonus;
+                        row.refundAmount += (fromBalance + fromBonus);
+                        break;
+                    }
+                    case 'adjust':
+                        stats.adjustCount += 1;
+                        stats.adjustNet += amount;
+                        break;
+                    default:
+                        break;
+                }
+            });
+
+            (raw.accounts || []).forEach((acc) => {
+                if (!acc || !belongs(acc.patientId)) return;
+                stats.outstandingPrincipal += Number(acc.balance) || 0;
+                stats.outstandingBonus += Number(acc.bonusBalance) || 0;
+            });
+
+            // 統一圓整到 2 位小數
+            ['topupPrincipal', 'bonusIssued', 'payPrincipal', 'payBonus',
+             'refundPrincipal', 'refundBonus', 'adjustNet',
+             'outstandingPrincipal', 'outstandingBonus'].forEach((k) => {
+                stats[k] = Math.round(stats[k] * 100) / 100;
+            });
+            Object.keys(stats.daily).forEach((d) => {
+                const r = stats.daily[d];
+                ['topupAmount', 'payAmount', 'refundAmount'].forEach((k) => {
+                    r[k] = Math.round(r[k] * 100) / 100;
+                });
+            });
+            return stats;
+        }
+
+        function walletFinFmt(n) {
+            return `HK$${Number(n || 0).toLocaleString('en-US', {
+                minimumFractionDigits: 2, maximumFractionDigits: 2
+            })}`;
+        }
+
+        function updateWalletFinSection(stats) {
+            document.getElementById('walletFinTopup').textContent =
+                walletFinFmt(stats.topupPrincipal);
+            document.getElementById('walletFinPayment').textContent =
+                walletFinFmt(stats.payPrincipal + stats.payBonus);
+            document.getElementById('walletFinRefund').textContent =
+                walletFinFmt(stats.refundPrincipal + stats.refundBonus);
+            document.getElementById('walletFinOutstanding').textContent =
+                walletFinFmt(stats.outstandingPrincipal + stats.outstandingBonus);
+
+            const rows = [
+                { item: '儲值充值（本金）', amount: stats.topupPrincipal, count: stats.topupCount, note: '會員現金預存' },
+                { item: '充值贈送額', amount: stats.bonusIssued, count: stats.bonusCount, note: '診所贈送，無現金流入' },
+                { item: '儲值消費－本金', amount: -stats.payPrincipal, count: stats.payCount, note: '沖銷本金餘額' },
+                { item: '儲值消費－贈送', amount: -stats.payBonus, count: '', note: '沖銷贈送額' },
+                { item: '退款', amount: -(stats.refundPrincipal + stats.refundBonus), count: stats.refundCount, note: '退回會員帳戶' },
+                { item: '人工調整（淨額）', amount: stats.adjustNet, count: stats.adjustCount, note: '正＝補入／負＝扣減' },
+                { item: '期末餘額－本金', amount: stats.outstandingPrincipal, count: '', note: '會員預存本金' },
+                { item: '期末餘額－贈送', amount: stats.outstandingBonus, count: '', note: '已贈送未使用' }
+            ];
+            document.getElementById('financialWalletSummaryBody').innerHTML = rows.map((r) => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm text-gray-900">${r.item}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900 text-right font-medium">${walletFinFmt(r.amount)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600 text-right">${r.count === '' ? '' : r.count}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">${r.note}</td>
+                </tr>`).join('');
+
+            const dates = Object.keys(stats.daily).sort().reverse();
+            const dailyBody = document.getElementById('financialWalletDailyBody');
+            if (!dates.length) {
+                dailyBody.innerHTML = `
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                        選定期間內沒有儲值交易
+                    </td></tr>`;
+                return;
+            }
+            dailyBody.innerHTML = dates.map((day) => {
+                const r = stats.daily[day];
+                const formatted = new Date(`${day}T00:00:00+08:00`).toLocaleDateString('zh-HK');
+                return `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-4 py-3 text-sm text-gray-900">${formatted}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900 text-right">${r.topupCount}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900 text-right">${walletFinFmt(r.topupAmount)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900 text-right">${r.payCount}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900 text-right">${walletFinFmt(r.payAmount)}</td>
+                    <td class="px-4 py-3 text-sm text-gray-900 text-right">${walletFinFmt(r.refundAmount)}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function refreshWalletFinancialSection(startDate, endDate, clinicFilter, forceRefresh) {
+            try {
+                const raw = await getWalletFinRaw(startDate, endDate, !!forceRefresh);
+                const stats = calculateWalletFinancialStats(raw, clinicFilter);
+                updateWalletFinSection(stats);
+                return stats;
+            } catch (error) {
+                console.error('載入會員儲值財務資料失敗:', error);
+                const body = document.getElementById('financialWalletSummaryBody');
+                if (body) {
+                    body.innerHTML = `
+                        <tr><td colspan="4" class="px-4 py-8 text-center text-red-500">
+                            暫時無法載入儲值資料，請稍後再按「更新報表」
+                        </td></tr>`;
+                }
+                return null;
+            }
+        }
+
         // 切換財務標籤
         function switchFinancialTab(tabType) {
             // 更新標籤按鈕樣式
@@ -24888,6 +25134,12 @@ async function buildFinancialExportPayload() {
     }
     const clinicOpt = clinicFilter ? (Array.isArray(clinicsList) ? clinicsList.find(c => String(c.id) === String(clinicFilter)) : null) : null;
     const clinicName = clinicOpt ? (clinicOpt.chineseName || clinicOpt.englishName || clinicOpt.id) : clinicFilter;
+    let walletStats = null;
+    try {
+        walletStats = await refreshWalletFinancialSection(startDate, endDate, clinicFilter);
+    } catch (_e) {
+        walletStats = null;
+    }
     return {
         startDate,
         endDate,
@@ -24899,6 +25151,7 @@ async function buildFinancialExportPayload() {
         stats,
         totalCost,
         byType,
+        walletStats,
         generatedAt: new Date().toLocaleString('zh-TW')
     };
 }
@@ -24933,6 +25186,26 @@ async function exportFinancialReportTxt() {
     textReport += `每日統計:\n${dailyLines || '無資料'}\n`;
     const costLines = Object.keys(byType).map(t => `${t}: $${Number(byType[t] || 0).toLocaleString()}`).join('\n');
     textReport += `\n成本統計:\n${costLines || '無資料'}\n`;
+
+    // 會員儲值統計
+    const w = data.walletStats;
+    if (w) {
+        textReport += `\n會員儲值統計:\n`;
+        textReport += `儲值充值(本金): ${walletFinFmt(w.topupPrincipal)}（${w.topupCount} 筆；屬預存，非營業收入）\n`;
+        textReport += `充值贈送額: ${walletFinFmt(w.bonusIssued)}（${w.bonusCount} 筆）\n`;
+        textReport += `儲值消費: ${walletFinFmt(w.payPrincipal + w.payBonus)}（${w.payCount} 筆；已計入診症收入）\n`;
+        textReport += `　－本金 ${walletFinFmt(w.payPrincipal)}，贈送 ${walletFinFmt(w.payBonus)}\n`;
+        textReport += `退款: ${walletFinFmt(w.refundPrincipal + w.refundBonus)}（${w.refundCount} 筆）\n`;
+        textReport += `人工調整(淨額): ${walletFinFmt(w.adjustNet)}（${w.adjustCount} 筆）\n`;
+        textReport += `期末會員餘額: ${walletFinFmt(w.outstandingPrincipal + w.outstandingBonus)}`
+            + `（本金 ${walletFinFmt(w.outstandingPrincipal)}＋贈送 ${walletFinFmt(w.outstandingBonus)}；診所負債）\n`;
+        const walletDailyLines = Object.keys(w.daily).sort().reverse().map((day) => {
+            const r = w.daily[day];
+            return `${day}: 充值 ${walletFinFmt(r.topupAmount)}（${r.topupCount} 筆），`
+                + `消費 ${walletFinFmt(r.payAmount)}（${r.payCount} 筆），退款 ${walletFinFmt(r.refundAmount)}`;
+        }).join('\n');
+        textReport += `每日儲值明細:\n${walletDailyLines || '無資料'}\n`;
+    }
     const blob = new Blob([textReport], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -24972,6 +25245,30 @@ async function exportFinancialReportExcel() {
         const amount = Number(byType[type] || 0);
         return `<tr><td>${esc(type)}</td><td>${amount}</td></tr>`;
     }).join('');
+
+    // 會員儲值段落
+    const w = data.walletStats;
+    let walletSummaryRows = '';
+    let walletDailyRows = '';
+    if (w) {
+        const wrow = (label, amount, count, note) =>
+            `<tr><td>${esc(label)}</td><td>${Number(amount) || 0}</td>`
+            + `<td>${count === '' || count == null ? '' : count}</td><td>${esc(note || '')}</td></tr>`;
+        walletSummaryRows =
+            wrow('儲值充值（本金）', w.topupPrincipal, w.topupCount, '預存，非營業收入')
+            + wrow('充值贈送額', w.bonusIssued, w.bonusCount, '診所贈送')
+            + wrow('儲值消費－本金', -w.payPrincipal, w.payCount, '沖銷本金')
+            + wrow('儲值消費－贈送', -w.payBonus, '', '沖銷贈送額')
+            + wrow('退款', -(w.refundPrincipal + w.refundBonus), w.refundCount, '退回會員帳戶')
+            + wrow('人工調整（淨額）', w.adjustNet, w.adjustCount, '正＝補入／負＝扣減')
+            + wrow('期末餘額－本金', w.outstandingPrincipal, '', '診所負債')
+            + wrow('期末餘額－贈送', w.outstandingBonus, '', '診所負債');
+        walletDailyRows = Object.keys(w.daily).sort().reverse().map((day) => {
+            const r = w.daily[day];
+            return `<tr><td>${esc(day)}</td><td>${r.topupCount}</td><td>${r.topupAmount}</td>`
+                + `<td>${r.payCount}</td><td>${r.payAmount}</td><td>${r.refundAmount}</td></tr>`;
+        }).join('');
+    }
     const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -25007,6 +25304,10 @@ h2, h3 { margin: 8px 0; }
 <table><tr><th>日期</th><th>次數</th><th>收入</th></tr>${dailyRows || '<tr><td colspan="3">無資料</td></tr>'}</table>
 <h3>成本統計</h3>
 <table><tr><th>成本類型</th><th>金額</th></tr>${costRows || '<tr><td colspan="2">無資料</td></tr>'}</table>
+<h3>會員儲值統計</h3>
+<table><tr><th>項目</th><th>金額</th><th>筆數</th><th>備註</th></tr>${walletSummaryRows || '<tr><td colspan="4">無資料</td></tr>'}</table>
+<h3>每日儲值明細</h3>
+<table><tr><th>日期</th><th>充值筆數</th><th>充值金額</th><th>消費筆數</th><th>消費金額</th><th>退款金額</th></tr>${walletDailyRows || '<tr><td colspan="6">無資料</td></tr>'}</table>
 </body>
 </html>`;
     const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;charset=utf-8' });
@@ -33679,7 +33980,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     const infoMap = await resolveWalletPatientInfo([String(patientId)]);
     const pInfo = infoMap.get(String(patientId)) || null;
     document.getElementById('walletPatientName').textContent =
-      (pInfo && pInfo.name) ? pInfo.name : '未知病人';
+      `病人姓名：${(pInfo && pInfo.name) ? pInfo.name : '未知病人'}`;
     const metaParts = [];
     if (pInfo && pInfo.patientNumber) metaParts.push(`病人編號：${pInfo.patientNumber}`);
     if (pInfo && pInfo.phone) metaParts.push(`電話：${pInfo.phone}`);
@@ -33881,26 +34182,57 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
   function showWalletRefundForm() {
     const f = document.getElementById('walletAdminForm');
     f.classList.remove('hidden');
+
+    // 由已載入的交易記錄中取出儲值付款單，供直接選擇（不必手輸 ID）
+    const payTxs = (walletLastTxs || []).filter((tx) =>
+      tx && tx.type === 'payment' && tx.consultationId);
+    const payOptions = payTxs.map((tx) => {
+      let atText = '';
+      try {
+        atText = new Date(tx.at).toLocaleString('zh-HK', { hour12: false });
+      } catch (_e) { atText = tx.at || ''; }
+      const amt = Math.abs(walletRound2(tx.amount)).toFixed(2);
+      return `<option value="${window.escapeHtml(tx.consultationId)}">${window.escapeHtml(atText)}　HK$${amt}</option>`;
+    }).join('');
+
     f.innerHTML = `
       <h4 class="font-semibold text-gray-800 mb-3">退款</h4>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
         <div>
-          <label class="block text-sm text-gray-600 mb-1">診症單 ID *</label>
+          <label class="block text-sm text-gray-600 mb-1">選擇診症單 *</label>
+          <select id="walletRefundCidSelect" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            ${payOptions
+              ? payOptions
+              : '<option value="">沒有可退款的儲值付款記錄</option>'}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">診症單 ID（或自行輸入）</label>
           <input type="text" id="walletRefundCid" placeholder="20 字病歷 ID" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
         </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
         <div>
           <label class="block text-sm text-gray-600 mb-1">退款金額（留空＝全額）</label>
           <input type="number" id="walletRefundAmount" min="0" step="0.01" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
         </div>
-      </div>
-      <div class="mb-4">
-        <label class="block text-sm text-gray-600 mb-1">說明</label>
-        <input type="text" id="walletRefundNote" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        <div>
+          <label class="block text-sm text-gray-600 mb-1">說明</label>
+          <input type="text" id="walletRefundNote" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+        </div>
       </div>
       <div class="flex gap-3">
         <button onclick="submitWalletRefund()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm">確認退款</button>
         <button onclick="hideWalletAdminForm()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm">取消</button>
       </div>`;
+
+    // 選擇下拉項目時自動帶入 ID
+    const sel = document.getElementById('walletRefundCidSelect');
+    const cidInput = document.getElementById('walletRefundCid');
+    if (sel && cidInput) {
+      sel.onchange = function () { cidInput.value = this.value; };
+      if (sel.value) cidInput.value = sel.value;
+    }
   }
 
   async function submitWalletRefund() {
@@ -34194,6 +34526,9 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
   window.getWalletAccount = getWalletAccount;
   window.walletRound2 = walletRound2;
   window.submitWalletTopup = submitWalletTopup;
+  window.submitWalletRefund = submitWalletRefund;
+  window.submitWalletAdjust = submitWalletAdjust;
+  window.submitWalletStatus = submitWalletStatus;
   window.showWalletRefundForm = showWalletRefundForm;
   window.hideWalletAdminForm = hideWalletAdminForm;
   window.showWalletAdjustForm = showWalletAdjustForm;

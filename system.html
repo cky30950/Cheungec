@@ -2348,6 +2348,9 @@
                             <button onclick="switchFinancialTab('service')" id="financialServiceTab" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm transition duration-200">
                                 服務分析
                             </button>
+                            <button onclick="switchFinancialTab('wallet')" id="financialWalletTab" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm transition duration-200">
+                                💳 會員儲值
+                            </button>
                         </nav>
                     </div>
                     
@@ -2443,6 +2446,67 @@
                                                 請點擊「更新報表」來載入資料
                                             </td>
                                         </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        
+                        <div id="financialWalletContent" class="financial-tab-content hidden">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                <div class="bg-gradient-to-r from-teal-400 to-teal-600 text-white rounded-xl p-5 shadow">
+                                    <p class="text-teal-100 text-sm">本期儲值充值</p>
+                                    <h3 id="walletFinTopup" class="text-2xl font-bold mt-1">$0</h3>
+                                    <p class="text-teal-100 text-xs mt-1">現金流入（未賺取）</p>
+                                </div>
+                                <div class="bg-gradient-to-r from-indigo-400 to-indigo-600 text-white rounded-xl p-5 shadow">
+                                    <p class="text-indigo-100 text-sm">本期儲值消費</p>
+                                    <h3 id="walletFinPayment" class="text-2xl font-bold mt-1">$0</h3>
+                                    <p class="text-indigo-100 text-xs mt-1">已計入診症收入</p>
+                                </div>
+                                <div class="bg-gradient-to-r from-red-400 to-red-600 text-white rounded-xl p-5 shadow">
+                                    <p class="text-red-100 text-sm">本期退款</p>
+                                    <h3 id="walletFinRefund" class="text-2xl font-bold mt-1">$0</h3>
+                                    <p class="text-red-100 text-xs mt-1">儲值退款回補</p>
+                                </div>
+                                <div class="bg-gradient-to-r from-amber-400 to-amber-600 text-white rounded-xl p-5 shadow">
+                                    <p class="text-amber-100 text-sm">期末會員餘額</p>
+                                    <h3 id="walletFinOutstanding" class="text-2xl font-bold mt-1">$0</h3>
+                                    <p class="text-amber-100 text-xs mt-1">會員預存（診所負債）</p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500 mb-4">說明：儲值充值屬會員預存，並非營業收入，故不計入上方「總收入」；以儲值支付的診症金額已按全數計入診症收入，避免重複計算。本區不套用醫師篩選。</p>
+                            <h4 class="text-sm font-semibold text-gray-800 mb-2">儲值摘要</h4>
+                            <div class="overflow-x-auto mb-6">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">項目</th>
+                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">金額</th>
+                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">筆數</th>
+                                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">備註</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="financialWalletSummaryBody" class="divide-y divide-gray-200">
+                                        <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500">請點擊「更新報表」來載入資料</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <h4 class="text-sm font-semibold text-gray-800 mb-2">每日儲值明細</h4>
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">日期</th>
+                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">充值筆數</th>
+                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">充值金額</th>
+                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">消費筆數</th>
+                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">消費金額</th>
+                                            <th class="px-4 py-3 text-right text-sm font-semibold text-gray-700">退款金額</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="financialWalletDailyBody" class="divide-y divide-gray-200">
+                                        <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">請點擊「更新報表」來載入資料</td></tr>
                                     </tbody>
                                 </table>
                             </div>
