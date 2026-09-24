@@ -33998,6 +33998,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     // 頂部顯示目前選中的病人（姓名／編號／電話）
     const infoMap = await resolveWalletPatientInfo([String(patientId)]);
     const pInfo = infoMap.get(String(patientId)) || null;
+    walletLastPatientInfo = pInfo;
     document.getElementById('walletPatientName').textContent =
       `病人姓名：${(pInfo && pInfo.name) ? pInfo.name : '未知病人'}`;
     const metaParts = [];
@@ -34054,6 +34055,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
   const WALLET_TX_PAGE_SIZE = 10;
   let walletLastTxs = [];
   let walletTxPage = 1;
+  let walletLastPatientInfo = null;
 
   function walletTxRowHtml(tx) {
     const amount = walletRound2(tx.amount);
@@ -34168,6 +34170,18 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
       showToast('請輸入有效的充值金額', 'error');
       return;
     }
+    // 提交前彈窗二次確認（病人、金額、贈送額）
+    const patientName = (walletLastPatientInfo && walletLastPatientInfo.name) || '未知病人';
+    let confirmMsg = `確認為病人「${patientName}」充值 HK$${walletRound2(amount).toFixed(2)}？`;
+    try {
+      const cfg = await getWalletMembershipConfig();
+      const bonusAmount = walletBonusFor(cfg, amount);
+      if (bonusAmount > 0) {
+        confirmMsg += `\n此金額可獲贈 HK$${bonusAmount.toFixed(2)}`;
+      }
+    } catch (_e) { /* 贈送額查詢失敗不阻擋確認 */ }
+    const confirmed = await showConfirmation(confirmMsg, 'question');
+    if (!confirmed) return;
     try {
       const result = await walletApi('topup', {
         patientId: walletSelectedPatientId,
