@@ -74,6 +74,16 @@
         .sub { font-size: 14px; color: var(--muted); margin: 0 0 18px; }
 
         label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+        select {
+            width: 100%;
+            padding: 11px 12px;
+            font-size: 15px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #fff;
+            color: var(--ink);
+        }
+        select:focus { outline: 2px solid rgba(13,148,136,0.35); border-color: var(--brand); }
         input[type="tel"], input[type="text"] {
             width: 100%;
             padding: 12px 14px;
@@ -229,6 +239,10 @@
 
     <!-- 資料頁 -->
     <div id="dataView" class="hidden">
+        <div class="card" id="clinicSelectCard">
+            <label for="clinicSelect" data-i18n="selectClinic">選擇診所</label>
+            <select id="clinicSelect"></select>
+        </div>
         <div class="balance-hero">
             <div class="label" data-i18n="totalBalance">儲值總餘額 (HKD)</div>
             <div class="amount" id="heroTotal">$0.00</div>

@@ -43,6 +43,8 @@ const I18N = {
         errNoPatient: '系統中沒有以此電話登記的病人記錄。',
         errLoad: '查詢失敗，請稍後再試',
         patientLabel: '病人',
+        selectClinic: '選擇診所',
+        unassigned: '未分組',
         langToggle: 'English'
     },
     en: {
@@ -79,6 +81,8 @@ const I18N = {
         errNoPatient: 'No patient record is registered with this phone number.',
         errLoad: 'Lookup failed, please try again later',
         patientLabel: 'Patient',
+        selectClinic: 'Select clinic',
+        unassigned: 'Unassigned',
         langToggle: '中文'
     }
 };
@@ -107,6 +111,10 @@ document.getElementById('langToggle').addEventListener('click', () => {
     lang = lang === 'zh' ? 'en' : 'zh';
     try { localStorage.setItem('memberLang', lang); } catch (_e) {}
     applyStaticI18n();
+    // 診所選項名稱隨語言更新（資料頁可見時）
+    if (!$('dataView').classList.contains('hidden')) {
+        renderClinicSelector();
+    }
 });
 
 /* ---------------- UI helpers ---------------- */
@@ -242,8 +250,27 @@ async function initTurnstile() {
 
 let patientEntries = [];
 let activePatientIndex = 0;
+let activeClinicIndex = 0;
 let txPage = 1;
 const TX_PAGE_SIZE = 10;
+
+function activeEntry() {
+    return patientEntries[activePatientIndex] || null;
+}
+
+function activeClinic() {
+    const e = activeEntry();
+    const cs = e && Array.isArray(e.clinics) ? e.clinics : [];
+    return cs[activeClinicIndex] || cs[0] || null;
+}
+
+function clinicDisplayName(c) {
+    if (!c) return '';
+    if (!c.clinicId) return t('unassigned');
+    const n = c.clinicName
+        && (c.clinicName[lang] || c.clinicName.zh || c.clinicName.en);
+    return n || c.clinicId;
+}
 
 async function lookup() {
     clearAuthMsg();
@@ -302,6 +329,14 @@ $('phoneInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') lookup();
 });
 
+$('clinicSelect').addEventListener('change', (e) => {
+    activeClinicIndex = Number(e.target.value) || 0;
+    txPage = 1;
+    renderBalance();
+    renderPackages();
+    renderTransactions();
+});
+
 $('backBtn').addEventListener('click', () => {
     $('dataView').classList.add('hidden');
     $('authView').classList.remove('hidden');
@@ -329,11 +364,26 @@ function renderPatientTabs() {
     });
 }
 
+function renderClinicSelector() {
+    const card = $('clinicSelectCard');
+    const sel = $('clinicSelect');
+    const e = activeEntry();
+    const cs = e && Array.isArray(e.clinics) ? e.clinics : [];
+    if (cs.length <= 1) {
+        card.classList.add('hidden');
+        return;
+    }
+    card.classList.remove('hidden');
+    if (activeClinicIndex >= cs.length) activeClinicIndex = 0;
+    sel.innerHTML = cs.map((c, i) =>
+        `<option value="${i}">${clinicDisplayName(c)}</option>`).join('');
+    sel.value = String(activeClinicIndex);
+}
+
 function renderBalance() {
-    const entry = patientEntries[activePatientIndex];
-    const acc = entry && entry.account;
-    const balance = acc ? Number(acc.balance) : 0;
-    const bonus = acc ? Number(acc.bonusBalance) : 0;
+    const c = activeClinic();
+    const balance = c ? Number(c.balance) : 0;
+    const bonus = c ? Number(c.bonusBalance) : 0;
     $('heroTotal').textContent = money(balance + bonus);
     $('heroBalance').textContent = money(balance);
     $('heroBonus').textContent = money(bonus);
@@ -341,7 +391,8 @@ function renderBalance() {
 
 function renderPackages() {
     const ul = $('packageList');
-    const packages = patientEntries[activePatientIndex].packages || [];
+    const c = activeClinic();
+    const packages = c && c.packages ? c.packages : [];
     if (!packages.length) {
         ul.innerHTML = `<li class="empty">${t('noPackages')}</li>`;
         return;
@@ -376,7 +427,8 @@ function txTypeLabel(type) {
 function renderTransactions() {
     const ul = $('txList');
     const pager = $('txPager');
-    const txs = patientEntries[activePatientIndex].transactions || [];
+    const c = activeClinic();
+    const txs = c && c.transactions ? c.transactions : [];
     if (!txs.length) {
         ul.innerHTML = `<li class="empty">${t('noTransactions')}</li>`;
         if (pager) pager.classList.add('hidden');
@@ -428,7 +480,8 @@ function renderTransactions() {
 }
 
 function goToTxPage(p) {
-    const txs = patientEntries[activePatientIndex].transactions || [];
+    const c = activeClinic();
+    const txs = c && c.transactions ? c.transactions : [];
     const totalPages = Math.ceil(txs.length / TX_PAGE_SIZE);
     const next = Math.max(1, Math.min(totalPages, Number(p)));
     if (next === txPage) return;
@@ -438,7 +491,9 @@ function goToTxPage(p) {
 
 function renderAll() {
     txPage = 1;
+    activeClinicIndex = 0;
     renderPatientTabs();
+    renderClinicSelector();
     renderBalance();
     renderPackages();
     renderTransactions();

@@ -24891,25 +24891,44 @@ async function restoreUser(id) {
             return raw;
         }
 
-        // patientId → Set(clinicId)，來自記憶體診症記錄
+        // patientId → Set(clinicId) 及輔助索引：
+        //  - patientClinics：來自診症記錄（含 clinicId 者）
+        //  - appointmentClinics：appointmentId → clinicId（充值單可能只掛掛號）
         function buildWalletPatientClinicMap() {
-            const map = new Map();
+            const patientClinics = new Map();
+            const appointmentClinics = new Map();
+
             (Array.isArray(consultations) ? consultations : []).forEach((c) => {
                 if (c && c.patientId && c.clinicId) {
                     const pid = String(c.patientId);
-                    if (!map.has(pid)) map.set(pid, new Set());
-                    map.get(pid).add(String(c.clinicId));
+                    if (!patientClinics.has(pid)) patientClinics.set(pid, new Set());
+                    patientClinics.get(pid).add(String(c.clinicId));
                 }
             });
-            return map;
+
+            (Array.isArray(appointments) ? appointments : []).forEach((a) => {
+                if (a && a.id && a.clinicId) {
+                    appointmentClinics.set(String(a.id), String(a.clinicId));
+                }
+            });
+            return { patientClinics, appointmentClinics };
         }
 
         function calculateWalletFinancialStats(raw, clinicFilter) {
-            const clinicMap = buildWalletPatientClinicMap();
-            const belongs = (pid) => {
+            const { patientClinics, appointmentClinics } = buildWalletPatientClinicMap();
+            // 單一診所系統：所有數據皆屬該診所，無需記錄自證
+            const singleClinicId = (Array.isArray(clinicsList) && clinicsList.length === 1)
+                ? String(clinicsList[0].id) : '';
+            const belongs = (pid, appointmentId) => {
                 if (!clinicFilter) return true;
-                const set = clinicMap.get(String(pid));
-                return !!(set && set.has(String(clinicFilter)));
+                if (singleClinicId && String(clinicFilter) === singleClinicId) return true;
+                const set = patientClinics.get(String(pid));
+                if (set) return set.has(String(clinicFilter));
+                if (appointmentId && appointmentClinics.get(String(appointmentId)) === String(clinicFilter)) {
+                    return true;
+                }
+                // 無任何診所證據的記錄（如舊數據）不歸入任何診所，避免跨診所重複計入
+                return false;
             };
 
             const stats = {
@@ -24933,7 +24952,7 @@ async function restoreUser(id) {
             };
 
             (raw.txs || []).forEach((tx) => {
-                if (!tx || !belongs(tx.patientId)) return;
+                if (!tx || !belongs(tx.patientId, tx.appointmentId)) return;
                 const amount = Number(tx.amount) || 0;
                 const day = String(tx.at || '').slice(0, 10);
                 if (!day) return;

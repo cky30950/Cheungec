@@ -141,9 +141,38 @@ async function findPatients(client, variants) {
     return Array.from(byId.values());
 }
 
-async function buildPatientEntry(client, patientDoc) {
+async function fetchRtdbAppointment(rtdbUrl, token, appointmentId) {
+    try {
+        const base = String(rtdbUrl || '').replace(/\/$/, '');
+        const res = await fetch(
+            `${base}/appointments/${encodeURIComponent(appointmentId)}.json`,
+            { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        if (!res.ok) return null;
+        return await res.json();
+    } catch (_e) {
+        return null;
+    }
+}
+
+// 批次（並行）讀取文件，回傳 Map(id → data)；失敗或缺件跳過。
+async function fetchDocMap(client, collectionId, ids, opts = {}) {
+    const cap = opts.cap || 50;
+    const uniq = Array.from(new Set((ids || []).filter(Boolean))).slice(0, cap);
+    const docs = await Promise.all(uniq.map(async (id) => {
+        try {
+            const d = await client.getDocument(`${collectionId}/${encodeURIComponent(id)}`);
+            return d && d.data ? [id, d.data] : null;
+        } catch (_e) {
+            return null;
+        }
+    }));
+    return new Map(docs.filter(Boolean));
+}
+
+async function buildPatientEntry(client, token, patientDoc, clinicNameMap) {
     const patientId = patientDoc.id;
-    const [accDoc, pkgPage, txPage] = await Promise.all([
+    const [accDoc, pkgPage, txPage, consPage] = await Promise.all([
         client.getDocument(`patientWalletAccounts/${encodeURIComponent(patientId)}`),
         client.queryCollection({
             collectionId: 'patientPackages',
@@ -155,26 +184,95 @@ async function buildPatientEntry(client, patientDoc) {
             collectionId: 'patientWalletTransactions',
             where: eqFilter('patientId', { stringValue: patientId }),
             orderBy: [{ field: { fieldPath: 'at' }, direction: 'DESCENDING' }],
-            limit: 20
+            limit: 300
+        }),
+        // 病人的診症記錄：用於把套票按使用診所歸組
+        client.queryCollection({
+            collectionId: 'consultations',
+            where: eqFilter('patientId', { stringValue: patientId }),
+            orderBy: [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }],
+            limit: 200
         })
     ]);
 
-    // 僅回有效套票：尚有餘次且未過期
+    // ── 1. 交易 → 診所歸屬 ──
+    const allTxs = txPage.docs.map((d) => d.data);
+    const consultationIds = allTxs
+        .map((tx) => tx.consultationId)
+        .filter((id) => id);
+    const appointmentIds = allTxs
+        .map((tx) => tx.appointmentId)
+        .filter((id) => id);
+
+    const [consMap, apptDataList] = await Promise.all([
+        fetchDocMap(client, 'consultations', consultationIds),
+        Promise.all(Array.from(new Set(appointmentIds)).slice(0, 50)
+            .map((id) => fetchRtdbAppointment(client.rtdbUrl, token, id)))
+    ]);
+    const apptMap = new Map();
+    Array.from(new Set(appointmentIds)).slice(0, 50).forEach((id, i) => {
+        if (apptDataList[i]) apptMap.set(id, apptDataList[i]);
+    });
+
+    // 先解析 topup 單：其同 idempotencyKey 的 topupBonus 照單歸同一診所
+    const idemClinicMap = new Map();
+    allTxs.forEach((tx) => {
+        if (tx.type !== 'topup') return;
+        let cid = (tx.consultationId && consMap.has(tx.consultationId)
+            && consMap.get(tx.consultationId).clinicId)
+            || (tx.appointmentId && apptMap.has(tx.appointmentId)
+            && apptMap.get(tx.appointmentId).clinicId)
+            || '';
+        if (tx.idempotencyKey) idemClinicMap.set(tx.idempotencyKey, String(cid || ''));
+    });
+
+    function txClinicId(tx) {
+        if (tx.consultationId) {
+            const c = consMap.get(tx.consultationId);
+            if (c && c.clinicId) return String(c.clinicId);
+        }
+        if (tx.appointmentId) {
+            const a = apptMap.get(tx.appointmentId);
+            if (a && a.clinicId) return String(a.clinicId);
+        }
+        if (tx.type === 'topupBonus' && tx.idempotencyKey
+            && idemClinicMap.has(tx.idempotencyKey)) {
+            return idemClinicMap.get(tx.idempotencyKey);
+        }
+        return ''; // 無法歸屬 → 未分組
+    }
+
+    // ── 2. 套票 → 診所歸屬（依使用記錄）──
+    const pkgClinicMap = new Map();
+    consPage.docs.forEach((d) => {
+        const c = d.data || {};
+        if (!c.clinicId) return;
+        const items = Array.isArray(c.financialSummaryItems)
+            ? c.financialSummaryItems : [];
+        items.forEach((it) => {
+            if (it && it.packageRecordId
+                && !pkgClinicMap.has(String(it.packageRecordId))) {
+                pkgClinicMap.set(String(it.packageRecordId), String(c.clinicId));
+            }
+        });
+    });
+
+    // ── 3. 僅保留有效套票並歸組 ──
     const nowMs = Date.now();
     const packages = pkgPage.docs
-        .map((d) => d.data)
+        .map((d) => ({ id: d.id, data: d.data }))
+        .filter((p) => Number(p.data.remainingUses) > 0)
         .filter((p) => {
-            if (!(Number(p.remainingUses) > 0)) return false;
-            if (!p.expiresAt) return true;
-            const expMs = expiryToMs(p.expiresAt);
-            // 無法解析到期日時不誤殺，保留該套票
+            if (!p.data.expiresAt) return true;
+            const expMs = expiryToMs(p.data.expiresAt);
             return expMs === null ? true : expMs >= nowMs;
         })
         .map((p) => ({
-            name: p.name || p.packageName || '',
-            totalUses: Number(p.totalUses) || 0,
-            remainingUses: Number(p.remainingUses) || 0,
-            expiresAt: p.expiresAt || null
+            clinicId: pkgClinicMap.has(p.id) ? pkgClinicMap.get(p.id) : '',
+            name: p.data.name || p.data.packageName || '',
+            totalUses: Number(p.data.totalUses) || 0,
+            remainingUses: Number(p.data.remainingUses) || 0,
+            expiresAt: p.data.expiresAt || null
         }));
 
     const account = accDoc && accDoc.data
@@ -185,12 +283,84 @@ async function buildPatientEntry(client, patientDoc) {
         }
         : null;
 
+    // ── 4. 分組：餘額（依完整流水計算）＋近期交易（每組上限 30）──
+    const groups = new Map();
+    const ensureGroup = (cid) => {
+        if (!groups.has(cid)) {
+            const names = clinicNameMap.get(cid);
+            groups.set(cid, {
+                clinicId: cid,
+                clinicName: names || { zh: '', en: '' },
+                balance: 0,
+                bonusBalance: 0,
+                packages: [],
+                transactions: []
+            });
+        }
+        return groups.get(cid);
+    };
+
+    allTxs.forEach((tx) => {
+        const cid = txClinicId(tx);
+        const g = ensureGroup(cid);
+        switch (tx.type) {
+            case 'topup':
+                g.balance += Number(tx.amount) || 0;
+                break;
+            case 'topupBonus':
+                g.bonusBalance += Number(tx.amount) || 0;
+                break;
+            case 'payment':
+                g.balance += Number(tx.fromBalance) || 0;
+                g.bonusBalance += Number(tx.fromBonus) || 0;
+                break;
+            case 'refund':
+                g.balance += Number(tx.fromBalance) || 0;
+                g.bonusBalance += Number(tx.fromBonus) || 0;
+                break;
+            case 'adjust':
+                // 優先採本金/贈送拆分欄位
+                if (Number.isFinite(Number(tx.deltaBalance))) {
+                    g.balance += Number(tx.deltaBalance);
+                    g.bonusBalance += Number(tx.deltaBonus) || 0;
+                } else {
+                    g.balance += Number(tx.amount) || 0;
+                }
+                break;
+            default:
+                break;
+        }
+        if (g.transactions.length < 30) g.transactions.push(tx);
+    });
+
+    packages.forEach((p) => {
+        // 從未使用而病人只有單一診所時，歸入該診所；多診所且無證據→未分組
+        let cid = p.clinicId;
+        if (!cid && groups.size === 1 && groups.has('') === false) {
+            cid = Array.from(groups.keys())[0];
+        }
+        ensureGroup(cid).packages.push({
+            name: p.name,
+            totalUses: p.totalUses,
+            remainingUses: p.remainingUses,
+            expiresAt: p.expiresAt
+        });
+    });
+
+    const clinics = Array.from(groups.values()).map((g) => {
+        g.balance = Math.round(g.balance * 100) / 100;
+        g.bonusBalance = Math.round(g.bonusBalance * 100) / 100;
+        return g;
+    });
+
+    // 有明確診所的排在前，未分組墊後
+    clinics.sort((a, b) => (a.clinicId ? 0 : 1) - (b.clinicId ? 0 : 1));
+
     return {
         patientId,
         name: patientDoc.data.name || '',
         account,
-        packages,
-        transactions: txPage.docs.map((d) => d.data)
+        clinics
     };
 }
 
@@ -237,9 +407,23 @@ export async function onRequestPost(context) {
             env.FIREBASE_RTDB_URL || ''
         );
 
+        // 診所名稱表（id → 中英文名），供分組顯示
+        const clinicsPage = await client.queryCollection({
+            collectionId: 'clinics',
+            orderBy: [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }],
+            limit: 50
+        });
+        const clinicNameMap = new Map();
+        clinicsPage.docs.forEach((d) => {
+            clinicNameMap.set(d.id, {
+                zh: d.data.chineseName || '',
+                en: d.data.englishName || ''
+            });
+        });
+
         const patientDocs = await findPatients(client, phoneVariants);
         const patients = await Promise.all(
-            patientDocs.map((d) => buildPatientEntry(client, d))
+            patientDocs.map((d) => buildPatientEntry(client, auth.token, d, clinicNameMap))
         );
 
         return jsonResponse({ patients });
