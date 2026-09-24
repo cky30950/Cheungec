@@ -33286,10 +33286,192 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
 
   // ── 管理區塊 ──
 
+  /* ============================================================
+   * 左欄會員列表
+   * 預設：列出總餘額（本金＋贈送額）> 0 的會員
+   * 搜尋：複用 firebaseDataManager.searchPatients（姓名／編號／電話）
+   * ============================================================ */
+  let walletCurrentEntries = [];
+  let walletCurrentIsSearch = false;
+  const walletPatientInfoCache = new Map();
+
+  function walletListLoadingHtml() {
+    return `<div class="px-4 py-10 text-center text-sm text-gray-400">
+      <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-gray-700"></div>
+      <div class="mt-2">載入中…</div></div>`;
+  }
+
+  // 解析病人姓名／編號／電話：優先用病人快取，缺者才按需讀取（session 快取）
+  async function resolveWalletPatientInfo(ids) {
+    const map = new Map();
+    const collect = (p) => {
+      if (!p || !p.id) return;
+      const id = String(p.id);
+      if (ids.indexOf(id) === -1 || map.has(id)) return;
+      map.set(id, {
+        name: p.name || '',
+        patientNumber: p.patientNumber || '',
+        phone: p.phone || ''
+      });
+    };
+    try {
+      const dmCache = (window.firebaseDataManager && Array.isArray(window.firebaseDataManager.patientsCache))
+        ? window.firebaseDataManager.patientsCache : [];
+      dmCache.forEach(collect);
+      (Array.isArray(patients) ? patients : []).forEach(collect);
+    } catch (_e) {}
+
+    const missing = [];
+    ids.forEach((id) => {
+      const cached = walletPatientInfoCache.get(id);
+      if (cached) map.set(id, cached);
+      else if (!map.has(id)) missing.push(id);
+    });
+    if (missing.length) {
+      const snaps = await Promise.all(missing.map((id) =>
+        window.firebase.getDoc(window.firebase.doc(window.firebase.db, 'patients', id))
+          .catch(() => null)
+      ));
+      snaps.forEach((snap, i) => {
+        if (snap && snap.exists()) {
+          const d = snap.data() || {};
+          const info = {
+            name: d.name || '',
+            patientNumber: d.patientNumber || '',
+            phone: d.phone || ''
+          };
+          walletPatientInfoCache.set(missing[i], info);
+          map.set(missing[i], info);
+        }
+      });
+    }
+    return map;
+  }
+
+  async function loadWalletMemberList() {
+    const listEl = document.getElementById('walletMemberList');
+    if (!listEl) return;
+    walletCurrentIsSearch = false;
+    listEl.innerHTML = walletListLoadingHtml();
+    try {
+      const q = window.firebase.firestoreQuery(
+        window.firebase.collection(window.firebase.db, 'patientWalletAccounts'),
+        window.firebase.orderBy('updatedAt', 'desc'),
+        window.firebase.limit(100)
+      );
+      const snap = await window.firebase.getDocs(q);
+      const accounts = [];
+      snap.forEach((d) => accounts.push(d.data()));
+      const withBalance = accounts.filter((a) =>
+        walletRound2(a.balance) + walletRound2(a.bonusBalance) > 0
+      );
+      const ids = withBalance.map((a) => String(a.patientId));
+      const infoMap = await resolveWalletPatientInfo(ids);
+      walletCurrentEntries = withBalance.map((a) => ({
+        patientId: String(a.patientId),
+        account: a,
+        info: infoMap.get(String(a.patientId)) || null
+      }));
+      renderWalletMemberRows();
+    } catch (error) {
+      console.error('loadWalletMemberList error:', error);
+      listEl.innerHTML = '<div class="px-4 py-8 text-center text-sm text-red-400">載入失敗，請重試</div>';
+    }
+  }
+
+  async function searchWalletMembers(keyword) {
+    const listEl = document.getElementById('walletMemberList');
+    if (!listEl) return;
+    walletCurrentIsSearch = true;
+    listEl.innerHTML = walletListLoadingHtml();
+    try {
+      const res = await window.firebaseDataManager.searchPatients(keyword, 50);
+      const found = (res && res.success && Array.isArray(res.data)) ? res.data : [];
+      const ids = found.map((p) => String(p.id));
+      // where in 每批最多 10 個，批量取帳戶，避免逐個讀取
+      const accMap = new Map();
+      for (let i = 0; i < ids.length; i += 10) {
+        const chunk = ids.slice(i, i + 10);
+        const q = window.firebase.firestoreQuery(
+          window.firebase.collection(window.firebase.db, 'patientWalletAccounts'),
+          window.firebase.where('patientId', 'in', chunk),
+          window.firebase.limit(10)
+        );
+        const snap = await window.firebase.getDocs(q);
+        snap.forEach((d) => {
+          const a = d.data();
+          accMap.set(String(a.patientId), a);
+        });
+      }
+      walletCurrentEntries = found.map((p) => {
+        const id = String(p.id);
+        const info = {
+          name: p.name || '',
+          patientNumber: p.patientNumber || '',
+          phone: p.phone || ''
+        };
+        walletPatientInfoCache.set(id, info);
+        return { patientId: id, account: accMap.get(id) || null, info };
+      });
+      // 有餘額者排前面
+      walletCurrentEntries.sort((a, b) => {
+        const ta = a.account ? walletRound2(a.account.balance) + walletRound2(a.account.bonusBalance) : 0;
+        const tb = b.account ? walletRound2(b.account.balance) + walletRound2(b.account.bonusBalance) : 0;
+        return tb - ta;
+      });
+      renderWalletMemberRows();
+    } catch (error) {
+      console.error('searchWalletMembers error:', error);
+      listEl.innerHTML = '<div class="px-4 py-8 text-center text-sm text-red-400">搜尋失敗，請重試</div>';
+    }
+  }
+
+  function renderWalletMemberRows() {
+    const listEl = document.getElementById('walletMemberList');
+    const countEl = document.getElementById('walletMemberCount');
+    if (!listEl) return;
+    if (countEl) {
+      countEl.textContent = walletCurrentIsSearch
+        ? `${walletCurrentEntries.length} 個結果`
+        : `${walletCurrentEntries.length} 位會員`;
+    }
+    if (!walletCurrentEntries.length) {
+      listEl.innerHTML = `<div class="px-4 py-10 text-center text-sm text-gray-400">${
+        walletCurrentIsSearch ? '沒有找到符合條件的病人' : '暫無已儲值會員'
+      }</div>`;
+      return;
+    }
+    listEl.innerHTML = walletCurrentEntries.map((e) => {
+      const total = e.account
+        ? walletRound2(e.account.balance) + walletRound2(e.account.bonusBalance)
+        : 0;
+      const selected = walletSelectedPatientId === e.patientId;
+      const name = e.info && e.info.name ? e.info.name : '（未知姓名）';
+      const sub = e.info ? (e.info.patientNumber || e.info.phone || '') : '';
+      return `
+        <button onclick="selectWalletPatient('${window.escapeHtml(e.patientId)}')"
+          class="w-full text-left px-4 py-3 transition hover:bg-teal-50 ${
+            selected ? 'bg-teal-50 border-l-4 border-teal-600' : 'border-l-4 border-transparent'
+          }">
+          <div class="flex justify-between items-center gap-2">
+            <div class="min-w-0">
+              <div class="text-sm font-medium text-gray-800 truncate">${window.escapeHtml(name)}</div>
+              <div class="text-xs text-gray-500 truncate">${window.escapeHtml(sub)}</div>
+            </div>
+            ${total > 0
+              ? `<span class="text-sm font-semibold text-green-700 whitespace-nowrap">HK$${total.toFixed(2)}</span>`
+              : '<span class="text-xs text-gray-400 whitespace-nowrap">未儲值</span>'}
+          </div>
+        </button>`;
+    }).join('');
+  }
+
   function loadWalletManagement() {
     const input = document.getElementById('walletPatientSearch');
     const panel = document.getElementById('walletPanel');
+    const empty = document.getElementById('walletEmptyState');
     if (panel) panel.classList.add('hidden');
+    if (empty) empty.classList.remove('hidden');
     // 「會員設定」僅診所管理（擁有 walletAdjust 權限）可見
     const configArea = document.getElementById('walletConfigArea');
     if (configArea) {
@@ -33305,50 +33487,53 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     walletSelectedPatientId = '';
     if (input) {
       input.value = '';
+      let debounceTimer = null;
       input.oninput = function () {
-        renderWalletPatientResults(this.value);
+        if (debounceTimer) clearTimeout(debounceTimer);
+        const value = this.value;
+        debounceTimer = setTimeout(() => {
+          if (value.trim()) searchWalletMembers(value);
+          else loadWalletMemberList();
+        }, 350);
       };
     }
-    renderWalletPatientResults('');
-  }
-
-  function renderWalletPatientResults(keyword) {
-    const box = document.getElementById('walletPatientResults');
-    if (!box) return;
-    const kw = String(keyword || '').trim().toLowerCase();
-    let list = Array.isArray(patients) ? patients.slice() : [];
-    if (kw) {
-      const compact = kw.replace(/\s/g, '');
-      list = list.filter((p) => p && (
-        String(p.name || '').toLowerCase().includes(kw)
-        || String(p.phone || '').replace(/\s/g, '').includes(compact)
-      ));
-    }
-    list = list.slice(0, 12);
-
-    if (!list.length) {
-      box.innerHTML = '<span class="text-sm text-gray-400">無符合病人（如為冷啟動，請先到病人資料管理載入）</span>';
-      return;
-    }
-    box.innerHTML = list.map((p) => {
-      const selected = walletSelectedPatientId === String(p.id);
-      return `
-        <button onclick="selectWalletPatient('${window.escapeHtml(String(p.id))}')"
-          class="px-3 py-2 rounded-lg border text-sm transition ${selected
-            ? 'bg-green-600 text-white border-green-600'
-            : 'bg-white hover:bg-gray-50 border-gray-300 text-gray-800'}">
-          ${window.escapeHtml(p.name)}
-          <span class="${selected ? 'text-green-100' : 'text-gray-500'}">${window.escapeHtml(p.phone || '')}</span>
-        </button>`;
-    }).join('');
+    loadWalletMemberList();
   }
 
   async function selectWalletPatient(patientId) {
     walletSelectedPatientId = patientId;
-    renderWalletPatientResults(
-      document.getElementById('walletPatientSearch').value
-    );
+    renderWalletMemberRows();
+    const empty = document.getElementById('walletEmptyState');
+    if (empty) empty.classList.add('hidden');
     await renderWalletPanel(patientId, true);
+    // 手機版右欄在下方，自動捲動到詳情
+    if (window.innerWidth < 1024) {
+      const panel = document.getElementById('walletPanel');
+      if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  // 充值／退款／調整／狀態變更後，同步左欄列表的帳戶資料
+  async function syncWalletListEntry(patientId) {
+    const id = String(patientId);
+    const idx = walletCurrentEntries.findIndex((e) => e.patientId === id);
+    const fresh = await getWalletAccount(id, true);
+    const total = fresh
+      ? walletRound2(fresh.balance) + walletRound2(fresh.bonusBalance)
+      : 0;
+    if (walletCurrentIsSearch) {
+      if (idx >= 0) walletCurrentEntries[idx].account = fresh;
+      renderWalletMemberRows();
+      return;
+    }
+    // 預設列表只保留有餘額者；新產生餘額的帳戶則整個重載
+    if (idx >= 0) {
+      if (total > 0) walletCurrentEntries[idx].account = fresh;
+      else walletCurrentEntries.splice(idx, 1);
+      renderWalletMemberRows();
+    } else if (total > 0) {
+      await loadWalletMemberList();
+    }
   }
 
   async function renderWalletPanel(patientId, force) {
@@ -33448,6 +33633,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
         'success'
       );
       await renderWalletPanel(walletSelectedPatientId, true);
+      await syncWalletListEntry(walletSelectedPatientId);
     } catch (error) {
       showToast('充值失敗：' + error.message, 'error');
     }
@@ -33508,6 +33694,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
       hideWalletAdminForm();
       showToast('退款完成', 'success');
       await renderWalletPanel(walletSelectedPatientId, true);
+      await syncWalletListEntry(walletSelectedPatientId);
     } catch (error) {
       showToast('退款失敗：' + error.message, 'error');
     }
@@ -33555,7 +33742,8 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
       invalidateWalletAccount(walletSelectedPatientId);
       hideWalletAdminForm();
       showToast('調整完成', 'success');
-      renderWalletPanel(walletSelectedPatientId, true);
+      await renderWalletPanel(walletSelectedPatientId, true);
+      await syncWalletListEntry(walletSelectedPatientId);
     } catch (error) {
       showToast('調整失敗：' + error.message, 'error');
     }
@@ -33597,7 +33785,8 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
       invalidateWalletAccount(walletSelectedPatientId);
       hideWalletAdminForm();
       showToast('狀態已更新', 'success');
-      renderWalletPanel(walletSelectedPatientId, true);
+      await renderWalletPanel(walletSelectedPatientId, true);
+      await syncWalletListEntry(walletSelectedPatientId);
     } catch (error) {
       showToast('更新失敗：' + error.message, 'error');
     }
