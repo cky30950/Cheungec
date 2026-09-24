@@ -33640,7 +33640,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
       adminArea.classList.add('hidden');
     }
 
-    // 交易表：預設只顯示最近 8 筆，其餘透過「顯示更多」展開，
+    // 交易表：依交易框可用高度自動決定顯示列數，其餘透過「顯示更多」展開，
     // 讓一般檢視不需滾動即可瀏覽整頁。
     walletLastTxs = txs;
     walletFullTxShown = false;
