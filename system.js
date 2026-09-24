@@ -33293,6 +33293,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
    * ============================================================ */
   let walletCurrentEntries = [];
   let walletCurrentIsSearch = false;
+  let walletResizeBound = false;
   const walletPatientInfoCache = new Map();
 
   function walletListLoadingHtml() {
@@ -33536,6 +33537,21 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
       };
     }
     loadWalletMemberList();
+
+    // 視窗高度改變時，依新高度重新收合交易列
+    if (!walletResizeBound) {
+      let rt = null;
+      window.addEventListener('resize', () => {
+        if (rt) clearTimeout(rt);
+        rt = setTimeout(() => {
+          if (!walletFullTxShown && walletLastTxs.length
+              && !document.getElementById('walletManagement').classList.contains('hidden')) {
+            renderWalletTxRows();
+          }
+        }, 200);
+      });
+      walletResizeBound = true;
+    }
   }
 
   async function selectWalletPatient(patientId) {
@@ -33610,39 +33626,112 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
         : '此金額沒有贈送';
     };
 
-    // 管理員區：退款/調整/狀態（帳戶存在才顯示）
+    // 管理員區：退款/調整/狀態（帳戶存在才顯示）；預設收合
     const adminArea = document.getElementById('walletAdminArea');
     const adminForm = document.getElementById('walletAdminForm');
+    const adminOpsBody = document.getElementById('walletAdminOpsBody');
+    const adminOpsToggle = document.getElementById('walletAdminOpsToggle');
     if (adminForm) adminForm.classList.add('hidden');
+    if (adminOpsBody) adminOpsBody.classList.add('hidden');
+    if (adminOpsToggle) adminOpsToggle.textContent = '展開';
     if (account && hasAdminRole()) {
       adminArea.classList.remove('hidden');
     } else {
       adminArea.classList.add('hidden');
     }
 
-    // 交易表
+    // 交易表：預設只顯示最近 8 筆，其餘透過「顯示更多」展開，
+    // 讓一般檢視不需滾動即可瀏覽整頁。
+    walletLastTxs = txs;
+    walletFullTxShown = false;
+    renderWalletTxRows();
+  }
+
+  const WALLET_TX_MIN_FIT = 3;
+  let walletLastTxs = [];
+  let walletFullTxShown = false;
+
+  function walletTxRowHtml(tx) {
+    const amount = walletRound2(tx.amount);
+    const isPayment = tx.type === 'payment' || amount < 0;
+    let atText = '';
+    try {
+      atText = new Date(tx.at).toLocaleString('zh-HK', { hour12: false });
+    } catch (_e) { atText = tx.at || ''; }
+    return `
+      <tr class="border-t border-gray-100">
+        <td class="px-3 py-1.5 text-gray-600 whitespace-nowrap">${window.escapeHtml(atText)}</td>
+        <td class="px-3 py-1.5 text-gray-800">${window.escapeHtml(WALLET_TYPE_LABELS[tx.type] || tx.type)}</td>
+        <td class="px-3 py-1.5 text-right font-medium ${isPayment ? 'text-red-600' : 'text-green-600'}">
+          ${isPayment ? '-' : ''}HK$${Math.abs(amount).toFixed(2)}
+        </td>
+        <td class="px-3 py-1.5 text-gray-500 max-w-sm truncate">${window.escapeHtml(tx.note || '')}</td>
+      </tr>`;
+  }
+
+  function renderWalletTxRows() {
     const tbody = document.getElementById('walletTxTable');
-    if (!txs.length) {
+    if (!tbody) return;
+    if (!walletLastTxs.length) {
       tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">尚無交易記錄</td></tr>';
       return;
     }
-    tbody.innerHTML = txs.map((tx) => {
-      const amount = walletRound2(tx.amount);
-      const isPayment = tx.type === 'payment' || amount < 0;
-      let atText = '';
-      try {
-        atText = new Date(tx.at).toLocaleString('zh-HK', { hour12: false });
-      } catch (_e) { atText = tx.at || ''; }
-      return `
-        <tr class="border-t border-gray-100">
-          <td class="px-4 py-2 text-gray-600 whitespace-nowrap">${window.escapeHtml(atText)}</td>
-          <td class="px-4 py-2 text-gray-800">${window.escapeHtml(WALLET_TYPE_LABELS[tx.type] || tx.type)}</td>
-          <td class="px-4 py-2 text-right font-medium ${isPayment ? 'text-red-600' : 'text-green-600'}">
-            ${isPayment ? '-' : ''}HK$${Math.abs(amount).toFixed(2)}
-          </td>
-          <td class="px-4 py-2 text-gray-500 max-w-sm truncate">${window.escapeHtml(tx.note || '')}</td>
-        </tr>`;
-    }).join('');
+
+    // 展開模式：全部顯示，由交易框自行捲動
+    if (walletFullTxShown) {
+      tbody.innerHTML = walletLastTxs.map(walletTxRowHtml).join('');
+      return;
+    }
+
+    // 收合模式：先繪製全部，於下一幀依實際可用高度決定顯示列數，
+    // 確保任何視窗高度下面板都不需捲動即可瀏覽整頁。
+    tbody.innerHTML = walletLastTxs.map(walletTxRowHtml).join('');
+    requestAnimationFrame(() => {
+      const sc = tbody.closest('.overflow-auto');
+      const head = sc && sc.querySelector('thead');
+      if (!sc) return;
+      const firstRow = tbody.querySelector('tr');
+      const rowH = firstRow ? firstRow.getBoundingClientRect().height : 33;
+      const headH = head ? head.getBoundingClientRect().height : 39;
+      let fit = Math.floor((sc.clientHeight - headH) / rowH);
+      if (fit < WALLET_TX_MIN_FIT) fit = Math.min(WALLET_TX_MIN_FIT, walletLastTxs.length);
+      if (fit >= walletLastTxs.length) return;
+      const hidden = walletLastTxs.length - fit;
+      tbody.innerHTML = walletLastTxs.slice(0, fit).map(walletTxRowHtml).join('')
+        + `<tr class="border-t border-gray-100">
+            <td colspan="4" class="px-3 py-1.5 text-center">
+              <button onclick="walletShowAllTx()" class="text-sm text-teal-700 underline">
+                顯示更多（其餘 ${hidden} 筆）
+              </button>
+            </td>
+          </tr>`;
+    });
+  }
+
+  function walletShowAllTx() {
+    walletFullTxShown = true;
+    renderWalletTxRows();
+  }
+
+  // 管理員操作區收合
+  function openWalletAdminOps() {
+    const body = document.getElementById('walletAdminOpsBody');
+    const toggle = document.getElementById('walletAdminOpsToggle');
+    if (body) body.classList.remove('hidden');
+    if (toggle) toggle.textContent = '收合';
+  }
+
+  function toggleWalletAdminOps() {
+    const body = document.getElementById('walletAdminOpsBody');
+    const toggle = document.getElementById('walletAdminOpsToggle');
+    if (!body) return;
+    if (body.classList.contains('hidden')) {
+      body.classList.remove('hidden');
+      if (toggle) toggle.textContent = '收合';
+    } else {
+      body.classList.add('hidden');
+      if (toggle) toggle.textContent = '展開';
+    }
   }
 
   async function submitWalletTopup() {
@@ -34009,6 +34098,8 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
   window.addWalletTierRow = addWalletTierRow;
   window.removeWalletTierRow = removeWalletTierRow;
   window.submitWalletConfig = submitWalletConfig;
+  window.walletShowAllTx = walletShowAllTx;
+  window.toggleWalletAdminOps = toggleWalletAdminOps;
 
   /* ============================================================
    * 診症表單整合：會員自動折扣 + 儲值餘額支付
