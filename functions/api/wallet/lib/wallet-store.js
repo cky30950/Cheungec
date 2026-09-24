@@ -201,7 +201,9 @@ async function runIdempotentTransaction(env, idemKey, resolveExtraDocs, build) {
         }
         const transaction = (await beginRes.json()).transaction;
 
-        const batchRes = await fetch(`${docsBase}/batchGet`, {
+        // 注意：端點為 documents:batchGet（冒號）；寫成 /batchGet 會被
+        // 當成名為 batchGet 的文件路徑，body 被當 Document 解析而報 400。
+        const batchRes = await fetch(`${docsBase}:batchGet`, {
             method: 'POST',
             headers,
             body: JSON.stringify({ documents: docNames, transaction })
