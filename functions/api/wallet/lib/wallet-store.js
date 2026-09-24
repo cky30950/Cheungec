@@ -161,8 +161,12 @@ async function runIdempotentTransaction(env, idemKey, resolveExtraDocs, build) {
     }
     const access = await getAccessToken(env);
     const pid = access.projectId;
-    const docsBase =
+    // 端點用完整 URL；文件名（batchGet／commit body）必須用相對資源名，
+    // 否則 Firestore 報 400「Document name "https://..."」。
+    const docsUrl =
         `${FS_BASE}/projects/${pid}/databases/(default)/documents`;
+    const docsBase =
+        `projects/${pid}/databases/(default)/documents`;
     const headers = {
         'Authorization': `Bearer ${access.token}`,
         'Content-Type': 'application/json'
@@ -176,7 +180,7 @@ async function runIdempotentTransaction(env, idemKey, resolveExtraDocs, build) {
 
     const rollback = async (transaction) => {
         try {
-            await fetch(`${docsBase}:rollback`, {
+            await fetch(`${docsUrl}:rollback`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({ transaction })
@@ -185,7 +189,7 @@ async function runIdempotentTransaction(env, idemKey, resolveExtraDocs, build) {
     };
 
     for (let attempt = 0; attempt < 3; attempt++) {
-        const beginRes = await fetch(`${docsBase}:beginTransaction`, {
+        const beginRes = await fetch(`${docsUrl}:beginTransaction`, {
             method: 'POST',
             headers,
             body: JSON.stringify({ options: { readWrite: {} } })
@@ -203,7 +207,7 @@ async function runIdempotentTransaction(env, idemKey, resolveExtraDocs, build) {
 
         // 注意：端點為 documents:batchGet（冒號）；寫成 /batchGet 會被
         // 當成名為 batchGet 的文件路徑，body 被當 Document 解析而報 400。
-        const batchRes = await fetch(`${docsBase}:batchGet`, {
+        const batchRes = await fetch(`${docsUrl}:batchGet`, {
             method: 'POST',
             headers,
             body: JSON.stringify({ documents: docNames, transaction })
@@ -260,7 +264,7 @@ async function runIdempotentTransaction(env, idemKey, resolveExtraDocs, build) {
             }
         }]);
 
-        const commitRes = await fetch(`${docsBase}:commit`, {
+        const commitRes = await fetch(`${docsUrl}:commit`, {
             method: 'POST',
             headers,
             body: JSON.stringify({ transaction, writes })
