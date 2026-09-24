@@ -588,9 +588,11 @@ const ROLE_PERMISSIONS = {
   
   '診所管理': ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'billingManagement', 'walletManagement', 'userManagement', 'financialReports', 'systemManagement', 'accountSecurity'],
 
-  '醫師': ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'billingManagement', 'personalSettings', 'personalStatistics', 'accountSecurity'],
+  '醫師': ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'billingManagement', 'walletManagement', 'personalSettings', 'personalStatistics', 'accountSecurity'],
 
   '護理師': ['patientManagement', 'consultationSystem', 'medicalRecordManagement', 'herbLibrary', 'acupointLibrary', 'templateLibrary', 'scheduleManagement', 'walletManagement', 'accountSecurity'],
+
+  '診所助理': ['patientManagement', 'consultationSystem', 'scheduleManagement', 'walletManagement', 'accountSecurity'],
   
   '用戶': ['patientManagement', 'consultationSystem', 'templateLibrary', 'accountSecurity']
 };
@@ -15044,6 +15046,39 @@ async function resolveConsultationPackageUseRemaining(consultation, patientId, f
     return result;
 }
 
+// 取得診症完成時的儲值餘額（與套票餘次快照同一策略）：
+// 優先使用固定寫入病歷的快照 walletBalanceAfter（完成病歷當下即固定）；
+// 舊記錄缺快照但有 walletPaid 時，才即時讀取帳戶（該值為目前餘額，僅作後備）。
+async function resolveConsultationWalletBalance(consultation, patientId) {
+    try {
+        const isNum = (v) => v !== undefined && v !== null && v !== '' && Number.isFinite(Number(v));
+        if (consultation && isNum(consultation.walletBalanceAfter)) {
+            return {
+                total: Number(consultation.walletBalanceAfter),
+                principal: isNum(consultation.walletPrincipalAfter) ? Number(consultation.walletPrincipalAfter) : null,
+                bonus: isNum(consultation.walletBonusAfter) ? Number(consultation.walletBonusAfter) : null
+            };
+        }
+        if (consultation && Number(consultation.walletPaid) > 0) {
+            const pid = patientId || consultation.patientId || '';
+            if (pid && typeof window.getWalletAccount === 'function') {
+                const acc = await window.getWalletAccount(pid);
+                if (acc) {
+                    const principal = Number(acc.balance) || 0;
+                    const bonus = Number(acc.bonusBalance) || 0;
+                    const total = typeof window.walletRound2 === 'function'
+                        ? window.walletRound2(principal + bonus)
+                        : Math.round((principal + bonus) * 100) / 100;
+                    return { total, principal, bonus };
+                }
+            }
+        }
+    } catch (_e) {
+        // 忽略錯誤
+    }
+    return null;
+}
+
 // 建立含餘下套票次數的收費項目顯示 HTML（供診症記錄檢視視圖使用）。
 // 會對收費文字做 HTML 轉義，並在「使用套票」行末附加餘下次數標註。
 async function buildConsultationBillingDisplayHtml(consultation, patientId) {
@@ -15069,7 +15104,17 @@ async function buildConsultationBillingDisplayHtml(consultation, patientId) {
             }
             return escaped;
         });
-        return htmlLines.join('\n');
+        let html = htmlLines.join('\n');
+
+        // 以儲值支付者，於收費項目末附加支付後儲值餘額
+        const walletBal = await resolveConsultationWalletBalance(consultation, patientId);
+        if (walletBal) {
+            const label = isEnglish
+                ? `Wallet balance (after payment): HK$${walletBal.total.toFixed(2)}`
+                : `儲值餘額（支付後）：HK$${walletBal.total.toFixed(2)}`;
+            html += '\n' + escapeHtml(label);
+        }
+        return html;
     } catch (_e) {
         return consultation && consultation.billingItems ? String(consultation.billingItems) : '';
     }
@@ -15313,6 +15358,18 @@ async function printConsultationRecord(consultationId, consultationData = null) 
                     billingItemsHtml += `<tr><td style="padding: 5px; border-bottom: 1px dotted #ccc;">${line}</td></tr>`;
                 }
             });
+        }
+
+        // 以儲值支付者，於收費明細末附加支付後儲值餘額（優先使用病歷快照）
+        const walletBalanceInfo = await resolveConsultationWalletBalance(
+            consultation,
+            consultation.patientId || (patient && patient.id) || ''
+        );
+        if (walletBalanceInfo) {
+            const walletLabel = isEnglish
+                ? `Wallet balance (after payment): HK$${walletBalanceInfo.total.toFixed(2)}`
+                : `儲值餘額（支付後）：HK$${walletBalanceInfo.total.toFixed(2)}`;
+            billingItemsHtml += `<tr><td style="padding: 5px; border-bottom: 1px dotted #ccc;">${walletLabel}</td></tr>`;
         }
         
         // 獲取診症日期（處理 Firebase Timestamp）
@@ -33538,13 +33595,13 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     }
     loadWalletMemberList();
 
-    // 視窗高度改變時，依新高度重新收合交易列
+    // 視窗高度改變時，重新渲染交易分頁（版面配合）
     if (!walletResizeBound) {
       let rt = null;
       window.addEventListener('resize', () => {
         if (rt) clearTimeout(rt);
         rt = setTimeout(() => {
-          if (!walletFullTxShown && walletLastTxs.length
+          if (walletLastTxs.length
               && !document.getElementById('walletManagement').classList.contains('hidden')) {
             renderWalletTxRows();
           }
@@ -33600,6 +33657,16 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
 
     panel.classList.remove('hidden');
 
+    // 頂部顯示目前選中的病人（姓名／編號／電話）
+    const infoMap = await resolveWalletPatientInfo([String(patientId)]);
+    const pInfo = infoMap.get(String(patientId)) || null;
+    document.getElementById('walletPatientName').textContent =
+      (pInfo && pInfo.name) ? pInfo.name : '未知病人';
+    const metaParts = [];
+    if (pInfo && pInfo.patientNumber) metaParts.push(`病人編號：${pInfo.patientNumber}`);
+    if (pInfo && pInfo.phone) metaParts.push(`電話：${pInfo.phone}`);
+    document.getElementById('walletPatientMeta').textContent = metaParts.join('　');
+
     const balance = account ? walletRound2(account.balance) : 0;
     const bonus = account ? walletRound2(account.bonusBalance) : 0;
     document.getElementById('walletBalanceView').textContent =
@@ -33640,16 +33707,15 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
       adminArea.classList.add('hidden');
     }
 
-    // 交易表：依交易框可用高度自動決定顯示列數，其餘透過「顯示更多」展開，
-    // 讓一般檢視不需滾動即可瀏覽整頁。
+    // 交易表：每頁最多 10 筆，超出的於分頁列切換頁面
     walletLastTxs = txs;
-    walletFullTxShown = false;
+    walletTxPage = 1;
     renderWalletTxRows();
   }
 
-  const WALLET_TX_MIN_FIT = 3;
+  const WALLET_TX_PAGE_SIZE = 10;
   let walletLastTxs = [];
-  let walletFullTxShown = false;
+  let walletTxPage = 1;
 
   function walletTxRowHtml(tx) {
     const amount = walletRound2(tx.amount);
@@ -33669,47 +33735,65 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
       </tr>`;
   }
 
+  // 分頁列：上一頁／頁碼／下一頁（頁碼過多時首尾與目前頁附近保留，其餘省略）
+  function walletTxPagerHtml(totalPages) {
+    const pages = [];
+    const push = (p) => pages.push(p);
+    for (let p = 1; p <= totalPages; p++) {
+      if (p === 1 || p === totalPages || Math.abs(p - walletTxPage) <= 1) push(p);
+      else if (pages[pages.length - 1] !== '…') push('…');
+    }
+    const btns = pages.map((p) => p === '…'
+      ? '<span class="px-1 text-gray-400">…</span>'
+      : `<button onclick="walletGoToTxPage(${p})"
+          class="min-w-[28px] px-2 py-1 rounded ${p === walletTxPage
+            ? 'bg-teal-600 text-white' : 'text-teal-700 hover:bg-teal-50'}">${p}</button>`
+    ).join('');
+    return `
+      <div class="flex items-center gap-1">
+        <button onclick="walletGoToTxPage(${walletTxPage - 1})"
+          ${walletTxPage <= 1 ? 'disabled class="px-2 py-1 text-gray-300 cursor-default"'
+            : 'class="px-2 py-1 text-teal-700 hover:bg-teal-50 rounded"'}>上一頁</button>
+        ${btns}
+        <button onclick="walletGoToTxPage(${walletTxPage + 1})"
+          ${walletTxPage >= totalPages ? 'disabled class="px-2 py-1 text-gray-300 cursor-default"'
+            : 'class="px-2 py-1 text-teal-700 hover:bg-teal-50 rounded"'}>下一頁</button>
+      </div>
+      <span class="text-xs text-gray-500 whitespace-nowrap">第 ${walletTxPage} / ${totalPages} 頁</span>`;
+  }
+
   function renderWalletTxRows() {
     const tbody = document.getElementById('walletTxTable');
+    const pager = document.getElementById('walletTxPager');
     if (!tbody) return;
     if (!walletLastTxs.length) {
       tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-400">尚無交易記錄</td></tr>';
+      if (pager) pager.classList.add('hidden');
       return;
     }
 
-    // 展開模式：全部顯示，由交易框自行捲動
-    if (walletFullTxShown) {
-      tbody.innerHTML = walletLastTxs.map(walletTxRowHtml).join('');
-      return;
-    }
+    const totalPages = Math.ceil(walletLastTxs.length / WALLET_TX_PAGE_SIZE);
+    if (walletTxPage > totalPages) walletTxPage = totalPages;
+    if (walletTxPage < 1) walletTxPage = 1;
+    const start = (walletTxPage - 1) * WALLET_TX_PAGE_SIZE;
+    const pageTxs = walletLastTxs.slice(start, start + WALLET_TX_PAGE_SIZE);
+    tbody.innerHTML = pageTxs.map(walletTxRowHtml).join('');
 
-    // 收合模式：先繪製全部，於下一幀依實際可用高度決定顯示列數，
-    // 確保任何視窗高度下面板都不需捲動即可瀏覽整頁。
-    tbody.innerHTML = walletLastTxs.map(walletTxRowHtml).join('');
-    requestAnimationFrame(() => {
-      const sc = tbody.closest('.overflow-auto');
-      const head = sc && sc.querySelector('thead');
-      if (!sc) return;
-      const firstRow = tbody.querySelector('tr');
-      const rowH = firstRow ? firstRow.getBoundingClientRect().height : 33;
-      const headH = head ? head.getBoundingClientRect().height : 39;
-      let fit = Math.floor((sc.clientHeight - headH) / rowH);
-      if (fit < WALLET_TX_MIN_FIT) fit = Math.min(WALLET_TX_MIN_FIT, walletLastTxs.length);
-      if (fit >= walletLastTxs.length) return;
-      const hidden = walletLastTxs.length - fit;
-      tbody.innerHTML = walletLastTxs.slice(0, fit).map(walletTxRowHtml).join('')
-        + `<tr class="border-t border-gray-100">
-            <td colspan="4" class="px-3 py-1.5 text-center">
-              <button onclick="walletShowAllTx()" class="text-sm text-teal-700 underline">
-                顯示更多（其餘 ${hidden} 筆）
-              </button>
-            </td>
-          </tr>`;
-    });
+    if (pager) {
+      if (totalPages > 1) {
+        pager.innerHTML = walletTxPagerHtml(totalPages);
+        pager.classList.remove('hidden');
+      } else {
+        pager.classList.add('hidden');
+      }
+    }
   }
 
-  function walletShowAllTx() {
-    walletFullTxShown = true;
+  function walletGoToTxPage(p) {
+    const totalPages = Math.ceil(walletLastTxs.length / WALLET_TX_PAGE_SIZE);
+    const next = Math.max(1, Math.min(totalPages, Number(p)));
+    if (next === walletTxPage) return;
+    walletTxPage = next;
     renderWalletTxRows();
   }
 
@@ -34089,6 +34173,8 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
 
   window.loadWalletManagement = loadWalletManagement;
   window.selectWalletPatient = selectWalletPatient;
+  window.getWalletAccount = getWalletAccount;
+  window.walletRound2 = walletRound2;
   window.submitWalletTopup = submitWalletTopup;
   window.showWalletRefundForm = showWalletRefundForm;
   window.hideWalletAdminForm = hideWalletAdminForm;
@@ -34098,7 +34184,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
   window.addWalletTierRow = addWalletTierRow;
   window.removeWalletTierRow = removeWalletTierRow;
   window.submitWalletConfig = submitWalletConfig;
-  window.walletShowAllTx = walletShowAllTx;
+  window.walletGoToTxPage = walletGoToTxPage;
   window.toggleWalletAdminOps = toggleWalletAdminOps;
 
   /* ============================================================
@@ -34278,9 +34364,15 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
         consultationId: consultationId,
         idempotencyKey: 'pay:' + consultationId
       });
+      const principalAfter = walletRound2(res && res.balance);
+      const bonusAfter = walletRound2(res && res.bonusBalance);
       await window.firebaseDataManager.updateConsultation(consultationId, {
         walletPaid: amount,
-        walletTxId: (res && res.txId) ? String(res.txId) : ''
+        walletTxId: (res && res.txId) ? String(res.txId) : '',
+        // 支付後餘額快照，與套票餘次快照一樣固定寫入診症記錄
+        walletPrincipalAfter: principalAfter,
+        walletBonusAfter: bonusAfter,
+        walletBalanceAfter: walletRound2(principalAfter + bonusAfter)
       });
       consultWallet.paid = true;
       consultWallet.pendingPay = false;

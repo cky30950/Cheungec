@@ -1,7 +1,7 @@
 /* ============================================================
  * POST /api/member/lookup（公開，無需登入、不發 SMS）
  * ------------------------------------------------------------
- * 病人輸入自己於診所登記的香港手機號碼，由 Service Account
+ * 病人輸入自己於診所登記的電話號碼（不限位數），由 Service Account
  * 代為查詢並回傳：儲值帳戶、有效套票、最近 20 筆交易。
  * 不回傳病歷、身份證等任何 PHI；病人姓名僅供本人識別記錄。
  *
@@ -39,16 +39,33 @@ function rateLimit(ip) {
     return true;
 }
 
-// 接受 8 位香港號或 852 + 8 位；回傳 8 位本地號
-function parseHkPhone(raw) {
-    const digits = String(raw || '').replace(/\D/g, '');
-    let local8 = '';
-    if (digits.length === 8) {
-        local8 = digits;
-    } else if (digits.length === 11 && digits.indexOf('852') === 0) {
-        local8 = digits.slice(3);
+// 不限制電話位數：依病人輸入產生各種可能的登記格式。
+// 職員建檔時電話可能存原值、純數字、8 位本地號或 852 開頭等寫法。
+function phoneMatchVariants(raw) {
+    const input = String(raw || '').trim();
+    if (!input) return [];
+    const variants = new Set();
+    variants.add(input); // 與存檔原值比對
+    const digits = input.replace(/\D/g, '');
+    if (digits.length < 4) return [];
+    variants.add(digits); // 純數字
+
+    // 香港 8 位本地號與 852 開頭之間互換，並涵蓋常見含分隔的寫法
+    const locals = [];
+    if (digits.length === 11 && digits.indexOf('852') === 0) {
+        locals.push(digits.slice(3));
+    } else if (digits.length === 8) {
+        locals.push(digits);
     }
-    return /^[5-9]\d{7}$/.test(local8) ? local8 : '';
+    locals.forEach((l8) => {
+        variants.add(l8);
+        variants.add('852' + l8);
+        variants.add('+852' + l8);
+        variants.add(`${l8.slice(0, 4)} ${l8.slice(4)}`);
+        variants.add(`+852 ${l8.slice(0, 4)} ${l8.slice(4)}`);
+        variants.add(`(852) ${l8.slice(0, 4)}-${l8.slice(4)}`);
+    });
+    return Array.from(variants);
 }
 
 function eqFilter(fieldPath, value) {
@@ -93,9 +110,8 @@ async function verifyTurnstile(token, ip, env) {
     return !!(data && data.success === true);
 }
 
-async function findPatients(client, local8) {
-    // 職員建檔時電話可能存 8 位或 852 開頭，兩種都查再去重
-    const variants = [local8, '852' + local8];
+async function findPatients(client, variants) {
+    // 以各種可能格式查詢再去重
     const pages = await Promise.all(
         variants.map((v) => client.queryCollection({
             collectionId: 'patients',
@@ -193,11 +209,11 @@ export async function onRequestPost(context) {
             }, 400);
         }
 
-        const local8 = parseHkPhone(body && body.phone);
-        if (!local8) {
+        const phoneVariants = phoneMatchVariants(body && body.phone);
+        if (!phoneVariants.length) {
             return jsonResponse({
                 error: 'INVALID_PHONE',
-                message: '請輸入有效香港手機號碼（8 位數）'
+                message: '請輸入於診所登記的電話號碼'
             }, 400);
         }
 
@@ -208,7 +224,7 @@ export async function onRequestPost(context) {
             env.FIREBASE_RTDB_URL || ''
         );
 
-        const patientDocs = await findPatients(client, local8);
+        const patientDocs = await findPatients(client, phoneVariants);
         const patients = await Promise.all(
             patientDocs.map((d) => buildPatientEntry(client, d))
         );

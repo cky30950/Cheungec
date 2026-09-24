@@ -37,8 +37,8 @@ const I18N = {
         txRefund: '退款',
         txAdjust: '人工調整',
         txStatus: '狀態變更',
-        errPhone: '請輸入有效香港手機號碼（8 位數）',
-        errNoPatient: '系統中沒有以此手機登記的病人記錄。',
+        errPhone: '請輸入於診所登記的電話號碼',
+        errNoPatient: '系統中沒有以此電話登記的病人記錄。',
         errLoad: '查詢失敗，請稍後再試',
         patientLabel: '病人',
         langToggle: 'English'
@@ -71,8 +71,8 @@ const I18N = {
         txRefund: 'Refund',
         txAdjust: 'Manual adjustment',
         txStatus: 'Status change',
-        errPhone: 'Please enter a valid Hong Kong mobile number (8 digits)',
-        errNoPatient: 'No patient record is registered with this mobile number.',
+        errPhone: 'Please enter the phone number registered with the clinic',
+        errNoPatient: 'No patient record is registered with this phone number.',
         errLoad: 'Lookup failed, please try again later',
         patientLabel: 'Patient',
         langToggle: '中文'
@@ -245,15 +245,10 @@ async function lookup() {
         showAuthMsg('errCaptcha');
         return;
     }
-    const phone = $('phoneInput').value;
-    const digits = String(phone || '').replace(/\D/g, '');
-    let local8 = '';
-    if (digits.length === 8) {
-        local8 = digits;
-    } else if (digits.length === 11 && digits.indexOf('852') === 0) {
-        local8 = digits.slice(3);
-    }
-    if (!/^[5-9]\d{7}$/.test(local8)) {
+    const rawPhone = String($('phoneInput').value || '').trim();
+    const digits = rawPhone.replace(/\D/g, '');
+    // 不限制位數，只要輸入了電話號碼即可，比對由後端依登記電話處理
+    if (digits.length < 4) {
         showAuthMsg('errPhone');
         return;
     }
@@ -265,7 +260,7 @@ async function lookup() {
         const res = await fetch('/api/member/lookup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: local8, turnstileToken: turnstileToken })
+            body: JSON.stringify({ phone: rawPhone, turnstileToken: turnstileToken })
         });
         let data;
         try {
