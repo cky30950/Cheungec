@@ -111,11 +111,13 @@ service cloud.firestore {
     // 公開（病人無登入）集合
     // ============================================================
 
-    // inquiry 表單：病人只可匿名「建立」；讀取/更新/刪除皆須職員身份
-    // （舊規則允許匿名 update，任何人可竄改已提交內容，已封閉）
+    // inquiry 表單：客戶端一律不可寫入——匿名遞交只可經
+    // POST /api/inquiry/submit（Turnstile 驗證後以 Service Account 寫入）；
+    // 讀取/更新/刪除皆須職員身份。
+    // （舊規則 allow create: if true，機械人可無限量偽造預診，已封閉）
     match /inquiries/{document=**} {
-      allow create: if true;
-      allow read, update, delete: if canAccess();
+      allow create, update, delete: if false;
+      allow read: if canAccess();
     }
 
     // 視訊診間雙方就緒信號：病人無登入，僅限 tcm-consult- 開頭的單一診間文件，

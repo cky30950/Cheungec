@@ -225,6 +225,15 @@
                 transform: translateY(0);
             }
         }
+
+        /* Turnstile 人機驗證（僅最後一頁顯示） */
+        .turnstile-box {
+            margin: 12px 0 4px;
+            display: none;
+        }
+        .turnstile-box.show { display: block; }
+        #turnstileWidget { min-height: 65px; }
+        #turnstileNote { margin-top: 6px; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
@@ -1065,7 +1074,12 @@
                     </div>
                 </div>
 
-                
+
+                <div class="turnstile-box" id="turnstileBox">
+                    <div id="turnstileWidget"></div>
+                    <p class="text-sm text-red-600 hidden" id="turnstileNote"></p>
+                </div>
+
                 <div class="nav-buttons flex justify-between mt-8 pt-6 border-t border-gray-200">
                     <button type="button" id="prevBtn" class="btn-secondary px-6 py-4 text-white rounded-xl font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center" disabled>
                         上一步
@@ -1195,7 +1209,90 @@
             setupBodyPartSelector();
             setupInteractiveElements();
             updateVisibleSections();
+            initTurnstile();
         });
+
+        /* ---------------- Turnstile 人機驗證 ---------------- */
+
+        let tsWidgetId = null;
+        let turnstileToken = '';
+        let tsErrors = 0;
+
+        function loadTurnstileScript() {
+            if (window.turnstile) return Promise.resolve();
+            return new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+                // 官方規定：使用 turnstile.ready() 時不可加 async/defer；
+                // 這裡以 onload 判斷載入完成，故不需要 ready()。
+                s.onload = () => resolve();
+                s.onerror = () => reject(new Error('TURNSTILE_SCRIPT_FAILED'));
+                document.head.appendChild(s);
+            });
+        }
+
+        function showTurnstileNote(text) {
+            const note = document.getElementById('turnstileNote');
+            if (!note) return;
+            note.textContent = text;
+            note.classList.remove('hidden');
+        }
+
+        function clearTurnstileNote() {
+            const note = document.getElementById('turnstileNote');
+            if (!note) return;
+            note.textContent = '';
+            note.classList.add('hidden');
+        }
+
+        function resetTurnstile() {
+            turnstileToken = '';
+            clearTurnstileNote();
+            if (tsWidgetId !== null && window.turnstile) {
+                try {
+                    window.turnstile.reset(tsWidgetId);
+                } catch (_e) {}
+            }
+        }
+
+        async function initTurnstile() {
+            try {
+                // 與會員查詢頁共用同一公開設定端點（只回傳 site key）
+                const [cfg] = await Promise.all([
+                    fetch('/api/member/config').then((r) => r.json()),
+                    loadTurnstileScript()
+                ]);
+                const siteKey = cfg && cfg.siteKey ? String(cfg.siteKey) : '';
+                if (!siteKey) {
+                    showTurnstileNote('人機驗證尚未設定，請聯絡診所職員');
+                    return;
+                }
+                tsErrors = 0;
+                tsWidgetId = window.turnstile.render('#turnstileWidget', {
+                    sitekey: siteKey,
+                    language: 'zh-HK',
+                    size: 'flexible',
+                    callback: (tok) => {
+                        tsErrors = 0;
+                        turnstileToken = String(tok || '');
+                        clearTurnstileNote();
+                    },
+                    'expired-callback': () => resetTurnstile(),
+                    'timeout-callback': () => resetTurnstile(),
+                    'error-callback': () => {
+                        // 官方建議：前 2 次回 false 交由 Turnstile 自動重試；
+                        // 持續失敗才顯示持久訊息並回 true。
+                        tsErrors++;
+                        if (tsErrors <= 2) return false;
+                        showTurnstileNote('人機驗證無法完成，請重新整理頁面或稍後再試');
+                        return true;
+                    }
+                });
+            } catch (err) {
+                console.error('turnstile init failed:', err);
+                showTurnstileNote('人機驗證尚未設定，請聯絡診所職員');
+            }
+        }
 
         function setupVisitTypeGate() {
             const startBtn = document.getElementById('startInquiryBtn');
@@ -1494,17 +1591,21 @@
             const prevBtn = document.getElementById('prevBtn');
             const nextBtn = document.getElementById('nextBtn');
             const submitBtn = document.getElementById('submitBtn');
-            
+            const turnstileBox = document.getElementById('turnstileBox');
+
             prevBtn.disabled = currentIndex === 1;
-            
+
             if (currentIndex === totalSections) {
                 nextBtn.style.display = 'none';
                 submitBtn.style.display = 'flex';
                 submitBtn.classList.remove('hidden');
+                // 最後一頁才顯示人機驗證
+                if (turnstileBox) turnstileBox.classList.add('show');
             } else {
                 nextBtn.style.display = 'flex';
                 submitBtn.style.display = 'none';
                 submitBtn.classList.add('hidden');
+                if (turnstileBox) turnstileBox.classList.remove('show');
             }
             
             // Scroll to top
@@ -1884,19 +1985,19 @@
         });
 
         // Form submission
-        document.getElementById('diagnosisForm').addEventListener('submit', function(e) {
+        document.getElementById('diagnosisForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             // Collect all form data
             const formData = new FormData(this);
             const results = {};
             results.visitType = isFirstVisit ? '首次就診' : '覆診';
             results.isFirstVisit = isFirstVisit === true;
-            
+
             // Get sweat areas from text fields
             const sweatAreas = formData.get('sweatAreas');
             results['出汗部位'] = sweatAreas && sweatAreas.trim() ? sweatAreas.trim() : '無';
-            
+
             // Process form data
             for (let [key, value] of formData.entries()) {
                 if (results[key]) {
@@ -1909,7 +2010,7 @@
                     results[key] = value;
                 }
             }
-            
+
             // Process checkboxes
             const checkboxGroups = ['relatedSymptoms', 'sweating', 'appetiteSymptoms', 'drinkingHabits', 'urination', 'stoolSymptoms', 'sleep'];
             checkboxGroups.forEach(group => {
@@ -1926,18 +2027,35 @@
                 results.history = medicalProfileSummary.history;
                 results.allergies = medicalProfileSummary.allergies;
             }
-            
-            displayResults(results);
+
+            // 必須通過人機驗證才可遞交
+            if (!turnstileToken) {
+                showTurnstileNote('請先完成人機驗證');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = '遞交中…';
+            clearTurnstileNote();
+
+            try {
+                const ok = await submitInquiry(results);
+                if (!ok) return; // 錯誤訊息已顯示於驗證區
+                displayResults(results);
+            } catch (err) {
+                console.error('submit error:', err);
+                showTurnstileNote('遞交失敗，請稍後再試');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+                // Turnstile token 單次有效，每次嘗試後重置並等下一個 token
+                resetTurnstile();
+            }
         });
 
         function displayResults(results) {
-            // 在顯示結果之前，將預診資料上傳至 Firestore（非同步執行）
-            try {
-                uploadInquiryData(results);
-            } catch (_e) {
-                // 忽略上傳錯誤以免影響 UI 顯示
-            }
-
             // Hide the form container
             const formCard = document.getElementById('diagnosisFormCard');
             if (formCard) {
@@ -2148,51 +2266,43 @@
         }
 
         /**
-         * 將預診資料上傳至 Firestore。
-         * 使用 firebase_init.js 中初始化的 window.firebase 物件。
+         * 將預診資料經 POST /api/inquiry/submit 遞交：
+         * 後端先驗 Turnstile，再以 Service Account 寫入 inquiries，
+         * 客戶端不再直接寫 Firestore。
          *
          * @param {Object} results 預診結果物件
+         * @returns {Promise<boolean>} 遞交成功回 true；失敗回 false（錯誤訊息已顯示）
          */
-        async function uploadInquiryData(results) {
+        async function submitInquiry(results) {
             try {
-                // 確保 Firebase 已初始化
-                if (!window.firebase || !window.firebase.db) {
-                    console.warn('Firebase 未初始化，無法上傳預診資料');
-                    return;
+                const res = await fetch('/api/inquiry/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        patientName: results.patientName || '',
+                        firstVisit: results.isFirstVisit === true,
+                        medicalProfile: results.medicalProfile || null,
+                        history: results.history || '',
+                        allergies: results.allergies || '',
+                        data: results,
+                        turnstileToken: turnstileToken
+                    })
+                });
+                let data = null;
+                try {
+                    data = await res.json();
+                } catch (_e) {}
+                if (!res.ok) {
+                    showTurnstileNote((data && data.message) || '遞交失敗，請稍後再試');
+                    return false;
                 }
-                // 設置創建和過期時間
-                const timestamp = new Date();
-                const expireAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-                const inquiryPayload = {
-                    patientName: results.patientName || '',
-                    firstVisit: results.isFirstVisit === true,
-                    medicalProfile: results.medicalProfile || null,
-                    history: results.history || '',
-                    allergies: results.allergies || '',
-                    data: results,
-                    createdAt: timestamp,
-                    expireAt: expireAt
-                };
-                // 新增至 inquiries 集合
-                const docRef = await window.firebase.addDoc(
-                    window.firebase.collection(window.firebase.db, 'inquiries'),
-                    inquiryPayload
-                );
-                // 遞交成功後即時觸發員工推播（匿名限流端點；後端會再以 SA 驗單）。
-                // 失敗不影響病人遞交流程，亦不等待回應。
-                if (docRef && docRef.id) {
-                    try {
-                        fetch('/api/push/inquiry', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ id: docRef.id })
-                        }).catch(function () { /* 推播失敗不影響遞交 */ });
-                    } catch (_notifyErr) { /* ignore */ }
-                }
+                // 保留舊流程：成功後嘗試把首次病史同步回病人檔案
                 await syncMedicalProfileToPatient(results);
-                console.log('預診資料已成功儲存');
+                return true;
             } catch (err) {
-                console.error('上傳預診資料發生錯誤:', err);
+                console.error('遞交預診資料發生錯誤:', err);
+                showTurnstileNote('遞交失敗，請稍後再試');
+                return false;
             }
         }
 

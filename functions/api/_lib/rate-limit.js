@@ -6,6 +6,7 @@
  *   - GET  /api/agora-token/rtc/*（病人憑 X-Room-Session 換發 token）
  *   - POST /api/agora-token/room-session（病人以一次性 pass 換 session）
  *   - POST /api/attachments/capture-presign|status|complete
+ *   - POST /api/inquiry/submit（預診表單遞交）
  *
  * 限流身份：CF-Connecting-IP（由 Cloudflare edge 保證填入，
  * 客戶端無法偽造）；僅非 edge 環境才退回 X-Forwarded-For。
@@ -30,7 +31,7 @@ export const RL_BUCKETS = {
     rtc: { key: 'rtc', defaultLimit: 12, periodSec: 60, envLimit: 'RL_RTC_LIMIT' },
     // 手機代拍三個端點共用同一額度（每張照片約 presign+complete 2 次）
     capture: { key: 'cap', defaultLimit: 40, periodSec: 60, envLimit: 'RL_CAPTURE_LIMIT' },
-    // 公開預診頁遞交後觸發新預診推播（人為遞交頻率很低，額度從嚴）
+    // 公開預診頁遞交（/api/inquiry/submit，人為遞交頻率很低，額度從嚴）
     inquiry: { key: 'inq', defaultLimit: 8, periodSec: 60, envLimit: 'RL_INQUIRY_LIMIT' }
 };
 

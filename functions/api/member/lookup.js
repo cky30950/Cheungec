@@ -18,6 +18,7 @@
 import { getAccessToken } from '../backup/lib/google-auth.js';
 import { FirestoreClient } from '../backup/lib/firestore.js';
 import { jsonResponse, optionsResponse } from '../backup/lib/http.js';
+import { verifyTurnstile } from '../_lib/turnstile.js';
 
 export const onRequestOptions = () => optionsResponse();
 
@@ -88,38 +89,6 @@ function expiryToMs(v) {
     }
     const t = Date.parse(v);
     return Number.isNaN(t) ? null : t;
-}
-
-// ── Turnstile 伺服端驗證 ──
-async function verifyTurnstile(token, ip, env) {
-    const secret = env && env.TURNSTILE_SECRET_KEY ? String(env.TURNSTILE_SECRET_KEY) : '';
-    if (!secret) {
-        const err = new Error('TURNSTILE_NOT_CONFIGURED');
-        err.status = 500;
-        err.clientMessage = '人機驗證未完成設定，請聯絡診所職員';
-        throw err;
-    }
-    if (!token) return false;
-
-    const form = new URLSearchParams({
-        secret,
-        response: token
-    });
-    if (ip && ip !== 'unknown') form.set('remoteip', ip);
-
-    let data = null;
-    try {
-        const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: form.toString()
-        });
-        data = await res.json();
-    } catch (error) {
-        console.warn('turnstile siteverify request failed:', error.message);
-        return false;
-    }
-    return !!(data && data.success === true);
 }
 
 async function findPatients(client, variants) {
