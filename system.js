@@ -665,13 +665,19 @@ function getEffectivePermissionSettingsForPosition(position) {
   const posOverride = allOverrides[pos] && typeof allOverrides[pos] === 'object' ? allOverrides[pos] : {};
   const storedSections = posOverride.sections && typeof posOverride.sections === 'object' ? posOverride.sections : {};
   const storedActions = posOverride.actions && typeof posOverride.actions === 'object' ? posOverride.actions : {};
+  // 該職位曾在新版「進入區塊權限」面板明確儲存後，其覆寫值即為最終決定
+  // （可明確關閉醫師／護理師的會員儲值進入權限）；從未於新版面板儲存過的
+  // 職位則沿用基準保護——舊版面板沒有會員儲值勾選項，儲存時會連帶寫入 false，
+  // 不得因此剝奪醫師／護理師等基準開放職位的進入權限。
+  const explicitEntryControl = Number(posOverride.entryControlVersion || 0) >= 2;
   const sections = {};
   const actions = {};
   CLINIC_SECTION_PERMISSION_OPTIONS.forEach(item => {
     const baseline = !!sectionDefaults[item.key];
     // 會員儲值為醫師／護理師／助理等角色的系統基準權限：
-    // 舊診所設定中殘留的 false（基準開放前儲存）不得將其剝奪
-    if (item.key === 'walletManagement' && baseline) {
+    // 舊診所設定中殘留的 false（基準開放前儲存）不得將其剝奪；
+    // 管理員於新版面板明確儲存後，以管理員的設定為準。
+    if (item.key === 'walletManagement' && baseline && !explicitEntryControl) {
       sections[item.key] = true;
     } else if (typeof storedSections[item.key] === 'boolean') {
       sections[item.key] = storedSections[item.key];
@@ -22729,7 +22735,10 @@ async function saveSelectedPositionPermissions() {
             ...currentMap,
             [position]: {
                 sections,
-                actions
+                actions,
+                // 標記此職位已於新版進入區塊權限面板明確儲存，
+                // 會員儲值等基準開放區塊可被管理員明確關閉
+                entryControlVersion: 2
             }
         };
         const payload = {
