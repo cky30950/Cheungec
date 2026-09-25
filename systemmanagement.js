@@ -115,7 +115,7 @@ function updateClinicSettingsDisplay() {
         systemTitle.textContent = clinicSettings.chineseName || '名醫診所系統';
     }
     if (systemEnglishTitle) {
-        systemEnglishTitle.textContent = clinicSettings.englishName || 'Dr.Great Clinic';
+        systemEnglishTitle.textContent = clinicSettings.englishName || 'Dr.Great Clinic System';
     }
     
     

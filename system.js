@@ -18580,7 +18580,7 @@ async function initializeSystemAfterLogin() {
                 systemTitle.textContent = clinicSettings.chineseName || '名醫診所系統';
             }
             if (systemEnglishTitle) {
-                systemEnglishTitle.textContent = clinicSettings.englishName || 'Dr.Great Clinic';
+                systemEnglishTitle.textContent = clinicSettings.englishName || 'Dr.Great Clinic System';
             }
             
             // 更新歡迎頁面的診所名稱
