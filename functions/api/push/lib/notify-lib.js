@@ -222,7 +222,9 @@ export async function processNotify(env, auth, body) {
         : null;
     if (!spec) throw httpError(400, 'INVALID_KIND', 'kind 必須為 chat 或 appointment');
 
-    // 跨客戶端去重：聊天同 messageKey、掛號同狀態轉換時間戳
+    // 跨客戶端去重：聊天同 messageKey、掛號同狀態轉換時間戳。
+    // 必須先查狀態再列訂閱：掛號事件會由每位在線員工的客戶端各自觸發，
+    // 去重命中即返回，避免重複的 Firestore 全訂閱查詢（按文件讀計費）。
     const state = await getPushState(env, spec.stateDoc);
     if (state.notifiedIds.includes(spec.dedupKey)) {
         return { deduped: true, notified: 0, targets: 0, results: [] };
@@ -231,7 +233,7 @@ export async function processNotify(env, auth, body) {
     // 推播對象＝有有效訂閱的裝置，不再以 RTDB presence 設閘門：
     // 手機背景／其他分頁／未開聊天頁時 RTDB 連線會斷，presence 消失，
     // 但這些場景正是推播要觸達的時機；是否「正在看畫面而不彈通知」
-    // 交由各裝置 SW 自行判斷（sw.js isAnyClientVisible）。
+    // 交由各裝置 SW 自行判斷（sw.js isUserWatching）。
     const subs = await listSubscriptions(env);
     const targets = filterTargets(subs, spec, auth);
 
@@ -250,17 +252,19 @@ export async function processNotify(env, auth, body) {
         groups.get(lang).push(sub);
     }
 
-    let allResults = [];
-    let anyTransient = false;
-    for (const [lang, group] of groups) {
+    // 各語言群組平行派送（群組內 sendToSubscriptions 已並發），
+    // 壓縮整體派送時間
+    const groupEntries = [...groups.entries()];
+    const batches = await Promise.all(groupEntries.map(async ([lang, group]) => {
         const message = buildMessage(spec, lang);
         // 桌面瀏覽器對同 tag 通知只靜默取代、不彈橫幅：
         // tag 已含業務鍵（messageKey/appointmentId），再附加派送時間確保每則都會顯示。
         message.tag = `${message.tag}:${Date.now()}`;
-        const batch = await sendToSubscriptions(group, message, env);
-        allResults = allResults.concat(batch.results);
-        if (batch.results.some((r) => r.retryable && !r.ok)) anyTransient = true;
-    }
+        return sendToSubscriptions(group, message, env);
+    }));
+
+    const allResults = batches.flatMap((b) => b.results);
+    const anyTransient = allResults.some((r) => r.retryable && !r.ok);
 
     // 暫時性失敗不寫鍵 → 下輪同事件再觸發時可補送
     if (!anyTransient) {

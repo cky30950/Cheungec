@@ -83,64 +83,134 @@ self.addEventListener('message', (event) => {
     }
     if (!msg || typeof msg !== 'object') return;
 
-    // 分頁開啟（含重整後新文件、bfcache 恢復、SW 換代）：取消待执行的退訂計時
-    if (msg.type === 'TCM_CLIENT_OPEN' || msg.type === 'TCM_LOGGED_OUT') {
-        cancelPendingTeardown();
+    // 分頁回報自身可見／聚焦狀態（focus/blur/visibilitychange/心跳）
+    if (msg.type === 'TCM_VIEW_STATE') {
+        recordViewState(resolveClientId(event, msg), msg);
         return;
     }
 
-    // 某分頁真正關閉：等待短暫過渡期（重整／跨頁導覽），
-    // 若同源下已無任何系統分頁，則退訂推播——關頁後不再收到任何廣播。
-    if (msg.type === 'TCM_CLIENT_CLOSING') {
-        event.waitUntil(schedulePushTeardownWhenNoClients());
+    // push 到達時 SW 主動 ping 可見分頁的應答
+    if (msg.type === 'tcm-view-pong') {
+        handleViewPong(resolveClientId(event, msg), msg);
+        return;
     }
+
+    // 舊版客戶端可能仍送 TCM_CLIENT_OPEN／TCM_CLIENT_CLOSING／TCM_LOGGED_OUT：
+    // 現行作法不再於關分頁時退訂（改於推送當下以 clients.matchAll 判斷），
+    // 這些訊息明確忽略即可。
 });
 
-/* 最後分頁關閉後的推播退訂（瀏覽器端）。
- * 後端訂閱記錄不需在此直連刪除（SW 無有效登入 token）：
- * 退訂後推送服務會對舊端點回 404/410，sender 派送時即自動清除記錄。
- * 重開頁面時 pwa.js 依 pushDeviceEnabled 標記自動恢復訂閱。 */
-const CLIENT_GONE_GRACE_MS = 2000;
-let pendingTeardown = null;
+/* ============================================================
+ * 分頁觀看狀態（焦點感知的推送抑制）
+ * ------------------------------------------------------------
+ * 只靠 visibilityState 會誤判：桌面瀏覽器切到其他 App、視窗被遮住
+ * 但沒最小化時，分頁仍是 'visible'，導致訊息推播被不當抑制
+ * （Mac 常見「有時候收不到」）。故由客戶端額外回報 document.hasFocus()。
+ * SW 重啟後 Map 為空，推送當下對可見但無狀態的分頁發 ping 即時確認。
+ * ============================================================ */
 
-function cancelPendingTeardown() {
-    if (pendingTeardown) {
-        pendingTeardown.canceled = true;
-        pendingTeardown = null;
+// clientId → {visible, focused, ts}
+const clientViewStates = new Map();
+// 快取逾時：超過此時間未收到回報（含定期心跳）就不採信
+const VIEW_FRESH_MS = 90 * 1000;
+// 無快取時 ping 等待上限：只在有 visible 分頁時才付出此延遲
+const VIEW_PING_WAIT_MS = 800;
+// nonce → resolve 回呼
+const pendingViewPings = new Map();
+
+function resolveClientId(event, msg) {
+    if (msg && msg.clientId) return String(msg.clientId);
+    try {
+        if (event.source && event.source.id) return String(event.source.id);
+    } catch (_e) {}
+    return '';
+}
+
+function recordViewState(clientId, msg) {
+    if (!clientId) return;
+    clientViewStates.set(clientId, {
+        visible: msg.visible === true,
+        focused: msg.focused === true,
+        ts: Date.now()
+    });
+}
+
+function pruneViewStates(aliveIds) {
+    for (const id of [...clientViewStates.keys()]) {
+        if (!aliveIds.has(id)) clientViewStates.delete(id);
     }
 }
 
-async function schedulePushTeardownWhenNoClients() {
-    // 新的關閉事件取代前一個等待（多分頁依序關閉）
-    cancelPendingTeardown();
-    const state = { canceled: false };
-    pendingTeardown = state;
+function handleViewPong(clientId, msg) {
+    const state = {
+        visible: msg.visible === true,
+        focused: msg.focused === true,
+        ts: Date.now()
+    };
+    if (clientId) clientViewStates.set(clientId, state);
+    const resolver = pendingViewPings.get(String(msg.nonce || ''));
+    if (resolver) resolver(clientId, state);
+}
 
-    // 不用 clearTimeout 取消等待（會讓 waitUntil 的 Promise 懸著）：
-    // 一律等完緩衝時間，再以 canceled 旗標與客戶端清單決定是否退訂。
-    await new Promise((resolve) => {
-        setTimeout(resolve, CLIENT_GONE_GRACE_MS);
+/* 向可見但缺新狀態的分頁詢問焦點狀態；任一可見且聚焦即回 true */
+function pingVisibleClients(targets) {
+    return new Promise((resolve) => {
+        const nonce = 'vp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        const waiting = new Set();
+        let settled = false;
+        const finish = (watching) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            pendingViewPings.delete(nonce);
+            resolve(watching);
+        };
+        const timer = setTimeout(() => finish(false), VIEW_PING_WAIT_MS);
+        pendingViewPings.set(nonce, (clientId, state) => {
+            if (state.visible && state.focused) {
+                finish(true);
+                return;
+            }
+            if (clientId) waiting.delete(clientId);
+            if (waiting.size === 0) finish(false);
+        });
+        for (const c of targets) {
+            waiting.add(c.id);
+            try {
+                c.postMessage({ type: 'tcm-view-ping', nonce });
+            } catch (_e) {
+                waiting.delete(c.id);
+            }
+        }
+        if (waiting.size === 0) finish(false);
     });
-    if (state.canceled || pendingTeardown !== state) return;
-    pendingTeardown = null;
+}
 
-    // 過渡期後仍有任何同源分頁（含 clinic／inquiry／room）→ 不退訂
+/* 使用者是否正聚焦觀看任一同源分頁 */
+async function isUserWatching() {
     const clients = await self.clients.matchAll({
         type: 'window',
         includeUncontrolled: true
     });
-    if (clients.length > 0) return;
+    pruneViewStates(new Set(clients.map((c) => c.id)));
 
-    let sub = null;
-    try {
-        sub = await self.registration.pushManager.getSubscription();
-    } catch (_e) {
-        return;
+    const visibleClients = clients.filter((c) => c.visibilityState === 'visible');
+    if (visibleClients.length === 0) return false;
+
+    const now = Date.now();
+    const unknown = [];
+    for (const c of visibleClients) {
+        const state = clientViewStates.get(c.id);
+        if (state && now - state.ts <= VIEW_FRESH_MS) {
+            if (state.visible && state.focused) return true;
+        } else {
+            // SW 剛重啟（Map 為空）或心跳已逾時
+            unknown.push(c);
+        }
     }
-    if (!sub) return;
-    try {
-        await sub.unsubscribe();
-    } catch (_e) {}
+
+    if (unknown.length > 0 && await pingVisibleClients(unknown)) return true;
+    return false;
 }
 
 self.addEventListener('fetch', (event) => {
@@ -370,21 +440,63 @@ async function handlePush(event) {
     }
     if (!data || typeof data !== 'object') data = {};
 
-    // 手動測試通知：跳過去重與觀看抑制，直接顯示
+    // 手動測試通知：跳過去重與觀看抑制，直接顯示，並把「本機實際顯示
+    // 結果」回報給分頁——伺服器送達（FCM 2xx）不等於作業系統有顯示，
+    // Windows 常見系統通知總開關關閉時，送達正常但完全不會彈。
     if (data.manualTest) {
-        await self.registration.showNotification(
-            data.title || '測試通知', buildNotificationOptions(data));
+        await showManualTest(data);
         return;
     }
 
     // 1) 同機同事件去重：重複訂閱紀錄或多分頁競時觸發時，同一事件只顯示一次
     if (data.dedupKey && isDuplicateOnDevice(String(data.dedupKey))) return;
 
-    // 2) 網頁正開著觀看時，所有業務推送不彈（頁面已有即時內容/toast/音效）
-    if (await isAnyClientVisible()) return;
+    // 2) 沒有任何同源分頁（全部關閉、分頁被瀏覽器為省記憶體而丟棄、
+    //    或瀏覽器僅背景常駐）：不彈通知。
+    //    訂閱保持有效、不做退訂——舊作法在最後分頁 pagehide 後 2 秒即
+    //    unsubscribe，但 pagehide(persisted=false) 同樣發生於「慢重整／
+    //    分頁被丟棄」，Windows 尤其常見，會造成訂閱實際已毀而後端仍在
+    //    派送（FCM 404 清記錄），表現為該機永遠收不到推播。
+    const clients = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true
+    });
+    if (clients.length === 0) return;
+
+    // 3) 有分頁：僅在使用者正「聚焦觀看」系統時抑制；
+    //    切到其他 App／其他分頁／視窗最小化時照彈（頁面即時內容未必看得到）
+    if (await isUserWatching()) return;
 
     const title = data.title || '名醫診所系統';
     await self.registration.showNotification(title, buildNotificationOptions(data));
+}
+
+/* 顯示測試通知並向所有分頁回報成敗（供測試按鈕區分送達面／顯示面問題） */
+async function showManualTest(data) {
+    const ack = { type: 'tcm-push-ack', manual: true, ok: false, at: Date.now() };
+    try {
+        const permission = (typeof Notification !== 'undefined')
+            ? Notification.permission
+            : 'unsupported';
+        if (permission !== 'granted') {
+            ack.reason = 'permission:' + permission;
+        } else {
+            await self.registration.showNotification(
+                data.title || '測試通知', buildNotificationOptions(data));
+            ack.ok = true;
+        }
+    } catch (e) {
+        ack.reason = ((e && e.name) || 'Error') + ':' + ((e && e.message) || String(e));
+    }
+    try {
+        const all = await self.clients.matchAll({
+            type: 'window',
+            includeUncontrolled: true
+        });
+        for (const c of all) {
+            try { c.postMessage(ack); } catch (_e) {}
+        }
+    } catch (_e) {}
 }
 
 function buildNotificationOptions(data) {
@@ -406,15 +518,6 @@ function isDuplicateOnDevice(key) {
     if (recentPushKeys.has(key)) return true;
     recentPushKeys.set(key, now);
     return false;
-}
-
-/* 是否有任何同源分頁處於可見狀態（非最小化、未切到其他 App） */
-async function isAnyClientVisible() {
-    const clients = await self.clients.matchAll({
-        type: 'window',
-        includeUncontrolled: true
-    });
-    return clients.some((c) => c.visibilityState === 'visible');
 }
 
 self.addEventListener('notificationclick', (event) => {

@@ -17,6 +17,12 @@ import { deleteSubscription } from './push-store.js';
 // TTL：推送服務保留訊息 1 小時（秒）
 const PUSH_TTL = 3600;
 
+// 所有業務推播（聊天／掛號／新預診／測試）皆屬即時訊息，統一以
+// high urgency 派送。未指定時 RFC 8030 預設為 normal，macOS（APNs 與
+// Chrome 背景調度）在省電模式／背景時會延遲甚至暫不投遞 normal 推送，
+// 實測即「有時候隔很多秒才出現、甚至沒出現」。message.urgency 可覆寫。
+const DEFAULT_URGENCY = 'high';
+
 function vapidFromEnv(env) {
   for (const key of ['VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT']) {
     if (!env || !env[key]) {
@@ -77,10 +83,13 @@ export async function sendOne(sub, message, env) {
 
   let status = 0;
   try {
+    const urgency = ['low', 'normal', 'high'].includes(message.urgency)
+      ? message.urgency
+      : DEFAULT_URGENCY;
     const payload = await buildPushPayload(
       {
         data: JSON.stringify(message),
-        options: { ttl: PUSH_TTL }
+        options: { ttl: PUSH_TTL, urgency }
       },
       subscription,
       vapid
