@@ -57,6 +57,18 @@
         pushStatusOff: { zh: '未開啟', en: 'Disabled' },
         pushStatusWorking: { zh: '設定中…', en: 'Working…' },
         pushTestSent: { zh: '測試通知已送出，請查看通知', en: 'Test notification sent. Please check your notifications.' },
+        pushTestHealing: {
+            zh: '偵測到此裝置的舊推播訂閱已失效，正在自動重建訂閱並重新測試…',
+            en: 'This device\'s old push subscription is invalid. Rebuilding the subscription and retesting automatically…'
+        },
+        pushTestHealedSent: {
+            zh: '舊訂閱已失效，已自動重建完成 ✓ 新訂閱的測試通知已送出，請查看通知。',
+            en: 'The old subscription was invalid and has been rebuilt automatically ✓ A test notification was sent via the new subscription. Please check your notifications.'
+        },
+        pushTestHealFailed: {
+            zh: '舊訂閱已失效，但自動重建失敗，請把推播開關關閉再重新開啟一次。',
+            en: 'The old subscription was invalid but automatic rebuilding failed. Please turn notifications off and back on once.'
+        },
         pushTestFailed: { zh: '測試通知無法送達，訂閱可能已失效，請重新開啟通知。', en: 'Test notification could not be delivered. The subscription may have expired; please re-enable notifications.' },
         pushTestNotShown: {
             zh: '伺服器已成功把測試通知送達此裝置，但本機沒有實際顯示通知（Windows 最常見是系統通知總開關關閉或專注輔助開啟）。若您確定有看到通知，可忽略此訊息；否則請依下方指引檢查。',
@@ -674,29 +686,99 @@
         return parts.join('\n');
     }
 
+    // 單次測試派送：先掛本機顯示回報等待（推送可能比 API 回應更早到達）
+    async function attemptTest(endpoint) {
+        const ackPromise = waitForLocalPushAck(20000);
+        let result;
+        try {
+            result = await apiCall('/test', {
+                method: 'POST',
+                body: JSON.stringify({ endpoint: endpoint })
+            });
+        } catch (err) {
+            result = {
+                delivered: false,
+                status: err.status || 0,
+                reason: err.message || String(err)
+            };
+        }
+        return { result, ackPromise };
+    }
+
+    // 端點已死（404/410）或與現行 VAPID 金鑰不符（403）：
+    // 必須在本機 unsubscribe 後重新 subscribe 取得「全新 FCM 端點」，
+    // 只把舊端點重新 upsert 回伺服器不會讓它復活。
+    async function forceResubscribe(oldEndpoint) {
+        const reg = await navigator.serviceWorker.ready;
+        const oldSub = await reg.pushManager.getSubscription();
+        if (oldSub) {
+            try { await oldSub.unsubscribe(); } catch (_e) {}
+        }
+        if (oldEndpoint) {
+            try {
+                await apiCall('/unsubscribe', {
+                    method: 'POST',
+                    body: JSON.stringify({ endpoint: oldEndpoint })
+                });
+            } catch (_e) {}
+        }
+        const vapid = await getVapidConfig();
+        const newSub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: decodeVapidKey(vapid)
+        });
+        await pushSubscriptionUpsert(newSub);
+        markPushEnabled();
+        setToggle(true, true);
+        setStatus('pushStatusOn');
+        postClientOpenToSW();
+        return newSub.endpoint;
+    }
+
     async function sendTest() {
         try {
-            const endpoint = await getCurrentEndpoint();
+            // 站點通知權限前置檢查（Windows 上可能被使用者或系統重設）
+            if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+                message(localNotifyGuide(), { type: 'warning' });
+                return;
+            }
+            let endpoint = await getCurrentEndpoint();
             if (!endpoint) {
-                message(t('pushNoSubscription'), { type: 'warning' });
+                message(t('pushNoSubscription') + '\n' + localNotifyGuide(), { type: 'warning' });
                 return;
             }
-            // 先掛上本機顯示回報等待（推送可能比 API 回應更早到達）
-            const ackPromise = waitForLocalPushAck(20000);
-            var result;
-            try {
-                result = await apiCall('/test', {
-                    method: 'POST',
-                    body: JSON.stringify({ endpoint: endpoint })
-                });
-            } catch (err) {
-                message(t('pushFailed') + (err.message || ''), { type: 'error' });
-                return;
+
+            let healed = false;
+            let outcome = await attemptTest(endpoint);
+
+            // 404/410＝推送服務端端點已失效；403＝端點與現行 VAPID 金鑰不符
+            if (!outcome.result.delivered
+                && [403, 404, 410].includes(Number(outcome.result.status))) {
+                message(t('pushTestHealing'), { type: 'info' });
+                try {
+                    endpoint = await forceResubscribe(endpoint);
+                } catch (healErr) {
+                    console.warn('自動重建推播訂閱失敗:', healErr);
+                    message(
+                        t('pushTestHealFailed') + ' (' + (healErr.message || healErr) + ')',
+                        { type: 'warning' }
+                    );
+                    return;
+                }
+                healed = true;
+                outcome = await attemptTest(endpoint);
             }
+
+            const result = outcome.result;
             if (!result.delivered) {
                 console.warn('測試通知未送達，伺服器回應：', result);
-                const code = result.status ? '（HTTP ' + result.status + '）' : '';
-                // 直接把推送服務（Apple）的 reason 顯示在畫面，免接電腦查 console
+                // status 0＝連自家 API 都失敗（網路／Function 錯誤）
+                if (!result.status) {
+                    message(t('pushFailed') + extractReason(result.reason), { type: 'error' });
+                    return;
+                }
+                const code = '（HTTP ' + result.status + '）';
+                // 直接把推送服務（FCM/Apple）的 reason 顯示在畫面，免接電腦查 console
                 const reason = extractReason(result.reason);
                 const detail = reason ? code + ' [' + reason + ']' : code;
                 message(t('pushTestFailed') + detail, { type: 'warning' });
@@ -705,12 +787,13 @@
             }
 
             // 伺服器已送達：進一步區分「本機有顯示」與「OS 層級靜默封鎖」
-            const ack = await ackPromise;
+            const ack = await outcome.ackPromise;
+            const successMsg = healed ? t('pushTestHealedSent') : t('pushTestSent');
             if (ack === undefined) {
                 // 無法與 SW 通訊：退回舊行為，只提示已送出
-                message(t('pushTestSent'), { type: 'success' });
+                message(successMsg, { type: 'success' });
             } else if (ack && ack.ok) {
-                message(t('pushTestSent'), { type: 'success' });
+                message(successMsg, { type: 'success' });
             } else if (ack && !ack.ok) {
                 message(
                     t('pushTestDisplayError') + (ack.reason || 'unknown') + ')\n'
