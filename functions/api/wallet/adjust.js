@@ -13,6 +13,7 @@ import {
     readJsonBody,
     parsePatientId,
     parseIdempotencyKey,
+    resolveClinicId,
     jsonResponse,
     optionsResponse,
     toErrorResponse
@@ -27,7 +28,9 @@ export async function onRequestPost(context) {
         const body = await readJsonBody(request);
         const patientId = parsePatientId(body);
         const idempotencyKey = parseIdempotencyKey(body);
+        const clinicId = resolveClinicId(claims, body);
         const result = await walletAdjust(env, claims, {
+            clinicId,
             patientId,
             deltaBalance: body.deltaBalance !== undefined ? Number(body.deltaBalance) : 0,
             deltaBonus: body.deltaBonus !== undefined ? Number(body.deltaBonus) : 0,

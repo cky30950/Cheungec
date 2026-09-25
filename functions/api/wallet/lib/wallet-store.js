@@ -20,6 +20,22 @@ const FS_BASE = 'https://firestore.googleapis.com/v1';
 const AUTO_ID_ALPHABET =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
+// 每間診所各自獨立的儲值帳戶：
+//   patientWalletAccounts/{clinicId}__{patientId}
+// 流水文件則統一放在 patientWalletTransactions，以 clinicId 欄位區分。
+// 用雙底線相連；程式永不需反向拆解（診所與病人 ID 皆存為文件欄位）。
+const ACCOUNT_ID_SEPARATOR = '__';
+
+export function walletAccountDocId(clinicId, patientId) {
+    return `${String(clinicId)}${ACCOUNT_ID_SEPARATOR}${String(patientId)}`;
+}
+
+// 舊制帳戶文件 ID 即病人 ID（無分隔字串）
+export function isLegacyAccountDocId(docId) {
+    return typeof docId === 'string'
+        && docId.indexOf(ACCOUNT_ID_SEPARATOR) === -1;
+}
+
 export class WalletError extends Error {
     constructor(status, code, message) {
         super(message);
@@ -106,33 +122,40 @@ function normalizeConfig(raw) {
 
 /**
  * 讀取診所的會員配置（clinics/{clinicId}.membershipConfig）。
- * claims 無 clinicId 時（超級管理員）取第一間診所；
+ * 明確傳入 clinicId（端點已依 claims／請求解析）；
+ * 完全未給時（超級管理員容錯）取第一間診所；
  * 完全無配置時回傳安全預設值。
  */
-export async function getMembershipConfig(env, claims) {
+export async function getMembershipConfig(env, clinicId) {
     const auth = await getAccessToken(env);
     const client = new FirestoreClient(
         auth.token,
         auth.projectId,
         env.FIREBASE_RTDB_URL || ''
     );
-    let clinicId = claims && claims.clinicId
-        ? String(claims.clinicId)
-        : '';
-    if (!clinicId) {
+    let cid = clinicId ? String(clinicId) : '';
+    if (!cid) {
         const ids = await client.listClinicIds();
-        clinicId = ids[0] || '';
+        cid = ids[0] || '';
     }
     let raw = null;
-    if (clinicId) {
+    if (cid) {
         const clinic = await client.getDocument(
-            `clinics/${encodeURIComponent(clinicId)}`
+            `clinics/${encodeURIComponent(cid)}`
         );
         raw = clinic && clinic.data
             ? clinic.data.membershipConfig
             : null;
     }
     return normalizeConfig(raw);
+}
+
+function requireClinicId(value) {
+    const cid = String(value || '');
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(cid)) {
+        throw new WalletError(400, 'INVALID_CLINIC', '缺少有效的 clinicId');
+    }
+    return cid;
 }
 
 function calcTopupBonus(config, amount) {
@@ -148,6 +171,7 @@ function calcTopupBonus(config, amount) {
 /**
  * @param {object} env
  * @param {string} idemKey 冪等鍵（必填）
+ * @param {string} scope 冪等鍵前綴（診所 ID），確保同一冪等鍵跨診所互不影響
  * @param {function} resolveExtraDocs
  *   ({docsBase, projectId}) => string[] 需在交易內讀取的文件全名
  * @param {function} build
@@ -155,7 +179,7 @@ function calcTopupBonus(config, amount) {
  *   => {writes: Array, result: object}
  * @returns {Promise<object>} result
  */
-async function runIdempotentTransaction(env, idemKey, resolveExtraDocs, build) {
+async function runIdempotentTransaction(env, idemKey, scope, resolveExtraDocs, build) {
     if (!idemKey || typeof idemKey !== 'string') {
         throw new WalletError(400, 'MISSING_IDEMPOTENCY_KEY', '缺少 idempotencyKey');
     }
@@ -172,7 +196,7 @@ async function runIdempotentTransaction(env, idemKey, resolveExtraDocs, build) {
         'Content-Type': 'application/json'
     };
     const idemName =
-        `${docsBase}/walletIdempotency/${await sha256Hex(idemKey)}`;
+        `${docsBase}/walletIdempotency/${await sha256Hex(`wallet:${scope}:${idemKey}`)}`;
     const extraDocNames = typeof resolveExtraDocs === 'function'
         ? [].concat(resolveExtraDocs({ docsBase, projectId: pid }) || [])
         : [];
@@ -286,9 +310,10 @@ async function runIdempotentTransaction(env, idemKey, resolveExtraDocs, build) {
 
 // ── 流水文件建構 ──
 
-function baseTxRecord(patientId, claims, key, at) {
+function baseTxRecord(patientId, clinicId, claims, key, at) {
     return {
         patientId,
+        clinicId: String(clinicId),
         idempotencyKey: key,
         operatorUid: claims.sub,
         operatorName: operatorName(claims),
@@ -301,8 +326,24 @@ function baseTxRecord(patientId, claims, key, at) {
     };
 }
 
-function accountDocName(docsBase, patientId) {
-    return `${docsBase}/patientWalletAccounts/${encodeURIComponent(patientId)}`;
+function accountDocName(docsBase, clinicId, patientId) {
+    return `${docsBase}/patientWalletAccounts/${
+        encodeURIComponent(walletAccountDocId(clinicId, patientId))}`;
+}
+
+// ── 診所歸屬核對 ──
+
+/**
+ * 讀取診症單所屬診所。病歷不存在（異常場景）時回傳空字串，
+ * 由呼叫端決定是否容錯（以端點解析出的 clinicId 為準）。
+ */
+async function fetchConsultationClinic(client, consultationId) {
+    const cons = await client.getDocument(
+        `consultations/${encodeURIComponent(consultationId)}`
+    );
+    return cons && cons.data && cons.data.clinicId
+        ? String(cons.data.clinicId)
+        : '';
 }
 
 function newTxWrite(docsBase, record) {
@@ -316,16 +357,17 @@ function newTxWrite(docsBase, record) {
 // ── 操作：充值 ──
 
 /**
- * 充值。贈送額由伺服器依配置級距計算，客戶端不可指定。
- * @param {object} params {patientId, amount, appointmentId?, note?, idempotencyKey}
+ * 充值。贈送額由伺服器依該診所配置級距計算，客戶端不可指定。
+ * @param {object} params {clinicId, patientId, amount, appointmentId?, note?, idempotencyKey}
  */
 export async function walletTopup(env, claims, params) {
+    const clinicId = requireClinicId(params.clinicId);
     const patientId = String(params.patientId);
     const amount = round2(params.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
         throw new WalletError(400, 'INVALID_AMOUNT', '充值金額必須大於 0');
     }
-    const config = await getMembershipConfig(env, claims);
+    const config = await getMembershipConfig(env, clinicId);
     const bonusAmount = config.enabled
         ? round2(calcTopupBonus(config, amount))
         : 0;
@@ -333,9 +375,10 @@ export async function walletTopup(env, claims, params) {
     return runIdempotentTransaction(
         env,
         params.idempotencyKey,
-        ({ docsBase }) => [accountDocName(docsBase, patientId)],
+        clinicId,
+        ({ docsBase }) => [accountDocName(docsBase, clinicId, patientId)],
         ({ byName, docsBase }) => {
-            const name = accountDocName(docsBase, patientId);
+            const name = accountDocName(docsBase, clinicId, patientId);
             const accFields = byName.get(name);
             const at = new Date().toISOString();
             const existed = !!accFields;
@@ -345,6 +388,7 @@ export async function walletTopup(env, claims, params) {
 
             const accountObj = {
                 patientId,
+                clinicId,
                 status: 'active',
                 balance,
                 bonusBalance,
@@ -360,7 +404,7 @@ export async function walletTopup(env, claims, params) {
 
             const txRecords = [];
             const topupTx = Object.assign(
-                baseTxRecord(patientId, claims, params.idempotencyKey, at),
+                baseTxRecord(patientId, clinicId, claims, params.idempotencyKey, at),
                 {
                     type: 'topup',
                     amount,
@@ -375,7 +419,7 @@ export async function walletTopup(env, claims, params) {
 
             if (bonusAmount > 0) {
                 txRecords.push(Object.assign(
-                    baseTxRecord(patientId, claims, params.idempotencyKey, at),
+                    baseTxRecord(patientId, clinicId, claims, params.idempotencyKey, at),
                     {
                         type: 'topupBonus',
                         amount: bonusAmount,
@@ -411,10 +455,11 @@ export async function walletTopup(env, claims, params) {
 // ── 操作：扣款（看診付款）──
 
 /**
- * @param {object} params {patientId, amount, consultationId, appointmentId?, idempotencyKey}
+ * @param {object} params {clinicId, patientId, amount, consultationId, appointmentId?, idempotencyKey}
  *   建議冪等鍵：pay:{consultationId}
  */
 export async function walletPayment(env, claims, params) {
+    const clinicId = requireClinicId(params.clinicId);
     const patientId = String(params.patientId);
     const amount = round2(params.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -425,12 +470,27 @@ export async function walletPayment(env, claims, params) {
         throw new WalletError(400, 'MISSING_CONSULTATION', '缺少 consultationId');
     }
 
+    // 交易外核對：診症單所屬診所必須與扣款帳戶診所一致，
+    // 防止在 A 診所看診卻扣到 B 診所的儲值帳戶。
+    const auth0 = await getAccessToken(env);
+    const client0 = new FirestoreClient(
+        auth0.token,
+        auth0.projectId,
+        env.FIREBASE_RTDB_URL || ''
+    );
+    const consClinic = await fetchConsultationClinic(client0, consultationId);
+    if (consClinic && consClinic !== clinicId) {
+        throw new WalletError(400, 'CLINIC_MISMATCH',
+            '診症單所屬診所與儲值帳戶診所不一致，無法扣款');
+    }
+
     return runIdempotentTransaction(
         env,
         params.idempotencyKey,
-        ({ docsBase }) => [accountDocName(docsBase, patientId)],
+        clinicId,
+        ({ docsBase }) => [accountDocName(docsBase, clinicId, patientId)],
         ({ byName, docsBase }) => {
-            const name = accountDocName(docsBase, patientId);
+            const name = accountDocName(docsBase, clinicId, patientId);
             const accFields = byName.get(name);
             if (!accFields) {
                 throw new WalletError(402, 'WALLET_NOT_FOUND',
@@ -457,6 +517,7 @@ export async function walletPayment(env, claims, params) {
 
             const accountObj = {
                 patientId,
+                clinicId,
                 status,
                 balance: newBalance,
                 bonusBalance: newBonus,
@@ -470,7 +531,7 @@ export async function walletPayment(env, claims, params) {
                 ? 'mixed'
                 : (fromBalance > 0 ? 'balance' : 'bonus');
             const txRecord = Object.assign(
-                baseTxRecord(patientId, claims, params.idempotencyKey, at),
+                baseTxRecord(patientId, clinicId, claims, params.idempotencyKey, at),
                 {
                     type: 'payment',
                     amount: -amount,
@@ -510,9 +571,10 @@ export async function walletPayment(env, claims, params) {
 /**
  * 全額或部分退還某診症單的儲值付款。
  * 需管理員；按原 payment 流水的本金/贈額比例回補。
- * @param {object} params {patientId, consultationId, amount?, note?, idempotencyKey}
+ * @param {object} params {clinicId, patientId, consultationId, amount?, note?, idempotencyKey}
  */
 export async function walletRefund(env, claims, params) {
+    const clinicId = requireClinicId(params.clinicId);
     const patientId = String(params.patientId);
     const consultationId = String(params.consultationId || '');
     if (!consultationId) {
@@ -526,6 +588,14 @@ export async function walletRefund(env, claims, params) {
         auth.projectId,
         env.FIREBASE_RTDB_URL || ''
     );
+
+    // 診症單診所與目標帳戶診所必須一致
+    const consClinic = await fetchConsultationClinic(client, consultationId);
+    if (consClinic && consClinic !== clinicId) {
+        throw new WalletError(400, 'CLINIC_MISMATCH',
+            '診症單所屬診所與儲值帳戶診所不一致，無法退款');
+    }
+
     const found = await client.queryCollection({
         collectionId: 'patientWalletTransactions',
         where: {
@@ -537,10 +607,17 @@ export async function walletRefund(env, claims, params) {
         },
         limit: 50
     });
-    const payments = found.docs.filter((d) => d.data && d.data.type === 'payment');
+    // 只採計本診所的付款流水；舊制流水（無 clinicId）僅在診症單明確
+    // 屬於本診所（或診症單缺診所欄位）時採計，避免跨診所誤退。
+    const payments = found.docs.filter((d) => {
+        if (!d.data || d.data.type !== 'payment') return false;
+        const txClinic = d.data.clinicId ? String(d.data.clinicId) : '';
+        if (txClinic) return txClinic === clinicId;
+        return !consClinic || consClinic === clinicId;
+    });
     if (!payments.length) {
         throw new WalletError(404, 'PAYMENT_NOT_FOUND',
-            '找不到此診症單的儲值付款記錄');
+            '找不到此診症單於本診所的儲值付款記錄');
     }
     let paidBalance = 0;
     let paidBonus = 0;
@@ -567,9 +644,10 @@ export async function walletRefund(env, claims, params) {
     return runIdempotentTransaction(
         env,
         params.idempotencyKey,
-        ({ docsBase }) => [accountDocName(docsBase, patientId)],
+        clinicId,
+        ({ docsBase }) => [accountDocName(docsBase, clinicId, patientId)],
         ({ byName, docsBase }) => {
-            const name = accountDocName(docsBase, patientId);
+            const name = accountDocName(docsBase, clinicId, patientId);
             const accFields = byName.get(name);
             if (!accFields) {
                 throw new WalletError(404, 'WALLET_NOT_FOUND', '找不到儲值帳戶');
@@ -581,6 +659,7 @@ export async function walletRefund(env, claims, params) {
 
             const accountObj = {
                 patientId,
+                clinicId,
                 status,
                 balance: newBalance,
                 bonusBalance: newBonus,
@@ -591,7 +670,7 @@ export async function walletRefund(env, claims, params) {
             };
 
             const txRecord = Object.assign(
-                baseTxRecord(patientId, claims, params.idempotencyKey, at),
+                baseTxRecord(patientId, clinicId, claims, params.idempotencyKey, at),
                 {
                     type: 'refund',
                     amount: want,
@@ -630,9 +709,10 @@ export async function walletRefund(env, claims, params) {
 
 /**
  * 需管理員；強制填原因。新餘額不得為負。
- * @param {object} params {patientId, deltaBalance?, deltaBonus?, reason, idempotencyKey}
+ * @param {object} params {clinicId, patientId, deltaBalance?, deltaBonus?, reason, idempotencyKey}
  */
 export async function walletAdjust(env, claims, params) {
+    const clinicId = requireClinicId(params.clinicId);
     const patientId = String(params.patientId);
     const deltaBalance = round2(params.deltaBalance);
     const deltaBonus = round2(params.deltaBonus);
@@ -650,9 +730,10 @@ export async function walletAdjust(env, claims, params) {
     return runIdempotentTransaction(
         env,
         params.idempotencyKey,
-        ({ docsBase }) => [accountDocName(docsBase, patientId)],
+        clinicId,
+        ({ docsBase }) => [accountDocName(docsBase, clinicId, patientId)],
         ({ byName, docsBase }) => {
-            const name = accountDocName(docsBase, patientId);
+            const name = accountDocName(docsBase, clinicId, patientId);
             const accFields = byName.get(name);
             if (!accFields) {
                 throw new WalletError(404, 'WALLET_NOT_FOUND', '找不到儲值帳戶');
@@ -668,6 +749,7 @@ export async function walletAdjust(env, claims, params) {
 
             const accountObj = {
                 patientId,
+                clinicId,
                 status,
                 balance: newBalance,
                 bonusBalance: newBonus,
@@ -681,7 +763,7 @@ export async function walletAdjust(env, claims, params) {
                 ? 'mixed'
                 : (deltaBalance !== 0 ? 'balance' : 'bonus');
             const txRecord = Object.assign(
-                baseTxRecord(patientId, claims, params.idempotencyKey, at),
+                baseTxRecord(patientId, clinicId, claims, params.idempotencyKey, at),
                 {
                     type: 'adjust',
                     amount: round2(deltaBalance + deltaBonus),
@@ -715,9 +797,10 @@ export async function walletAdjust(env, claims, params) {
 
 /**
  * 需管理員。非 active 狀態須附說明。
- * @param {object} params {patientId, status, note?, idempotencyKey}
+ * @param {object} params {clinicId, patientId, status, note?, idempotencyKey}
  */
 export async function walletSetStatus(env, claims, params) {
+    const clinicId = requireClinicId(params.clinicId);
     const patientId = String(params.patientId);
     const status = String(params.status || '');
     if (!['active', 'frozen', 'closed'].includes(status)) {
@@ -730,9 +813,10 @@ export async function walletSetStatus(env, claims, params) {
     return runIdempotentTransaction(
         env,
         params.idempotencyKey,
-        ({ docsBase }) => [accountDocName(docsBase, patientId)],
+        clinicId,
+        ({ docsBase }) => [accountDocName(docsBase, clinicId, patientId)],
         ({ byName, docsBase }) => {
-            const name = accountDocName(docsBase, patientId);
+            const name = accountDocName(docsBase, clinicId, patientId);
             const accFields = byName.get(name);
             if (!accFields) {
                 throw new WalletError(404, 'WALLET_NOT_FOUND', '找不到儲值帳戶');
@@ -747,6 +831,7 @@ export async function walletSetStatus(env, claims, params) {
 
             const accountObj = {
                 patientId,
+                clinicId,
                 status,
                 balance,
                 bonusBalance,
@@ -757,7 +842,7 @@ export async function walletSetStatus(env, claims, params) {
             };
 
             const txRecord = Object.assign(
-                baseTxRecord(patientId, claims, params.idempotencyKey, at),
+                baseTxRecord(patientId, clinicId, claims, params.idempotencyKey, at),
                 {
                     type: 'adjust',
                     amount: 0,
@@ -781,4 +866,305 @@ export async function walletSetStatus(env, claims, params) {
             };
         }
     );
+}
+
+// ── 舊制單一錢包遷移至每診所獨立帳戶 ──
+
+const LEGACY_PATIENT_ID_RE = /^[A-Za-z0-9_-]{10,40}$/;
+const MIGRATE_MAX_ACCOUNTS = 1000;
+
+function migrationEqFilter(fieldPath, value) {
+    return {
+        fieldFilter: {
+            field: { fieldPath },
+            op: 'EQUAL',
+            value
+        }
+    };
+}
+
+async function migrationRtdbAppointment(rtdbUrl, token, appointmentId) {
+    try {
+        const base = String(rtdbUrl || '').replace(/\/$/, '');
+        const res = await fetch(
+            `${base}/appointments/${encodeURIComponent(appointmentId)}.json`,
+            { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        if (!res.ok) return null;
+        return await res.json();
+    } catch (_e) {
+        return null;
+    }
+}
+
+async function migrationDocMap(client, collectionId, ids) {
+    const uniq = Array.from(new Set((ids || []).filter(Boolean))).slice(0, 300);
+    const docs = await Promise.all(uniq.map(async (id) => {
+        try {
+            const d = await client.getDocument(
+                `${collectionId}/${encodeURIComponent(id)}`
+            );
+            return d && d.data ? [id, d.data] : null;
+        } catch (_e) {
+            return null;
+        }
+    }));
+    return new Map(docs.filter(Boolean));
+}
+
+/**
+ * 把一筆流水的金額變動計入分組（正確正負號：付款為扣減）。
+ */
+function migrationApplyTx(group, tx) {
+    switch (tx.type) {
+        case 'topup':
+            group.balance += Number(tx.amount) || 0;
+            break;
+        case 'topupBonus':
+            group.bonus += Number(tx.amount) || 0;
+            break;
+        case 'payment':
+            group.balance -= Number(tx.fromBalance) || 0;
+            group.bonus -= Number(tx.fromBonus) || 0;
+            break;
+        case 'refund':
+            group.balance += Number(tx.fromBalance) || 0;
+            group.bonus += Number(tx.fromBonus) || 0;
+            break;
+        case 'adjust':
+            if (Number.isFinite(Number(tx.deltaBalance))) {
+                group.balance += Number(tx.deltaBalance);
+                group.bonus += Number(tx.deltaBonus) || 0;
+            } else {
+                group.balance += Number(tx.amount) || 0;
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+/**
+ * 一次性遷移（可重複執行）：
+ * 舊制 patientWalletAccounts/{patientId}（全域單一帳戶）
+ *   → patientWalletAccounts/{clinicId}__{patientId}（每診所獨立）
+ *
+ * 每個病人的全部流水依以下證據歸診所：
+ *   tx.clinicId（新制）> 診症單 clinicId > 掛號單 clinicId
+ *   > topupBonus 跟隨同 idempotencyKey 的 topup。
+ * 無法歸屬者記為未分組餘額回報，需人工以「調整」處置；
+ * 已標記 walletMigratedAt 的舊文件跳過，不重複遷移。
+ *
+ * @param {object} opts {dryRun?: boolean}
+ * @returns {Promise<object>} 遷移報告
+ */
+export async function walletMigrateLegacy(env, claims, opts = {}) {
+    const dryRun = opts.dryRun === true;
+    const auth = await getAccessToken(env);
+    const client = new FirestoreClient(
+        auth.token,
+        auth.projectId,
+        env.FIREBASE_RTDB_URL || ''
+    );
+    const knownClinicIds = new Set(await client.listClinicIds());
+
+    const allAccounts = await client.queryCollection({
+        collectionId: 'patientWalletAccounts',
+        orderBy: [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }]
+    });
+    const legacyDocs = allAccounts.docs.filter((d) =>
+        isLegacyAccountDocId(d.id) && LEGACY_PATIENT_ID_RE.test(d.id));
+
+    const report = {
+        dryRun,
+        scanned: legacyDocs.length,
+        migrated: [],
+        unassigned: [],
+        skipped: [],
+        unknownClinic: [],
+        capped: false
+    };
+    let processed = 0;
+
+    for (const doc of legacyDocs) {
+        if (processed >= MIGRATE_MAX_ACCOUNTS) {
+            report.capped = true;
+            break;
+        }
+        const patientId = doc.id;
+        const legacy = doc.data || {};
+        if (legacy.walletMigratedAt) {
+            report.skipped.push({ patientId, reason: 'already-migrated' });
+            continue;
+        }
+        processed += 1;
+
+        // 該病人全部流水（自動分頁）
+        const txRes = await client.queryCollection({
+            collectionId: 'patientWalletTransactions',
+            where: migrationEqFilter('patientId', { stringValue: patientId }),
+            orderBy: [{ field: { fieldPath: '__name__' }, direction: 'ASCENDING' }]
+        });
+        const txs = txRes.docs.map((d) => d.data).filter(Boolean);
+
+        // 診所證據：診症單與掛號單
+        const consIds = txs.map((tx) => tx.consultationId).filter(Boolean);
+        const apptIds = txs.map((tx) => tx.appointmentId).filter(Boolean);
+        const [consMap, apptList] = await Promise.all([
+            migrationDocMap(client, 'consultations', consIds),
+            Promise.all(Array.from(new Set(apptIds)).slice(0, 100)
+                .map((id) => migrationRtdbAppointment(
+                    env.FIREBASE_RTDB_URL || '', auth.token, id
+                )))
+        ]);
+        const apptMap = new Map();
+        Array.from(new Set(apptIds)).slice(0, 100).forEach((id, i) => {
+            if (apptList[i]) apptMap.set(id, apptList[i]);
+        });
+
+        // topup 單先解析診所，topupBonus 以同 idempotencyKey 跟隨
+        const idemClinicMap = new Map();
+        txs.forEach((tx) => {
+            if (tx.type !== 'topup' || !tx.idempotencyKey) return;
+            let cid = (tx.consultationId
+                && consMap.has(tx.consultationId)
+                && consMap.get(tx.consultationId).clinicId)
+                || (tx.appointmentId
+                && apptMap.has(tx.appointmentId)
+                && apptMap.get(tx.appointmentId).clinicId)
+                || '';
+            idemClinicMap.set(String(tx.idempotencyKey), String(cid || ''));
+        });
+
+        function txClinicId(tx) {
+            if (tx.clinicId) return String(tx.clinicId);
+            if (tx.consultationId) {
+                const c = consMap.get(tx.consultationId);
+                if (c && c.clinicId) return String(c.clinicId);
+            }
+            if (tx.appointmentId) {
+                const a = apptMap.get(tx.appointmentId);
+                if (a && a.clinicId) return String(a.clinicId);
+            }
+            if (tx.type === 'topupBonus'
+                && idemClinicMap.has(String(tx.idempotencyKey))) {
+                return idemClinicMap.get(String(tx.idempotencyKey));
+            }
+            return '';
+        }
+
+        const groups = new Map();
+        const ensure = (cid) => {
+            if (!groups.has(cid)) {
+                groups.set(cid, {
+                    balance: 0,
+                    bonus: 0,
+                    earliestAt: '',
+                    count: 0
+                });
+            }
+            return groups.get(cid);
+        };
+        txs.forEach((tx) => {
+            const g = ensure(txClinicId(tx));
+            migrationApplyTx(g, tx);
+            if (tx.at && (!g.earliestAt || String(tx.at) < g.earliestAt)) {
+                g.earliestAt = String(tx.at);
+            }
+            g.count += 1;
+        });
+
+        const legacyBalance = round2(Number(legacy.balance) || 0);
+        const legacyBonus = round2(Number(legacy.bonus) || 0);
+        const assignedCids = [];
+        const unknownCids = [];
+        let assignedBalance = 0;
+        let assignedBonus = 0;
+
+        for (const [cid, g] of groups) {
+            if (!cid) continue;
+            g.balance = round2(g.balance);
+            g.bonus = round2(g.bonus);
+            if (!knownClinicIds.has(cid)) unknownCids.push(cid);
+
+            const compositeId = walletAccountDocId(cid, patientId);
+            const existing = await client.getDocument(
+                `patientWalletAccounts/${encodeURIComponent(compositeId)}`
+            );
+            // 新制帳戶可能已於部署後、遷移前啟用：把舊制結存「加回」一次
+            const finalBalance = round2(
+                (existing && existing.data ? Number(existing.data.balance) || 0 : 0)
+                + g.balance
+            );
+            const finalBonus = round2(
+                (existing && existing.data ? Number(existing.data.bonusBalance) || 0 : 0)
+                + g.bonus
+            );
+            const at = new Date().toISOString();
+            const fields = {
+                patientId,
+                clinicId: cid,
+                status: String(legacy.status || 'active'),
+                balance: finalBalance,
+                bonusBalance: finalBonus,
+                currency: String(legacy.currency || 'HKD'),
+                createdAt: String(legacy.createdAt || g.earliestAt || at),
+                createdBy: String(legacy.createdBy || operatorName(claims)),
+                updatedAt: at
+            };
+            if (!dryRun) {
+                await client.patchDocument(
+                    `patientWalletAccounts/${encodeURIComponent(compositeId)}`,
+                    fields
+                );
+            }
+            assignedCids.push(cid);
+            assignedBalance = round2(assignedBalance + g.balance);
+            assignedBonus = round2(assignedBonus + g.bonus);
+        }
+
+        const unassigned = groups.get('');
+        const unassignedBalance = unassigned ? round2(unassigned.balance) : 0;
+        const unassignedBonus = unassigned ? round2(unassigned.bonus) : 0;
+
+        // 核對：分組結存總和應與舊帳戶餘額一致，差額記錄供人工追蹤
+        const diffBalance = round2(
+            legacyBalance - assignedBalance - unassignedBalance);
+        const diffBonus = round2(
+            legacyBonus - assignedBonus - unassignedBonus);
+
+        if (!dryRun) {
+            await client.patchDocument(
+                `patientWalletAccounts/${encodeURIComponent(patientId)}`,
+                {
+                    walletMigratedAt: new Date().toISOString(),
+                    walletMigratedClinicIds: assignedCids,
+                    walletMigratedUnassignedBalance: unassignedBalance,
+                    walletMigratedUnassignedBonus: unassignedBonus,
+                    walletMigratedDiffBalance: diffBalance,
+                    walletMigratedDiffBonus: diffBonus
+                }
+            );
+        }
+
+        report.migrated.push({
+            patientId,
+            clinics: assignedCids,
+            assignedBalance,
+            assignedBonus
+        });
+        if (unassignedBalance !== 0 || unassignedBonus !== 0) {
+            report.unassigned.push({
+                patientId,
+                balance: unassignedBalance,
+                bonus: unassignedBonus
+            });
+        }
+        if (unknownCids.length) {
+            report.unknownClinic.push({ patientId, clinicIds: unknownCids });
+        }
+    }
+
+    report.totalMigrated = report.migrated.length;
+    return report;
 }

@@ -14,6 +14,7 @@ import {
     readJsonBody,
     parsePatientId,
     parseIdempotencyKey,
+    resolveClinicId,
     jsonResponse,
     optionsResponse,
     toErrorResponse
@@ -42,7 +43,9 @@ export async function onRequestPost(context) {
                 message: '缺少 consultationId'
             }, 400);
         }
+        const clinicId = resolveClinicId(claims, body);
         const result = await walletPayment(env, claims, {
+            clinicId,
             patientId,
             amount,
             consultationId,

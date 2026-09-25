@@ -12,6 +12,7 @@ import {
     readJsonBody,
     parsePatientId,
     parseIdempotencyKey,
+    resolveClinicId,
     jsonResponse,
     optionsResponse,
     toErrorResponse
@@ -41,7 +42,11 @@ export async function onRequestPost(context) {
                 message: '退款金額必須大於 0'
             }, 400);
         }
+        // 診所由 token claim（隸屬診所員工）或 body（超管）決定；
+        // store 內會再核對診症單 clinicId，不符一律拒絕
+        const clinicId = resolveClinicId(claims, body);
         const result = await walletRefund(env, claims, {
+            clinicId,
             patientId,
             consultationId,
             amount,

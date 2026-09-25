@@ -12,6 +12,7 @@ import {
     readJsonBody,
     parsePatientId,
     parseIdempotencyKey,
+    resolveClinicId,
     jsonResponse,
     optionsResponse,
     toErrorResponse
@@ -33,7 +34,9 @@ export async function onRequestPost(context) {
                 message: '充值金額必須大於 0 且不超過 HK$100,000'
             }, 400);
         }
+        const clinicId = resolveClinicId(claims, body);
         const result = await walletTopup(env, claims, {
+            clinicId,
             patientId,
             amount,
             appointmentId: body.appointmentId ? String(body.appointmentId) : '',

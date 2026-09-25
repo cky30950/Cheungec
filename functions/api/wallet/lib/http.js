@@ -46,6 +46,35 @@ export async function readJsonBody(request) {
 }
 
 const PATIENT_ID_RE = /^[A-Za-z0-9_-]{10,40}$/;
+const CLINIC_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * 解析本次操作所屬診所：
+ *  - 員工帳號帶 clinicId claim（帳號隸屬單一診所）→ 一律以 claim 為準，
+ *    客戶端無法指定其他診所；
+ *  - 無 clinicId claim 的超級管理員 → 必須由請求顯式帶 clinicId。
+ * @param {object} claims 已驗證的 token claims
+ * @param {object} source 請求參數（JSON body 或 URLSearchParams）
+ * @returns {string}
+ */
+export function resolveClinicId(claims, source) {
+    const bound = claims && claims.clinicId ? String(claims.clinicId).trim() : '';
+    if (bound) {
+        if (!CLINIC_ID_RE.test(bound)) {
+            throw new WalletError(403, 'INVALID_STAFF_CLINIC',
+                '帳號所屬診所資料異常，請聯絡管理員');
+        }
+        return bound;
+    }
+    const given = source
+        ? String(source.clinicId || source.get?.('clinicId') || '').trim()
+        : '';
+    if (!CLINIC_ID_RE.test(given)) {
+        throw new WalletError(400, 'INVALID_CLINIC',
+            '缺少有效的 clinicId，請重新整理頁面後再試');
+    }
+    return given;
+}
 
 export function parsePatientId(body) {
     const patientId = String(body && body.patientId || '').trim();

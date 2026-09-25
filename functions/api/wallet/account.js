@@ -8,8 +8,10 @@
 
 import { getAccessToken } from '../backup/lib/google-auth.js';
 import { FirestoreClient } from '../backup/lib/firestore.js';
+import { walletAccountDocId } from './lib/wallet-store.js';
 import {
     requireStaff,
+    resolveClinicId,
     jsonResponse,
     optionsResponse,
     toErrorResponse
@@ -36,8 +38,10 @@ export async function onRequestGet(context) {
             auth.projectId,
             env.FIREBASE_RTDB_URL || ''
         );
+        const clinicId = resolveClinicId(claims, url.searchParams);
         const account = await client.getDocument(
-            `patientWalletAccounts/${encodeURIComponent(patientId)}`
+            `patientWalletAccounts/${
+                encodeURIComponent(walletAccountDocId(clinicId, patientId))}`
         );
         const txRes = await client.queryCollection({
             collectionId: 'patientWalletTransactions',
@@ -49,12 +53,18 @@ export async function onRequestGet(context) {
                 }
             },
             orderBy: [{ field: { fieldPath: 'at' }, direction: 'DESCENDING' }],
-            limit: 20
+            limit: 100
         });
+        // 只回傳本診所流水（新制帶 clinicId；舊制無欄位者不從此端點回傳）
+        const transactions = txRes.docs
+            .map((d) => d.data)
+            .filter((tx) => tx && String(tx.clinicId || '') === String(clinicId))
+            .slice(0, 20);
 
         return jsonResponse({
+            clinicId,
             account: account ? account.data : null,
-            transactions: txRes.docs.map((d) => d.data)
+            transactions
         });
     } catch (error) {
         return toErrorResponse(error);

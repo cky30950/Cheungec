@@ -815,6 +815,15 @@ function refreshClinicScopedUi() {
         loadPermissionManagementPanel();
       }
     } catch (_eLoadPermissionPanel) {}
+  } else if (currentSectionId === 'walletManagement') {
+    try {
+      if (typeof window.clearWalletCaches === 'function') {
+        window.clearWalletCaches();
+      }
+      if (typeof window.loadWalletManagement === 'function') {
+        window.loadWalletManagement();
+      }
+    } catch (_eLoadWallet) {}
   }
 }
 
@@ -7062,6 +7071,12 @@ async function logout() {
         } catch (billingErr) {
             console.error('移除收費項目監聽器失敗:', billingErr);
         }
+        // 清空每診所錢包 session 快取，避免下一登入者看到舊資料
+        try {
+            if (typeof window.clearWalletCaches === 'function') {
+                window.clearWalletCaches();
+            }
+        } catch (_walletCacheErr) {}
 
         // 登出不再拆除本裝置推播訂閱：瀏覽器訂閱、後端記錄與 pushDeviceEnabled
         // 標記皆保留，同一帳號重新登入後 syncPushState() 會自動恢復開啟狀態。
@@ -15080,7 +15095,9 @@ async function resolveConsultationWalletBalance(consultation, patientId) {
         if (consultation && Number(consultation.walletPaid) > 0) {
             const pid = patientId || consultation.patientId || '';
             if (pid && typeof window.getWalletAccount === 'function') {
-                const acc = await window.getWalletAccount(pid);
+                // 後備讀取亦須以該病歷所屬診所的獨立帳戶為準
+                const cid = consultation.clinicId ? String(consultation.clinicId) : '';
+                const acc = await window.getWalletAccount(pid, false, cid);
                 if (acc) {
                     const principal = Number(acc.balance) || 0;
                     const bonus = Number(acc.bonusBalance) || 0;
@@ -24841,7 +24858,8 @@ async function restoreUser(id) {
         //  - 儲值支付＝沖銷負債，消費金額已按全額計入診症收入，不重複計
         //  - 退款＝回補會員帳戶（不直接退現金）
         //  - 期末會員餘額＝目前會員預存（本金＋贈送），屬診所負債
-        //  - 交易不帶 clinicId，診所歸屬由診症記錄 patientId→clinicId 推得
+        //  - 新制交易／帳戶自帶 clinicId，直接以欄位歸診所；
+        //    舊制無欄位資料才由診症記錄 patientId→clinicId 推得
         // ============================================================
         const WALLET_FIN_CACHE_TTL_MS = 5 * 60 * 1000;
         const walletFinMemCache = new Map(); // 日期範圍 -> { at, raw }
@@ -24855,8 +24873,9 @@ async function restoreUser(id) {
         }
 
         // 依日期範圍讀取錢包流水（單欄位 at 範圍查詢，使用自動索引）
-        async function loadWalletFinRaw(startDate, endDate) {
+        async function loadWalletFinRaw(startDate, endDate, clinicFilter) {
             const fb = window.firebase;
+            const cid = clinicFilter ? String(clinicFilter) : '';
             const { startIso, endIso } = walletFinRangeIso(startDate, endDate);
             const txQ = fb.firestoreQuery(
                 fb.collection(fb.db, 'patientWalletTransactions'),
@@ -24869,24 +24888,42 @@ async function restoreUser(id) {
             const txs = [];
             txSnap.forEach((d) => txs.push(Object.assign({ id: d.id }, d.data())));
 
-            const accQ = fb.firestoreQuery(
-                fb.collection(fb.db, 'patientWalletAccounts'),
-                fb.orderBy('updatedAt', 'desc'),
-                fb.limit(200)
-            );
-            const accSnap = await fb.getDocs(accQ);
+            // 帳戶：財務報表的診所篩選在這裡一併套用（單欄位 where，
+            // 不需複合索引）；全部診所總覽才退回 updatedAt 排序查詢
             const accounts = [];
-            accSnap.forEach((d) => accounts.push(d.data()));
+            if (cid) {
+                const accQ = fb.firestoreQuery(
+                    fb.collection(fb.db, 'patientWalletAccounts'),
+                    fb.where('clinicId', '==', cid),
+                    fb.limit(500)
+                );
+                const accSnap = await fb.getDocs(accQ);
+                accSnap.forEach((d) => accounts.push(d.data()));
+            } else {
+                const accQ = fb.firestoreQuery(
+                    fb.collection(fb.db, 'patientWalletAccounts'),
+                    fb.orderBy('updatedAt', 'desc'),
+                    fb.limit(300)
+                );
+                const accSnap = await fb.getDocs(accQ);
+                accSnap.forEach((d) => {
+                    const a = d.data();
+                    // 已遷移的舊制全域帳戶其結存已轉到複合帳戶，跳過避免重複計
+                    if (a && a.walletMigratedAt) return;
+                    accounts.push(a);
+                });
+            }
             return { txs, accounts };
         }
 
-        async function getWalletFinRaw(startDate, endDate, forceRefresh) {
-            const key = `${startDate}|${endDate}`;
+        async function getWalletFinRaw(startDate, endDate, forceRefresh, clinicFilter) {
+            const cid = clinicFilter ? String(clinicFilter) : '';
+            const key = `${startDate}|${endDate}|${cid}`;
             const hit = walletFinMemCache.get(key);
             if (!forceRefresh && hit && (Date.now() - hit.at) < WALLET_FIN_CACHE_TTL_MS) {
                 return hit.raw;
             }
-            const raw = await loadWalletFinRaw(startDate, endDate);
+            const raw = await loadWalletFinRaw(startDate, endDate, cid);
             walletFinMemCache.set(key, { at: Date.now(), raw });
             return raw;
         }
@@ -24919,16 +24956,34 @@ async function restoreUser(id) {
             // 單一診所系統：所有數據皆屬該診所，無需記錄自證
             const singleClinicId = (Array.isArray(clinicsList) && clinicsList.length === 1)
                 ? String(clinicsList[0].id) : '';
-            const belongs = (pid, appointmentId) => {
+            // 流水歸屬：新制直接看 tx.clinicId；舊制無欄位才用證據推斷
+            const txBelongs = (tx) => {
                 if (!clinicFilter) return true;
-                if (singleClinicId && String(clinicFilter) === singleClinicId) return true;
-                const set = patientClinics.get(String(pid));
-                if (set) return set.has(String(clinicFilter));
-                if (appointmentId && appointmentClinics.get(String(appointmentId)) === String(clinicFilter)) {
+                const f = String(clinicFilter);
+                if (tx && tx.clinicId) return String(tx.clinicId) === f;
+                if (singleClinicId && f === singleClinicId) return true;
+                const set = patientClinics.get(String(tx && tx.patientId));
+                if (set) return set.has(f);
+                if (tx && tx.appointmentId
+                    && appointmentClinics.get(String(tx.appointmentId)) === f) {
                     return true;
                 }
                 // 無任何診所證據的記錄（如舊數據）不歸入任何診所，避免跨診所重複計入
                 return false;
+            };
+            // 帳戶歸屬：新制帳戶自帶 clinicId
+            const accountBelongs = (acc) => {
+                if (!clinicFilter) {
+                    // 總覽時已於查詢層跳過已遷移舊帳戶，這裡再保險一次
+                    return !(acc && acc.walletMigratedAt);
+                }
+                const f = String(clinicFilter);
+                if (acc && acc.clinicId) return String(acc.clinicId) === f;
+                if (singleClinicId && f === singleClinicId
+                    && acc && !acc.walletMigratedAt) return true;
+                return !!(acc && acc.patientId
+                    && patientClinics.get(String(acc.patientId))
+                    && patientClinics.get(String(acc.patientId)).has(f));
             };
 
             const stats = {
@@ -24952,7 +25007,7 @@ async function restoreUser(id) {
             };
 
             (raw.txs || []).forEach((tx) => {
-                if (!tx || !belongs(tx.patientId, tx.appointmentId)) return;
+                if (!tx || !txBelongs(tx)) return;
                 const amount = Number(tx.amount) || 0;
                 const day = String(tx.at || '').slice(0, 10);
                 if (!day) return;
@@ -24997,7 +25052,7 @@ async function restoreUser(id) {
             });
 
             (raw.accounts || []).forEach((acc) => {
-                if (!acc || !belongs(acc.patientId)) return;
+                if (!acc || !accountBelongs(acc)) return;
                 stats.outstandingPrincipal += Number(acc.balance) || 0;
                 stats.outstandingBonus += Number(acc.bonusBalance) || 0;
             });
@@ -25077,7 +25132,8 @@ async function restoreUser(id) {
 
         async function refreshWalletFinancialSection(startDate, endDate, clinicFilter, forceRefresh) {
             try {
-                const raw = await getWalletFinRaw(startDate, endDate, !!forceRefresh);
+                const raw = await getWalletFinRaw(
+                    startDate, endDate, !!forceRefresh, clinicFilter);
                 const stats = calculateWalletFinancialStats(raw, clinicFilter);
                 updateWalletFinSection(stats);
                 return stats;
@@ -33545,9 +33601,43 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
    * /api/wallet/* 端點，客戶端無權直接寫錢包集合。
    * ============================================================ */
 
+  // 帳戶快取 key 為「診所__病人」，確保切換診所後互不串用
   const walletAccountCache = new Map();
+  const walletClinicDocCache = new Map(); // cid → clinics/{cid}
+  const walletMembershipConfigCache = new Map(); // cid → membershipConfig
   let walletSelectedPatientId = '';
-  let walletMembershipConfig = null;
+
+  /** 目前操作的診所 ID（員工帳號僅隸屬單一診所；超管可切換） */
+  function currentWalletClinicId() {
+    let cid = '';
+    try {
+      cid = (typeof currentClinicId !== 'undefined' && currentClinicId)
+        ? String(currentClinicId)
+        : (localStorage.getItem('currentClinicId') || '');
+    } catch (_e) {
+      cid = '';
+    }
+    if (!cid || cid === 'local-default') {
+      throw new Error('尚未選擇診所，請先切換至正確診所再操作儲值功能');
+    }
+    return cid;
+  }
+
+  /** 與後端一致的帳戶文件 ID 規則：{clinicId}__{patientId} */
+  function walletAccountDocId(clinicId, patientId) {
+    return String(clinicId) + '__' + String(patientId);
+  }
+
+  function walletCacheKey(clinicId, patientId) {
+    return String(clinicId) + '__' + String(patientId);
+  }
+
+  /** 切換診所／登出時清空錢包 session 快取 */
+  function clearWalletCaches() {
+    walletAccountCache.clear();
+    walletClinicDocCache.clear();
+    walletMembershipConfigCache.clear();
+  }
 
   const WALLET_TYPE_LABELS = {
     topup: '充值',
@@ -33576,6 +33666,9 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     await waitForFirebase();
     const fbUser = window.firebase.auth && window.firebase.auth.currentUser;
     if (!fbUser) throw new Error('未登入，無法操作儲值功能');
+    const body = Object.assign({}, payload || {});
+    // 每筆寫入都帶診所；後端對隸屬單一診所的員工仍以 token claim 鎖定
+    if (!body.clinicId) body.clinicId = currentWalletClinicId();
     const token = await fbUser.getIdToken();
     const res = await fetch('/api/wallet/' + path, {
       method: 'POST',
@@ -33583,7 +33676,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
         'Authorization': 'Bearer ' + token,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(payload || {})
+      body: JSON.stringify(body)
     });
     let data = null;
     try { data = await res.json(); } catch (_e) {}
@@ -33594,29 +33687,37 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
   }
 
   /**
-   * 讀取病人儲值帳戶（SDK 單文件，session Map 快取）。
+   * 讀取病人在「指定診所」的儲值帳戶（SDK 單文件，session Map 快取）。
+   * @param {string} patientId 病人 ID
+   * @param {boolean} force 強制重讀
+   * @param {string} [clinicId] 診所 ID，預設為目前選取診所
    * 無帳戶回 null。
    */
-  async function getWalletAccount(patientId, force = false) {
-    if (!force && walletAccountCache.has(patientId)) {
-      return walletAccountCache.get(patientId);
+  async function getWalletAccount(patientId, force = false, clinicId = '') {
+    const cid = clinicId || currentWalletClinicId();
+    const key = walletCacheKey(cid, patientId);
+    if (!force && walletAccountCache.has(key)) {
+      return walletAccountCache.get(key);
     }
     const snap = await window.firebase.getDoc(
       window.firebase.doc(
         window.firebase.db,
         'patientWalletAccounts',
-        patientId
+        walletAccountDocId(cid, patientId)
       )
     );
     const account = snap.exists()
       ? Object.assign({ id: snap.id }, snap.data())
       : null;
-    walletAccountCache.set(patientId, account);
+    walletAccountCache.set(key, account);
     return account;
   }
 
-  function invalidateWalletAccount(patientId) {
-    walletAccountCache.delete(patientId);
+  function invalidateWalletAccount(patientId, clinicId = '') {
+    const cid = clinicId || (() => {
+        try { return currentWalletClinicId(); } catch (_e) { return ''; }
+      })();
+    if (cid) walletAccountCache.delete(walletCacheKey(cid, patientId));
   }
 
   /** 可用餘額（僅 active 帳戶） */
@@ -33628,27 +33729,23 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
   }
 
   /**
-   * 診所會員配置（clinics/*.membershipConfig），讀一次快取。
+   * 指定診所的會員配置（clinics/{cid}.membershipConfig），每診所獨立快取。
    */
-  async function getWalletMembershipConfig() {
-    if (walletMembershipConfig) return walletMembershipConfig;
-    try {
-      const q = window.firebase.firestoreQuery(
-        window.firebase.collection(window.firebase.db, 'clinics'),
-        window.firebase.limit(5)
-      );
-      const snap = await window.firebase.getDocs(q);
-      let cfg = null;
-      snap.forEach((d) => {
-        if (!cfg && d.data() && d.data().membershipConfig) {
-          cfg = d.data().membershipConfig;
-        }
-      });
-      walletMembershipConfig = cfg || { topupBonusTiers: [] };
-    } catch (_e) {
-      walletMembershipConfig = { topupBonusTiers: [] };
+  async function getWalletMembershipConfig(clinicId = '') {
+    const cid = clinicId || currentWalletClinicId();
+    if (walletMembershipConfigCache.has(cid)) {
+      return walletMembershipConfigCache.get(cid);
     }
-    return walletMembershipConfig;
+    let cfg = { topupBonusTiers: [] };
+    try {
+      const clinic = await getWalletClinicDoc(false, cid);
+      if (clinic && clinic.data && clinic.data.membershipConfig) {
+        cfg = clinic.data.membershipConfig;
+      }
+    } catch (_e) { /* 取不到則用預設空配置 */ }
+    if (!Array.isArray(cfg.topupBonusTiers)) cfg.topupBonusTiers = [];
+    walletMembershipConfigCache.set(cid, cfg);
+    return cfg;
   }
 
   function walletBonusFor(config, amount) {
@@ -33666,17 +33763,28 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     return hit ? hit.bonus : 0;
   }
 
-  async function loadWalletTransactions(patientId) {
+  /**
+   * 載入病人在指定診所的近期流水。
+   * 以 patientId 單欄位查詢（沿用既有索引）取回較大筆數，
+   * 客戶端過濾 clinicId，避免新增複合索引。
+   */
+  async function loadWalletTransactions(patientId, clinicId = '') {
+    const cid = clinicId || currentWalletClinicId();
     const q = window.firebase.firestoreQuery(
       window.firebase.collection(window.firebase.db, 'patientWalletTransactions'),
       window.firebase.where('patientId', '==', patientId),
       window.firebase.orderBy('at', 'desc'),
-      window.firebase.limit(20)
+      window.firebase.limit(100)
     );
     const snap = await window.firebase.getDocs(q);
     const out = [];
-    snap.forEach((d) => out.push(Object.assign({ id: d.id }, d.data())));
-    return out;
+    snap.forEach((d) => {
+      const data = d.data() || {};
+      if (String(data.clinicId || '') === String(cid)) {
+        out.push(Object.assign({ id: d.id }, data));
+      }
+    });
+    return out.slice(0, 50);
   }
 
   // ── 管理區塊 ──
@@ -33750,14 +33858,17 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     walletCurrentIsSearch = false;
     listEl.innerHTML = walletListLoadingHtml();
     try {
+      const cid = currentWalletClinicId();
+      // 只 where 單一欄位（clinicId 相等），排序於客戶端處理，避免複合索引
       const q = window.firebase.firestoreQuery(
         window.firebase.collection(window.firebase.db, 'patientWalletAccounts'),
-        window.firebase.orderBy('updatedAt', 'desc'),
-        window.firebase.limit(100)
+        window.firebase.where('clinicId', '==', cid),
+        window.firebase.limit(300)
       );
       const snap = await window.firebase.getDocs(q);
       const accounts = [];
       snap.forEach((d) => accounts.push(d.data()));
+      accounts.sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
       const withBalance = accounts.filter((a) =>
         walletRound2(a.balance) + walletRound2(a.bonusBalance) > 0
       );
@@ -33771,7 +33882,9 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
       renderWalletMemberRows();
     } catch (error) {
       console.error('loadWalletMemberList error:', error);
-      listEl.innerHTML = '<div class="px-4 py-8 text-center text-sm text-red-400">載入失敗，請重試</div>';
+      listEl.innerHTML = `<div class="px-4 py-8 text-center text-sm text-red-400">${
+        window.escapeHtml((error && error.message) || '載入失敗，請重試')
+      }</div>`;
     }
   }
 
@@ -33821,20 +33934,24 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
         found = all.filter((p) => p && walletLocalMatch(p, kw, compact)).slice(0, 50);
       }
 
+      const cid = currentWalletClinicId();
       const ids = found.map((p) => String(p.id));
-      // where in 每批最多 10 個，批量取帳戶，避免逐個讀取
+      // where in 每批最多 10 個，批量取帳戶，避免逐個讀取；
+      // 同一位病人在不同診所各有一帳戶，故取回後須比對 clinicId
       const accMap = new Map();
       for (let i = 0; i < ids.length; i += 10) {
         const chunk = ids.slice(i, i + 10);
         const q = window.firebase.firestoreQuery(
           window.firebase.collection(window.firebase.db, 'patientWalletAccounts'),
           window.firebase.where('patientId', 'in', chunk),
-          window.firebase.limit(10)
+          window.firebase.limit(50)
         );
         const snap = await window.firebase.getDocs(q);
         snap.forEach((d) => {
           const a = d.data();
-          accMap.set(String(a.patientId), a);
+          if (String(a.clinicId || '') === String(cid)) {
+            accMap.set(String(a.patientId), a);
+          }
         });
       }
       walletCurrentEntries = found.map((p) => {
@@ -34390,21 +34507,16 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
    * 會員設定（clinics/{clinicId}.membershipConfig）
    * 僅診所管理可見可改；直接經 SDK updateDoc（rules 允許員工寫 clinics）
    * ============================================================ */
-  let walletClinicDocCache = null;
-
-  async function getWalletClinicDoc(force) {
-    if (!force && walletClinicDocCache) return walletClinicDocCache;
-    let preferred = '';
-    try { preferred = localStorage.getItem('currentClinicId') || ''; } catch (_e) {}
-    const q = window.firebase.firestoreQuery(
-      window.firebase.collection(window.firebase.db, 'clinics'),
-      window.firebase.limit(5)
+  async function getWalletClinicDoc(force = false, clinicId = '') {
+    const cid = clinicId || currentWalletClinicId();
+    if (!force && walletClinicDocCache.has(cid)) {
+      return walletClinicDocCache.get(cid);
+    }
+    const snap = await window.firebase.getDoc(
+      window.firebase.doc(window.firebase.db, 'clinics', cid)
     );
-    const snap = await window.firebase.getDocs(q);
-    const docs = [];
-    snap.forEach((d) => docs.push({ id: d.id, data: d.data() || {} }));
-    const found = (preferred && docs.find((d) => d.id === preferred)) || docs[0] || null;
-    walletClinicDocCache = found;
+    const found = snap.exists() ? { id: snap.id, data: snap.data() || {} } : null;
+    walletClinicDocCache.set(cid, found);
     return found;
   }
 
@@ -34540,11 +34652,11 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
         window.firebase.doc(window.firebase.db, 'clinics', clinic.id),
         { membershipConfig }
       );
-      walletClinicDocCache = {
+      walletClinicDocCache.set(clinic.id, {
         id: clinic.id,
         data: Object.assign({}, clinic.data, { membershipConfig })
-      };
-      walletMembershipConfig = membershipConfig;
+      });
+      walletMembershipConfigCache.set(clinic.id, membershipConfig);
       msg.textContent = '已儲存 ✓';
       msg.className = 'text-sm text-green-600';
       showToast('會員設定已儲存', 'success');
@@ -34554,7 +34666,90 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     }
   }
 
+  /* ============================================================
+   * 舊制單一錢包 → 每診所獨立錢包 遷移工具（僅管理員）
+   * 先 dryRun 預覽，使用者確認後才真正寫入
+   * ============================================================ */
+  function walletMigrateReportHtml(r) {
+    const li = (x) => {
+      const pid = window.escapeHtml(String(x.patientId || x.id || ''));
+      const parts = [];
+      if (Number.isFinite(Number(x.balance))) parts.push('本金 HK$' + Number(x.balance).toFixed(2));
+      if (Number.isFinite(Number(x.bonusBalance))) parts.push('贈送 HK$' + Number(x.bonusBalance).toFixed(2));
+      if (x.clinics && Array.isArray(x.clinics)) {
+        parts.push('診所：' + x.clinics.map((c) => window.escapeHtml(String(c.clinicId || c))).join('、'));
+      }
+      return `<li class="py-0.5">${pid}${parts.length ? ' — ' + window.escapeHtml(parts.join('；')) : ''}</li>`;
+    };
+    const section = (title, arr) => (!arr || !arr.length) ? '' : `
+      <div class="mt-2">
+        <div class="font-semibold text-gray-700">${title}（${arr.length}）</div>
+        <ul class="list-disc pl-5 text-gray-600 max-h-32 overflow-y-auto">${arr.slice(0, 50).map(li).join('')}</ul>
+      </div>`;
+    return `
+      <div class="font-semibold ${r.dryRun ? 'text-amber-800' : 'text-green-700'}">
+        ${r.dryRun ? '遷移預覽（尚未寫入）' : '遷移完成'}
+      </div>
+      <div class="mt-1 text-gray-700">
+        掃描舊帳戶：${Number(r.scanned) || 0}　|　
+        可遷移：${(r.migrated || []).length}　|　
+        未分組餘額：${(r.unassigned || []).length}　|　
+        未知診所：${(r.unknownClinic || []).length}　|　
+        跳過（已遷移）：${(r.skipped || []).length}
+      </div>
+      ${r.capped ? '<div class="mt-1 text-red-600">數量超過單次上限，請再次執行以繼續餘下帳戶。</div>' : ''}
+      ${section('可遷移帳戶', r.migrated)}
+      ${section('未能歸屬診所（餘額會留在舊帳戶，請人工處理）', r.unassigned)}
+      ${section('參考到未知診所', r.unknownClinic)}`;
+  }
+
+  async function runWalletLegacyMigration(execute) {
+    if (!hasAdminRole()) {
+      showToast('只有管理員可執行資料遷移', 'error');
+      return;
+    }
+    const reportEl = document.getElementById('walletMigrateReport');
+    const dryRun = !execute;
+    try {
+      if (!dryRun) {
+        const confirmed = await showConfirmation(
+          '確認正式執行遷移？\n系統會把舊帳戶結存按診所拆入獨立錢包，舊帳戶會標記為已遷移（不會刪除）。\n建議先完成備份。',
+          'question'
+        );
+        if (!confirmed) return;
+      }
+      const r = await walletApi('migrate', { dryRun });
+      if (reportEl) {
+        reportEl.classList.remove('hidden');
+        let html = walletMigrateReportHtml(r);
+        if (dryRun && (r.migrated || []).length) {
+          html += `
+            <div class="mt-3">
+              <button type="button" onclick="runWalletLegacyMigration(true)"
+                class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg">
+                確認正式遷移 ${r.migrated.length} 個帳戶
+              </button>
+            </div>`;
+        }
+        reportEl.innerHTML = html;
+      }
+      if (!dryRun) {
+        clearWalletCaches();
+        showToast('舊儲值資料遷移完成', 'success');
+        try { loadWalletMemberList(); } catch (_e) {}
+      }
+    } catch (error) {
+      if (reportEl) {
+        reportEl.classList.remove('hidden');
+        reportEl.innerHTML = '<div class="text-red-600">遷移失敗：'
+          + window.escapeHtml((error && error.message) || '未知錯誤') + '</div>';
+      }
+    }
+  }
+
   window.loadWalletManagement = loadWalletManagement;
+  window.clearWalletCaches = clearWalletCaches;
+  window.runWalletLegacyMigration = runWalletLegacyMigration;
   window.selectWalletPatient = selectWalletPatient;
   window.getWalletAccount = getWalletAccount;
   window.walletRound2 = walletRound2;
@@ -34581,6 +34776,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
    * 扣款失敗保留表單，提供重試／取消按鈕
    * ============================================================ */
   const consultWallet = {
+    clinicId: '',
     patientId: '',
     account: null,
     config: null,
@@ -34606,6 +34802,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
   }
 
   function resetConsultWalletUI() {
+    consultWallet.clinicId = '';
     consultWallet.patientId = '';
     consultWallet.account = null;
     consultWallet.config = null;
@@ -34638,10 +34835,16 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     const isEdit = appointment.status === 'completed' && appointment.consultationId;
     consultWallet.patientId = String(appointment.patientId);
     if (isEdit) consultWallet.consultationId = String(appointment.consultationId);
+    // 扣款診所以掛號所屬診所為準（缺者退回目前選取診所）
+    consultWallet.clinicId = String(
+      appointment.clinicId
+      || (() => { try { return currentWalletClinicId(); } catch (_e) { return ''; } })()
+    );
 
     const [account, config] = await Promise.all([
-      getWalletAccount(consultWallet.patientId).catch(() => null),
-      getWalletMembershipConfig().catch(() => null)
+      getWalletAccount(consultWallet.patientId, false, consultWallet.clinicId)
+        .catch(() => null),
+      getWalletMembershipConfig(consultWallet.clinicId).catch(() => null)
     ]);
     consultWallet.account = account;
     consultWallet.config = config;
@@ -34737,6 +34940,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     if (!consultWallet.pendingPay || consultWallet.paid) return true;
     const patientId = String((opts && opts.patientId) || consultWallet.patientId || '');
     const consultationId = String((opts && opts.consultationId) || consultWallet.consultationId || '');
+    const clinicId = String((opts && opts.clinicId) || consultWallet.clinicId || '');
     if (!patientId || !consultationId) return true;
     const amount = readConsultationTotal();
     if (!(amount > 0)) {
@@ -34745,6 +34949,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     }
     try {
       const res = await walletApi('payment', {
+        clinicId: clinicId || undefined,
         patientId: patientId,
         amount: amount,
         consultationId: consultationId,
@@ -34762,7 +34967,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
       });
       consultWallet.paid = true;
       consultWallet.pendingPay = false;
-      invalidateWalletAccount(patientId);
+      invalidateWalletAccount(patientId, clinicId);
       showWalletPayMessage('已以儲值餘額支付 HK$' + amount.toFixed(2), false);
       return true;
     } catch (err) {
@@ -34784,6 +34989,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
 
   async function retryConsultationWalletPayment() {
     const ok = await processConsultationWalletPayment({
+      clinicId: consultWallet.clinicId,
       patientId: consultWallet.patientId,
       consultationId: consultWallet.consultationId
     });

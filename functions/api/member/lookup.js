@@ -170,10 +170,21 @@ async function fetchDocMap(client, collectionId, ids, opts = {}) {
     return new Map(docs.filter(Boolean));
 }
 
-async function buildPatientEntry(client, token, patientDoc, clinicNameMap) {
+async function buildPatientEntry(client, token, patientDoc, clinicNameMap, clinicIds) {
     const patientId = patientDoc.id;
-    const [accDoc, pkgPage, txPage, consPage] = await Promise.all([
-        client.getDocument(`patientWalletAccounts/${encodeURIComponent(patientId)}`),
+    const [pkgPage, txPage, consPage, accountDocs] = await Promise.all([
+        // 每診所獨立帳戶：平行讀取各診所的複合 ID 帳戶文件
+        Promise.all((clinicIds || []).map(async (cid) => {
+            try {
+                const d = await client.getDocument(
+                    `patientWalletAccounts/${
+                        encodeURIComponent(`${cid}__${patientId}`)}`
+                );
+                return d && d.data ? [cid, d.data] : null;
+            } catch (_e) {
+                return null;
+            }
+        })),
         client.queryCollection({
             collectionId: 'patientPackages',
             where: eqFilter('patientId', { stringValue: patientId }),
@@ -227,6 +238,8 @@ async function buildPatientEntry(client, token, patientDoc, clinicNameMap) {
     });
 
     function txClinicId(tx) {
+        // 新制流水直接帶 clinicId，最優先
+        if (tx.clinicId) return String(tx.clinicId);
         if (tx.consultationId) {
             const c = consMap.get(tx.consultationId);
             if (c && c.clinicId) return String(c.clinicId);
@@ -275,15 +288,10 @@ async function buildPatientEntry(client, token, patientDoc, clinicNameMap) {
             expiresAt: p.data.expiresAt || null
         }));
 
-    const account = accDoc && accDoc.data
-        ? {
-            balance: Number(accDoc.data.balance) || 0,
-            bonusBalance: Number(accDoc.data.bonusBalance) || 0,
-            status: String(accDoc.data.status || 'active')
-        }
-        : null;
+    // 各診所帳戶文件（餘額的權威來源）
+    const accountMap = new Map(accountDocs.filter(Boolean));
 
-    // ── 4. 分組：餘額（依完整流水計算）＋近期交易（每組上限 30）──
+    // ── 4. 流水暫分組：餘額（依完整流水推算，舊制容錯）＋近期交易 ──
     const groups = new Map();
     const ensureGroup = (cid) => {
         if (!groups.has(cid)) {
@@ -291,8 +299,8 @@ async function buildPatientEntry(client, token, patientDoc, clinicNameMap) {
             groups.set(cid, {
                 clinicId: cid,
                 clinicName: names || { zh: '', en: '' },
-                balance: 0,
-                bonusBalance: 0,
+                derivedBalance: 0,
+                derivedBonus: 0,
                 packages: [],
                 transactions: []
             });
@@ -305,26 +313,27 @@ async function buildPatientEntry(client, token, patientDoc, clinicNameMap) {
         const g = ensureGroup(cid);
         switch (tx.type) {
             case 'topup':
-                g.balance += Number(tx.amount) || 0;
+                g.derivedBalance += Number(tx.amount) || 0;
                 break;
             case 'topupBonus':
-                g.bonusBalance += Number(tx.amount) || 0;
+                g.derivedBonus += Number(tx.amount) || 0;
                 break;
             case 'payment':
-                g.balance += Number(tx.fromBalance) || 0;
-                g.bonusBalance += Number(tx.fromBonus) || 0;
+                // 付款為扣減（舊版實作誤為加項，一併導致餘額高估）
+                g.derivedBalance -= Number(tx.fromBalance) || 0;
+                g.derivedBonus -= Number(tx.fromBonus) || 0;
                 break;
             case 'refund':
-                g.balance += Number(tx.fromBalance) || 0;
-                g.bonusBalance += Number(tx.fromBonus) || 0;
+                g.derivedBalance += Number(tx.fromBalance) || 0;
+                g.derivedBonus += Number(tx.fromBonus) || 0;
                 break;
             case 'adjust':
                 // 優先採本金/贈送拆分欄位
                 if (Number.isFinite(Number(tx.deltaBalance))) {
-                    g.balance += Number(tx.deltaBalance);
-                    g.bonusBalance += Number(tx.deltaBonus) || 0;
+                    g.derivedBalance += Number(tx.deltaBalance);
+                    g.derivedBonus += Number(tx.deltaBonus) || 0;
                 } else {
-                    g.balance += Number(tx.amount) || 0;
+                    g.derivedBalance += Number(tx.amount) || 0;
                 }
                 break;
             default:
@@ -333,11 +342,15 @@ async function buildPatientEntry(client, token, patientDoc, clinicNameMap) {
         if (g.transactions.length < 30) g.transactions.push(tx);
     });
 
+    // 有獨立帳戶文件的診所都必須出現（即使餘額為 0、無流水）
+    accountMap.forEach((acc, cid) => { ensureGroup(cid); });
+
     packages.forEach((p) => {
         // 從未使用而病人只有單一診所時，歸入該診所；多診所且無證據→未分組
         let cid = p.clinicId;
-        if (!cid && groups.size === 1 && groups.has('') === false) {
-            cid = Array.from(groups.keys())[0];
+        if (!cid) {
+            const realCids = Array.from(groups.keys()).filter((x) => x);
+            if (realCids.length === 1) cid = realCids[0];
         }
         ensureGroup(cid).packages.push({
             name: p.name,
@@ -347,11 +360,29 @@ async function buildPatientEntry(client, token, patientDoc, clinicNameMap) {
         });
     });
 
-    const clinics = Array.from(groups.values()).map((g) => {
-        g.balance = Math.round(g.balance * 100) / 100;
-        g.bonusBalance = Math.round(g.bonusBalance * 100) / 100;
-        return g;
-    });
+    const round2 = (n) => Math.round(n * 100) / 100;
+    const clinics = Array.from(groups.values())
+        // 未分組（''）若完全無交易則不顯示；有帳戶的明確診所一律顯示
+        .filter((g) => g.clinicId || g.transactions.length)
+        .map((g) => {
+            const acc = g.clinicId ? accountMap.get(g.clinicId) : null;
+            // 有獨立帳戶→以帳戶結存為準；否則（舊制未遷移）用流水推算
+            const balance = acc
+                ? round2(Number(acc.balance) || 0)
+                : round2(g.derivedBalance);
+            const bonusBalance = acc
+                ? round2(Number(acc.bonusBalance) || 0)
+                : round2(g.derivedBonus);
+            return {
+                clinicId: g.clinicId,
+                clinicName: g.clinicName,
+                balance,
+                bonusBalance,
+                status: acc ? String(acc.status || 'active') : 'active',
+                packages: g.packages,
+                transactions: g.transactions
+            };
+        });
 
     // 有明確診所的排在前，未分組墊後
     clinics.sort((a, b) => (a.clinicId ? 0 : 1) - (b.clinicId ? 0 : 1));
@@ -359,7 +390,6 @@ async function buildPatientEntry(client, token, patientDoc, clinicNameMap) {
     return {
         patientId,
         name: patientDoc.data.name || '',
-        account,
         clinics
     };
 }
@@ -420,10 +450,12 @@ export async function onRequestPost(context) {
                 en: d.data.englishName || ''
             });
         });
+        const clinicIds = clinicsPage.docs.map((d) => d.id);
 
         const patientDocs = await findPatients(client, phoneVariants);
         const patients = await Promise.all(
-            patientDocs.map((d) => buildPatientEntry(client, auth.token, d, clinicNameMap))
+            patientDocs.map((d) => buildPatientEntry(
+                client, auth.token, d, clinicNameMap, clinicIds))
         );
 
         return jsonResponse({ patients });

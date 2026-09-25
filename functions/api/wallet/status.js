@@ -12,6 +12,7 @@ import {
     readJsonBody,
     parsePatientId,
     parseIdempotencyKey,
+    resolveClinicId,
     jsonResponse,
     optionsResponse,
     toErrorResponse
@@ -26,7 +27,9 @@ export async function onRequestPost(context) {
         const body = await readJsonBody(request);
         const patientId = parsePatientId(body);
         const idempotencyKey = parseIdempotencyKey(body);
+        const clinicId = resolveClinicId(claims, body);
         const result = await walletSetStatus(env, claims, {
+            clinicId,
             patientId,
             status: String(body.status || ''),
             note: body.note ? String(body.note) : '',

@@ -224,12 +224,14 @@ service cloud.firestore {
     // 會員儲值
     // ============================================================
 
-    // 儲值帳戶（文件 ID = patientId）：
+    // 儲值帳戶（每診所獨立，文件 ID = {clinicId}__{patientId}）：
     //  - 員工可讀；帳戶本人（手機驗證）可取自己的帳戶
+    //    （病人 ID 存於文件欄位，故以資源上的 patientId 核對電話）
     //  - 寫入一律拒絕——所有進出均由 Pages Function 以 SA 交易處理，
     //    客戶端不可直接改餘額
-    match /patientWalletAccounts/{patientId} {
-      allow get: if canAccess() || ownsPatientId(patientId);
+    //  - 舊制全域帳戶（文件 ID = patientId）同適用本規則
+    match /patientWalletAccounts/{accountId} {
+      allow get: if canAccess() || ownsResourcePatient();
       allow list: if canAccess();
       allow write: if false;
     }
