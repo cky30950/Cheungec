@@ -1,0 +1,6 @@
+# Service Worker 腳本必須每次向原站驗證：
+# 瀏覽器以位元組比對決定是否安裝新版 SW，一旦 sw.js 被瀏覽器或
+# 中繼層長快取，已部署的修復會永遠卡在 waiting（Windows 更新不到的主因）。
+# no-cache = 使用前必須驗證（允許 304），非 no-store。
+/sw.js
+  Cache-Control: no-cache, must-revalidate

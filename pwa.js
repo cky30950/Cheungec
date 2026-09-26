@@ -220,11 +220,13 @@
 
     var registration = null;
     var refreshing = false;
-    var updateConfirmed = false;
+    // 頁面載入時是否已受某個 SW 控制：用於區分「首次安裝」與「更新換代」
+    var hadControllerAtLoad = false;
 
     async function registerServiceWorker() {
         if (!('serviceWorker' in navigator)) return;
         try {
+            hadControllerAtLoad = !!navigator.serviceWorker.controller;
             registration = await navigator.serviceWorker.register('/sw.js');
             trackUpdates(registration);
         } catch (err) {
@@ -232,28 +234,43 @@
         }
     }
 
+    function reloadOnceForUpdate() {
+        if (refreshing) return;
+        // 首次安裝（載入時沒有舊控制器）不需重載
+        if (!hadControllerAtLoad) {
+            hadControllerAtLoad = true;
+            return;
+        }
+        refreshing = true;
+        location.reload();
+    }
+
     function trackUpdates(reg) {
+        // 新 SW 經 install skipWaiting → activate claim 後觸發：
+        // 受舊 SW 控制的分頁重載一次，載入與新 SW 配套的 HTML/JS
+        // （舊版 shell 快取已於 activate 時依 CACHE_VERSION 清空）。
+        navigator.serviceWorker.addEventListener('controllerchange', reloadOnceForUpdate);
+
+        // 雙保險：activate 主動廣播（部分時序 controllerchange 早於監聽綁定）
+        try {
+            navigator.serviceWorker.addEventListener('message', function (event) {
+                var d = event.data;
+                if (d && d.type === 'TCM_SW_UPDATED') reloadOnceForUpdate();
+            });
+        } catch (_e) {}
+
+        // 後援：若極端情況下 skipWaiting 未生效、新 worker 停在 waiting，
+        // 仍顯示更新橫幅提供手動重啟入口
         reg.addEventListener('updatefound', function () {
             var newWorker = reg.installing;
             if (!newWorker) return;
             newWorker.addEventListener('statechange', function () {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                if (newWorker.state === 'installed'
+                    && navigator.serviceWorker.controller
+                    && reg.waiting === newWorker) {
                     promptUpdate(newWorker);
                 }
             });
-        });
-
-        // 頁面載入當下若已有 waiting worker（他頁已下載新版本），直接提示
-        if (reg.waiting && navigator.serviceWorker.controller) {
-            promptUpdate(reg.waiting);
-        }
-
-        // 控制器換代：僅在使用者於本頁確認更新後才自動重整，
-        // 避免首次安裝 activate claim 時造成頁面無故重整
-        navigator.serviceWorker.addEventListener('controllerchange', function () {
-            if (!updateConfirmed || refreshing) return;
-            refreshing = true;
-            location.reload();
         });
     }
 
@@ -267,9 +284,8 @@
             'padding:14px 20px;border-radius:14px;font-size:14px;font-weight:600;' +
             'box-shadow:0 14px 30px -10px rgba(184,98,31,.7);max-width:320px';
         el.addEventListener('click', function () {
-            updateConfirmed = true;
-            worker.postMessage({ type: 'SKIP_WAITING' });
-            // controllerchange 後會自動 reload
+            try { worker.postMessage({ type: 'SKIP_WAITING' }); } catch (_e) {}
+            // 新 SW 激活後 controllerchange／TCM_SW_UPDATED 會自動觸發重載
         });
         document.body.appendChild(el);
     }
@@ -786,9 +802,12 @@
                 return;
             }
 
-            // 伺服器已送達：進一步區分「本機有顯示」與「OS 層級靜默封鎖」
+            // 伺服器已送達：進一步區分「本機有顯示」與「OS 層級靜默封鎖」。
+            // ack 帶 swVersion：toast 顯示版本即可證明此機跑的是新引擎，
+            // 若逾時收不到 ack，幾乎可斷定此機仍在跑舊版 SW。
             const ack = await outcome.ackPromise;
-            const successMsg = healed ? t('pushTestHealedSent') : t('pushTestSent');
+            const engineTag = (ack && ack.swVersion) ? '（引擎 ' + ack.swVersion + '）' : '';
+            const successMsg = (healed ? t('pushTestHealedSent') : t('pushTestSent')) + engineTag;
             if (ack === undefined) {
                 // 無法與 SW 通訊：退回舊行為，只提示已送出
                 message(successMsg, { type: 'success' });
@@ -801,8 +820,14 @@
                     { type: 'warning' }
                 );
             } else {
-                // 送達成功但逾時未見本機顯示：作業系統/瀏覽器層級封鎖
-                message(t('pushTestNotShown') + '\n' + localNotifyGuide(), { type: 'warning' });
+                // 送達成功但逾時未收到引擎回報：舊版 SW 或作業系統層級封鎖。
+                // 若剛部署新版，請重新整理頁面（載入時會自動完成引擎更新）。
+                message(
+                    t('pushTestNotShown') + '\n'
+                    + '若您剛完成部署，請把此分頁重新整理一次，等待頁面自動更新後再測試。\n'
+                    + localNotifyGuide(),
+                    { type: 'warning' }
+                );
             }
         } catch (err) {
             message(t('pushFailed') + (err.message || ''), { type: 'error' });

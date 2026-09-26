@@ -8,7 +8,7 @@
  *  - 版本化快取；更新時由用戶端訊息觸發 skipWaiting，不強制中斷
  * ============================================================ */
 
-const CACHE_VERSION = 'v1.0.4';
+const CACHE_VERSION = 'v1.0.5';
 const SHELL_CACHE = 'shell-' + CACHE_VERSION;
 const CDN_CACHE = 'cdn-' + CACHE_VERSION;
 
@@ -58,9 +58,10 @@ self.addEventListener('install', (event) => {
         const cache = await caches.open(SHELL_CACHE);
         await cache.addAll(PRECACHE_URLS);
     })());
-    // 不呼叫 skipWaiting：
-    // 首次安裝（無舊 SW）瀏覽器會自然完成 activate；
-    // 更新時等待客戶端依使用者意願送 SKIP_WAITING，避免中斷診症操作。
+    // 立即激活，不再等待手動點橫幅：推送修復不能依賴非技術使用者主動更新；
+    // SW 更新檢查只發生於頁面導航時，故此重載時機幾乎都在頁面剛載入，
+    // 不會打斷診症輸入。客戶端於 controllerchange 後自動重整完成替換。
+    self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -72,6 +73,17 @@ self.addEventListener('activate', (event) => {
                 .map((k) => caches.delete(k))
         );
         await self.clients.claim();
+        // 雙保險：通知所有分頁引擎已換代（部分時序下客戶端可能錯過
+        // controllerchange）；舊版客戶端不認得此訊息會直接忽略。
+        const all = await self.clients.matchAll({
+            type: 'window',
+            includeUncontrolled: true
+        });
+        for (const c of all) {
+            try {
+                c.postMessage({ type: 'TCM_SW_UPDATED', version: CACHE_VERSION });
+            } catch (_e) {}
+        }
     })());
 });
 
@@ -471,9 +483,17 @@ async function handlePush(event) {
     await self.registration.showNotification(title, buildNotificationOptions(data));
 }
 
-/* 顯示測試通知並向所有分頁回報成敗（供測試按鈕區分送達面／顯示面問題） */
+/* 顯示測試通知並向所有分頁回報成敗（供測試按鈕區分送達面／顯示面問題）。
+ * swVersion 讓客戶端 toast 可證明「此機實際運行的 SW 版本」，
+ * 徹底排除「新版已部署但舊 SW 無限期 waiting 未激活」的盲點。 */
 async function showManualTest(data) {
-    const ack = { type: 'tcm-push-ack', manual: true, ok: false, at: Date.now() };
+    const ack = {
+        type: 'tcm-push-ack',
+        manual: true,
+        ok: false,
+        swVersion: CACHE_VERSION,
+        at: Date.now()
+    };
     try {
         const permission = (typeof Notification !== 'undefined')
             ? Notification.permission
