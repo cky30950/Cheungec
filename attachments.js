@@ -1240,6 +1240,12 @@
 
     async function openGallery(options) {
         options = options || {};
+        // 版本閘門：簡單版關閉病歷附件（按鈕亦已隱藏，此處擋住殘留入口）
+        if (typeof window.isVersionFeatureEnabled === 'function' &&
+            !window.isVersionFeatureEnabled('medicalRecordAttachment')) {
+            toast('當前系統版本未提供病歷附件功能', 'warning');
+            return;
+        }
         var scope = options.scope === 'visit' ? 'visit' : 'patient';
         var category = options.category === 'tongue' ? 'tongue' : 'all';
         var ctx = resolveVisitContext({ patientId: options.patientId, patientName: options.patientName });
@@ -2222,6 +2228,11 @@
      * @param {string} category tongue | report（非舌象皆為醫學報告）
      */
     async function uploadVisitFile(fileOrBlob, category) {
+        // 版本閘門：簡單版關閉病歷附件，一律拒絕上傳
+        if (typeof window.isVersionFeatureEnabled === 'function' &&
+            !window.isVersionFeatureEnabled('medicalRecordAttachment')) {
+            throw new Error('當前系統版本未提供病歷附件功能');
+        }
         var ctx = resolveVisitContext({});
         if (!ctx.patientId) {
             throw new Error('目前沒有進行中的診症，無法上傳附件');

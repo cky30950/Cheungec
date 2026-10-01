@@ -34,15 +34,23 @@ window.APP_VERSION_OPTIONS = {
     // 普通版
     standard: {
         label: '普通版',
-        maxClinics: 1            // 普通版診所數量上限
-        // features: { }         // 範例：videoConsultation: false
+        maxClinics: 1,           // 普通版診所數量上限
+        features: {
+            videoConsultation: true,        // 視訊診症
+            member: true,                   // 會員功能
+            medicalRecordAttachment: true   // 病歷附件
+        }
     },
 
     // 進階版
     advanced: {
         label: '進階版',
-        maxClinics: 5            // 進階版診所數量上限
-        // features: { }         // 範例：videoConsultation: true
+        maxClinics: 5,           // 進階版診所數量上限
+        features: {
+            videoConsultation: true,        // 視訊診症
+            member: true,                   // 會員功能
+            medicalRecordAttachment: true   // 病歷附件
+        }
     }
 };
 

@@ -505,6 +505,12 @@
                 notify('視訊診症僅限醫師帳號使用', 'error');
                 return;
             }
+            // 版本閘門：簡單版關閉視訊診症（version-config.js）
+            if (typeof window.isVersionFeatureEnabled === 'function' &&
+                !window.isVersionFeatureEnabled('videoConsultation')) {
+                notify('當前系統版本未提供視訊診症功能', 'error');
+                return;
+            }
 
             // 已在通訊中（或診間連結核發中）再次點擊 → 直接關閉視訊
             if (callController || opening) {

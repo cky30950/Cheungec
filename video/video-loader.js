@@ -70,6 +70,14 @@
         return false;
     }
 
+    // 版本開關：依 version-config.js 的 videoConsultation 旗標判斷（簡單版關閉）
+    function isVideoFeatureEnabled() {
+        try {
+            if (typeof window.isVersionFeatureEnabled !== 'function') return true;
+            return window.isVersionFeatureEnabled('videoConsultation');
+        } catch (_e) { return true; }
+    }
+
     // 顯示 toast 或 fallback 到 console
     function notify(message, type) {
         if (typeof window.showToast === 'function') {
@@ -84,6 +92,11 @@
 
     // ── Stub: openVideoConsultation ──────────────────────────────
     stubOpenVideoConsultation = async function () {
+        // 版本閘門（最早擋下，不浪費 1.6MB 下載）
+        if (!isVideoFeatureEnabled()) {
+            notify('當前系統版本未提供視訊診症功能', 'error');
+            return;
+        }
         // 權限閘門（最早擋下，不浪費 1.6MB 下載）
         if (!isDoctorUser()) {
             notify('視訊診症僅限醫師帳號使用', 'error');
@@ -136,7 +149,7 @@
     // ── 角色顯示／隱藏：不依賴 SDK ──────────────────────────────
     function syncVideoEntryVisibility() {
         var btn = document.getElementById('videoConsultBtn');
-        if (btn) btn.classList.toggle('hidden', !isDoctorUser());
+        if (btn) btn.classList.toggle('hidden', !(isDoctorUser() && isVideoFeatureEnabled()));
     }
 
     function init() {
