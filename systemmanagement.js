@@ -531,6 +531,17 @@ async function importClinicBackup(data) {
                 }
             }
             await commitIfNeeded();
+            // 觸發所有裝置（含本機，故不帶 nonce）以 meta 單文件通知重載收費項目
+            try {
+                if (typeof window.__touchBillingItemsMeta === 'function') {
+                    await window.__touchBillingItemsMeta(['global', 'clinic'], {
+                        operation: 'restore',
+                        clinicId
+                    });
+                }
+            } catch (_metaErr) {
+                console.warn('觸發收費項目 meta 更新失敗:', _metaErr);
+            }
         } catch (err) {
             console.error('更新收費項目資料時發生錯誤:', err);
         }

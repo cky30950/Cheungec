@@ -5875,6 +5875,80 @@ async function recordInventoryHistory(type, entries, extra = {}) {
                 return `${base}_local-default`;
             }
         }
+        // ============================================================
+        // billingItemsMeta 單文件觸發機制
+        // ------------------------------------------------------------
+        // 舊做法：onSnapshot 直接監聽 globalBillingItems 與
+        // clinics/{cid}/billingItems「整個集合」，文件越多持續讀取越大。
+        // 新做法：onSnapshot 只監聽 billingItemsMeta/{global|clinic__cid}
+        // 兩個單文件（讀取量恆定：初始 1 次＋每次變更 1 次）。首次載入
+        // 或收到「他人」變更通知時才 getDocs 重載該 scope；本機自己的
+        // 寫入帶 nonce，監聽辨識後跳過（本機已做樂觀更新）。
+        // ============================================================
+        const BILLING_SYNC_CLIENT_ID = 'b-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+        const BILLING_SELF_NONCES = []; // 最近由本頁面寫入的 nonce（FIFO，保留 32 個）
+
+        /** 產生本機寫入專用 nonce 並記住，供稍後 snapshot 辨識「自己觸發的事件」 */
+        function newBillingSelfMetaNonce() {
+            const nonce = BILLING_SYNC_CLIENT_ID + ':' + Date.now().toString(36) + ':' + Math.random().toString(36).slice(2, 8);
+            BILLING_SELF_NONCES.push(nonce);
+            while (BILLING_SELF_NONCES.length > 32) BILLING_SELF_NONCES.shift();
+            return nonce;
+        }
+
+        function isSelfBillingMetaNonce(nonce) {
+            return !!nonce && BILLING_SELF_NONCES.indexOf(nonce) !== -1;
+        }
+
+        function billingItemsMetaDocId(scope, clinicId) {
+            return scope === 'global' ? 'global' : ('clinic__' + String(clinicId || 'local-default'));
+        }
+
+        /**
+         * 收費項目 CRUD 後更新對應 meta 文件，觸發其他裝置重載。
+         * @param {'global'|'clinic'|Array<'global'|'clinic'>} scopes 受影響的範圍
+         * @param {{operation?:string, entityId?:string, clinicId?:string, nonce?:string}} [options]
+         */
+        async function touchBillingItemsMeta(scopes, options = {}) {
+            try {
+                await waitForFirebaseDb();
+                const list = Array.isArray(scopes) ? scopes : [scopes];
+                if (!list.length) return;
+                const clinicId = options.clinicId
+                    || localStorage.getItem('currentClinicId')
+                    || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+                const payload = {
+                    timestamp: new Date(),
+                    operation: options.operation || 'update',
+                    entityId: options.entityId || null
+                };
+                if (options.nonce) {
+                    payload.nonce = options.nonce;
+                    payload.clientId = BILLING_SYNC_CLIENT_ID;
+                }
+                await Promise.all(list.map((scope) => {
+                    const normalizedScope = scope === 'global' ? 'global' : 'clinic';
+                    return window.firebase.setDoc(
+                        window.firebase.doc(
+                            window.firebase.db,
+                            'billingItemsMeta',
+                            billingItemsMetaDocId(normalizedScope, clinicId)
+                        ),
+                        { ...payload, scope: normalizedScope },
+                        { merge: true }
+                    );
+                }));
+            } catch (_e) {
+                // metadata 寫入失敗不影響主要操作，靜默處理
+            }
+        }
+
+        // 掛載全域：systemmanagement.js 的備份還原與外層 logout() 需跨作用域呼叫
+        window.__touchBillingItemsMeta = touchBillingItemsMeta;
+        window.__newBillingSelfMetaNonce = newBillingSelfMetaNonce;
+
+        const billingItemsReloadTimers = { global: null, clinic: null };
+
         function stopBillingItemsRealtimeSync() {
             try {
                 if (typeof billingItemsGlobalUnsubscribe === 'function') {
@@ -5891,6 +5965,14 @@ async function recordInventoryHistory(type, entries, extra = {}) {
             billingItemsRealtimeClinicId = null;
             billingItemsGlobalMap = new Map();
             billingItemsClinicMap = new Map();
+            if (billingItemsReloadTimers.global) {
+                clearTimeout(billingItemsReloadTimers.global);
+                billingItemsReloadTimers.global = null;
+            }
+            if (billingItemsReloadTimers.clinic) {
+                clearTimeout(billingItemsReloadTimers.clinic);
+                billingItemsReloadTimers.clinic = null;
+            }
         }
         // 掛載全域：logout() 位於外層作用域，需經 window 呼叫清理
         window.__stopBillingItemsRealtimeSync = stopBillingItemsRealtimeSync;
@@ -5904,6 +5986,71 @@ async function recordInventoryHistory(type, entries, extra = {}) {
                 localStorage.setItem(getClinicScopedStorageKey('billingItems'), JSON.stringify(billingItems));
             } catch (_e) {}
         }
+        /**
+         * 以 getDocs 重載單一 scope 的收費項目並合併進帳內快取。
+         * 僅在首次附加監聽、或收到「他人」的 meta 變更通知時呼叫。
+         */
+        async function fetchBillingItemsScope(scope) {
+            const clinicIdAtFetch = billingItemsRealtimeClinicId;
+            const col = scope === 'global'
+                ? window.firebase.collection(window.firebase.db, 'globalBillingItems')
+                : window.firebase.collection(window.firebase.db, 'clinics', clinicIdAtFetch, 'billingItems');
+            const snap = await window.firebase.getDocs(col);
+            // 非同步期間可能已切換診所或被 logout 卸載：丟棄過期結果
+            if (String(billingItemsRealtimeClinicId || '') !== String(clinicIdAtFetch || '')) return;
+            const next = new Map();
+            snap.forEach((docSnap) => {
+                const data = { id: docSnap.id, ...docSnap.data() };
+                if (scope === 'global') data.shared = true;
+                next.set(String(data.id), data);
+            });
+            if (scope === 'global') {
+                billingItemsGlobalMap = next;
+            } else {
+                billingItemsClinicMap = next;
+            }
+            mergeBillingItemsFromRealtime();
+        }
+
+        /**
+         * meta 變更後的重載排程：合併 400ms 內的連續觸發
+         * （單次編輯若跨 scope 移動，會同時 touch 兩個文件）。
+         */
+        function scheduleBillingItemsReload(scope) {
+            if (billingItemsReloadTimers[scope]) clearTimeout(billingItemsReloadTimers[scope]);
+            billingItemsReloadTimers[scope] = setTimeout(() => {
+                billingItemsReloadTimers[scope] = null;
+                fetchBillingItemsScope(scope).catch((err) => {
+                    console.error('重載收費項目失敗(' + scope + '):', err);
+                });
+            }, 400);
+        }
+
+        /** 附加單一 scope 的 meta 文件監聽；首次快照為既有狀態，忽略 */
+        function attachBillingItemsMetaListener(scope, metaDocId) {
+            let isInitialSnapshot = true;
+            return window.firebase.onSnapshot(
+                window.firebase.doc(window.firebase.db, 'billingItemsMeta', metaDocId),
+                (snapshot) => {
+                    if (isInitialSnapshot) {
+                        isInitialSnapshot = false;
+                        return;
+                    }
+                    try {
+                        const data = snapshot && snapshot.data ? (snapshot.data() || {}) : {};
+                        // 自己觸發的事件：本機 CRUD 已樂觀更新，直接跳過
+                        if (isSelfBillingMetaNonce(data.nonce)) return;
+                        scheduleBillingItemsReload(scope);
+                    } catch (innerErr) {
+                        console.error('收費項目即時更新處理失敗(' + scope + '):', innerErr);
+                    }
+                },
+                (error) => {
+                    console.warn('監聽收費項目 meta 失敗(' + scope + '):', error);
+                }
+            );
+        }
+
         async function ensureBillingItemsRealtimeSync() {
             await waitForFirebaseDb();
             const clinicId = localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
@@ -5918,52 +6065,18 @@ async function recordInventoryHistory(type, entries, extra = {}) {
             stopBillingItemsRealtimeSync();
             billingItemsRealtimeClinicId = clinicId;
 
-            // 追蹤兩個 onSnapshot 的首次回調
-            let globalFirstResolve = null;
-            let clinicFirstResolve = null;
-            const globalFirstPromise = new Promise(res => { globalFirstResolve = res; });
-            const clinicFirstPromise = new Promise(res => { clinicFirstResolve = res; });
+            // onSnapshot 改監聽兩個「單文件」meta，讀取量與項目數量脫鉤
+            billingItemsGlobalUnsubscribe = attachBillingItemsMetaListener('global', billingItemsMetaDocId('global', clinicId));
+            billingItemsClinicUnsubscribe = attachBillingItemsMetaListener('clinic', billingItemsMetaDocId('clinic', clinicId));
 
-            billingItemsGlobalUnsubscribe = window.firebase.onSnapshot(
-                window.firebase.collection(window.firebase.db, 'globalBillingItems'),
-                (snap) => {
-                    const next = new Map();
-                    snap.forEach((docSnap) => {
-                        const data = { id: docSnap.id, ...docSnap.data(), shared: true };
-                        next.set(String(data.id), data);
-                    });
-                    billingItemsGlobalMap = next;
-                    mergeBillingItemsFromRealtime();
-                    if (globalFirstResolve) { const r = globalFirstResolve; globalFirstResolve = null; r(); }
-                },
-                (error) => {
-                    console.error('監聽全域收費項目失敗:', error);
-                    if (globalFirstResolve) { const r = globalFirstResolve; globalFirstResolve = null; r(); }
-                }
-            );
-            billingItemsClinicUnsubscribe = window.firebase.onSnapshot(
-                window.firebase.collection(window.firebase.db, 'clinics', clinicId, 'billingItems'),
-                (snap) => {
-                    const next = new Map();
-                    snap.forEach((docSnap) => {
-                        const data = { id: docSnap.id, ...docSnap.data(), shared: !!docSnap.data().shared };
-                        next.set(String(data.id), data);
-                    });
-                    billingItemsClinicMap = next;
-                    mergeBillingItemsFromRealtime();
-                    if (clinicFirstResolve) { const r = clinicFirstResolve; clinicFirstResolve = null; r(); }
-                },
-                (error) => {
-                    console.error('監聽診所收費項目失敗:', error);
-                    if (clinicFirstResolve) { const r = clinicFirstResolve; clinicFirstResolve = null; r(); }
-                }
-            );
-
-            // 等待兩個 onSnapshot 都至少回調一次，確保 billingItems 已初始化。
-            // 加上超時保護，避免網路問題導致永久掛起。
-            await Promise.race([
-                Promise.all([globalFirstPromise, clinicFirstPromise]),
-                new Promise(res => setTimeout(res, 5000))
+            // 首次載入：兩個小集合各 getDocs 一次；失敗也不阻擋（本地快取仍可用）
+            await Promise.allSettled([
+                fetchBillingItemsScope('global').catch((err) => {
+                    console.error('首次載入全域收費項目失敗:', err);
+                }),
+                fetchBillingItemsScope('clinic').catch((err) => {
+                    console.error('首次載入診所收費項目失敗:', err);
+                })
             ]);
         }
         async function initBillingItems(forceRefresh = false) {
@@ -5996,9 +6109,9 @@ async function recordInventoryHistory(type, entries, extra = {}) {
             
             await waitForFirebaseDb();
             try {
-                // ensureBillingItemsRealtimeSync() 會等待兩個 onSnapshot 首次回調，
-                // mergeBillingItemsFromRealtime() 在回調中自動設定 billingItems 與 billingItemsLoaded。
-                // 不再需要額外的 getDocs——onSnapshot 本身就會返回完整集合。
+                // ensureBillingItemsRealtimeSync() 會附加 billingItemsMeta
+                // 單文件監聽，並以 getDocs 完成首次載入；mergeBillingItemsFromRealtime()
+                // 會在載入後自動設定 billingItems 與 billingItemsLoaded。
                 await ensureBillingItemsRealtimeSync();
             } catch (error) {
                 console.error('讀取/初始化收費項目資料失敗:', error);
@@ -20681,6 +20794,14 @@ async function initializeSystemAfterLogin() {
                         dataToWrite = item;
                     }
                     const clinicId = localStorage.getItem('currentClinicId') || (typeof currentClinicId !== 'undefined' ? currentClinicId : 'local-default');
+                    // 本次寫入受影響的 scope；跨 scope 移動（共用↔診所專屬）
+                    // 會同時異動兩個集合，兩個 meta 都要 touch
+                    const touchedScopes = item.shared ? ['global'] : ['clinic'];
+                    if (editingBillingItemId && wasShared !== !!item.shared) {
+                        touchedScopes.push(item.shared ? 'clinic' : 'global');
+                    }
+                    // 帶 nonce：本頁監聽收到自己的事件時跳過重載（已樂觀更新）
+                    const billingNonce = newBillingSelfMetaNonce();
                     if (item.shared) {
                         await window.firebase.setDoc(
                             window.firebase.doc(window.firebase.db, 'globalBillingItems', String(item.id)),
@@ -20708,6 +20829,12 @@ async function initializeSystemAfterLogin() {
                             } catch (_delGlobal) {}
                         }
                     }
+                    await touchBillingItemsMeta(touchedScopes, {
+                        operation: editingBillingItemId ? 'update' : 'create',
+                        entityId: String(item.id),
+                        clinicId,
+                        nonce: billingNonce
+                    });
                 } catch (error) {
                     console.error('儲存收費項目至 Firestore 失敗:', error);
                 }
@@ -20751,6 +20878,13 @@ async function initializeSystemAfterLogin() {
                                 window.firebase.doc(window.firebase.db, 'clinics', clinicId, 'billingItems', String(id))
                             );
                         }
+                        // 觸發其他裝置重載對應 scope；帶 nonce 跳過本機重載
+                        await touchBillingItemsMeta(item.shared ? 'global' : 'clinic', {
+                            operation: 'delete',
+                            entityId: idStr,
+                            clinicId,
+                            nonce: newBillingSelfMetaNonce()
+                        });
                     } catch (error) {
                         console.error('刪除收費項目資料至 Firestore 失敗:', error);
                     }

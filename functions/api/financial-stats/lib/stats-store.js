@@ -509,25 +509,34 @@ export async function rebuildDailyStatsForDateRange(env, startDate, endDate, cli
     ];
     const where = { compositeFilter: { op: 'AND', filters: whereParts } };
 
-    // 讀 consultationFinancialSummaries（有 clinicId 過濾時加進 where）
+    // 讀 consultationFinancialSummaries（有 clinicId 過濾時加進 where）。
+    // limit 為分頁大小，queryCollection 會自動以 sortDate 游標翻到用盡，
+    // 不可只取第一頁（舊寫法超過 300 筆會靜默漏算）。
     let summaryDocs;
     try {
-        summaryDocs = (await db.queryCollection({
+        const summaryRes = await db.queryCollection({
             collectionId: SUMMARY_COLLECTION,
             where,
             orderBy,
             limit: 300
-        })).docs;
+        });
+        summaryDocs = summaryRes.docs;
+        if (summaryRes.truncated) {
+            console.warn(`財務聚合重建：${SUMMARY_COLLECTION} 查詢遭截斷，統計可能不完整（範圍 ${startDate}～${endDate}）`);
+        }
     } catch (err) {
         console.warn('從 consultationFinancialSummaries 重建失敗，退回 consultations:', err.message);
-        // 退回 consultations 集合
-        const fallbackDocs = (await db.queryCollection({
+        // 退回 consultations 集合（同樣自動分頁讀滿整個日期範圍）
+        const fallbackRes = await db.queryCollection({
             collectionId: 'consultations',
             where,
             orderBy: [{ field: { fieldPath: 'sortDate' }, direction: 'ASCENDING' }],
             limit: 300
-        })).docs;
-        summaryDocs = fallbackDocs;
+        });
+        summaryDocs = fallbackRes.docs;
+        if (fallbackRes.truncated) {
+            console.warn(`財務聚合重建：consultations 退回查詢遭截斷，統計可能不完整（範圍 ${startDate}～${endDate}）`);
+        }
     }
 
     // 過濾 clinicId
@@ -604,6 +613,9 @@ export async function rebuildDailyStatsForDateRange(env, startDate, endDate, cli
             limit: 300
         });
         existingDocs = res.docs;
+        if (res.truncated) {
+            console.warn(`財務聚合重建：${DAILY_COLLECTION} 舊 bucket 查詢遭截斷，殘留 bucket 可能未被清除（範圍 ${startDate}～${endDate}）`);
+        }
     } catch (_e) {
         // 索引未建立時忽略
     }

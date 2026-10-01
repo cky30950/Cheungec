@@ -191,7 +191,9 @@ export class FirestoreClient {
             const last = pageDocs[pageDocs.length - 1];
             cursor = this._buildOrderCursor(orderBy, last);
             if (!cursor) {
-                return { docs: collected, nextCursor: null, readTime: lastReadTime, truncated: false };
+                // 此頁已塞滿卻無法接續游標：剩餘結果被截斷。如實標示，
+                // 避免呼叫端誤以為已讀完全部符合條件的文件。
+                return { docs: collected, nextCursor: null, readTime: lastReadTime, truncated: true };
             }
             if (maxDocs > 0 && collected.length >= maxDocs) {
                 return { docs: collected, nextCursor: cursor, readTime: lastReadTime, truncated: true };
@@ -239,17 +241,21 @@ export class FirestoreClient {
             const fieldPath = order.field && order.field.fieldPath;
             if (fieldPath === '__name__') {
                 values.push({ referenceValue: lastDoc.name });
-            } else if (fieldPath === 'updatedAt') {
-                const raw = lastDoc._rawUpdatedAt;
-                if (!raw) return null;
-                values.push({ timestampValue: raw });
-            } else if (fieldPath === 'createdAt') {
-                const raw = lastDoc._rawCreatedAt;
-                if (!raw) return null;
-                values.push({ timestampValue: raw });
-            } else {
-                return null;
+                continue;
             }
+            // updatedAt／createdAt 保留原始 RFC3339（奈秒精度），其餘通用
+            // 欄位（如 sortDate）由 normalize 後的資料重建游標值。
+            if (fieldPath === 'updatedAt' && lastDoc._rawUpdatedAt) {
+                values.push({ timestampValue: lastDoc._rawUpdatedAt });
+                continue;
+            }
+            if (fieldPath === 'createdAt' && lastDoc._rawCreatedAt) {
+                values.push({ timestampValue: lastDoc._rawCreatedAt });
+                continue;
+            }
+            const value = cursorValueFromData(fieldPath, lastDoc.data);
+            if (value === undefined) return null;
+            values.push(value);
         }
         return { before: false, values };
     }
@@ -393,6 +399,51 @@ function jsValueToFirestore(value) {
         return { mapValue: { fields: jsObjectToFirestoreFields(value) } };
     }
     return { nullValue: null };
+}
+
+/**
+ * {seconds, nanoseconds}（normalizeDocument 產生）→ RFC3339 字串，
+ * 供 startAt／startAfter 游標的 timestampValue 使用。還原奈秒級小數，
+ * 避免毫秒捨入造成游標位移（重讀或漏讀）。
+ */
+function timestampJsonFromSecondsNanos(seconds, nanoseconds) {
+    const sec = Number(seconds);
+    if (!Number.isFinite(sec)) return null;
+    const ns = Math.max(0, Math.min(999999999, Math.round(Number(nanoseconds) || 0)));
+    // 先把奈秒併入毫秒取整體時間，再取不含小數的秒級 RFC3339
+    const base = new Date(sec * 1000 + Math.round(ns / 1e6))
+        .toISOString()
+        .replace(/\.\d{3}Z$/, 'Z');
+    if (!ns) return base;
+    const frac = String(ns).padStart(9, '0').replace(/0+$/, '');
+    return base.replace(/Z$/, '.' + frac + 'Z');
+}
+
+/**
+ * 由 normalize 後的文件資料，為 orderBy 欄位重建 Firestore 游標值。
+ * 支援 timestamp（{seconds,nanoseconds}）、string、number、boolean、null。
+ * 取不到欄位或不支援的型別時回傳 undefined（呼叫端應停止翻頁並標 truncated）。
+ */
+function cursorValueFromData(fieldPath, data) {
+    if (!fieldPath || !data || typeof data !== 'object') return undefined;
+    let v = data;
+    for (const part of String(fieldPath).split('.')) {
+        if (v === null || typeof v !== 'object' || !(part in v)) return undefined;
+        v = v[part];
+    }
+    if (v === null) return { nullValue: null };
+    if (typeof v === 'string') return { stringValue: v };
+    if (typeof v === 'boolean') return { booleanValue: v };
+    if (typeof v === 'number') {
+        return Number.isSafeInteger(v)
+            ? { integerValue: String(v) }
+            : { doubleValue: v };
+    }
+    if (typeof v === 'object' && Number.isFinite(Number(v.seconds))) {
+        const ts = timestampJsonFromSecondsNanos(v.seconds, v.nanoseconds);
+        return ts ? { timestampValue: ts } : undefined;
+    }
+    return undefined;
 }
 
 /**

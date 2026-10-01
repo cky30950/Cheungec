@@ -139,6 +139,12 @@ service cloud.firestore {
       allow read, write: if canAccess();
     }
 
+    // 收費項目（globalBillingItems／clinics/{id}/billingItems）
+    // 跨裝置變更通知 metadata：單文件監聽，讀取量恆定
+    match /billingItemsMeta/{document=**} {
+      allow read, write: if canAccess();
+    }
+
     // 備份記錄 metadata
     match /backupMeta/{document=**} {
       allow read, write: if canAccess();
@@ -287,6 +293,7 @@ service cloud.firestore {
         && collectionId != 'videoPresence'
         && collectionId != 'videoConsents'
         && collectionId != 'patientsMeta'
+        && collectionId != 'billingItemsMeta'
         && collectionId != 'backupMeta'
         && collectionId != 'patientWalletAccounts'
         && collectionId != 'patientWalletTransactions'
