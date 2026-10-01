@@ -6,7 +6,9 @@
  *
  * 對外介面（window.MedicalAttachments）：
  *   openGallery({ scope, category, patientId })
- *   listForPatient(patientId, { force })
+ *   listForPatient(patientId, { force })  // 只讀第一頁（30 筆）
+ *   loadMoreForPatient(patientId)         // 游標翻頁：讀下一頁
+ *   listForVisit(patientId, consultationId) // 只讀單一診次附件
  *   visitGroups(patientId, consultationId)
  *   inlineThumbsHtml(docs, { patientId, visitKey })
  *   linkVisitUploads({ appointmentId, patientId, consultationId, consultationDate })
@@ -23,6 +25,11 @@
     var API_BASE = '/api/attachments';
     var COLLECTION = 'patientAttachments';
     var MAX_CONCURRENT = 3;
+    // 每次分頁從 Firestore 讀取的原始文件數（含 uploading／已刪除）。
+    // 開 Gallery 只讀第一頁；使用者按「載入更多」才以游標讀下一頁。
+    var PAGE_SIZE = 30;
+    // 單一診次附件的上限（等值查詢，數量通常個位數～十幾張）
+    var VISIT_PAGE_LIMIT = 100;
 
     // 附件僅分兩類：舌象圖片（tongue）與醫學報告（report）。
     // 舊資料的 'other' 一律視為醫學報告顯示。
@@ -41,8 +48,10 @@
 
     /** 模組狀態 */
     var configPromise = null;
-    var patientCache = {};       // patientId -> [{...doc}]（ready，已排序）
-    var patientInflight = {};    // patientId -> Promise
+    var patientCache = {};       // patientId -> [{...doc}]（已載入頁面的 ready 文件，已排序）
+    // patientId -> { initialized, hasMore, lastDoc(QueryDocumentSnapshot), loading }
+    var patientPage = {};
+    var patientInflight = {};    // patientId -> Promise（首頁載入去重）
     var sessionMap = {};         // sessionKey -> sessionId
     var gallery = null;          // 當前 gallery 狀態
     var lightbox = null;         // 當前 lightbox 狀態
@@ -361,43 +370,97 @@
     }
 
     /**
-     * 取得某病人全部就緒附件（依 uploadedAt desc），含記憶體快取。
+     * 把本頁 ready 文件合併進病人快取（依 id 去重，全程保持 uploadedAt desc）。
+     */
+    function mergeReadyDocs(patientId, readyDocs) {
+        var list = patientCache[patientId] || [];
+        var byId = {};
+        list.forEach(function (d) { byId[String(d.id)] = d; });
+        readyDocs.forEach(function (d) { byId[String(d.id)] = d; });
+        var merged = Object.keys(byId).map(function (k) { return byId[k]; });
+        merged.sort(function (a, b) {
+            return (toDate(b.uploadedAt) || 0) - (toDate(a.uploadedAt) || 0);
+        });
+        patientCache[patientId] = merged;
+        return merged;
+    }
+
+    /**
+     * 孤兒清理：本頁內 uploading 超過 1 小時（分頁關閉/重整中斷），
+     * 由本人呼叫 delete 回收。
+     */
+    function cleanupStaleUploads(rawDocs) {
+        var me = currentAuthUser();
+        var staleMs = 60 * 60 * 1000;
+        rawDocs.forEach(function (d) {
+            if (d.uploadStatus === 'uploading' && d.deleted !== true) {
+                var uploadedAt = toDate(d.uploadedAt);
+                var isMine = me && String(d.uploadedByUid || '') === String(me.uid);
+                if (isMine && uploadedAt && (Date.now() - uploadedAt.getTime()) > staleMs) {
+                    requestDelete(d.fileId || d.id).catch(function () {});
+                }
+            }
+        });
+    }
+
+    /**
+     * 從 Firestore 取下一頁（首頁或「載入更多」共用）。
+     * 游標只來自上一頁最後一筆快照（startAfter），為明確狀態機：
+     * 空頁／未滿頁 → hasMore=false；不做全量自動翻頁。
+     * 需複合索引 patientId(ASC) + uploadedAt(DESC)。
+     */
+    async function fetchPatientPage(patientId) {
+        var fb = window.firebase;
+        var st = patientPage[patientId];
+        if (!st) {
+            st = { initialized: false, hasMore: false, lastDoc: null, loading: false };
+            patientPage[patientId] = st;
+        }
+        var constraints = [
+            fb.where('patientId', '==', patientId),
+            fb.orderBy('uploadedAt', 'desc'),
+            fb.limit(PAGE_SIZE)
+        ];
+        if (st.lastDoc) constraints.push(fb.startAfter(st.lastDoc));
+        var q = fb.firestoreQuery.apply(null,
+            [fb.collection(fb.db, COLLECTION)].concat(constraints));
+        var snap = await fb.getDocs(q);
+        var rawDocs = snap.docs.map(normalizeDoc);
+        cleanupStaleUploads(rawDocs);
+        var ready = rawDocs.filter(isReady);
+        mergeReadyDocs(patientId, ready);
+        // 游標推進：只認本頁回傳的最後一個原始快照（含非 ready，確保不重不漏）
+        if (snap.docs.length > 0) st.lastDoc = snap.docs[snap.docs.length - 1];
+        st.hasMore = snap.docs.length === PAGE_SIZE;
+        st.initialized = true;
+        return {
+            docs: patientCache[patientId] || [],
+            added: ready.length,
+            hasMore: st.hasMore
+        };
+    }
+
+    /**
+     * 取得某病人附件的「第一頁」（依 uploadedAt desc，最多 PAGE_SIZE 筆）。
+     * 後續頁請呼叫 loadMoreForPatient()。含記憶體快取與合併
+     * （本機新上傳／relay 監聽的文件不會被重載覆蓋）。
      */
     async function listForPatient(patientId, options) {
         patientId = String(patientId || '');
         if (!patientId) throw new Error('缺少病人 ID');
         var force = options && options.force;
-        if (!force && patientCache[patientId]) return patientCache[patientId];
+        var st = patientPage[patientId];
+        if (!force && st && st.initialized) return patientCache[patientId] || [];
         if (!force && patientInflight[patientId]) return patientInflight[patientId];
 
-        var fb = window.firebase;
         var promise = (async function () {
             await ensureConfig();
-            // 僅用 patientId 等值查詢（單欄索引，免建複合索引）；排序於客戶端處理
-            var q = fb.firestoreQuery(
-                fb.collection(fb.db, COLLECTION),
-                fb.where('patientId', '==', patientId)
-            );
-            var snap = await fb.getDocs(q);
-            var allDocs = snap.docs.map(normalizeDoc);
-            // 孤兒清理：uploading 超過 1 小時（分頁關閉/重整中斷），由本人呼叫 delete 回收
-            var me = currentAuthUser();
-            var staleMs = 60 * 60 * 1000;
-            allDocs.forEach(function (d) {
-                if (d.uploadStatus === 'uploading' && d.deleted !== true) {
-                    var uploadedAt = toDate(d.uploadedAt);
-                    var isMine = me && String(d.uploadedByUid || '') === String(me.uid);
-                    if (isMine && uploadedAt && (Date.now() - uploadedAt.getTime()) > staleMs) {
-                        requestDelete(d.fileId || d.id).catch(function () {});
-                    }
-                }
-            });
-            var docs = allDocs.filter(isReady);
-            docs.sort(function (a, b) {
-                return (toDate(b.uploadedAt) || 0) - (toDate(a.uploadedAt) || 0);
-            });
-            patientCache[patientId] = docs;
-            return docs;
+            if (force) {
+                delete patientCache[patientId];
+                patientPage[patientId] = null;
+            }
+            var res = await fetchPatientPage(patientId);
+            return res.docs;
         })();
 
         patientInflight[patientId] = promise;
@@ -406,6 +469,64 @@
         } finally {
             delete patientInflight[patientId];
         }
+    }
+
+    /**
+     * 載入下一頁附件（Gallery「載入更多」按鈕）。
+     * @returns {Promise<{added:number, hasMore:boolean, total:number}>}
+     */
+    async function loadMoreForPatient(patientId) {
+        patientId = String(patientId || '');
+        if (!patientId) throw new Error('缺少病人 ID');
+        var st = patientPage[patientId];
+        if (!st || !st.initialized) {
+            var docs0 = await listForPatient(patientId);
+            st = patientPage[patientId];
+            return { added: docs0.length, hasMore: st.hasMore, total: docs0.length };
+        }
+        if (st.loading) return { added: 0, hasMore: st.hasMore, total: (patientCache[patientId] || []).length };
+        if (!st.hasMore) {
+            return { added: 0, hasMore: false, total: (patientCache[patientId] || []).length };
+        }
+        st.loading = true;
+        try {
+            await ensureConfig();
+            var res = await fetchPatientPage(patientId);
+            return { added: res.added, hasMore: res.hasMore, total: res.docs.length };
+        } finally {
+            st.loading = false;
+        }
+    }
+
+    /**
+     * 只載入「某一診次」的附件（病歷記錄內縮圖用）。
+     * 以 consultationId 等值查詢（單欄索引，讀取量僅該診次文件數），
+     * 不再為取一場診次的縮圖而讀取該病人全部歷史附件。
+     * 若該病人已完整載入（首頁且無更多頁），直接從快取分組，零讀取。
+     * @returns {Promise<{attachments:Array, tongues:Array}>}
+     */
+    async function listForVisit(patientId, consultationId) {
+        patientId = String(patientId || '');
+        consultationId = String(consultationId || '');
+        var empty = { attachments: [], tongues: [] };
+        if (!patientId || !consultationId) return empty;
+        var st = patientPage[patientId];
+        if (st && st.initialized && !st.hasMore) {
+            return visitGroups(patientId, consultationId);
+        }
+        await ensureConfig();
+        var fb = window.firebase;
+        var q = fb.firestoreQuery(
+            fb.collection(fb.db, COLLECTION),
+            fb.where('consultationId', '==', consultationId),
+            fb.limit(VISIT_PAGE_LIMIT)
+        );
+        var snap = await fb.getDocs(q);
+        var ready = snap.docs.map(normalizeDoc).filter(isReady).filter(function (d) {
+            return String(d.patientId || '') === patientId;
+        });
+        mergeReadyDocs(patientId, ready);
+        return visitGroups(patientId, consultationId);
     }
 
     function cacheUpsert(patientId, doc) {
@@ -1007,19 +1128,71 @@
         var grid = document.getElementById('maGrid');
         if (!grid) return;
         var docs = galleryVisibleDocs();
+        var st = gallery ? patientPage[gallery.patientId] : null;
+        var hasMore = !!(st && st.initialized && st.hasMore);
         if (docs.length === 0) {
+            // 有未載入的較舊頁面時，不顯示「暫無附件」，引導使用者載入更多
+            var hint = hasMore
+                ? tt('較舊的附件尚未載入，請按下方按鈕翻頁查看')
+                : tt('可拍照或上傳圖片');
             grid.innerHTML =
                 '<div class="text-center py-12 text-gray-500">' +
                     '<div class="text-4xl mb-3">🖼️</div>' +
                     '<div class="text-base font-medium mb-1">' + tt('暫無附件') + '</div>' +
-                    '<div class="text-sm">' + tt('可拍照或上傳圖片') + '</div>' +
+                    '<div class="text-sm">' + hint + '</div>' +
                 '</div>';
+            renderLoadMore();
             return;
         }
         grid.innerHTML =
             '<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">' +
             docs.map(cardHtml).join('') +
             '</div>';
+        renderLoadMore();
+    }
+
+    /**
+     * 「載入更多」頁腳：僅當該病人還有未讀頁面時出現。
+     * 點擊後以游標讀取下一頁（PAGE_SIZE 筆），再重繪 grid。
+     */
+    function renderLoadMore() {
+        var slot = document.getElementById('maGridMore');
+        if (!slot || !gallery) return;
+        var pid = gallery.patientId;
+        var st = patientPage[pid];
+        if (!st || !st.initialized || !st.hasMore) {
+            slot.innerHTML = '';
+            slot.classList.add('hidden');
+            return;
+        }
+        var loaded = (patientCache[pid] || []).length;
+        slot.classList.remove('hidden');
+        slot.innerHTML =
+            '<div class="flex flex-col items-center gap-1 py-4">' +
+                '<button type="button" id="maLoadMoreBtn" ' +
+                    'class="inline-flex items-center gap-2 border border-blue-300 text-blue-700 hover:bg-blue-50 text-sm font-medium px-4 py-2 rounded-lg transition">' +
+                    '<span>' + tt('載入更多附件（較舊）') + '</span>' +
+                '</button>' +
+                '<span class="text-xs text-gray-400" data-role="count">' +
+                    tt('已載入') + ' ' + loaded + ' ' + tt('件') +
+                '</span>' +
+            '</div>';
+        var btn = document.getElementById('maLoadMoreBtn');
+        if (btn) {
+            btn.addEventListener('click', function () {
+                btn.disabled = true;
+                btn.classList.add('opacity-60', 'pointer-events-none');
+                btn.innerHTML =
+                    '<span class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></span>' +
+                    '<span>' + tt('載入中…') + '</span>';
+                loadMoreForPatient(pid).then(function () {
+                    if (gallery && gallery.patientId === pid) renderGrid();
+                }).catch(function (err) {
+                    toast('載入更多附件失敗：' + ((err && err.message) || ''), 'error');
+                    if (gallery && gallery.patientId === pid) renderLoadMore();
+                });
+            });
+        }
     }
 
     // 病人層級「醫學報告及舌象圖片」提供「舌象圖片／醫學報告」分類下拉；
@@ -1305,6 +1478,12 @@
                 noticeEl.classList.remove('hidden');
             }
             await listForPatient(ctx.patientId);
+            // visit scope：首頁只含最新 30 筆；當前診次若為舊診次、且此後又上傳過
+            // 超過一頁的附件，本次診次文件會落在首頁之外。另以 consultationId
+            // 等值查詢把本次診次文件補進快取（首頁已含全部文件時 listForVisit 零讀取）
+            if (scope === 'visit' && gallery.consultationId) {
+                await listForVisit(ctx.patientId, gallery.consultationId);
+            }
             if (gallery && gallery.patientId === ctx.patientId) renderGrid();
         } catch (err) {
             document.getElementById('maGrid').innerHTML =
@@ -1316,6 +1495,11 @@
     function closeGallery() {
         closeRelay();
         document.getElementById('medicalAttachmentsModal').classList.add('hidden');
+        var moreSlot = document.getElementById('maGridMore');
+        if (moreSlot) {
+            moreSlot.innerHTML = '';
+            moreSlot.classList.add('hidden');
+        }
         gallery = null;
     }
 
@@ -2249,6 +2433,8 @@
         },
         closeGallery: closeGallery,
         listForPatient: listForPatient,
+        loadMoreForPatient: loadMoreForPatient,
+        listForVisit: listForVisit,
         visitGroups: visitGroups,
         inlineThumbsHtml: inlineThumbsHtml,
         linkVisitUploads: linkVisitUploads,

@@ -225,6 +225,15 @@
       "fields": [
         { "fieldPath": "syncedAt", "order": "DESCENDING" }
       ]
+    },
+
+    {
+      "collectionGroup": "patientAttachments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "patientId", "order": "ASCENDING" },
+        { "fieldPath": "uploadedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

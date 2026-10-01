@@ -2363,16 +2363,20 @@ async function getPatientByIdWithRefresh(id) {
                     }
                 } catch (_e) {}
                 try {
+                    // 僅在「已存在」全量 localStorage 陣列時合併；不可由單筆文件建立
+                    // 新陣列，否則一支僅含 1 筆的快取會被冷啟動誤認為全量病人清單
                     const stored = localStorage.getItem('patients');
-                    const arr = stored ? JSON.parse(stored) : [];
-                    if (Array.isArray(arr)) {
-                        const idx2 = arr.findIndex(p => p && String(p.id) === idStr);
-                        if (idx2 >= 0) {
-                            arr[idx2] = patient;
-                        } else {
-                            arr.push(patient);
+                    if (stored) {
+                        const arr = JSON.parse(stored);
+                        if (Array.isArray(arr)) {
+                            const idx2 = arr.findIndex(p => p && String(p.id) === idStr);
+                            if (idx2 >= 0) {
+                                arr[idx2] = patient;
+                            } else {
+                                arr.push(patient);
+                            }
+                            localStorage.setItem('patients', JSON.stringify(arr));
                         }
-                        localStorage.setItem('patients', JSON.stringify(arr));
                     }
                 } catch (_lsErr) {}
                 return patient;
@@ -3764,6 +3768,11 @@ const PATIENT_SYNC_CLIENT_ID = 'c-' + Date.now().toString(36) + '-' + Math.rando
 const SELF_META_NONCES = []; // 最近由本頁面寫入的 nonce（FIFO，保留 32 個）
 const PATIENTS_CACHE_META_KEY = 'patientsCacheMeta';
 const PATIENTS_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // localStorage 病人快取硬保險：12 小時
+// 冷啟動時（無可沿用的 localStorage 全量快取）最多讀取的病人首頁筆數。
+// 依 patientNumber desc 取最新一批；病人管理分頁與搜尋各自走伺服器游標／索引查詢。
+const PATIENTS_INITIAL_PAGE_SIZE = 300;
+// getAllPatients() 全量分頁時每頁的筆數
+const PATIENTS_ALL_PAGE_SIZE = 500;
 
 /** 產生本機寫入專用 nonce 並記住，供稍後 snapshot 辨識「自己觸發的事件」 */
 function newSelfMetaNonce() {
@@ -3905,19 +3914,30 @@ async function handleRemotePatientMetaChange(meta, metaTs) {
             window.firebase.doc(window.firebase.db, 'patients', pid)
         );
         const dm = window.firebaseDataManager;
+        // 部分快取（冷啟動首頁）不含全部病人，無法可靠判斷遠端 create/delete
+        // 是否應 ±1（尤其刪除首頁之外的病人會漏扣）；直接讓總數快取失效，
+        // 下次 getPatientsCount() 重新向伺服器聚合，避免總數漂移
+        const cacheComplete = !!(dm && dm.patientsCacheComplete);
         if (docSnap && docSnap.exists()) {
-            const existedBefore = isPatientIdInFullCaches(pid);
+            const existedBefore = cacheComplete && isPatientIdInFullCaches(pid);
             if (dm && typeof dm.applyPatientUpsertToCaches === 'function') {
                 dm.applyPatientUpsertToCaches({ id: docSnap.id, ...docSnap.data() });
             }
-            // create 且本機此前沒有此病人 → 總數 +1；其餘視為更新，總數不變
-            if (operation === 'create' && !existedBefore) adjustPatientsCountCache(1);
+            if (!cacheComplete) {
+                patientsCountCache = null;
+            } else if (operation === 'create' && !existedBefore) {
+                adjustPatientsCountCache(1);
+            }
         } else {
-            const existedBefore = isPatientIdInFullCaches(pid);
+            const existedBefore = cacheComplete && isPatientIdInFullCaches(pid);
             if (dm && typeof dm.applyPatientRemovalToCaches === 'function') {
                 dm.applyPatientRemovalToCaches(pid);
             }
-            if (operation === 'delete' && existedBefore) adjustPatientsCountCache(-1);
+            if (!cacheComplete) {
+                patientsCountCache = null;
+            } else if (operation === 'delete' && existedBefore) {
+                adjustPatientsCountCache(-1);
+            }
         }
         // patch 成功後才為本地快取蓋上「對應此 meta」的戳記
         if (metaTs != null) stampPatientsStorageMetaTimestamp(metaTs);
@@ -6756,9 +6776,10 @@ window.clearSearchKeywordsBackfillMarker = async function() {
 window.recomputeAllPatientAggregates = async function() {
     await waitForFirebaseDb();
     const dm = window.firebaseDataManager;
-    if (!dm || !dm.getPatients) { console.error('firebaseDataManager 未就緒'); return; }
+    if (!dm || typeof dm.getAllPatients !== 'function') { console.error('firebaseDataManager 未就緒'); return; }
 
-    const patientsRes = await dm.getPatients(true);
+    // 管理工具需要真正全量資料：以游標分頁讀完（getPatients 冷啟動只讀首頁）
+    const patientsRes = await dm.getAllPatients(true);
     const patients = (patientsRes && patientsRes.success && patientsRes.data) || [];
     let done = 0;
     for (const p of patients) {
@@ -8764,7 +8785,11 @@ async function generatePatientNumberFromFirebase() {
             });
         } catch (queryErr) {
             console.warn('讀取最新病人編號失敗，回退至全量掃描初始化 counter:', queryErr);
-            const result = await safeGetPatients(true);
+            // 罕見 fallback：需要全量資料，走顯式分頁全讀
+            const dm = window.firebaseDataManager;
+            const result = dm && typeof dm.getAllPatients === 'function'
+                ? await dm.getAllPatients(false)
+                : await safeGetPatients(true);
             if (result && result.success && Array.isArray(result.data)) {
                 bootstrapMax = result.data.reduce((max, patient) => {
                     return Math.max(max, parsePatientNumber(patient && patient.patientNumber));
@@ -14807,8 +14832,9 @@ if (!patient) {
                 if (window.MedicalAttachments) {
                     const maPatientId = (typeof currentPatientHistoryPatientId !== 'undefined' && currentPatientHistoryPatientId) || consultation.patientId || '';
                     if (maPatientId) {
-                        await window.MedicalAttachments.listForPatient(String(maPatientId));
-                        const maGroups = window.MedicalAttachments.visitGroups(String(maPatientId), String(consultation.id));
+                        // 定向查詢該診次附件（單欄索引，只讀該診次文件數），
+                        // 不再為一場診次的縮圖讀取病人全部歷史附件
+                        const maGroups = await window.MedicalAttachments.listForVisit(String(maPatientId), String(consultation.id));
                         maVisitThumbs.hasOther = maGroups.attachments.length > 0;
                         maVisitThumbs.hasTongue = maGroups.tongues.length > 0;
                         maVisitThumbs.otherHtml = window.MedicalAttachments.inlineThumbsHtml(maGroups.attachments, String(maPatientId), String(consultation.id), 'other', '醫學報告');
@@ -15277,8 +15303,9 @@ async function displayConsultationMedicalHistoryPage() {
         if (window.MedicalAttachments) {
             const maPatientId = (typeof currentConsultationHistoryPatientId !== 'undefined' && currentConsultationHistoryPatientId) || consultation.patientId || '';
             if (maPatientId) {
-                await window.MedicalAttachments.listForPatient(String(maPatientId));
-                const maGroups = window.MedicalAttachments.visitGroups(String(maPatientId), String(consultation.id));
+                // 定向查詢該診次附件（單欄索引，只讀該診次文件數），
+                // 不再為一場診次的縮圖讀取病人全部歷史附件
+                const maGroups = await window.MedicalAttachments.listForVisit(String(maPatientId), String(consultation.id));
                 maVisitThumbs.hasOther = maGroups.attachments.length > 0;
                 maVisitThumbs.hasTongue = maGroups.tongues.length > 0;
                 maVisitThumbs.otherHtml = window.MedicalAttachments.inlineThumbsHtml(maGroups.attachments, String(maPatientId), String(consultation.id), 'other', '醫學報告');
@@ -18770,14 +18797,19 @@ async function updateStatistics() {
         // 為避免在主頁多次從 Firebase 讀取掛號和病人資料，這裡優先使用已緩存或本地儲存的資料計算統計。
         let totalPatients = 0;
         try {
-            // 如果全域 patients 已載入且非空，直接使用其長度
-            if (Array.isArray(patients) && patients.length > 0) {
+            const dm = window.firebaseDataManager;
+            // 冷啟動只快取首頁（patientsCacheComplete=false），快取長度不等於病人總數，
+            // 改用伺服器聚合計數（getCountFromServer，計費低且自帶快取）
+            if (dm && dm.patientsCacheComplete === false) {
+                totalPatients = await getPatientsCount();
+            } else if (Array.isArray(patients) && patients.length > 0) {
+                // 如果全域 patients 已載入且非空，直接使用其長度
                 totalPatients = patients.length;
             } else if (Array.isArray(patientCache) && patientCache.length > 0) {
                 // 如果有快取，使用快取長度
                 totalPatients = patientCache.length;
             } else {
-                // 最後檢查本地存儲
+                // 最後檢查本地存儲（localStorage 只保存全量快取，長度即總數）
                 const storedPatients = localStorage.getItem('patients');
                 if (storedPatients) {
                     try {
@@ -28182,6 +28214,18 @@ async function importClinicBackup(data) {
         } catch (_lsErr) {
             // 忽略 localStorage 錯誤
         }
+        // 備份還原的病人陣列即為「全量」（集合已被備份內容完整取代），
+        // 同步 dataManager 記憶體快取狀態並寫入非 partial 戳記，避免後續
+        // getPatients() 沿用還原前殘留的部分首頁快取、或被驗證邏輯誤判
+        try {
+            if (window.firebaseDataManager) {
+                window.firebaseDataManager.patientsCache = Array.isArray(patientCache) ? patientCache.slice() : [];
+                window.firebaseDataManager.patientsCacheSource = 'restore';
+                window.firebaseDataManager.patientsCacheComplete = true;
+                window.firebaseDataManager.patientsCacheFetchedAt = Date.now();
+            }
+            writePatientsStorageMeta({ fetchedAt: Date.now(), partial: false });
+        } catch (_metaErr) { /* 戳記寫入失敗不影響還原結果 */ }
         // 更新收費項目及其載入狀態
         billingItems = Array.isArray(data.billingItems) ? data.billingItems : [];
         billingItemsLoaded = true;
@@ -30696,10 +30740,14 @@ class FirebaseDataManager {
     constructor() {
         // 設置初始狀態與快取欄位
         this.isReady = false;
-        // 用於緩存病人列表，避免在同一工作階段重複向 Firestore 讀取整個 patients 集合
+        // 用於緩存病人列表。冷啟動只讀限量首頁（patientsCacheComplete=false），
+        // 不再一次讀取整個 patients 集合；需要全量資料的管理工具請呼叫 getAllPatients()
         this.patientsCache = null;
         this.patientsCacheSource = 'none';
         this.patientsCacheFetchedAt = 0;
+        // patientsCache 是否為「全量」資料（localStorage 驗證沿用或全部分頁讀完時為 true）
+        this.patientsCacheComplete = false;
+        this.patientsAllInflight = null;
         // 用於緩存診症記錄列表與其分頁資訊
         this.consultationsCache = null;
         this.consultationsLastVisible = null;
@@ -31200,9 +31248,10 @@ class FirebaseDataManager {
     /**
      * 冷啟動時以 patientsMeta/lastChange（1 次讀取）驗證 localStorage
      * 全量病人快取是否仍與伺服器一致：戳記相同則沿用，免去整個集合重讀；
-     * 離線期間有變更（戳記不同）才全量重取。另有 12 小時硬 TTL 保險。
+     * 離線期間有變更（戳記不同）才重新取首頁。另有 12 小時硬 TTL 保險。
+     * 帶有 partial 標記的快取不是全量資料，不可沿用為全量快取。
      *
-     * @returns {Promise<Array|null>} 可沿用的病人陣列；null 表示需重新全量讀取
+     * @returns {Promise<Array|null>} 可沿用的病人陣列；null 表示需重新讀取
      */
     async loadPatientsFromLocalStorageWithValidation() {
         let raw = null;
@@ -31221,9 +31270,10 @@ class FirebaseDataManager {
         if (!Array.isArray(localData)) return null;
 
         const meta = readPatientsStorageMeta();
+        if (meta && meta.partial === true) return null;
         const now = Date.now();
         if (meta && meta.fetchedAt && (now - Number(meta.fetchedAt) > PATIENTS_CACHE_TTL_MS)) {
-            return null; // 超過硬 TTL，重新全量讀取
+            return null; // 超過硬 TTL，重新讀取
         }
 
         try {
@@ -31266,20 +31316,44 @@ class FirebaseDataManager {
     }
 
     /**
-     * 讀取病人列表並使用內部快取。
-     * 預設情況下若已存在快取，直接回傳快取內容以避免重複讀取。
-     * 傳入 forceRefresh=true 可強制刷新快取並重新從 Firestore 取得最新資料。
+     * 只讀取病人「首頁」（PATIENTS_INITIAL_PAGE_SIZE 筆，patientNumber desc）。
+     * 冷啟動且無可沿用的 localStorage 全量快取時使用，把讀取量從
+     * 「全部病人」降為固定上限；不寫入 localStorage（部分資料不落地為全量快取）。
+     * @returns {Promise<Array>}
+     */
+    async fetchInitialPatientsPage() {
+        await waitForFirebaseDb();
+        const q = window.firebase.firestoreQuery(
+            window.firebase.collection(window.firebase.db, 'patients'),
+            window.firebase.orderBy('patientNumber', 'desc'),
+            window.firebase.limit(PATIENTS_INITIAL_PAGE_SIZE)
+        );
+        const querySnapshot = await window.firebase.getDocs(q);
+        const patients = [];
+        querySnapshot.forEach((doc) => {
+            patients.push({ id: doc.id, ...doc.data() });
+        });
+        return patients;
+    }
+
+    /**
+     * 讀取病人列表並使用內部快取（可能為「部分」快取）。
+     * - 已載入 → 直接回傳記憶體快取
+     * - localStorage 全量快取經 patientsMeta 驗證新鮮 → 沿用（標記 complete）
+     * - 否則只讀限量首頁（complete=false），不再全表掃描
+     * 病人管理分頁另有伺服器游標查詢；搜尋走 searchKeywords 索引；
+     * 需要全量病人的管理功能（舊資料轉移、聚合重建等）請改用 getAllPatients()。
      *
-     * @param {boolean} forceRefresh 是否強制重新載入
-     * @returns {Promise<{ success: boolean, data: Array }>} 病人資料
+     * @param {boolean} forceRefresh 是否繞過記憶體／localStorage 快取重取首頁
+     * @returns {Promise<{ success: boolean, data: Array, complete: boolean }>}
      */
     async getPatients(forceRefresh = false) {
-        if (!this.isReady) return { success: false, data: [] };
+        if (!this.isReady) return { success: false, data: [], complete: false };
         try {
             // 若已存在快取且不需強制刷新，直接回傳快取
             // 包含空陣列亦應視為有效快取，避免在沒有病人時每次都去讀取
             if (!forceRefresh && this.patientsCache !== null) {
-                return { success: true, data: this.patientsCache };
+                return { success: true, data: this.patientsCache, complete: !!this.patientsCacheComplete };
             }
             // 冷啟動：用 1 次 meta 讀取驗證 localStorage 全量快取是否仍新鮮
             if (!forceRefresh) {
@@ -31287,35 +31361,96 @@ class FirebaseDataManager {
                 if (localData) {
                     this.patientsCache = localData;
                     this.patientsCacheSource = 'localStorage';
+                    this.patientsCacheComplete = true;
                     const cacheMeta = readPatientsStorageMeta();
                     this.patientsCacheFetchedAt = (cacheMeta && cacheMeta.fetchedAt) || Date.now();
-                    return { success: true, data: localData };
+                    return { success: true, data: localData, complete: true };
                 }
             }
-            const querySnapshot = await window.firebase.getDocs(
-                window.firebase.collection(window.firebase.db, 'patients')
-            );
-            const patients = [];
-            querySnapshot.forEach((doc) => {
-                patients.push({ id: doc.id, ...doc.data() });
-            });
-            // 將結果寫入快取與 localStorage，並記錄對應的 meta 時間戳
+            // 無全量快取：只讀限量首頁（固定讀取量，與病人總數脫鉤）
+            const patients = await this.fetchInitialPatientsPage();
             this.patientsCache = patients;
-            this.patientsCacheSource = 'remote';
+            this.patientsCacheSource = 'remote-partial';
+            this.patientsCacheComplete = false;
             this.patientsCacheFetchedAt = Date.now();
+            // 清除可能殘留的舊全量 localStorage 快取：否則 meta 監聽器的單筆 patch
+            // 會為殘缺陣列蓋上最新戳記，下次冷啟動可能把它誤認為「全量且新鮮」而沿用
             try {
-                localStorage.setItem('patients', JSON.stringify(patients));
-                const metaTs = await this.fetchCurrentPatientsMetaTimestamp();
-                writePatientsStorageMeta({ fetchedAt: Date.now(), metaTimestamp: metaTs });
-            } catch (lsErr) {
-                console.warn('保存病人資料到本地失敗:', lsErr);
-            }
-            console.log('已從 Firebase 讀取病人數據:', patients.length, '筆');
-            return { success: true, data: patients };
+                localStorage.removeItem('patients');
+                localStorage.removeItem(PATIENTS_CACHE_META_KEY);
+            } catch (_lsErr) { /* localStorage 不可用時忽略 */ }
+            console.log('冷啟動讀取病人首頁:', patients.length, '筆（上限 ' + PATIENTS_INITIAL_PAGE_SIZE + '，非全量）');
+            return { success: true, data: patients, complete: false };
         } catch (error) {
             console.error('讀取病人數據失敗:', error);
-            return { success: false, data: [] };
+            return { success: false, data: [], complete: false };
         }
+    }
+
+    /**
+     * 讀取「全部」病人（游標自動分頁，每頁 PATIENTS_ALL_PAGE_SIZE 筆），
+     * 供需要完整資料的管理功能使用：舊資料轉移比對、聚合重建、
+     * 病人編號 counter 初始化等。一般 UI 流程不應呼叫。
+     * 完成後寫入 localStorage 全量快取並以 meta 戳記背書。
+     *
+     * @param {boolean} forceRefresh true 時忽略現有全量快取重新分頁讀取
+     * @returns {Promise<{ success: boolean, data: Array }>}
+     */
+    async getAllPatients(forceRefresh = false) {
+        if (!this.isReady) return { success: false, data: [] };
+        if (!forceRefresh && this.patientsCacheComplete && Array.isArray(this.patientsCache)) {
+            return { success: true, data: this.patientsCache };
+        }
+        if (this.patientsAllInflight) return this.patientsAllInflight;
+        this.patientsAllInflight = (async () => {
+            try {
+                if (!forceRefresh) {
+                    const localData = await this.loadPatientsFromLocalStorageWithValidation();
+                    if (localData) {
+                        this.patientsCache = localData;
+                        this.patientsCacheSource = 'localStorage';
+                        this.patientsCacheComplete = true;
+                        this.patientsCacheFetchedAt = Date.now();
+                        return { success: true, data: localData };
+                    }
+                }
+                await waitForFirebaseDb();
+                const patients = [];
+                // 以文件預設排序（__name__）＋快照游標分頁，避免排序欄位缺值漏文件
+                let lastDoc = null;
+                for (;;) {
+                    const constraints = [window.firebase.limit(PATIENTS_ALL_PAGE_SIZE)];
+                    if (lastDoc) constraints.push(window.firebase.startAfter(lastDoc));
+                    const q = window.firebase.firestoreQuery.apply(null,
+                        [window.firebase.collection(window.firebase.db, 'patients')].concat(constraints));
+                    const snapshot = await window.firebase.getDocs(q);
+                    snapshot.forEach((doc) => {
+                        patients.push({ id: doc.id, ...doc.data() });
+                    });
+                    if (snapshot.docs.length < PATIENTS_ALL_PAGE_SIZE) break;
+                    lastDoc = snapshot.docs[snapshot.docs.length - 1];
+                }
+                this.patientsCache = patients;
+                this.patientsCacheSource = 'remote';
+                this.patientsCacheComplete = true;
+                this.patientsCacheFetchedAt = Date.now();
+                try {
+                    localStorage.setItem('patients', JSON.stringify(patients));
+                    const metaTs = await this.fetchCurrentPatientsMetaTimestamp();
+                    writePatientsStorageMeta({ fetchedAt: Date.now(), metaTimestamp: metaTs, partial: false });
+                } catch (lsErr) {
+                    console.warn('保存病人資料到本地失敗:', lsErr);
+                }
+                console.log('已分頁讀取全部病人數據:', patients.length, '筆');
+                return { success: true, data: patients };
+            } catch (error) {
+                console.error('全量讀取病人數據失敗:', error);
+                return { success: false, data: [] };
+            } finally {
+                this.patientsAllInflight = null;
+            }
+        })();
+        return this.patientsAllInflight;
     }
 
     async updatePatient(patientId, patientData) {
@@ -36560,12 +36695,13 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
       }
 
       // 兜底：索引無結果時（舊文件缺 searchKeywords、dataManager 未備妥等），
-      // 確保病人全量快取已載入後做本地過濾，保證「輸入名字就能找到」。
+      // 以全量病人做本地過濾，保證「輸入名字就能找到」。必須走 getAllPatients：
+      // getPatients 冷啟動只有首頁 300 筆，會漏掉其餘病人。此路徑僅索引無結果時觸發。
       if (!found.length && kw) {
         let all = [];
         try {
           if (window.firebaseDataManager) {
-            const pr = await window.firebaseDataManager.getPatients(false);
+            const pr = await window.firebaseDataManager.getAllPatients(false);
             if (pr && pr.success && Array.isArray(pr.data)) all = pr.data;
           }
         } catch (allErr) {

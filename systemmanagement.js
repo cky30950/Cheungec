@@ -1503,7 +1503,9 @@ async function startLegacyDataMigration() {
     try {
         setLegacyMigrationProgress(1, '遷移進度 1%（初始化）', true);
         await ensureFirebaseReady();
-        const existingPatientsRes = await window.firebaseDataManager.getPatients(true);
+        // 舊資料轉移需比對「全部」既有病人（身份證／電話／舊 ID／編號），
+        // 必須走全量分頁讀取；getPatients 冷啟動只回首頁 300 筆會漏比對
+        const existingPatientsRes = await window.firebaseDataManager.getAllPatients(true);
         const existingPatients = existingPatientsRes && existingPatientsRes.success && Array.isArray(existingPatientsRes.data)
             ? existingPatientsRes.data
             : [];
@@ -1582,7 +1584,9 @@ async function startLegacyDataMigration() {
             const percent = Math.round((currentStep / totalSteps) * 100);
             setLegacyMigrationProgress(percent, `遷移進度 ${percent}%（病人 ${i + 1}/${legacyMigrationParsedState.patients.length}）`, true);
         }
-        const latestPatientsRes = await window.firebaseDataManager.getPatients(true);
+        // 病人匯入完成後重建查詢表仍需全量；addPatient 已樂觀更新快取，
+        // 但這裡強制重取確保與伺服器一致，供後續病歷比對使用
+        const latestPatientsRes = await window.firebaseDataManager.getAllPatients(true);
         const latestPatients = latestPatientsRes && latestPatientsRes.success && Array.isArray(latestPatientsRes.data)
             ? latestPatientsRes.data
             : [];
