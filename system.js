@@ -22628,6 +22628,8 @@ async function searchBillingForConsultation() {
                 // 清空並解析處方
                 clearActivePrescriptionItems();
                 let usedMulti = false;
+                // 記錄本次實際成功載入的藥物項目數，用於判斷要彈成功還是失敗通知
+                let loadedItemCount = 0;
                 try {
                     if (lastConsultation.multiPrescriptions) {
                         const mp = JSON.parse(lastConsultation.multiPrescriptions);
@@ -22651,11 +22653,15 @@ async function searchBillingForConsultation() {
                             updatePrescriptionDisplay();
                             try { updateMedicineFeeByDays(getTotalMedicationDays()); } catch (_e) {}
                             usedMulti = true;
+                            loadedItemCount = prescriptions.reduce(
+                                (n, sec) => n + (Array.isArray(sec && sec.items) ? sec.items.length : 0), 0
+                            );
                         }
                     }
                 } catch (_e) {}
                 if (!usedMulti) {
                     parsePrescriptionToItems(lastConsultation.prescription);
+                    loadedItemCount = Array.isArray(selectedPrescriptionItems) ? selectedPrescriptionItems.length : 0;
                     try {
                         const medDays = parseInt(lastConsultation.medicationDays);
                         if (!isNaN(medDays) && medDays > 0 && Array.isArray(prescriptions) && prescriptions.length > 0) {
@@ -22671,10 +22677,17 @@ async function searchBillingForConsultation() {
                 }
                 {
                     const lang = localStorage.getItem('lang') || 'zh';
-                    const zhMsg = '已載入上次處方';
-                    const enMsg = 'Previous prescription loaded';
-                    const msg = lang === 'en' ? enMsg : zhMsg;
-                    showToast(msg, 'success');
+                    if (loadedItemCount > 0) {
+                        const zhMsg = '已載入上次處方';
+                        const enMsg = 'Previous prescription loaded';
+                        showToast(lang === 'en' ? enMsg : zhMsg, 'success');
+                    } else {
+                        // 有上次診症記錄，但處方內容為空、格式無法解析或全部比對不到藥物，
+                        // 視為載入失敗並明確提示，避免醫師誤以為已成功載入。
+                        const zhMsg = '上次處方記錄沒有可載入的內容';
+                        const enMsg = 'The previous prescription record contains no items to load';
+                        showToast(lang === 'en' ? enMsg : zhMsg, 'warning');
+                    }
                 }
             } catch (error) {
                 console.error('讀取病人資料錯誤:', error);
@@ -22857,12 +22870,24 @@ async function searchBillingForConsultation() {
                 }
                 // 更新顯示
                 updateBillingDisplay();
+                // 統計本次實際載入的收費項目數。
+                // 套票抵扣（packageUse）是合併回目前診症的既有項目，不計入「本次從上次記錄載入」的數量；
+                // 套票購買（package）項目在前面已被排除。
+                const loadedBillingCount = (Array.isArray(selectedBillingItems) ? selectedBillingItems : [])
+                    .filter(item => item && item.category !== 'packageUse').length;
                 {
                     const lang = localStorage.getItem('lang') || 'zh';
-                    const zhMsg = '已載入上次收費';
-                    const enMsg = 'Previous billing items loaded';
-                    const msg = lang === 'en' ? enMsg : zhMsg;
-                    showToast(msg, 'success');
+                    if (loadedBillingCount > 0) {
+                        const zhMsg = '已載入上次收費';
+                        const enMsg = 'Previous billing items loaded';
+                        showToast(lang === 'en' ? enMsg : zhMsg, 'success');
+                    } else {
+                        // 有上次診症記錄，但內容無法解析、收費項目均已被刪除，
+                        // 或全部是依規定排除的套票項目時，視為載入失敗並明確提示。
+                        const zhMsg = '上次收費記錄沒有可載入的收費項目';
+                        const enMsg = 'The previous billing record contains no billable items to load';
+                        showToast(lang === 'en' ? enMsg : zhMsg, 'warning');
+                    }
                 }
             } catch (error) {
                 console.error('讀取病人資料錯誤:', error);
