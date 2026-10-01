@@ -22158,6 +22158,10 @@ async function searchBillingForConsultation() {
                 hiddenTextarea.value = '';
                 totalAmountSpan.textContent = '$0';
                 queueConsultationSymptomsDraftSave();
+                // 總費用歸零：若儲值支付選項因此變成可用，即時解鎖
+                if (typeof window.syncConsultWalletPayAvailability === 'function') {
+                    window.syncConsultWalletPayAvailability();
+                }
                 return;
             }
             
@@ -22404,6 +22408,10 @@ async function searchBillingForConsultation() {
             billingText += `\n總費用：$${Math.round(totalAmount)}`;
             hiddenTextarea.value = billingText.trim();
             queueConsultationSymptomsDraftSave();
+            // 總費用變動後，同步「使用儲值餘額支付」的取消／鎖定／解鎖狀態
+            if (typeof window.syncConsultWalletPayAvailability === 'function') {
+                window.syncConsultWalletPayAvailability();
+            }
         }
         
         // 更新收費項目數量
@@ -37333,7 +37341,9 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     autoDiscountApplied: false,
     consultationId: '',
     pendingPay: false,
-    paid: false
+    paid: false,
+    autoLocked: false,   // 總費用高於餘額而自動取消並鎖定中
+    payFailed: false     // 扣款失敗、顯示重試／取消按鈕中（不干擾該訊息）
   };
 
   function showWalletPayMessage(html, isError) {
@@ -37360,6 +37370,8 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     consultWallet.consultationId = '';
     consultWallet.pendingPay = false;
     consultWallet.paid = false;
+    consultWallet.autoLocked = false;
+    consultWallet.payFailed = false;
     const area = document.getElementById('walletPaymentArea');
     if (area) area.classList.add('hidden');
     const cb = document.getElementById('useWalletPayment');
@@ -37376,6 +37388,63 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     if (!el) return 0;
     const n = parseFloat(String(el.textContent).replace(/[^0-9.]/g, ''));
     return isNaN(n) ? 0 : walletRound2(n);
+  }
+
+  /**
+   * 依「目前總費用 vs 儲值可用餘額」同步「使用儲值餘額支付」選項：
+   *   總費用 > 餘額 → 自動取消勾選、停用並以灰階（反白）鎖定欄位
+   *   總費用 <= 餘額 → 解鎖還原（不會自動重新勾選，由員工自行選擇）
+   * 僅在一般開單流程作用：區塊可見、尚未以儲值付清、非扣款失敗重試狀態。
+   */
+  function syncConsultWalletPayAvailability() {
+    const area = document.getElementById('walletPaymentArea');
+    const cb = document.getElementById('useWalletPayment');
+    if (!area || !cb || area.classList.contains('hidden')) return;
+    if (consultWallet.paid || consultWallet.payFailed) return;
+
+    const available = walletAvailable(consultWallet.account);
+    if (!(available > 0)) return;
+
+    const total = readConsultationTotal();
+    const label = cb.closest('label');
+
+    if (walletRound2(total) > available) {
+      // 餘額不足：取消選擇並鎖定（灰階）欄位
+      if (cb.checked) {
+        cb.checked = false;
+        consultWallet.pendingPay = false;
+      }
+      if (!consultWallet.autoLocked) {
+        cb.disabled = true;
+        if (label) {
+          label.classList.add('opacity-60', 'cursor-not-allowed');
+          label.classList.remove('cursor-pointer');
+        }
+        area.classList.add('border-gray-300', 'bg-gray-100');
+        area.classList.remove('border-teal-200', 'bg-teal-50');
+        consultWallet.autoLocked = true;
+      }
+      showWalletPayMessage(
+        '⚠️ 總費用 HK$' + total.toFixed(2) +
+        ' 高於儲值可用餘額 HK$' + available.toFixed(2) +
+        '，已取消「使用儲值餘額支付」；調低總費用至餘額或以下，選項解鎖後再重新勾選。',
+        true
+      );
+      return;
+    }
+
+    // 總費用回落至餘額以內：解鎖還原（不代為勾選）
+    if (consultWallet.autoLocked) {
+      cb.disabled = false;
+      if (label) {
+        label.classList.remove('opacity-60', 'cursor-not-allowed');
+        label.classList.add('cursor-pointer');
+      }
+      area.classList.remove('border-gray-300', 'bg-gray-100');
+      area.classList.add('border-teal-200', 'bg-teal-50');
+      consultWallet.autoLocked = false;
+      showWalletPayMessage('', false);
+    }
   }
 
   async function setupConsultationWallet(appointment) {
@@ -37457,6 +37526,9 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
     // 新診症：僅「有效會員」（儲值帳戶 active 且有餘額）自動帶入折扣；
     // 未開戶、凍結/關閉或零餘額者皆不套用（available 已含 active 檢查）
     if (!isEdit && available > 0) applyAutoMembershipDiscount();
+
+    // 依目前總費用決定選項是否可勾選（開表單時可能已有預設／載入項目）
+    syncConsultWalletPayAvailability();
   }
 
   function applyAutoMembershipDiscount() {
@@ -37525,6 +37597,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
       }, { skipSideEffects: true });
       consultWallet.paid = true;
       consultWallet.pendingPay = false;
+      consultWallet.payFailed = false;
       invalidateWalletAccount(patientId, clinicId);
       showWalletPayMessage('已以儲值餘額支付 HK$' + chargedAmount.toFixed(2), false);
       return true;
@@ -37541,6 +37614,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
         } catch (_markErr) { /* 標記失敗不阻擋流程 */ }
         consultWallet.paid = true;
         consultWallet.pendingPay = false;
+        consultWallet.payFailed = false;
         showWalletPayMessage('此診症單先前已以儲值餘額支付', false);
         return true;
       }
@@ -37553,6 +37627,8 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
           walletPayFailedAt: new Date().toISOString()
         }, { skipSideEffects: true });
       } catch (_markErr) { /* 略過 */ }
+      // 進入重試／改收狀態：同步函數暫停介入，避免覆蓋下方操作按鈕
+      consultWallet.payFailed = true;
       showWalletPayMessage(
         '⚠️ 儲值扣款失敗：' + escapeHtml(msg) +
         '（病歷已保存，已列入待收款追蹤）。' +
@@ -37585,6 +37661,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
 
   async function cancelConsultationWalletPayment() {
     consultWallet.pendingPay = false;
+    consultWallet.payFailed = false;
     // 員工確定改以現場渠道收款：同樣列入待收款追蹤，
     // 收款後於財報「待收款追蹤」按「標記已收款」核銷
     try {
@@ -37662,6 +37739,7 @@ async function deleteMedicalRecord(recordId, buttonEl = null) {
   }
 
   window.setupConsultationWallet = setupConsultationWallet;
+  window.syncConsultWalletPayAvailability = syncConsultWalletPayAvailability;
   window.processConsultationWalletPayment = processConsultationWalletPayment;
   window.retryConsultationWalletPayment = retryConsultationWalletPayment;
   window.cancelConsultationWalletPayment = cancelConsultationWalletPayment;
