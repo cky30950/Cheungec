@@ -1,7 +1,10 @@
 /* ============================================================
  * 系統版本設定檔（可自行修改）
  * ------------------------------------------------------------
- * 想切換版本時，只要修改下面第 19 行的 APP_VERSION 即可：
+ * 想切換版本時，只要修改下面第 20 行的 APP_VERSION 即可：
+ *
+ *   'simple'    簡單版：只能使用 1 間診所（不能新增診所），
+ *                       且不能使用視訊診症、會員功能、病歷附件
  *
  *   'standard'  普通版：只能使用 1 間診所
  *                       系統管理的「新增診所」「刪除目前診所」
@@ -14,9 +17,20 @@
  * window.isVersionFeatureEnabled('videoConsultation') 判斷。
  * ============================================================ */
 
-window.APP_VERSION = 'standard';   // ← 在這裡切換版本：'standard'（普通版）或 'advanced'（進階版）
+window.APP_VERSION = 'standard';   // ← 在這裡切換版本：'simple'（簡單版）、'standard'（普通版）或 'advanced'（進階版）
 
 window.APP_VERSION_OPTIONS = {
+    // 簡單版
+    simple: {
+        label: '簡單版',
+        maxClinics: 1,           // 簡單版診所數量上限（僅可使用 1 間診所，不能新增診所）
+        features: {
+            videoConsultation: false,       // 視訊診症
+            member: false,                  // 會員功能
+            medicalRecordAttachment: false  // 病歷附件
+        }
+    },
+
     // 普通版
     standard: {
         label: '普通版',
@@ -36,7 +50,9 @@ window.APP_VERSION_OPTIONS = {
 
 // 取得目前版本（輸入錯誤值時自動視為普通版）
 window.getAppVersion = function () {
-    return window.APP_VERSION === 'advanced' ? 'advanced' : 'standard';
+    if (window.APP_VERSION === 'advanced') return 'advanced';
+    if (window.APP_VERSION === 'simple') return 'simple';
+    return 'standard';
 };
 
 // 取得目前版本的完整設定
@@ -47,6 +63,11 @@ window.getAppVersionConfig = function () {
 // 是否為進階版
 window.isAdvancedVersion = function () {
     return window.getAppVersion() === 'advanced';
+};
+
+// 是否為簡單版
+window.isSimpleVersion = function () {
+    return window.getAppVersion() === 'simple';
 };
 
 // 取得目前版本的診所數量上限
