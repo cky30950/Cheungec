@@ -964,7 +964,12 @@ async function loadPastRecords(patientId, excludeConsultationId = null) {
     try {
         let records = [];
         try {
-            const res = await window.firebaseDataManager.getPatientConsultations(patientId, true);
+            // 病史摘要只需最近 PATIENT_RECENT_CONSULTATIONS_LIMIT 筆，
+            // 不再全量讀取病人所有病歷（資深病人可達數百上千筆）
+            const res = await window.firebaseDataManager.getRecentPatientConsultations(
+                patientId,
+                PATIENT_RECENT_CONSULTATIONS_LIMIT
+            );
             if (res && res.success && Array.isArray(res.data)) {
                 records = res.data;
             }
@@ -1231,13 +1236,17 @@ async function archiveCurrentUserAccount() {
 
 let patientPackagesCache = {};
 let patientConsultationsCache = {};
-let patientConsultationsListeners = {};
 let currentPatientHistoryPatientId = null;
 let currentConsultationHistoryPatientId = null;
 // consultationHistoryPager 批次拉取大小：每次 getDocs 拉取多筆病歷，
 // 而不是逐筆拉取。例如一個病人有 50 筆病歷，原本需要 50 次 getDocs，
 // 改為 BATCH_SIZE=20 後只需要 3 次。
 const CONSULTATION_PAGER_BATCH_SIZE = 20;
+// 「過往記錄摘要」只取最近的病歷筆數上限（開始診症填入病史欄用）
+const PATIENT_RECENT_CONSULTATIONS_LIMIT = 100;
+// 「載入上次處方／收費」由最新一筆往回掃的總筆數上限（游標分頁、每頁 50 筆）
+const PATIENT_RECENT_CONSULTATIONS_SCAN = 200;
+const PATIENT_RECENT_CONSULTATIONS_PAGE = 50;
 
 const consultationHistoryPager = {
     patientPagedCache: {},
@@ -1960,32 +1969,6 @@ const consultationHistoryPager = {
         ctx.setCurrentPage(latestPage);
         return { success: true, data: ctx.getConsultations(), totalCount: latestState.totalCount };
     },
-    applyListenerList(patientId, list) {
-        const pid = String(patientId || '');
-        const sorted = this.normalizeAndSortConsultations(list || []);
-        const state = this.getCachedPatientState(pid);
-        if (state) {
-            state.mode = 'full';
-            state.allLoaded = true;
-            state.totalCount = sorted.length;
-            state.recordsByIndex = sorted.slice();
-            state.descPageCache = {};
-            state.descPageCursors = {};
-            state.ascPageCache = {};
-            state.ascPageCursors = {};
-            state.monthDateIndexCache = {};
-            state.monthDateIndexPartial = {};
-            this.rebuildDateIndexFromState(state);
-        }
-        const contexts = ['patient', 'consultation'];
-        contexts.forEach((key) => {
-            const ctx = this.contexts[key];
-            if (!ctx) return;
-            if (String(ctx.getPatientId() || '') !== pid) return;
-            ctx.setConsultations(state ? state.recordsByIndex : sorted.slice());
-            ctx.setCurrentPage(Math.max(0, sorted.length - 1));
-        });
-    },
     async changePage(contextKey, direction) {
         const ctx = this.contexts[contextKey];
         if (!ctx) return false;
@@ -2012,8 +1995,7 @@ const consultationHistoryPager = {
     close(contextKey) {
         const ctx = this.contexts[contextKey];
         if (!ctx) return;
-        const pid = ctx.getPatientId();
-        try { detachPatientConsultationsListener(pid); } catch (_e) {}
+        // 病歷改為開窗時 getDocs 游標分頁載入，沒有常駐監聽，無需 detach
         ctx.setPatientId(null);
     }
 };
@@ -4043,47 +4025,16 @@ async function touchPatientsMeta(operation, patientId, options) {
     }
 }
 
-async function attachPatientConsultationsListener(patientId) {
-    try {
-        await waitForFirebaseDb();
-        const pid = String(patientId);
-        if (patientConsultationsListeners[pid]) return;
-        const colRef = window.firebase.collection(window.firebase.db, 'consultations');
-        const q = window.firebase.firestoreQuery(colRef, window.firebase.where('patientId', '==', pid));
-        const unsub = window.firebase.onSnapshot(q, (snapshot) => {
-            const list = [];
-            snapshot.forEach((d) => list.push({ id: d.id, ...d.data() }));
-            list.sort((a, b) => {
-                return getConsultationEffectiveTimestamp(b) - getConsultationEffectiveTimestamp(a);
-            });
-            patientConsultationsCache[pid] = list;
-            try {
-                const m1 = document.getElementById('patientMedicalHistoryModal');
-                if (m1 && !m1.classList.contains('hidden') && currentPatientHistoryPatientId && String(currentPatientHistoryPatientId) === pid) {
-                    consultationHistoryPager.applyListenerList(pid, list);
-                    displayPatientMedicalHistoryPage();
-                }
-            } catch (_e) {}
-            try {
-                const m2 = document.getElementById('medicalHistoryModal');
-                if (m2 && !m2.classList.contains('hidden') && currentConsultationHistoryPatientId && String(currentConsultationHistoryPatientId) === pid) {
-                    consultationHistoryPager.applyListenerList(pid, list);
-                    displayConsultationMedicalHistoryPage();
-                }
-            } catch (_e) {}
-        }, (_err) => {});
-        patientConsultationsListeners[pid] = unsub;
-    } catch (_outerErr) {}
-}
-
-function detachPatientConsultationsListener(patientId) {
-    const pid = String(patientId || '');
-    const unsub = patientConsultationsListeners[pid];
-    if (unsub && typeof unsub === 'function') {
-        try { unsub(); } catch (_e) {}
-    }
-    delete patientConsultationsListeners[pid];
-}
+/*
+ * 病人病歷不使用 onSnapshot 常駐監聽：資深病人一次掛載會讀取該病人
+ * 全部病歷（可達數百上千筆），而病歷查看的即時性需求很低。
+ * 已改為「開窗時 getDocs 游標分頁載入」：
+ *   - consultationHistoryPager.loadForContext()：首次只讀最新一頁
+ *     （CONSULTATION_PAGER_BATCH_SIZE 筆），翻頁／選月曆日期再補讀；
+ *   - 限量近期病歷清單：getRecentPatientConsultations()；
+ *   - 最近一筆含指定欄位（處方／收費）的病歷：
+ *     findLatestPatientConsultationWithFields()。
+ */
 
 
 async function initHerbInventory(forceRefresh = false) {
@@ -7474,16 +7425,6 @@ function detachAllKnownFirestoreListeners() {
     try {
         if (typeof detachPatientListListener === 'function') {
             detachPatientListListener();
-        }
-    } catch (_e) {}
-    // 單一病人病歷監聽（依病人 ID 掛載的多個實例）
-    try {
-        if (typeof patientConsultationsListeners === 'object' && patientConsultationsListeners) {
-            Object.keys(patientConsultationsListeners).forEach(function (pid) {
-                const unsub = patientConsultationsListeners[pid];
-                try { if (typeof unsub === 'function') unsub(); } catch (_e) {}
-                delete patientConsultationsListeners[pid];
-            });
         }
     } catch (_e) {}
     // 病歷管理頁列表監聽
@@ -22768,20 +22709,19 @@ async function searchBillingForConsultation() {
                     showToast('找不到病人資料！', 'error');
                     return;
                 }
-                // 讀取病人的診症記錄（強制刷新），避免跨裝置快取不一致
-                const consultationResult = await window.firebaseDataManager.getPatientConsultations(patient.id, true);
-                if (!consultationResult.success) {
+                // 只需最近一筆「含處方」的病歷：sortDate desc 游標限量掃描，
+                // 最多 200 筆，不再為單一按鈕讀取病人全部病歷
+                const latestResult = await window.firebaseDataManager.findLatestPatientConsultationWithFields(
+                    patient.id,
+                    ['multiPrescriptions', 'prescription'],
+                    { excludeId: appointment.consultationId || '' }
+                );
+                if (!latestResult || !latestResult.success) {
                     showToast('無法讀取診症記錄！', 'error');
                     return;
                 }
-                // 排除當前正在編輯的診症記錄（如果有）
-                let patientConsultations = consultationResult.data || [];
-                if (appointment.consultationId) {
-                    patientConsultations = patientConsultations.filter(c => c.id !== appointment.consultationId);
-                }
-                // 取得最近一次診症記錄
-                const lastConsultation = patientConsultations.length > 0 ? patientConsultations[0] : null;
-                if (!lastConsultation || (!lastConsultation.multiPrescriptions && !lastConsultation.prescription)) {
+                const lastConsultation = latestResult.data;
+                if (!lastConsultation) {
                     {
                         const lang = localStorage.getItem('lang') || 'zh';
                         const zhMsg = `${patient.name} 沒有上次處方記錄可載入`;
@@ -22982,19 +22922,19 @@ async function searchBillingForConsultation() {
                     showToast('找不到病人資料！', 'error');
                     return;
                 }
-                // 從 Firebase 取得病人的診症記錄並按日期排序（強制刷新），避免跨裝置快取不一致
-                const consultationResult = await window.firebaseDataManager.getPatientConsultations(patient.id, true);
-                if (!consultationResult.success) {
+                // 只需最近一筆「含收費項目」的病歷：sortDate desc 游標限量掃描，
+                // 最多 200 筆，不再為單一按鈕讀取病人全部病歷
+                const latestResult = await window.firebaseDataManager.findLatestPatientConsultationWithFields(
+                    patient.id,
+                    ['billingItems'],
+                    { excludeId: appointment.consultationId || '' }
+                );
+                if (!latestResult || !latestResult.success) {
                     showToast('無法讀取診症記錄！', 'error');
                     return;
                 }
-                let patientConsultations = consultationResult.data || [];
-                if (appointment.consultationId) {
-                    patientConsultations = patientConsultations.filter(c => c.id !== appointment.consultationId);
-                }
-                // 最近一次診症記錄
-                const lastConsultation = patientConsultations.length > 0 ? patientConsultations[0] : null;
-                if (!lastConsultation || !lastConsultation.billingItems) {
+                const lastConsultation = latestResult.data;
+                if (!lastConsultation) {
                     {
                         const lang = localStorage.getItem('lang') || 'zh';
                         const zhMsg = `${patient.name} 沒有上次收費記錄可載入`;
@@ -30861,6 +30801,111 @@ class FirebaseDataManager {
         } catch (error) {
             console.error('讀取最新病人診症記錄失敗:', error);
             return { success: false, data: null, error: error.message };
+        }
+    }
+
+    /**
+     * 讀取病人「最近」的病歷（sortDate desc 限量），供過往記錄摘要等
+     * 不需完整歷史的 UI 使用。需複合索引
+     * consultations(patientId ASC, sortDate DESC)。
+     * @param {string} patientId
+     * @param {number} [limitCount] 回傳筆數上限（1~500，預設 100）
+     * @param {{excludeId?: string}} [options]
+     * @returns {Promise<{success: boolean, data: Array}>}
+     */
+    async getRecentPatientConsultations(patientId, limitCount = PATIENT_RECENT_CONSULTATIONS_LIMIT, options = {}) {
+        if (!this.isReady) return { success: false, data: [] };
+        const pid = String(patientId || '');
+        if (!pid) return { success: false, data: [] };
+        const cap = Math.max(1, Math.min(500, Number(limitCount) || PATIENT_RECENT_CONSULTATIONS_LIMIT));
+        const excludeId = options && options.excludeId != null ? String(options.excludeId) : '';
+        try {
+            // sortDate 為排序欄位，先確保舊文件已補值（同一病人本次工作階段只跑一次）
+            if (typeof this.ensurePatientConsultationSortDates === 'function') {
+                const backfill = await this.ensurePatientConsultationSortDates(pid);
+                if (!backfill || !backfill.success) {
+                    console.warn('近期病歷查詢前補 sortDate 失敗:', backfill && backfill.error);
+                }
+            }
+            await waitForFirebaseDb();
+            const q = window.firebase.firestoreQuery(
+                window.firebase.collection(window.firebase.db, 'consultations'),
+                window.firebase.where('patientId', '==', pid),
+                window.firebase.orderBy('sortDate', 'desc'),
+                window.firebase.limit(cap)
+            );
+            const snapshot = await window.firebase.getDocs(q);
+            const list = [];
+            snapshot.forEach((docSnap) => {
+                const item = { id: docSnap.id, ...docSnap.data() };
+                if (!excludeId || String(item.id) !== excludeId) list.push(item);
+            });
+            return { success: true, data: list };
+        } catch (error) {
+            console.error('讀取近期病歷失敗:', error);
+            return { success: false, data: [], error: error.message };
+        }
+    }
+
+    /**
+     * 由最新一筆開始尋找「帶有指定欄位內容」的病歷（上次處方／上次收費）。
+     * 以 sortDate desc 游標分頁往回掃，每頁 50 筆，最多 maxScan（預設 200）
+     * 筆後停止，把單一按鈕的讀取量封頂；找不到時 data 為 null。
+     * @param {string} patientId
+     * @param {string|string[]} fields 視為「有內容」的欄位（任一符合即可）
+     * @param {{excludeId?: string, maxScan?: number}} [options]
+     * @returns {Promise<{success: boolean, data: Object|null, scanned: number}>}
+     */
+    async findLatestPatientConsultationWithFields(patientId, fields, options = {}) {
+        if (!this.isReady) return { success: false, data: null, scanned: 0 };
+        const pid = String(patientId || '');
+        const fieldList = Array.isArray(fields) ? fields : (fields ? [fields] : []);
+        if (!pid || fieldList.length === 0) return { success: false, data: null, scanned: 0 };
+        const excludeId = options && options.excludeId != null ? String(options.excludeId) : '';
+        const maxScan = Math.max(1, Number(options && options.maxScan) || PATIENT_RECENT_CONSULTATIONS_SCAN);
+        const hasContent = (rec, key) => {
+            const v = rec ? rec[key] : undefined;
+            if (v === undefined || v === null || v === '') return false;
+            if (Array.isArray(v) && v.length === 0) return false;
+            return true;
+        };
+        try {
+            if (typeof this.ensurePatientConsultationSortDates === 'function') {
+                const backfill = await this.ensurePatientConsultationSortDates(pid);
+                if (!backfill || !backfill.success) {
+                    console.warn('尋找最近病歷前補 sortDate 失敗:', backfill && backfill.error);
+                }
+            }
+            await waitForFirebaseDb();
+            const colRef = window.firebase.collection(window.firebase.db, 'consultations');
+            let lastDoc = null;
+            let scanned = 0;
+            while (scanned < maxScan) {
+                const pageSize = Math.min(PATIENT_RECENT_CONSULTATIONS_PAGE, maxScan - scanned);
+                const parts = [
+                    window.firebase.where('patientId', '==', pid),
+                    window.firebase.orderBy('sortDate', 'desc'),
+                    window.firebase.limit(pageSize)
+                ];
+                if (lastDoc) parts.push(window.firebase.startAfter(lastDoc));
+                const snapshot = await window.firebase.getDocs(window.firebase.firestoreQuery(colRef, ...parts));
+                const docs = snapshot && Array.isArray(snapshot.docs) ? snapshot.docs : [];
+                if (docs.length === 0) break;
+                for (const docSnap of docs) {
+                    scanned += 1;
+                    const rec = { id: docSnap.id, ...docSnap.data() };
+                    if (excludeId && String(rec.id) === excludeId) continue;
+                    if (fieldList.some((key) => hasContent(rec, key))) {
+                        return { success: true, data: rec, scanned };
+                    }
+                }
+                if (docs.length < pageSize) break;
+                lastDoc = docs[docs.length - 1];
+            }
+            return { success: true, data: null, scanned };
+        } catch (error) {
+            console.error('尋找最近含欄位病歷失敗:', error);
+            return { success: false, data: null, scanned: 0, error: error.message };
         }
     }
 
